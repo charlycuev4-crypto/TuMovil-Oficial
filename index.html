@@ -3,88 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TU MÓVIL OFICIAL - PANEL CHOFER</title>
+    <title>TU MÓVIL OFICIAL</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #1a1a1a; color: white; text-align: center; margin: 0; padding: 10px; }
-        .header { background-color: #ff8c00; color: black; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
-        .gps-status { color: #00ff00; font-weight: bold; margin-bottom: 15px; font-size: 14px; }
-        .asientos-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-        .asiento { background-color: #333; padding: 25px; border-radius: 10px; border: 2px solid #444; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .asiento.ocupado { background-color: #ff4444; border-color: #cc0000; }
-        .asiento.libre { background-color: #44bb44; border-color: #228822; }
-        .paradas-container { background-color: #222; padding: 15px; border-radius: 10px; border: 1px solid #444; }
-        select { width: 100%; padding: 12px; font-size: 16px; border-radius: 5px; background: #eee; color: black; }
-        label { display: block; margin-bottom: 10px; font-weight: bold; color: #ff8c00; }
+        body { font-family: sans-serif; background: #1a1a1a; color: white; text-align: center; padding: 10px; }
+        .header { background: #ff8c00; color: black; padding: 10px; border-radius: 10px; margin-bottom: 20px; }
+        .asientos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn { background: #333; padding: 20px; border-radius: 8px; border: 2px solid #444; font-weight: bold; cursor: pointer; }
+        .ocupado { background: #ff4444; border-color: #aa0000; }
+        .libre { background: #44bb44; border-color: #226622; }
     </style>
 </head>
 <body>
-
-    <div class="header">
-        <h1 style="margin:0;">TU MÓVIL OFICIAL</h1>
-        <small>PANEL CHOFER - JCP 478</small>
-    </div>
-
-    <div id="gps-info" class="gps-status">📡 Buscando señal GPS...</div>
-
-    <div class="asientos-container">
-        <div id="asiento1" class="asiento" onclick="toggleAsiento(1)">ASIENTO 1<br><small id="estado1">...</small></div>
-        <div id="asiento2" class="asiento" onclick="toggleAsiento(2)">ASIENTO 2<br><small id="estado2">...</small></div>
-        <div id="asiento3" class="asiento" onclick="toggleAsiento(3)">ASIENTO 3<br><small id="estado3">...</small></div>
-        <div id="asiento4" class="asiento" onclick="toggleAsiento(4)">ASIENTO 4<br><small id="estado4">...</small></div>
-    </div>
-
-    <div class="paradas-container">
-        <label>📍 MARCAR PARADA ACTUAL:</label>
-        <select id="select-parada" onchange="actualizarParada()">
-            <option value="1. Miguel Cané y Marchena">1. Miguel Cané y Marchena</option>
-            <option value="20. Destino Final">20. Destino Final</option>
-        </select>
+    <div class="header"><h1>TU MÓVIL OFICIAL</h1><p>Panel Chofer - JCP 478</p></div>
+    <div class="asientos">
+        <div id="a1" class="btn" onclick="tocar(1)">ASIENTO 1<br><span id="s1">...</span></div>
+        <div id="a2" class="btn" onclick="tocar(2)">ASIENTO 2<br><span id="s2">...</span></div>
+        <div id="a3" class="btn" onclick="tocar(3)">ASIENTO 3<br><span id="s3">...</span></div>
+        <div id="a4" class="btn" onclick="tocar(4)">ASIENTO 4<br><span id="s4">...</span></div>
     </div>
 
     <script>
-        const _supabase = supabase.createClient('https://vclonmiisreunidvshol.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjbG9ubWlpc3JldW5pZHZzaG9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzY1MTYsImV4cCI6MjA1ODUxMjUxNn0.8C654_C0yYIuVqR9BlyiI_DREH-Gg3mY-FayP_4D6gU');
+        // Estos datos son los de tu proyecto "TuMovilSantaBrigida"
+        const client = supabase.createClient('https://vclonmiisreunidvshol.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjbG9ubWlpc3JldW5pZHZzaG9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzY1MTYsImV4cCI6MjA1ODUxMjUxNn0.8C654_C0yYIuVqR9BlyiI_DREH-Gg3mY-FayP_4D6gU');
 
-        async function cargarEstado() {
-            // Conectamos con la tabla viajes_activos
-            let { data } = await _supabase.from('viajes_activos').select('*').limit(1).single();
+        async function cargar() {
+            let { data } = await client.from('viajes_activos').select('*').limit(1).single();
             if (data) {
-                for (let i = 1; i <= 4; i++) {
-                    const el = document.getElementById(`asiento${i}`);
-                    const txt = document.getElementById(`estado${i}`);
-                    // Si dice "ocupado", se pone rojo. Si no, verde.
-                    if (data[`asiento${i}`] === "ocupado") {
-                        el.className = 'asiento ocupado';
-                        txt.innerText = 'OCUPADO';
-                    } else {
-                        el.className = 'asiento libre';
-                        txt.innerText = 'LIBRE';
-                    }
+                for(let i=1; i<=4; i++) {
+                    const esOcupado = data['asiento'+i] === 'ocupado';
+                    document.getElementById('a'+i).className = esOcupado ? 'btn ocupado' : 'btn libre';
+                    document.getElementById('s'+i).innerText = esOcupado ? 'OCUPADO' : 'LIBRE';
                 }
             }
         }
 
-        async function toggleAsiento(num) {
-            const el = document.getElementById(`asiento${num}`);
-            // Si estaba libre, lo pasamos a ocupado. Si no, a disponible.
-            const nuevoEstado = el.classList.contains('libre') ? "ocupado" : "disponible";
+        async function tocar(n) {
+            const el = document.getElementById('a'+n);
+            const nuevo = el.classList.contains('libre') ? 'ocupado' : 'disponible';
+            const obj = {}; obj['asiento'+n] = nuevo;
             
-            const updateData = {};
-            updateData[`asiento${num}`] = nuevoEstado;
-
-            // Actualizamos la tabla viajes_activos
-            const { error } = await _supabase.from('viajes_activos').update(updateData).neq('asiento1', 'null');
-            
-            if (!error) {
-                cargarEstado();
-            } else {
-                console.log("Error:", error);
-            }
+            // Importante: usamos el ID 1 que es el que tenés en Supabase
+            await client.from('viajes_activos').update(obj).eq('id', 1);
+            cargar();
         }
 
-        // El resto del código del GPS se mantiene igual...
-        setInterval(cargarEstado, 3000);
-        cargarEstado();
+        setInterval(cargar, 3000);
+        cargar();
     </script>
 </body>
 </html>
