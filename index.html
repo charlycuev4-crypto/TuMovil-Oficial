@@ -1,55 +1,40 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TU MÓVIL OFICIAL</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { font-family: sans-serif; background: #1a1a1a; color: white; text-align: center; padding: 10px; }
-        .header { background: #ff8c00; color: black; padding: 10px; border-radius: 10px; margin-bottom: 20px; }
-        .asientos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .btn { background: #333; padding: 20px; border-radius: 8px; border: 2px solid #444; font-weight: bold; cursor: pointer; }
-        .ocupado { background: #ff4444; border-color: #aa0000; }
-        .libre { background: #44bb44; border-color: #226622; }
-    </style>
-</head>
-<body>
-    <div class="header"><h1>TU MÓVIL OFICIAL</h1><p>Panel Chofer - JCP 478</p></div>
-    <div class="asientos">
-        <div id="a1" class="btn" onclick="tocar(1)">ASIENTO 1<br><span id="s1">...</span></div>
-        <div id="a2" class="btn" onclick="tocar(2)">ASIENTO 2<br><span id="s2">...</span></div>
-        <div id="a3" class="btn" onclick="tocar(3)">ASIENTO 3<br><span id="s3">...</span></div>
-        <div id="a4" class="btn" onclick="tocar(4)">ASIENTO 4<br><span id="s4">...</span></div>
-    </div>
+// Configuración de Supabase
+const client = supabase.createClient('https://vclonmiisreunidvshol.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjbG9ubWlpc3JldW5pZHZzaG9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzY1MTYsImV4cCI6MjA1ODUxMjUxNn0.8C654_C0yYIuVqR9BlyiI_DREH-Gg3mY-FayP_4D6gU');
 
-    <script>
-        // Estos datos son los de tu proyecto "TuMovilSantaBrigida"
-        const client = supabase.createClient('https://vclonmiisreunidvshol.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjbG9ubWlpc3JldW5pZHZzaG9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzY1MTYsImV4cCI6MjA1ODUxMjUxNn0.8C654_C0yYIuVqR9BlyiI_DREH-Gg3mY-FayP_4D6gU');
-
-        async function cargar() {
-            let { data } = await client.from('viajes_activos').select('*').limit(1).single();
-            if (data) {
-                for(let i=1; i<=4; i++) {
-                    const esOcupado = data['asiento'+i] === 'ocupado';
-                    document.getElementById('a'+i).className = esOcupado ? 'btn ocupado' : 'btn libre';
-                    document.getElementById('s'+i).innerText = esOcupado ? 'OCUPADO' : 'LIBRE';
-                }
-            }
-        }
-
-        async function tocar(n) {
-            const el = document.getElementById('a'+n);
-            const nuevo = el.classList.contains('libre') ? 'ocupado' : 'disponible';
-            const obj = {}; obj['asiento'+n] = nuevo;
+async function cargarDatos() {
+    // Usamos 'id_viaje' y 'jcp478' porque es lo que tenés en la base
+    const { data } = await client.from('viajes_activos').select('*').eq('id_viaje', 'jcp478').single();
+    
+    if (data) {
+        for(let i=1; i<=4; i++) {
+            const btn = document.getElementById('asiento' + i);
+            const txt = document.getElementById('txt' + i);
+            // Comprobamos si en la base dice 'ocupado'
+            const estaOcupado = data['asiento' + i] === 'ocupado';
             
-            // Importante: usamos el ID 1 que es el que tenés en Supabase
-            await client.from('viajes_activos').update(obj).eq('id', 1);
-            cargar();
+            btn.className = estaOcupado ? 'asiento ocupado' : 'asiento libre';
+            txt.innerText = estaOcupado ? 'OCUPADO' : 'LIBRE';
         }
+        // Cargamos la parada guardada
+        if(data.parada_actual) {
+            document.getElementById('select-parada').value = data.parada_actual;
+        }
+    }
+}
 
-        setInterval(cargar, 3000);
-        cargar();
-    </script>
-</body>
-</html>
+async function toggleAsiento(num) {
+    const btn = document.getElementById('asiento' + num);
+    const esLibre = btn.classList.contains('libre');
+    const nuevoEstado = esLibre ? 'ocupado' : 'disponible';
+    
+    const update = {}; 
+    update['asiento' + num] = nuevoEstado;
+    
+    // Mandamos la actualización a la fila 'jcp478'
+    await client.from('viajes_activos').update(update).eq('id_viaje', 'jcp478');
+    cargarDatos();
+}
+
+// Sincronización automática
+setInterval(cargarDatos, 3000);
+cargarDatos();
