@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TU MÓVIL - Pasajeros</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { background: #f4f7f6; font-family: sans-serif; margin: 0; text-align: center; }
+        .header { background: #003566; color: white; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        #map { height: 45vh; width: 100%; }
+        .info-card { background: white; padding: 20px; border-radius: 25px 25px 0 0; margin-top: -25px; position: relative; z-index: 1000; box-shadow: 0 -5px 15px rgba(0,0,0,0.1); }
+        .grid-asientos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; }
+        .bola { padding: 12px 2px; border-radius: 12px; color: white; font-weight: bold; font-size: 0.75rem; transition: 0.5s; }
+        .verde { background: #2ecc71; }
+        .rojo { background: #e74c3c; }
+        .parada-tag { display: inline-block; background: #ffb703; color: #023047; padding: 5px 15px; border-radius: 20px; font-weight: bold; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2 style="margin:0;">TU MÓVIL</h2>
+        <small>Santa Brígida • San Miguel / Moreno</small>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="info-card">
+        <div class="parada-tag" id="txt-parada">📍 Localizando unidad...</div>
+        <div class="grid-asientos" id="ui-asientos"></div>
+    </div>
+
+    <script>
+        const _sb = supabase.createClient('https://pivhfzcsptisbevepqlu.supabase.co', 'jcLaXwJnLh3r0F9l');
+        const ID = 'jcp478';
+
+        // Configuración del Mapa
+        var map = L.map('map', { zoomControl: false }).setView([-34.5748, -58.7744], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        
+        // Ícono personalizado para tu Ford Fiesta
+        var carIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/3082/3082356.png',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+        });
+        var marker = L.marker([-34.5748, -58.7744], {icon: carIcon}).addTo(map);
+
+        // REALTIME: Esta es la magia. Si el chofer toca algo, el pasajero lo ve YA.
+        _sb.channel('pasajero-view').on('postgres_changes', { event:'UPDATE', schema:'public', table:'viajes_activos' }, payload => {
+            actualizarInterfaz(payload.new);
+        }).subscribe();
+
+        async function cargarInicial() {
+            const { data } = await _sb.from('viajes_activos').select('*').eq('id_viaje', ID).single();
+            if (data) actualizarInterfaz(data);
+        }
+
+        function actualizarInterfaz(v) {
+            // Mover auto en el mapa
+            const pos = [v.latitud, v.longitud];
+            marker.setLatLng(pos);
+            map.panTo(pos);
+
+            // Actualizar Parada
+            document.getElementById('txt-parada').innerText = `📍 Próxima: ${v.parada_actual}`;
+
+            // Actualizar Asientos
+            const ui = document.getElementById('ui-asientos');
+            ui.innerHTML = "";
+            ['asiento1','asiento2','asiento3','asiento4'].forEach((a, i) => {
+                const ocupado = v[a] !== 'disponible';
+                ui.innerHTML += `<div class="bola ${ocupado?'rojo':'verde'}">A${i+1}<br>${ocupado?'OCUP':'LIBRE'}</div>`;
+            });
+        }
+
+        cargarInicial();
+    </script>
+</body>
+</html>
