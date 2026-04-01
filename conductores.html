@@ -29,34 +29,32 @@
     <div class="card" style="margin-top:20px;">
         <label>📍 <b>Parada Actual:</b></label><br><br>
         <select id="sel-parada" onchange="updParada(this.value)">
-            <option value="0">Santa Brígida (Inicio)</option>
-            <option value="1">Miguel Cané</option>
-            <option value="2">Murillo y Güiraldes</option>
-            <option value="3">Cruce Castelar</option>
-            <option value="4">Parada 4</option>
-            <option value="5">Parada 5</option>
+            <option value="Miguel Cané">Miguel Cané</option>
+            <option value="Los Aromos">Los Aromos</option>
+            <option value="Murillo">Murillo</option>
+            <option value="Cruce Castelar">Cruce Castelar</option>
             </select>
     </div>
 
     <script>
-        // CONFIGURACIÓN CON TU LLAVE REAL
-        const URL_SUPABASE = 'https://pivhfzcsptisbevepqlu.supabase.co';
+        // CONFIGURACIÓN ACTUALIZADA POR CARLOS
+        const URL_SUPABASE = 'https://nvumdlxervrewqiiaicl.supabase.co';
         const KEY_SUPABASE = 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs';
-        const ID_VIAJE = 'viaje_santa_brigida_1';
+        const ID_VIAJE = 'jcp478'; // Usamos la patente que cargamos en la tabla
 
         const _sb = supabase.createClient(URL_SUPABASE, KEY_SUPABASE);
 
-        // Al iniciar, traemos los datos de los asientos
         async function init() {
+            // Buscamos por 'id_viaje' que es como llamamos a la columna en Supabase
             const { data, error } = await _sb.from('viajes_activos').select('*').eq('id_viaje', ID_VIAJE).single();
             if (data) render(data);
             if (error) console.log("Error cargando datos:", error);
         }
 
-        // Dibujamos los asientos según estén en la base de datos
         function render(v) {
             const container = document.getElementById('grid-asientos');
             container.innerHTML = "";
+            // Usamos las columnas asiento1, asiento2, etc. que vimos en tu captura
             ['asiento1','asiento2','asiento3','asiento4'].forEach((col, i) => {
                 const ocupado = v[col] !== 'disponible';
                 container.innerHTML += `
@@ -64,27 +62,23 @@
                         ASIENTO ${i+1}<br>${ocupado ? 'OCUPADO' : 'LIBRE'}
                     </button>`;
             });
-            document.getElementById('sel-parada').value = v.parada_actual;
+            if(v.parada_actual) document.getElementById('sel-parada').value = v.parada_actual;
         }
 
-        // Función para cambiar de LIBRE a OCUPADO
         async function tgl(columna, valorActual) {
             const nuevoValor = valorActual === 'disponible' ? 'ocupado' : 'disponible';
             const { error } = await _sb.from('viajes_activos').update({ [columna]: nuevoValor }).eq('id_viaje', ID_VIAJE);
-            if (!error) init(); // Refrescamos para ver el cambio de color
+            if (!error) init(); 
         }
 
-        // Función para actualizar la parada
-        async function updParada(numeroParada) {
-            await _sb.from('viajes_activos').update({ parada_actual: parseInt(numeroParada) }).eq('id_viaje', ID_VIAJE);
+        async function updParada(nombreParada) {
+            await _sb.from('viajes_activos').update({ parada_actual: nombreParada }).eq('id_viaje', ID_VIAJE);
         }
 
-        // REALTIME: Si alguien reserva desde otra app, se actualiza solo
         _sb.channel('cambios').on('postgres_changes', { event:'UPDATE', schema:'public', table:'viajes_activos' }, payload => {
             render(payload.new);
         }).subscribe();
 
-        // GPS: Actualiza tu ubicación en el mapa del pasajero
         navigator.geolocation.watchPosition(p => {
             const { latitude: lat, longitude: lon } = p.coords;
             document.getElementById('gps-status').innerText = `🛰️ GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
