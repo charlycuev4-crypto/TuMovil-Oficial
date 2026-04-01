@@ -12,7 +12,6 @@
         .btn-as { padding: 30px 5px; border-radius: 15px; border: none; font-weight: bold; font-size: 1.1rem; color: white; cursor: pointer; transition: 0.2s; }
         .verde { background: #2ecc71; box-shadow: 0 5px #27ae60; }
         .rojo { background: #e74c3c; box-shadow: 0 5px #c0392b; }
-        .rojo:active, .verde:active { transform: translateY(3px); box-shadow: 0 2px #222; }
         select { width: 100%; padding: 15px; border-radius: 10px; background: #333; color: white; font-size: 1rem; border: 1px solid #555; }
     </style>
 </head>
@@ -23,59 +22,66 @@
         <small id="gps-status" style="color: #fb8500;">🛰️ Esperando GPS...</small>
     </div>
 
-    <div class="grid" id="grid-asientos">
+    <div id="grid-asientos" class="grid">
         </div>
 
     <div class="card" style="margin-top:20px;">
         <label>📍 <b>Parada Actual:</b></label><br><br>
         <select id="sel-parada" onchange="updParada(this.value)">
-            <option value="Miguel Cané">Miguel Cané</option>
-            <option value="Murillo y Güiraldes">Murillo y Güiraldes</option>
-            <option value="Cruce Castelar">Cruce Castelar</option>
-        </select>
+            <option value="0">Santa Brígida (Inicio)</option>
+            <option value="1">Miguel Cané</option>
+            <option value="2">Murillo y Güiraldes</option>
+            <option value="3">Cruce Castelar</option>
+            </select>
     </div>
 
     <script>
-        const _sb = supabase.createClient('https://pivhfzcsptisbevepqlu.supabase.co', 'jcLaXwJnLh3r0F9l');
-        const ID = 'jcp478';
+        // 1. CONFIGURACIÓN CORRECTA
+        const URL = 'https://pivhfzcsptisbevepqlu.supabase.co';
+        const KEY = 'TU_ANON_KEY_LARGA_AQUÍ'; // <--- PEGA LA KEY LARGA DE SUPABASE ACÁ
+        const _sb = supabase.createClient(URL, KEY);
+        const ID_VIAJE = 'viaje_santa_brigida_1';
 
-        // REALTIME: Escucha cambios de la base de datos (por si un pasajero reserva)
-        _sb.channel('cambios').on('postgres_changes', { event:'UPDATE', schema:'public', table:'viajes_activos' }, payload => {
-            render(payload.new);
-        }).subscribe();
-
+        // 2. INICIO Y RENDERIZADO
         async function init() {
-            const { data } = await _sb.from('viajes_activos').select('*').eq('id_viaje', ID).single();
+            const { data } = await _sb.from('viajes_activos').select('*').eq('id_viaje', ID_VIAJE).single();
             if (data) render(data);
         }
 
         function render(v) {
             const container = document.getElementById('grid-asientos');
             container.innerHTML = "";
-            ['asiento1','asiento2','asiento3','asiento4'].forEach((a, i) => {
-                const ocupado = v[a] !== 'disponible';
+            ['asiento1','asiento2','asiento3','asiento4'].forEach((col, i) => {
+                const ocupado = v[col] !== 'disponible';
                 container.innerHTML += `
-                    <button class="btn-as ${ocupado?'rojo':'verde'}" onclick="tgl('${a}', '${v[a]}')">
+                    <button class="btn-as ${ocupado?'rojo':'verde'}" onclick="tgl('${col}', '${v[col]}')">
                         ASIENTO ${i+1}<br>${ocupado?'OCUPADO':'LIBRE'}
                     </button>`;
             });
             document.getElementById('sel-parada').value = v.parada_actual;
         }
 
+        // 3. FUNCIONES DE ACTUALIZACIÓN
         async function tgl(col, val) {
             const nuevo = val === 'disponible' ? 'ocupado' : 'disponible';
-            await _sb.from('viajes_activos').update({ [col]: nuevo }).eq('id_viaje', ID);
+            await _sb.from('viajes_activos').update({ [col]: nuevo }).eq('id_viaje', ID_VIAJE);
+            init(); // Recarga para ver el cambio
         }
 
         async function updParada(p) {
-            await _sb.from('viajes_activos').update({ parada_actual: p }).eq('id_viaje', ID);
+            await _sb.from('viajes_activos').update({ parada_actual: p }).eq('id_viaje', ID_VIAJE);
         }
 
-        // GPS Real
+        // REALTIME
+        _sb.channel('cambios').on('postgres_changes', { event:'UPDATE', schema:'public', table:'viajes_activos' }, payload => {
+            render(payload.new);
+        }).subscribe();
+
+        // GPS EN VIVO
         navigator.geolocation.watchPosition(p => {
             const { latitude: lat, longitude: lon } = p.coords;
             document.getElementById('gps-status').innerText = `🛰️ GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-            _sb.from('viajes_activos').update({ latitud: lat, longitud: lon }).eq('id_viaje', ID);
+            _sb.from('viajes_activos').update({ latitud: lat, longitud: lon }).eq('id_viaje', ID_VIAJE);
         }, null, { enableHighAccuracy: true });
 
         init();
