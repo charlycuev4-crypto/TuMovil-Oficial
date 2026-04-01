@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TU MÓVIL - Panel Chofer</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #121212; color: white; font-family: sans-serif; text-align: center; padding: 10px; margin: 0; }
+        .card { background: #1e1e1e; border-radius: 15px; padding: 15px; margin-bottom: 15px; border: 1px solid #333; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn-as { padding: 30px 5px; border-radius: 15px; border: none; font-weight: bold; font-size: 1.1rem; color: white; cursor: pointer; transition: 0.2s; }
+        .verde { background: #2ecc71; box-shadow: 0 5px #27ae60; }
+        .rojo { background: #e74c3c; box-shadow: 0 5px #c0392b; }
+        .rojo:active, .verde:active { transform: translateY(3px); box-shadow: 0 2px #222; }
+        select { width: 100%; padding: 15px; border-radius: 10px; background: #333; color: white; font-size: 1rem; border: 1px solid #555; }
+    </style>
+</head>
+<body>
+
+    <div class="card" style="border-top: 5px solid #fb8500;">
+        <h1 style="margin:0; font-size: 1.5rem;">TU MÓVIL</h1>
+        <small id="gps-status" style="color: #fb8500;">🛰️ Esperando GPS...</small>
+    </div>
+
+    <div class="grid" id="grid-asientos">
+        </div>
+
+    <div class="card" style="margin-top:20px;">
+        <label>📍 <b>Parada Actual:</b></label><br><br>
+        <select id="sel-parada" onchange="updParada(this.value)">
+            <option value="Miguel Cané">Miguel Cané</option>
+            <option value="Murillo y Güiraldes">Murillo y Güiraldes</option>
+            <option value="Cruce Castelar">Cruce Castelar</option>
+        </select>
+    </div>
+
+    <script>
+        const _sb = supabase.createClient('https://pivhfzcsptisbevepqlu.supabase.co', 'jcLaXwJnLh3r0F9l');
+        const ID = 'jcp478';
+
+        // REALTIME: Escucha cambios de la base de datos (por si un pasajero reserva)
+        _sb.channel('cambios').on('postgres_changes', { event:'UPDATE', schema:'public', table:'viajes_activos' }, payload => {
+            render(payload.new);
+        }).subscribe();
+
+        async function init() {
+            const { data } = await _sb.from('viajes_activos').select('*').eq('id_viaje', ID).single();
+            if (data) render(data);
+        }
+
+        function render(v) {
+            const container = document.getElementById('grid-asientos');
+            container.innerHTML = "";
+            ['asiento1','asiento2','asiento3','asiento4'].forEach((a, i) => {
+                const ocupado = v[a] !== 'disponible';
+                container.innerHTML += `
+                    <button class="btn-as ${ocupado?'rojo':'verde'}" onclick="tgl('${a}', '${v[a]}')">
+                        ASIENTO ${i+1}<br>${ocupado?'OCUPADO':'LIBRE'}
+                    </button>`;
+            });
+            document.getElementById('sel-parada').value = v.parada_actual;
+        }
+
+        async function tgl(col, val) {
+            const nuevo = val === 'disponible' ? 'ocupado' : 'disponible';
+            await _sb.from('viajes_activos').update({ [col]: nuevo }).eq('id_viaje', ID);
+        }
+
+        async function updParada(p) {
+            await _sb.from('viajes_activos').update({ parada_actual: p }).eq('id_viaje', ID);
+        }
+
+        // GPS Real
+        navigator.geolocation.watchPosition(p => {
+            const { latitude: lat, longitude: lon } = p.coords;
+            document.getElementById('gps-status').innerText = `🛰️ GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+            _sb.from('viajes_activos').update({ latitud: lat, longitud: lon }).eq('id_viaje', ID);
+        }, null, { enableHighAccuracy: true });
+
+        init();
+    </script>
+</body>
+</html>
