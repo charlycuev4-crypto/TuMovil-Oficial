@@ -6,27 +6,25 @@
     <title>TU MÓVIL OFICIAL - Chofer</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { background: #000; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding: 10px; margin: 0; }
-        .card { background: #1a1a1a; border-radius: 20px; padding: 20px; margin-bottom: 15px; border: 1px solid #333; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 10px; }
-        .btn-as { padding: 35px 5px; border-radius: 18px; border: none; font-weight: bold; font-size: 1.2rem; color: white; cursor: pointer; transition: 0.3s; text-transform: uppercase; }
+        body { background: #000; color: white; font-family: sans-serif; text-align: center; padding: 10px; margin: 0; }
+        .card { background: #1a1a1a; border-radius: 20px; padding: 20px; margin-bottom: 15px; border: 1px solid #333; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .btn-as { padding: 35px 5px; border-radius: 18px; border: none; font-weight: bold; font-size: 1.2rem; color: white; cursor: pointer; transition: 0.3s; }
         .verde { background: #00dc7d; box-shadow: 0 6px #008f51; }
         .rojo { background: #ff4b4b; box-shadow: 0 6px #b33333; }
-        .rojo:active, .verde:active { transform: translateY(4px); box-shadow: 0 2px #111; }
         select { width: 100%; padding: 18px; border-radius: 12px; background: #222; color: #fb8500; font-size: 1.1rem; border: 2px solid #333; font-weight: bold; }
-        h1 { color: #fb8500; letter-spacing: 2px; }
+        h1 { color: #fb8500; margin: 0; }
     </style>
 </head>
 <body>
 
     <div class="card" style="border-top: 6px solid #fb8500;">
-        <h1 style="margin:0;">TU MÓVIL OFICIAL</h1>
-        <p style="margin: 5px 0; font-weight: bold; color: #aaa;">PANEL DE CONTROL - JCP 478</p>
+        <h1>TU MÓVIL OFICIAL</h1>
+        <p style="color: #aaa; font-weight: bold;">PANEL CHOFER - JCP 478</p>
         <small id="gps-status" style="color: #00dc7d;">🛰️ Buscando señal GPS...</small>
     </div>
 
-    <div class="grid" id="grid-asientos">
-        </div>
+    <div class="grid" id="grid-asientos"></div>
 
     <div class="card">
         <label style="display: block; margin-bottom: 10px; font-weight: bold;">📍 PARADA ACTUAL:</label>
@@ -55,14 +53,14 @@
     </div>
 
     <script>
-        const URL_SUPABASE = 'https://nvumdlxervrewqiiaicl.supabase.co';
-        const KEY_SUPABASE = 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs';
-        const ID_VIAJE = 'jcp478';
+        const URL_SB = 'https://nvumdlxervrewqiiaicl.supabase.co';
+        const KEY_SB = 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs';
+        const ID_V = 'jcp478';
 
-        const _sb = supabase.createClient(URL_SUPABASE, KEY_SUPABASE);
+        const _sb = supabase.createClient(URL_SB, KEY_SB);
 
         async function init() {
-            const { data, error } = await _sb.from('viajes_activos').select('*').eq('id_viaje', ID_VIAJE).single();
+            const { data } = await _sb.from('viajes_activos').select('*').eq('id_viaje', ID_V).single();
             if (data) render(data);
         }
 
@@ -71,32 +69,26 @@
             container.innerHTML = "";
             ['asiento1','asiento2','asiento3','asiento4'].forEach((col, i) => {
                 const ocupado = v[col] !== 'disponible';
-                container.innerHTML += `
-                    <button class="btn-as ${ocupado ? 'rojo' : 'verde'}" onclick="tgl('${col}', '${v[col]}')">
-                        Asiento ${i+1}<br><b>${ocupado ? 'OCUPADO' : 'LIBRE'}</b>
-                    </button>`;
+                container.innerHTML += `<button class="btn-as ${ocupado ? 'rojo' : 'verde'}" onclick="tgl('${col}', '${v[col]}')">Asiento ${i+1}<br><b>${ocupado ? 'OCUPADO' : 'LIBRE'}</b></button>`;
             });
             if(v.parada_actual) document.getElementById('sel-parada').value = v.parada_actual;
         }
 
-        async function tgl(columna, valorActual) {
-            const nuevoValor = valorActual === 'disponible' ? 'ocupado' : 'disponible';
-            await _sb.from('viajes_activos').update({ [columna]: nuevoValor }).eq('id_viaje', ID_VIAJE);
+        async function tgl(col, val) {
+            const nVal = val === 'disponible' ? 'ocupado' : 'disponible';
+            await _sb.from('viajes_activos').update({ [col]: nVal }).eq('id_viaje', ID_V);
             init();
         }
 
-        async function updParada(nombreParada) {
-            await _sb.from('viajes_activos').update({ parada_actual: nombreParada }).eq('id_viaje', ID_VIAJE);
+        async function updParada(p) {
+            await _sb.from('viajes_activos').update({ parada_actual: p }).eq('id_viaje', ID_V);
         }
 
-        _sb.channel('cambios').on('postgres_changes', { event:'UPDATE', schema:'public', table:'viajes_activos' }, payload => {
-            render(payload.new);
-        }).subscribe();
+        _sb.channel('cambios').on('postgres_changes', { event:'UPDATE', schema:'public', table:'viajes_activos' }, payload => render(payload.new)).subscribe();
 
         navigator.geolocation.watchPosition(p => {
-            const { latitude: lat, longitude: lon } = p.coords;
+            _sb.from('viajes_activos').update({ latitud: p.coords.latitude, longitud: p.coords.longitude }).eq('id_viaje', ID_V);
             document.getElementById('gps-status').innerText = `🛰️ GPS TRANSMITIENDO`;
-            _sb.from('viajes_activos').update({ latitud: lat, longitud: lon }).eq('id_viaje', ID_VIAJE);
         }, null, { enableHighAccuracy: true });
 
         init();
