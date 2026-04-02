@@ -1,86 +1,23 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PANEL CHOFER - JCP 478</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { font-family: sans-serif; background: #1a1a1a; color: white; text-align: center; padding: 10px; margin: 0; }
-        .header { background: #ff8c00; color: black; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
-        .asientos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-        .asiento { background: #333; padding: 20px; border-radius: 10px; border: 2px solid #444; font-weight: bold; cursor: pointer; transition: 0.3s; height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .ocupado { background: #ff4444 !important; border-color: #aa0000; }
-        .libre { background: #44bb44 !important; border-color: #226622; }
-        .panel-paradas { background: #222; padding: 15px; border-radius: 10px; border: 1px solid #444; }
-        select { width: 100%; padding: 12px; font-size: 16px; border-radius: 5px; margin-top: 10px; background: #333; color: white; }
-    </style>
-</head>
-<body>
+-- 1. Creamos la tabla de asientos para que el estado sea permanente
+CREATE TABLE IF NOT EXISTS asientos (
+  id_asiento INT PRIMARY KEY, -- 1, 2, 3 o 4
+  estado TEXT DEFAULT 'libre', -- 'libre' o 'ocupado'
+  actualizado_en TIMESTAMPTZ DEFAULT now()
+);
 
-    <div class="header">
-        <h1 style="margin:0; font-size: 24px;">TU MÓVIL OFICIAL</h1>
-        <small>MÓVIL: JCP 478</small>
-    </div>
+-- 2. Insertamos los 4 asientos de tu auto
+INSERT INTO asientos (id_asiento, estado)
+VALUES 
+  (1, 'libre'), 
+  (2, 'libre'), 
+  (3, 'libre'), 
+  (4, 'libre')
+ON CONFLICT (id_asiento) DO NOTHING;
 
-    <div class="asientos-grid">
-        <div id="asiento1" class="asiento" onclick="toggleAsiento(1)">ASIENTO 1<br><small id="txt1">...</small></div>
-        <div id="asiento2" class="asiento" onclick="toggleAsiento(2)">ASIENTO 2<br><small id="txt2">...</small></div>
-        <div id="asiento3" class="asiento" onclick="toggleAsiento(3)">ASIENTO 3<br><small id="txt3">...</small></div>
-        <div id="asiento4" class="asiento" onclick="toggleAsiento(4)">ASIENTO 4<br><small id="txt4">...</small></div>
-    </div>
+-- 3. Quitamos las trabas de seguridad para que la app conecte rápido
+ALTER TABLE asientos DISABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE asientos TO anon;
+GRANT ALL ON TABLE asientos TO authenticated;
 
-    <div class="panel-paradas">
-        <label style="color:#ff8c00; font-weight:bold;">📍 PARADA ACTUAL:</label>
-        <select id="select-parada" onchange="actualizarParada()">
-            <option value="Miguel Cané">Miguel Cané</option>
-            <option value="Los Aromos">Los Aromos</option>
-            <option value="Plaza Central">Plaza Central</option>
-        </select>
-    </div>
-
-    <script>
-        const client = supabase.createClient('https://vclonmiisreunidvshol.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjbG9ubWlpc3JldW5pZHZzaG9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzY1MTYsImV4cCI6MjA1ODUxMjUxNn0.8C654_C0yYIuVqR9BlyiI_DREH-Gg3mY-FayP_4D6gU');
-
-        async function cargarDatos() {
-            // Buscamos usando 'id_viaje' y 'jcp478' que es lo que tenés en la base
-            const { data, error } = await client.from('viajes_activos').select('*').eq('id_viaje', 'jcp478').single();
-            
-            if (data) {
-                for(let i=1; i<=4; i++) {
-                    const btn = document.getElementById('asiento' + i);
-                    const txt = document.getElementById('txt' + i);
-                    const estaOcupado = data['asiento' + i] === 'ocupado';
-                    
-                    btn.className = estaOcupado ? 'asiento ocupado' : 'asiento libre';
-                    txt.innerText = estaOcupado ? 'OCUPADO' : 'LIBRE';
-                }
-                if(data.parada_actual) {
-                    document.getElementById('select-parada').value = data.parada_actual;
-                }
-            }
-        }
-
-        async function toggleAsiento(num) {
-            const btn = document.getElementById('asiento' + num);
-            const esLibre = btn.classList.contains('libre');
-            const nuevoEstado = esLibre ? 'ocupado' : 'disponible';
-            
-            const update = {}; 
-            update['asiento' + num] = nuevoEstado;
-            
-            // Actualizamos la fila 'jcp478'
-            await client.from('viajes_activos').update(update).eq('id_viaje', 'jcp478');
-            cargarDatos();
-        }
-
-        async function actualizarParada() {
-            const valor = document.getElementById('select-parada').value;
-            await client.from('viajes_activos').update({ parada_actual: valor }).eq('id_viaje', 'jcp478');
-        }
-
-        setInterval(cargarDatos, 3000);
-        cargarDatos();
-    </script>
-</body>
-</html>
+-- 4. Activamos el tiempo real para que los pasajeros vean los cambios
+ALTER PUBLICATION supabase_realtime ADD TABLE asientos;
