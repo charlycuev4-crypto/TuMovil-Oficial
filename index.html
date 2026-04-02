@@ -1,23 +1,111 @@
--- 1. Creamos la tabla de asientos para que el estado sea permanente
-CREATE TABLE IF NOT EXISTS asientos (
-  id_asiento INT PRIMARY KEY, -- 1, 2, 3 o 4
-  estado TEXT DEFAULT 'libre', -- 'libre' o 'ocupado'
-  actualizado_en TIMESTAMPTZ DEFAULT now()
-);
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PANEL CHOFER - JCP 478</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; background: #1a1a1a; color: white; text-align: center; padding: 10px; margin: 0; }
+        .header { background: #ff8c00; color: black; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
+        .asientos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+        .asiento { background: #333; padding: 20px; border-radius: 10px; border: 2px solid #444; font-weight: bold; cursor: pointer; transition: 0.3s; height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .ocupado { background: #ff4444 !important; border-color: #aa0000; color: white; }
+        .libre { background: #44bb44 !important; border-color: #226622; color: white; }
+        .panel-paradas { background: #222; padding: 15px; border-radius: 10px; border: 1px solid #444; }
+        select { width: 100%; padding: 12px; font-size: 16px; border-radius: 5px; margin-top: 10px; background: #333; color: white; }
+        label { color: #ff8c00; font-weight: bold; display: block; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
 
--- 2. Insertamos los 4 asientos de tu auto
-INSERT INTO asientos (id_asiento, estado)
-VALUES 
-  (1, 'libre'), 
-  (2, 'libre'), 
-  (3, 'libre'), 
-  (4, 'libre')
-ON CONFLICT (id_asiento) DO NOTHING;
+    <div class="header">
+        <h1 style="margin:0; font-size: 24px;">TU MÓVIL OFICIAL</h1>
+        <small>MÓVIL: JCP 478</small>
+    </div>
 
--- 3. Quitamos las trabas de seguridad para que la app conecte rápido
-ALTER TABLE asientos DISABLE ROW LEVEL SECURITY;
-GRANT ALL ON TABLE asientos TO anon;
-GRANT ALL ON TABLE asientos TO authenticated;
+    <div class="asientos-grid" id="grid-asientos">
+        <div id="asiento1" class="asiento" onclick="toggleAsiento(1)">ASIENTO 1<br><small id="txt1">Cargando...</small></div>
+        <div id="asiento2" class="asiento" onclick="toggleAsiento(2)">ASIENTO 2<br><small id="txt2">Cargando...</small></div>
+        <div id="asiento3" class="asiento" onclick="toggleAsiento(3)">ASIENTO 3<br><small id="txt3">Cargando...</small></div>
+        <div id="asiento4" class="asiento" onclick="toggleAsiento(4)">ASIENTO 4<br><small id="txt4">Cargando...</small></div>
+    </div>
 
--- 4. Activamos el tiempo real para que los pasajeros vean los cambios
-ALTER PUBLICATION supabase_realtime ADD TABLE asientos;
+    <div class="panel-paradas">
+        <label>📍 UBICACIÓN ACTUAL DEL MÓVIL:</label>
+        <select id="select-parada" onchange="actualizarParadaEnBase()">
+            <option value="">Cargando paradas...</option>
+        </select>
+    </div>
+
+    <script>
+        // Conexión oficial a tu Supa-nube
+        const supabaseUrl = 'https://vclonmiisreunidvshol.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjbG9ubWlpc3JldW5pZHZzaG9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzY1MTYsImV4cCI6MjA1ODUxMjUxNn0.8C654_C0yYIuVqR9BlyiI_DREH-Gg3mY-FayP_4D6gU';
+        const client = supabase.createClient(supabaseUrl, supabaseKey);
+
+        // 1. Cargar las 20 paradas que ya tenés en la tabla 'paradas'
+        async function cargarParadas() {
+            const { data, error } = await client.from('paradas').select('*').order('orden', { ascending: true });
+            if (data) {
+                const select = document.getElementById('select-parada');
+                select.innerHTML = ''; // Limpiar
+                data.forEach(p => {
+                    let opt = document.createElement('option');
+                    opt.value = p.nombre;
+                    opt.innerText = `${p.orden}. ${p.nombre}`;
+                    select.appendChild(opt);
+                });
+            }
+        }
+
+        // 2. Cargar el estado de los asientos desde la nueva tabla
+        async function cargarEstadoAsientos() {
+            const { data, error } = await client.from('asientos').select('*').order('id_asiento', { ascending: true });
+            if (data) {
+                data.forEach(asiento => {
+                    const btn = document.getElementById('asiento' + asiento.id_asiento);
+                    const txt = document.getElementById('txt' + asiento.id_asiento);
+                    const estaOcupado = (asiento.estado === 'ocupado');
+                    
+                    btn.className = estaOcupado ? 'asiento ocupado' : 'asiento libre';
+                    txt.innerText = estaOcupado ? 'OCUPADO' : 'LIBRE';
+                });
+            }
+        }
+
+        // 3. Función para cambiar el estado (La que no falla)
+        async function toggleAsiento(num) {
+            const btn = document.getElementById('asiento' + num);
+            const esLibre = btn.classList.contains('libre');
+            const nuevoEstado = esLibre ? 'ocupado' : 'libre';
+            
+            // Avisamos a la nube
+            const { error } = await client
+                .from('asientos')
+                .update({ estado: nuevoEstado, actualizado_en: new Date() })
+                .eq('id_asiento', num);
+
+            if (!error) {
+                cargarEstadoAsientos(); // Refrescar visualmente
+            } else {
+                alert("Error de conexión con la nube");
+            }
+        }
+
+        // 4. Guardar en qué parada estás (opcional si tenés tabla de viajes)
+        async function actualizarParadaEnBase() {
+            const parada = document.getElementById('select-parada').value;
+            console.log("Cambiando a parada:", parada);
+            // Aquí podrías actualizar una tabla de 'viaje_actual' si lo necesitas
+        }
+
+        // INICIO
+        cargarParadas();
+        cargarEstadoAsientos();
+        
+        // REFRESCAR CADA 5 SEGUNDOS AUTOMÁTICAMENTE
+        setInterval(cargarEstadoAsientos, 5000);
+    </script>
+</body>
+</html>
