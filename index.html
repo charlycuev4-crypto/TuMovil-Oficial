@@ -3,81 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PANEL CONTROL</title>
+    <title>TU MÓVIL OFICIAL</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 10px; margin: 0; }
-        .asientos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
-        .asiento { background: #2a2a2a; padding: 15px; border-radius: 8px; border: 2px solid #333; font-weight: bold; cursor: pointer; height: 70px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 20px; margin: 0; }
+        .asientos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .asiento { background: #2a2a2a; padding: 20px; border-radius: 10px; border: 2px solid #444; font-weight: bold; cursor: pointer; height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s; }
         .ocupado { background: #e74c3c !important; border-color: #c0392b; }
         .libre { background: #27ae60 !important; border-color: #1e8449; }
-        .panel-paradas { background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; }
-        select { width: 100%; padding: 12px; background: #333; color: white; border: 1px solid #444; border-radius: 5px; font-size: 16px; }
-        #gps-status { margin-top: 15px; font-size: 12px; color: #888; background: #1a1a1a; padding: 10px; border-radius: 5px; }
+        .panel { background: #1e1e1e; padding: 15px; border-radius: 10px; border: 1px solid #333; margin-top: 10px; }
+        select { width: 100%; padding: 12px; background: #333; color: white; border: 1px solid #555; border-radius: 5px; margin-top: 10px; font-size: 16px; }
+        #gps { margin-top: 20px; font-size: 13px; color: #aaa; background: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #222; }
     </style>
 </head>
 <body>
 
     <div class="asientos-grid">
-        <div id="asiento1" class="asiento" onclick="toggleAsiento(1)">A1<br><small id="txt1">...</small></div>
-        <div id="asiento2" class="asiento" onclick="toggleAsiento(2)">A2<br><small id="txt2">...</small></div>
-        <div id="asiento3" class="asiento" onclick="toggleAsiento(3)">A3<br><small id="txt3">...</small></div>
-        <div id="asiento4" class="asiento" onclick="toggleAsiento(4)">A4<br><small id="txt4">...</small></div>
+        <div id="asiento1" class="asiento" onclick="cambiarEstado(1)">A1<br><small id="t1">...</small></div>
+        <div id="asiento2" class="asiento" onclick="cambiarEstado(2)">A2<br><small id="t2">...</small></div>
+        <div id="asiento3" class="asiento" onclick="cambiarEstado(3)">A3<br><small id="t3">...</small></div>
+        <div id="asiento4" class="asiento" onclick="cambiarEstado(4)">A4<br><small id="t4">...</small></div>
     </div>
 
-    <div class="panel-paradas">
-        <label style="display:block; margin-bottom:8px; color:#f39c12; font-weight:bold;">📍 UBICACIÓN ACTUAL:</label>
-        <select id="select-parada" onchange="actualizarParada()"></select>
+    <div class="panel">
+        <label style="color: #f39c12; font-weight: bold;">📍 PARADA ACTUAL:</label>
+        <select id="lista-paradas"></select>
     </div>
 
-    <div id="gps-status">Esperando señal GPS...</div>
+    <div id="gps">🛰️ Buscando señal de satélite...</div>
 
     <script>
-        // URL ACTUALIZADA SEGÚN TU CAPTURA SKCLOZ
         const SB_URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
-        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1NDM0NTcsImV4cCI6MjA1OTExOTQ1N30.r1T0p8I_Wsh_X8uN08m_L9-9H8U'; 
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1NDM0NTcsImV4cCI6MjA1OTExOTQ1N30.r1T0p8I_Wsh_X8uN08m_L9-9H8U';
         
-        const supabase = window.supabase.createClient(SB_URL, SB_KEY);
+        const client = supabase.createClient(SB_URL, SB_KEY);
 
-        async function cargarTodo() {
-            // Cargar Paradas
-            const { data: p } = await supabase.from('paradas').select('*').order('orden');
-            if(p) {
-                const sel = document.getElementById('select-parada');
-                sel.innerHTML = p.map(i => `<option value="${i.nombre}">${i.orden}. ${i.nombre}</option>`).join('');
-            }
-            
+        async function cargarDatos() {
             // Cargar Asientos
-            const { data: a } = await supabase.from('asientos').select('*').order('id_asiento');
-            if(a) {
-                a.forEach(as => {
+            const { data: asientos, error: errA } = await client.from('asientos').select('*').order('id_asiento');
+            if (asientos) {
+                asientos.forEach(as => {
                     const el = document.getElementById('asiento' + as.id_asiento);
-                    const tx = document.getElementById('txt' + as.id_asiento);
-                    const esOcupado = (as.estado === 'ocupado');
-                    el.className = esOcupado ? 'asiento ocupado' : 'asiento libre';
-                    tx.innerText = esOcupado ? 'OCUPADO' : 'LIBRE';
+                    const tx = document.getElementById('t' + as.id_asiento);
+                    const estaOcupado = (as.estado === 'ocupado');
+                    el.className = estaOcupado ? 'asiento ocupado' : 'asiento libre';
+                    tx.innerText = estaOcupado ? 'OCUPADO' : 'LIBRE';
                 });
+            }
+
+            // Cargar Paradas (solo la primera vez)
+            const sel = document.getElementById('lista-paradas');
+            if (sel.options.length === 0) {
+                const { data: paradas } = await client.from('paradas').select('*').order('orden');
+                if (paradas) {
+                    paradas.forEach(p => {
+                        let opt = document.createElement('option');
+                        opt.value = p.nombre;
+                        opt.text = p.orden + ". " + p.nombre;
+                        sel.add(opt);
+                    });
+                }
             }
         }
 
-        async function toggleAsiento(id) {
+        async function cambiarEstado(id) {
             const el = document.getElementById('asiento' + id);
             const nuevo = el.classList.contains('libre') ? 'ocupado' : 'libre';
-            const { error } = await supabase.from('asientos').update({ estado: nuevo }).eq('id_asiento', id);
-            if(!error) cargarTodo();
+            
+            const { error } = await client.from('asientos').update({ estado: nuevo }).eq('id_asiento', id);
+            if (!error) {
+                cargarDatos();
+            } else {
+                alert("Error de conexión");
+            }
         }
 
         function iniciarGPS() {
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition((pos) => {
-                    document.getElementById('gps-status').innerText = `GPS ACTIVO: ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
-                });
+                navigator.geolocation.watchPosition(p => {
+                    document.getElementById('gps').innerText = `🛰️ GPS ACTIVO: ${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`;
+                }, (e) => {
+                    document.getElementById('gps').innerText = "❌ GPS sin señal (activá ubicación)";
+                }, { enableHighAccuracy: true });
             }
         }
 
-        cargarTodo();
+        cargarDatos();
         iniciarGPS();
-        setInterval(cargarTodo, 5000);
+        // Se actualiza solo cada 5 segundos
+        setInterval(cargarDatos, 5000);
     </script>
 </body>
 </html>
