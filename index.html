@@ -1,25 +1,28 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TU MÓVIL</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { background: #121212; color: white; text-align: center; font-family: sans-serif; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; }
-        .btn { padding: 30px; border-radius: 15px; font-weight: bold; background: #333; border: 2px solid #555; color: white; }
-        .libre { background: #27ae60 !important; }
-        .ocupado { background: #e74c3c !important; }
+        body { background: #121212; color: white; text-align: center; font-family: sans-serif; padding: 20px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .asiento { padding: 30px; border-radius: 12px; background: #333; border: 2px solid #555; font-weight: bold; cursor: pointer; }
+        .libre { background: #27ae60 !important; border-color: #1e8449; }
+        .ocupado { background: #e74c3c !important; border-color: #c0392b; }
+        #gps { margin-top: 30px; color: #00ff00; font-size: 14px; background: #1a1a1a; padding: 10px; border-radius: 8px; }
     </style>
 </head>
 <body>
     <h2>CONTROL DE UNIDAD</h2>
     <div class="grid">
-        <div id="a1" class="btn" onclick="tocar(1)">A1<br><span id="s1">...</span></div>
-        <div id="a2" class="btn" onclick="tocar(2)">A2<br><span id="s2">...</span></div>
-        <div id="a3" class="btn" onclick="tocar(3)">A3<br><span id="s3">...</span></div>
-        <div id="a4" class="btn" onclick="tocar(4)">A4<br><span id="s4">...</span></div>
+        <div id="a1" class="asiento" onclick="tocar(1)">A1<br><small id="s1">...</small></div>
+        <div id="a2" class="asiento" onclick="tocar(2)">A2<br><small id="s2">...</small></div>
+        <div id="a3" class="asiento" onclick="tocar(3)">A3<br><small id="s3">...</small></div>
+        <div id="a4" class="asiento" onclick="tocar(4)">A4<br><small id="s4">...</small></div>
     </div>
-    <p id="gps">🛰️ Buscando señal...</p>
+    <div id="gps">🛰️ Buscando señal...</div>
 
     <script>
         const URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
@@ -27,21 +30,20 @@
         const sb = supabase.createClient(URL, KEY);
 
         async function cargar() {
-            const { data } = await sb.from('asientos').select('*').order('id_asiento');
-            if (data) {
-                data.forEach(a => {
-                    const d = document.getElementById('a' + a.id_asiento);
-                    const s = document.getElementById('s' + a.id_asiento);
-                    d.className = 'btn ' + (a.estado === 'ocupado' ? 'ocupado' : 'libre');
-                    s.innerText = a.estado.toUpperCase();
-                });
-            }
+            const { data, error } = await sb.from('asientos').select('*').order('id_asiento');
+            if (error) { console.log(error); return; }
+            data.forEach(as => {
+                const div = document.getElementById('a' + as.id_asiento);
+                const txt = document.getElementById('s' + as.id_asiento);
+                div.className = 'asiento ' + (as.estado === 'ocupado' ? 'ocupado' : 'libre');
+                txt.innerText = as.estado.toUpperCase();
+            });
         }
 
         async function tocar(id) {
-            const d = document.getElementById('a' + id);
-            const n = d.classList.contains('libre') ? 'ocupado' : 'libre';
-            await sb.from('asientos').update({ estado: n }).eq('id_asiento', id);
+            const div = document.getElementById('a' + id);
+            const nuevo = div.classList.contains('libre') ? 'ocupado' : 'libre';
+            await sb.from('asientos').update({ estado: nuevo }).eq('id_asiento', id);
             cargar();
         }
 
