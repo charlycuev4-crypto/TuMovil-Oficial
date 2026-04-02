@@ -1,48 +1,47 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TU MÓVIL</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 20px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .asiento { padding: 25px; border-radius: 12px; border: 2px solid #444; font-weight: bold; background: #2a2a2a; cursor: pointer; }
+        body { background: #121212; color: white; text-align: center; font-family: sans-serif; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; }
+        .btn { padding: 30px; border-radius: 15px; font-weight: bold; background: #333; border: 2px solid #555; color: white; }
         .libre { background: #27ae60 !important; }
         .ocupado { background: #e74c3c !important; }
-        #gps { margin-top: 30px; color: #00ff00; font-size: 14px; }
     </style>
 </head>
 <body>
+    <h2>CONTROL DE UNIDAD</h2>
     <div class="grid">
-        <div id="a1" class="asiento" onclick="tocar(1)">A1<br><small id="t1">...</small></div>
-        <div id="a2" class="asiento" onclick="tocar(2)">A2<br><small id="t2">...</small></div>
-        <div id="a3" class="asiento" onclick="tocar(3)">A3<br><small id="t3">...</small></div>
-        <div id="a4" class="asiento" onclick="tocar(4)">A4<br><small id="t4">...</small></div>
+        <div id="a1" class="btn" onclick="tocar(1)">A1<br><span id="s1">...</span></div>
+        <div id="a2" class="btn" onclick="tocar(2)">A2<br><span id="s2">...</span></div>
+        <div id="a3" class="btn" onclick="tocar(3)">A3<br><span id="s3">...</span></div>
+        <div id="a4" class="btn" onclick="tocar(4)">A4<br><span id="s4">...</span></div>
     </div>
-    <div id="gps">🛰️ Buscando GPS...</div>
+    <p id="gps">🛰️ Buscando señal...</p>
 
     <script>
         const URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
         const KEY = 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs';
-        const supabase = window.supabase.createClient(URL, KEY);
+        const sb = supabase.createClient(URL, KEY);
 
         async function cargar() {
-            const { data, error } = await supabase.from('asientos').select('*').order('id_asiento');
-            if (error) return;
-            data.forEach(as => {
-                const div = document.getElementById('a' + as.id_asiento);
-                const txt = document.getElementById('t' + as.id_asiento);
-                div.className = 'asiento ' + (as.estado === 'ocupado' ? 'ocupado' : 'libre');
-                txt.innerText = as.estado.toUpperCase();
-            });
+            const { data } = await sb.from('asientos').select('*').order('id_asiento');
+            if (data) {
+                data.forEach(a => {
+                    const d = document.getElementById('a' + a.id_asiento);
+                    const s = document.getElementById('s' + a.id_asiento);
+                    d.className = 'btn ' + (a.estado === 'ocupado' ? 'ocupado' : 'libre');
+                    s.innerText = a.estado.toUpperCase();
+                });
+            }
         }
 
         async function tocar(id) {
-            const div = document.getElementById('a' + id);
-            const nuevo = div.classList.contains('libre') ? 'ocupado' : 'libre';
-            await supabase.from('asientos').update({ estado: nuevo }).eq('id_asiento', id);
+            const d = document.getElementById('a' + id);
+            const n = d.classList.contains('libre') ? 'ocupado' : 'libre';
+            await sb.from('asientos').update({ estado: n }).eq('id_asiento', id);
             cargar();
         }
 
