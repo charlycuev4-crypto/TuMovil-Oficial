@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONTROL CHOFER</title>
+    <title>TU MÓVIL</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 15px; margin: 0; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
-        .asiento { padding: 25px; border-radius: 12px; border: 2px solid #444; font-weight: bold; background: #2a2a2a; font-size: 20px; cursor: pointer; }
-        .libre { background: #27ae60 !important; border-color: #1e8449; }
-        .ocupado { background: #e74c3c !important; border-color: #c0392b; }
-        #gps { margin-top: 30px; padding: 15px; background: #1a1a1a; border-radius: 8px; font-size: 14px; border: 1px solid #333; color: #00ff00; }
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 20px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .asiento { padding: 25px; border-radius: 12px; border: 2px solid #444; font-weight: bold; background: #2a2a2a; cursor: pointer; }
+        .libre { background: #27ae60 !important; }
+        .ocupado { background: #e74c3c !important; }
+        #gps { margin-top: 30px; color: #00ff00; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -21,7 +21,7 @@
         <div id="a3" class="asiento" onclick="tocar(3)">A3<br><small id="t3">...</small></div>
         <div id="a4" class="asiento" onclick="tocar(4)">A4<br><small id="t4">...</small></div>
     </div>
-    <div id="gps">🛰️ Buscando señal...</div>
+    <div id="gps">🛰️ Buscando GPS...</div>
 
     <script>
         const URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
@@ -30,10 +30,7 @@
 
         async function cargar() {
             const { data, error } = await supabase.from('asientos').select('*').order('id_asiento');
-            if (error) {
-                console.log("Error:", error);
-                return;
-            }
+            if (error) return;
             data.forEach(as => {
                 const div = document.getElementById('a' + as.id_asiento);
                 const txt = document.getElementById('t' + as.id_asiento);
@@ -49,15 +46,12 @@
             cargar();
         }
 
-        // GPS Real
         navigator.geolocation.watchPosition(p => {
             document.getElementById('gps').innerText = `🛰️ GPS: ${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`;
-        }, (err) => {
-            document.getElementById('gps').innerText = "❌ Activá el GPS del celu";
-        }, { enableHighAccuracy: true });
+        }, null, { enableHighAccuracy: true });
 
         cargar();
-        setInterval(cargar, 5000); // Se actualiza solo cada 5 segundos
+        setInterval(cargar, 3000);
     </script>
 </body>
 </html>
