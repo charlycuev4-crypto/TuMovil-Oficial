@@ -1,58 +1,32 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TU MÓVIL</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { background: #121212; color: white; text-align: center; font-family: sans-serif; padding: 20px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
-        .asiento { padding: 30px; border-radius: 12px; background: #333; border: 2px solid #555; font-weight: bold; cursor: pointer; }
-        .libre { background: #27ae60 !important; border-color: #1e8449; }
-        .ocupado { background: #e74c3c !important; border-color: #c0392b; }
-        #gps { margin-top: 30px; color: #00ff00; font-size: 14px; background: #1a1a1a; padding: 10px; border-radius: 8px; }
-    </style>
-</head>
-<body>
-    <h2>CONTROL DE UNIDAD</h2>
-    <div class="grid">
-        <div id="a1" class="asiento" onclick="tocar(1)">A1<br><small id="s1">...</small></div>
-        <div id="a2" class="asiento" onclick="tocar(2)">A2<br><small id="s2">...</small></div>
-        <div id="a3" class="asiento" onclick="tocar(3)">A3<br><small id="s3">...</small></div>
-        <div id="a4" class="asiento" onclick="tocar(4)">A4<br><small id="s4">...</small></div>
-    </div>
-    <div id="gps">🛰️ Buscando señal...</div>
+// Iniciamos el mapa centrado en la primera parada
+var map = L.map('mapa-osm').setView([-34.561264, -58.770506], 15);
 
-    <script>
-        const URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
-        const KEY = 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs';
-        const sb = supabase.createClient(URL, KEY);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        async function cargar() {
-            const { data, error } = await sb.from('asientos').select('*').order('id_asiento');
-            if (error) { console.log(error); return; }
-            data.forEach(as => {
-                const div = document.getElementById('a' + as.id_asiento);
-                const txt = document.getElementById('s' + as.id_asiento);
-                div.className = 'asiento ' + (as.estado === 'ocupado' ? 'ocupado' : 'libre');
-                txt.innerText = as.estado.toUpperCase();
-            });
+async function cargarRuta() {
+    // Traemos las paradas de Supabase
+    const { data: paradas, error } = await sb.from('paradas').select('*').order('orden');
+    
+    if (error) return console.error(error);
+
+    // Creamos una lista de puntos para la línea azul
+    const puntosParaLinea = [];
+
+    paradas.forEach(p => {
+        if (p.latitud && p.longitud) {
+            // Ponemos un marcador en cada parada
+            L.marker([p.latitud, p.longitud]).addTo(map)
+                .bindPopup(`<b>${p.orden}. ${p.nombre}</b>`);
+            
+            // Guardamos el punto para la línea
+            puntosParaLinea.push([p.latitud, p.longitud]);
         }
+    });
 
-        async function tocar(id) {
-            const div = document.getElementById('a' + id);
-            const nuevo = div.classList.contains('libre') ? 'ocupado' : 'libre';
-            await sb.from('asientos').update({ estado: nuevo }).eq('id_asiento', id);
-            cargar();
-        }
+    // Dibujamos la línea azul que une las paradas
+    if (puntosParaLinea.length > 1) {
+        L.polyline(puntosParaLinea, {color: 'blue', weight: 4}).addTo(map);
+    }
+}
 
-        navigator.geolocation.watchPosition(p => {
-            document.getElementById('gps').innerText = `🛰️ GPS: ${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`;
-        }, null, { enableHighAccuracy: true });
-
-        cargar();
-        setInterval(cargar, 3000);
-    </script>
-</body>
-</html>
+cargarRuta();
