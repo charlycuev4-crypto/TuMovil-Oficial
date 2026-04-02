@@ -3,95 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TU MÓVIL OFICIAL</title>
+    <title>CONTROL CHOFER</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 20px; margin: 0; }
-        .asientos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-        .asiento { background: #2a2a2a; padding: 20px; border-radius: 10px; border: 2px solid #444; font-weight: bold; cursor: pointer; height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s; }
-        .ocupado { background: #e74c3c !important; border-color: #c0392b; }
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 15px; margin: 0; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .asiento { padding: 25px; border-radius: 12px; border: 2px solid #444; font-weight: bold; background: #2a2a2a; font-size: 20px; cursor: pointer; }
         .libre { background: #27ae60 !important; border-color: #1e8449; }
-        .panel { background: #1e1e1e; padding: 15px; border-radius: 10px; border: 1px solid #333; margin-top: 10px; }
-        select { width: 100%; padding: 12px; background: #333; color: white; border: 1px solid #555; border-radius: 5px; margin-top: 10px; font-size: 16px; }
-        #gps { margin-top: 20px; font-size: 13px; color: #aaa; background: #1a1a1a; padding: 10px; border-radius: 5px; border: 1px solid #222; }
+        .ocupado { background: #e74c3c !important; border-color: #c0392b; }
+        #gps { margin-top: 30px; padding: 15px; background: #1a1a1a; border-radius: 8px; font-size: 14px; border: 1px solid #333; color: #00ff00; }
     </style>
 </head>
 <body>
-
-    <div class="asientos-grid">
-        <div id="asiento1" class="asiento" onclick="cambiarEstado(1)">A1<br><small id="t1">...</small></div>
-        <div id="asiento2" class="asiento" onclick="cambiarEstado(2)">A2<br><small id="t2">...</small></div>
-        <div id="asiento3" class="asiento" onclick="cambiarEstado(3)">A3<br><small id="t3">...</small></div>
-        <div id="asiento4" class="asiento" onclick="cambiarEstado(4)">A4<br><small id="t4">...</small></div>
+    <div class="grid">
+        <div id="a1" class="asiento" onclick="tocar(1)">A1<br><small id="t1">...</small></div>
+        <div id="a2" class="asiento" onclick="tocar(2)">A2<br><small id="t2">...</small></div>
+        <div id="a3" class="asiento" onclick="tocar(3)">A3<br><small id="t3">...</small></div>
+        <div id="a4" class="asiento" onclick="tocar(4)">A4<br><small id="t4">...</small></div>
     </div>
-
-    <div class="panel">
-        <label style="color: #f39c12; font-weight: bold;">📍 PARADA ACTUAL:</label>
-        <select id="lista-paradas"></select>
-    </div>
-
-    <div id="gps">🛰️ Buscando señal de satélite...</div>
+    <div id="gps">🛰️ Buscando señal...</div>
 
     <script>
-        const SB_URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
-        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM1NDM0NTcsImV4cCI6MjA1OTExOTQ1N30.r1T0p8I_Wsh_X8uN08m_L9-9H8U';
-        
-        const client = supabase.createClient(SB_URL, SB_KEY);
+        const URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
+        const KEY = 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs';
+        const supabase = window.supabase.createClient(URL, KEY);
 
-        async function cargarDatos() {
-            // Cargar Asientos
-            const { data: asientos, error: errA } = await client.from('asientos').select('*').order('id_asiento');
-            if (asientos) {
-                asientos.forEach(as => {
-                    const el = document.getElementById('asiento' + as.id_asiento);
-                    const tx = document.getElementById('t' + as.id_asiento);
-                    const estaOcupado = (as.estado === 'ocupado');
-                    el.className = estaOcupado ? 'asiento ocupado' : 'asiento libre';
-                    tx.innerText = estaOcupado ? 'OCUPADO' : 'LIBRE';
-                });
+        async function cargar() {
+            const { data, error } = await supabase.from('asientos').select('*').order('id_asiento');
+            if (error) {
+                console.log("Error:", error);
+                return;
             }
-
-            // Cargar Paradas (solo la primera vez)
-            const sel = document.getElementById('lista-paradas');
-            if (sel.options.length === 0) {
-                const { data: paradas } = await client.from('paradas').select('*').order('orden');
-                if (paradas) {
-                    paradas.forEach(p => {
-                        let opt = document.createElement('option');
-                        opt.value = p.nombre;
-                        opt.text = p.orden + ". " + p.nombre;
-                        sel.add(opt);
-                    });
-                }
-            }
+            data.forEach(as => {
+                const div = document.getElementById('a' + as.id_asiento);
+                const txt = document.getElementById('t' + as.id_asiento);
+                div.className = 'asiento ' + (as.estado === 'ocupado' ? 'ocupado' : 'libre');
+                txt.innerText = as.estado.toUpperCase();
+            });
         }
 
-        async function cambiarEstado(id) {
-            const el = document.getElementById('asiento' + id);
-            const nuevo = el.classList.contains('libre') ? 'ocupado' : 'libre';
-            
-            const { error } = await client.from('asientos').update({ estado: nuevo }).eq('id_asiento', id);
-            if (!error) {
-                cargarDatos();
-            } else {
-                alert("Error de conexión");
-            }
+        async function tocar(id) {
+            const div = document.getElementById('a' + id);
+            const nuevo = div.classList.contains('libre') ? 'ocupado' : 'libre';
+            await supabase.from('asientos').update({ estado: nuevo }).eq('id_asiento', id);
+            cargar();
         }
 
-        function iniciarGPS() {
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(p => {
-                    document.getElementById('gps').innerText = `🛰️ GPS ACTIVO: ${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`;
-                }, (e) => {
-                    document.getElementById('gps').innerText = "❌ GPS sin señal (activá ubicación)";
-                }, { enableHighAccuracy: true });
-            }
-        }
+        // GPS Real
+        navigator.geolocation.watchPosition(p => {
+            document.getElementById('gps').innerText = `🛰️ GPS: ${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`;
+        }, (err) => {
+            document.getElementById('gps').innerText = "❌ Activá el GPS del celu";
+        }, { enableHighAccuracy: true });
 
-        cargarDatos();
-        iniciarGPS();
-        // Se actualiza solo cada 5 segundos
-        setInterval(cargarDatos, 5000);
+        cargar();
+        setInterval(cargar, 5000); // Se actualiza solo cada 5 segundos
     </script>
 </body>
 </html>
