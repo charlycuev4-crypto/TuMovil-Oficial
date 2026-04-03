@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tu Móvil - Ruta Santa Brígida</title>
+    <title>Tu Móvil - Ruta Oficial</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        #mapa-osm { height: 100vh; width: 100%; background: #f0f0f0; }
+        #mapa-osm { height: 100vh; width: 100%; background: #e5e5e5; }
         body { margin: 0; padding: 0; overflow: hidden; }
     </style>
 </head>
@@ -17,64 +17,59 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        // 1. CONFIGURACIÓN DE CONEXIÓN
+        // CONFIGURACIÓN DE CONEXIÓN (LLAVE CORREGIDA)
         const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
-        const SB_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
+        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        // 2. INICIALIZAR MAPA (Centrado en la primera parada)
+        // INICIALIZAR EL MAPA (CENTRADO EN SANTA BRÍGIDA)
         var map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
-        
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        // 3. FUNCIÓN PARA CARGAR DATOS DE SUPABASE
-        async function cargarRuta() {
+        async function cargarParadas() {
+            // Buscamos las paradas en la tabla 'paradas'
             const { data: paradas, error } = await sb
                 .from('paradas')
                 .select('*')
                 .order('orden', { ascending: true });
 
             if (error) {
-                console.error("Error cargando paradas:", error.message);
+                console.error("Error de conexión:", error.message);
                 return;
             }
 
-            const coordenadasRuta = [];
+            if (paradas && paradas.length > 0) {
+                const rutaCoordenadas = [];
 
-            paradas.forEach(p => {
-                if (p.latitud && p.longitud) {
-                    const punto = [p.latitud, p.longitud];
-                    
-                    // Dibujar cada parada como un círculo
-                    L.circleMarker(punto, {
-                        radius: 6,
-                        color: '#007bff',
-                        fillColor: '#ffffff',
-                        fillOpacity: 1,
-                        weight: 3
-                    }).addTo(map).bindPopup("<b>Parada " + p.orden + "</b><br>" + p.nombre);
+                paradas.forEach(p => {
+                    if (p.latitud && p.longitud) {
+                        const punto = [p.latitud, p.longitud];
+                        
+                        // Crear marcador para cada parada
+                        L.circleMarker(punto, {
+                            radius: 8,
+                            color: '#007bff',
+                            fillColor: '#ffffff',
+                            fillOpacity: 1,
+                            weight: 3
+                        }).addTo(map).bindPopup("Parada " + p.orden + ": " + p.nombre);
 
-                    coordenadasRuta.push(punto);
+                        rutaCoordenadas.push(punto);
+                    }
+                });
+
+                // Dibujar la línea azul que une todas las paradas
+                if (rutaCoordenadas.length > 1) {
+                    L.polyline(rutaCoordenadas, { color: '#007bff', weight: 5 }).addTo(map);
+                    // Ajustar la cámara para que se vean todas las paradas
+                    map.fitBounds(rutaCoordenadas, { padding: [50, 50] });
                 }
-            });
-
-            // 4. DIBUJAR LA LÍNEA DE LA RUTA
-            if (coordenadasRuta.length > 1) {
-                L.polyline(coordenadasRuta, {
-                    color: '#007bff',
-                    weight: 5,
-                    opacity: 0.8
-                }).addTo(map);
-
-                // Ajustar el zoom para que se vean todas las paradas automáticamente
-                map.fitBounds(coordenadasRuta, { padding: [30, 30] });
+            } else {
+                console.log("No se encontraron paradas en la tabla.");
             }
         }
 
-        // Ejecutar la carga al abrir la página
-        cargarRuta();
+        cargarParadas();
     </script>
 </body>
 </html>
