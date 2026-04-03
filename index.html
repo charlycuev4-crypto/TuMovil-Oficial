@@ -12,31 +12,61 @@
 </head>
 <body>
     <div id="mapa-osm"></div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script>
+        // 1. CONEXIÓN (Datos extraídos de tus capturas)
         const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
         const SB_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
+        // 2. INICIALIZAR EL MAPA
         var map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+        // 3. FUNCIÓN PARA CARGAR LOS PUNTOS
         async function cargarPuntos() {
-            const { data: paradas, error } = await sb.from('paradas').select('*').order('orden', { ascending: true });
-            if (error) return;
+            // Buscamos en la tabla 'paradas'
+            const { data: paradas, error } = await sb
+                .from('paradas')
+                .select('*')
+                .order('orden', { ascending: true });
+
+            if (error) {
+                console.error("Error de Supabase:", error.message);
+                return;
+            }
 
             const ruta = [];
+
             paradas.forEach(p => {
+                // Verificamos latitud y longitud en minúsculas
                 if (p.latitud && p.longitud) {
                     const pos = [p.latitud, p.longitud];
-                    L.circleMarker(pos, { radius: 7, color: '#007bff', fillColor: '#fff', fillOpacity: 1, weight: 3 }).addTo(map);
+                    
+                    // Dibujamos el círculo blanco con borde azul
+                    L.circleMarker(pos, { 
+                        radius: 8, 
+                        color: '#007bff', 
+                        fillColor: '#ffffff', 
+                        fillOpacity: 1, 
+                        weight: 3 
+                    }).addTo(map).bindPopup("Parada: " + p.orden);
+                    
                     ruta.push(pos);
                 }
             });
-            if (ruta.length > 0) map.fitBounds(ruta, { padding: [50, 50] });
-            if (ruta.length > 1) L.polyline(ruta, { color: '#007bff', weight: 4 }).addTo(map);
+
+            // Si hay más de un punto, dibujamos la línea azul y ajustamos el zoom
+            if (ruta.length > 1) {
+                L.polyline(ruta, { color: '#007bff', weight: 5, opacity: 0.7 }).addTo(map);
+                map.fitBounds(ruta, { padding: [50, 50] });
+            }
         }
+
+        // Ejecutar al cargar la página
         cargarPuntos();
     </script>
 </body>
