@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tu Móvil - Mapa en Vivo</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         #mapa-osm { height: 100vh; width: 100%; background: #f0f0f0; }
         body { margin: 0; padding: 0; overflow: hidden; }
@@ -14,52 +12,51 @@
 </head>
 <body>
     <div id="mapa-osm"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script>
-        // 1. CONEXIÓN (Todo en minúsculas donde corresponde)
+        // 1. CONEXIÓN (Extraída de tus capturas)
         const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
         const SB_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
+        
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        // 2. INICIALIZAR MAPA
+        // 2. MAPA
         var map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        let layerMarcadores = L.layerGroup().addTo(map);
-        let layerRuta = L.layerGroup().addTo(map);
-
-        // 3. CARGAR DATOS (Revisión de minúsculas)
         async function cargarRuta() {
-            // "paradas" debe ser minúscula como en tu tabla
+            // Intentamos traer los datos
             const { data: paradas, error } = await sb
-                .from('paradas') 
+                .from('paradas')
                 .select('*')
                 .order('orden', { ascending: true });
 
-            if (error) return;
+            if (error) {
+                console.log("Error:", error.message);
+                return;
+            }
 
-            layerMarcadores.clearLayers();
-            layerRuta.clearLayers();
-            const puntosParaLinea = [];
-
+            const puntos = [];
             paradas.forEach(p => {
-                // latitud y longitud en minúsculas como en Supabase
                 if (p.latitud && p.longitud) {
-                    const pos = [p.latitud, p.longitud];
-                    L.circleMarker(pos, {
-                        radius: 6,
+                    const coord = [p.latitud, p.longitud];
+                    L.circleMarker(coord, {
+                        radius: 7,
                         fillColor: "#ffffff",
                         color: "#007bff",
                         weight: 3,
                         fillOpacity: 1
-                    }).addTo(layerMarcadores);
-                    
-                    puntosParaLinea.push(pos);
+                    }).addTo(map).bindPopup(p.nombre);
+                    puntos.push(coord);
                 }
             });
 
-            if (puntosParaLinea.length > 1) {
-                L.polyline(puntosParaLinea, { color: '#007bff', weight: 5 }).addTo(layerRuta);
-                map.fitBounds(puntosParaLinea, { padding: [50, 50] });
+            if (puntos.length > 1) {
+                L.polyline(puntos, { color: '#007bff', weight: 5 }).addTo(map);
+                map.fitBounds(puntos, { padding: [50, 50] });
             }
         }
 
