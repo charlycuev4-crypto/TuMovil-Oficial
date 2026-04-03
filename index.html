@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tu Móvil - Mapa en Vivo</title>
+    <title>Tu Móvil - En Vivo</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         #mapa-osm { height: 100vh; width: 100%; background: #f0f0f0; }
@@ -12,55 +12,32 @@
 </head>
 <body>
     <div id="mapa-osm"></div>
-
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <script>
-        // 1. CONEXIÓN (Extraída de tus capturas)
         const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
         const SB_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
-        
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        // 2. MAPA
-        var map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
+        var map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        async function cargarRuta() {
-            // Intentamos traer los datos
-            const { data: paradas, error } = await sb
-                .from('paradas')
-                .select('*')
-                .order('orden', { ascending: true });
+        async function cargarPuntos() {
+            const { data: paradas, error } = await sb.from('paradas').select('*').order('orden', { ascending: true });
+            if (error) return;
 
-            if (error) {
-                console.log("Error:", error.message);
-                return;
-            }
-
-            const puntos = [];
+            const ruta = [];
             paradas.forEach(p => {
                 if (p.latitud && p.longitud) {
-                    const coord = [p.latitud, p.longitud];
-                    L.circleMarker(coord, {
-                        radius: 7,
-                        fillColor: "#ffffff",
-                        color: "#007bff",
-                        weight: 3,
-                        fillOpacity: 1
-                    }).addTo(map).bindPopup(p.nombre);
-                    puntos.push(coord);
+                    const pos = [p.latitud, p.longitud];
+                    L.circleMarker(pos, { radius: 7, color: '#007bff', fillColor: '#fff', fillOpacity: 1, weight: 3 }).addTo(map);
+                    ruta.push(pos);
                 }
             });
-
-            if (puntos.length > 1) {
-                L.polyline(puntos, { color: '#007bff', weight: 5 }).addTo(map);
-                map.fitBounds(puntos, { padding: [50, 50] });
-            }
+            if (ruta.length > 0) map.fitBounds(ruta, { padding: [50, 50] });
+            if (ruta.length > 1) L.polyline(ruta, { color: '#007bff', weight: 4 }).addTo(map);
         }
-
-        cargarRuta();
+        cargarPuntos();
     </script>
 </body>
 </html>
