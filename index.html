@@ -2,65 +2,58 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tu Móvil - Mapa en Vivo</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         #mapa-osm { height: 100vh; width: 100%; background: #f0f0f0; }
-        body { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
-        .leaflet-popup-content-wrapper { border-radius: 8px; }
+        body { margin: 0; padding: 0; overflow: hidden; }
     </style>
 </head>
 <body>
     <div id="mapa-osm"></div>
     <script>
-        // 1. CONFIGURACIÓN DE CONEXIÓN
+        // 1. CONEXIÓN (Todo en minúsculas donde corresponde)
         const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
         const SB_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
         // 2. INICIALIZAR MAPA
         var map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
-        L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
         let layerMarcadores = L.layerGroup().addTo(map);
         let layerRuta = L.layerGroup().addTo(map);
 
-        // 3. FUNCIÓN PARA CARGAR LAS PARADAS
+        // 3. CARGAR DATOS (Revisión de minúsculas)
         async function cargarRuta() {
+            // "paradas" debe ser minúscula como en tu tabla
             const { data: paradas, error } = await sb
-                .from('paradas')
+                .from('paradas') 
                 .select('*')
                 .order('orden', { ascending: true });
 
-            if (error) {
-                console.error("Error de conexión:", error.message);
-                return;
-            }
+            if (error) return;
 
             layerMarcadores.clearLayers();
             layerRuta.clearLayers();
             const puntosParaLinea = [];
 
             paradas.forEach(p => {
+                // latitud y longitud en minúsculas como en Supabase
                 if (p.latitud && p.longitud) {
-                    L.circleMarker([p.latitud, p.longitud], {
+                    const pos = [p.latitud, p.longitud];
+                    L.circleMarker(pos, {
                         radius: 6,
                         fillColor: "#ffffff",
                         color: "#007bff",
                         weight: 3,
-                        opacity: 1,
                         fillOpacity: 1
-                    }).addTo(layerMarcadores)
-                      .bindPopup(`<b>${p.orden}. ${p.nombre || 'Parada'}</b>`);
+                    }).addTo(layerMarcadores);
                     
-                    puntosParaLinea.push([p.latitud, p.longitud]);
+                    puntosParaLinea.push(pos);
                 }
             });
 
@@ -70,7 +63,6 @@
             }
         }
 
-        // Ejecutar carga inicial
         cargarRuta();
     </script>
 </body>
