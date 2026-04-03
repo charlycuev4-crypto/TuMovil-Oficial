@@ -3,33 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tu Móvil - Santa Brígida</title>
+    <title>Tu Móvil - GPS en Vivo</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         #mapa-osm { height: 100vh; width: 100%; background: #f0f0f0; }
         body { margin: 0; padding: 0; overflow: hidden; }
+        /* Estilo para el botón de ubicación */
+        .boton-gps {
+            position: absolute; bottom: 20px; right: 20px; z-index: 1000;
+            background: white; padding: 10px; border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3); width: 40px; height: 40px;
+            display: flex; align-items: center; justify-content: center; font-size: 20px;
+        }
     </style>
 </head>
 <body>
     <div id="mapa-osm"></div>
+    <div class="boton-gps" onclick="centrarMapa()">📍</div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // CONEXIÓN
         const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
         const SB_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        // MAPA
+        // Inicializar mapa
         var map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+        // --- SECCIÓN DE LOCALIZACIÓN ---
+        var marcadorUsuario = L.circleMarker([0,0], { radius: 10, color: '#ff4444', fillColor: '#ff4444', fillOpacity: 0.8 }).addTo(map);
+        
+        map.locate({setView: true, watch: true, maxZoom: 16});
+
+        map.on('locationfound', function(e) {
+            marcadorUsuario.setLatLng(e.latlng);
+            console.log("Ubicación encontrada");
+        });
+
+        map.on('locationerror', function(e) {
+            alert("Por favor, activa el GPS de tu celular.");
+        });
+
+        function centrarMapa() {
+            map.locate({setView: true});
+        }
+        // -------------------------------
+
         async function cargarPuntos() {
-            // Buscamos en la tabla 'paradas' (todo minúscula)
             const { data: paradas, error } = await sb.from('paradas').select('*').order('orden', { ascending: true });
             
             if (error) {
-                console.error(error);
+                console.error("Error Supabase:", error);
                 return;
             }
 
@@ -37,16 +63,13 @@
             paradas.forEach(p => {
                 if (p.latitud && p.longitud) {
                     const pos = [p.latitud, p.longitud];
-                    // Marcador blanco con borde azul
                     L.circleMarker(pos, { radius: 7, color: '#007bff', fillColor: '#fff', fillOpacity: 1, weight: 3 }).addTo(map).bindPopup(p.nombre);
                     ruta.push(pos);
                 }
             });
 
-            // Dibuja la línea azul uniendo los puntos
             if (ruta.length > 1) {
                 L.polyline(ruta, { color: '#007bff', weight: 4 }).addTo(map);
-                map.fitBounds(ruta, { padding: [50, 50] });
             }
         }
         cargarPuntos();
