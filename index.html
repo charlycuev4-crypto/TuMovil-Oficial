@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tu Móvil - Mapa en Vivo</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -10,9 +10,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
-        /* Hacemos que el mapa ocupe toda la pantalla del celular */
-        #mapa-osm { height: 100vh; width: 100%; }
-        body { margin: 0; padding: 0; overflow: hidden; }
+        #mapa-osm { height: 100vh; width: 100%; background: #f0f0f0; }
+        body { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
+        
+        /* Estilo para los nombres de las paradas */
+        .leaflet-popup-content-wrapper { border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -20,60 +22,75 @@
     <div id="mapa-osm"></div>
 
     <script>
-        // 2. CONFIGURACIÓN DE TU BASE DE DATOS
+        // CONFIGURACIÓN DE CONEXIÓN
         const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
         const SB_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        // 3. INICIALIZAR EL MAPA (Centrado en Santa Brígida)
-        var map = L.map('mapa-osm').setView([-34.561264, -58.770506], 15);
+        // INICIALIZAR MAPA
+        var map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        // 4. FUNCIÓN PARA DIBUJAR LAS 20 PARADAS
+        // Capas para poder limpiarlas y redibujar
+        let layerMarcadores = L.layerGroup().addTo(map);
+        let layerRuta = L.layerGroup().addTo(map);
+
         async function cargarRuta() {
-            // Traemos los datos de tu tabla 'paradas'
             const { data: paradas, error } = await sb
                 .from('paradas')
                 .select('*')
                 .order('orden', { ascending: true });
             
             if (error) {
-                console.error("Error conectando a Supabase:", error.message);
+                console.error("Error de conexión:", error.message);
                 return;
             }
+
+            // Limpiamos lo anterior antes de redibujar
+            layerMarcadores.clearLayers();
+            layerRuta.clearLayers();
 
             const puntosParaLinea = [];
 
             paradas.forEach(p => {
-                // Si la parada tiene coordenadas, la dibujamos
                 if (p.latitud && p.longitud) {
-                    // Ponemos un marcador (pin) con el nombre de la parada
-                    L.marker([p.latitud, p.longitud]).addTo(map)
-                        .bindPopup(`<b>Parada ${p.orden}:</b><br>${p.nombre}`);
+                    const pos = [p.latitud, p.longitud];
                     
-                    // Guardamos la ubicación para crear la línea azul
-                    puntosParaLinea.push([p.latitud, p.longitud]);
+                    // Dibujar círculo estilo parada
+                    L.circleMarker(pos, {
+                        radius: 6,
+                        fillColor: "#ffffff",
+                        color: "#007bff",
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 1
+                    }).addTo(layerMarcadores)
+                      .bindPopup(`<b>${p.orden}. ${p.nombre}</b>`);
+                    
+                    puntosParaLinea.push(pos);
                 }
             });
 
-            // 5. DIBUJAR LA RUTA (Línea Azul)
             if (puntosParaLinea.length > 1) {
-                var polyline = L.polyline(puntosParaLinea, {
+                L.polyline(puntosParaLinea, {
                     color: '#007bff', 
                     weight: 5, 
-                    opacity: 0.7
-                }).addTo(map);
-
-                // Ajusta el zoom para que se vean todas las paradas cargadas
-                map.fitBounds(polyline.getBounds());
+                    opacity: 0.6,
+                    lineJoin: 'round'
+                }).addTo(layerRuta);
             }
         }
 
-        // Iniciamos la carga
+        // Ejecutar carga inicial
         cargarRuta();
+
+        // REFRESCAR AUTOMÁTICAMENTE CADA 30 SEGUNDOS
+        // Por si agregas más paradas mientras la app está abierta
+        setInterval(cargarRuta, 30000);
     </script>
 </body>
 </html>
