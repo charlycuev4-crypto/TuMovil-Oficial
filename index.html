@@ -2,32 +2,26 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tu Móvil - Mapa en Vivo</title>
-
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <style>
         #mapa-osm { height: 100vh; width: 100%; background: #f0f0f0; }
         body { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
-        
-        /* Estilo para los nombres de las paradas */
         .leaflet-popup-content-wrapper { border-radius: 8px; }
     </style>
 </head>
 <body>
-
     <div id="mapa-osm"></div>
-
     <script>
-        // CONFIGURACIÓN DE CONEXIÓN
+        // 1. CONFIGURACIÓN DE CONEXIÓN
         const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
         const SB_KEY = "EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        // INICIALIZAR MAPA
+        // 2. INICIALIZAR MAPA
         var map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -35,33 +29,28 @@
             attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        // Capas para poder limpiarlas y redibujar
         let layerMarcadores = L.layerGroup().addTo(map);
         let layerRuta = L.layerGroup().addTo(map);
 
+        // 3. FUNCIÓN PARA CARGAR LAS PARADAS
         async function cargarRuta() {
             const { data: paradas, error } = await sb
                 .from('paradas')
                 .select('*')
                 .order('orden', { ascending: true });
-            
+
             if (error) {
                 console.error("Error de conexión:", error.message);
                 return;
             }
 
-            // Limpiamos lo anterior antes de redibujar
             layerMarcadores.clearLayers();
             layerRuta.clearLayers();
-
             const puntosParaLinea = [];
 
             paradas.forEach(p => {
                 if (p.latitud && p.longitud) {
-                    const pos = [p.latitud, p.longitud];
-                    
-                    // Dibujar círculo estilo parada
-                    L.circleMarker(pos, {
+                    L.circleMarker([p.latitud, p.longitud], {
                         radius: 6,
                         fillColor: "#ffffff",
                         color: "#007bff",
@@ -69,28 +58,20 @@
                         opacity: 1,
                         fillOpacity: 1
                     }).addTo(layerMarcadores)
-                      .bindPopup(`<b>${p.orden}. ${p.nombre}</b>`);
+                      .bindPopup(`<b>${p.orden}. ${p.nombre || 'Parada'}</b>`);
                     
-                    puntosParaLinea.push(pos);
+                    puntosParaLinea.push([p.latitud, p.longitud]);
                 }
             });
 
             if (puntosParaLinea.length > 1) {
-                L.polyline(puntosParaLinea, {
-                    color: '#007bff', 
-                    weight: 5, 
-                    opacity: 0.6,
-                    lineJoin: 'round'
-                }).addTo(layerRuta);
+                L.polyline(puntosParaLinea, { color: '#007bff', weight: 5 }).addTo(layerRuta);
+                map.fitBounds(puntosParaLinea, { padding: [50, 50] });
             }
         }
 
         // Ejecutar carga inicial
         cargarRuta();
-
-        // REFRESCAR AUTOMÁTICAMENTE CADA 30 SEGUNDOS
-        // Por si agregas más paradas mientras la app está abierta
-        setInterval(cargarRuta, 30000);
     </script>
 </body>
 </html>
