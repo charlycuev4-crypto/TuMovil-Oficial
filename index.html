@@ -1,32 +1,76 @@
-// Iniciamos el mapa centrado en la primera parada
-var map = L.map('mapa-osm').setView([-34.561264, -58.770506], 15);
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tu Móvil - Mapa en Vivo</title>
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-async function cargarRuta() {
-    // Traemos las paradas de Supabase
-    const { data: paradas, error } = await sb.from('paradas').select('*').order('orden');
-    
-    if (error) return console.error(error);
+    <style>
+        #mapa-osm { height: 100vh; width: 100%; }
+        body { margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
 
-    // Creamos una lista de puntos para la línea azul
-    const puntosParaLinea = [];
+    <div id="mapa-osm"></div>
 
-    paradas.forEach(p => {
-        if (p.latitud && p.longitud) {
-            // Ponemos un marcador en cada parada
-            L.marker([p.latitud, p.longitud]).addTo(map)
-                .bindPopup(`<b>${p.orden}. ${p.nombre}</b>`);
+    <script>
+        // 2. CONEXIÓN A SUPABASE (Asegúrate de que estos datos sean los tuyos)
+        const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
+        const SB_KEY = "TU_ANON_KEY_AQUI"; // <--- PEGA AQUÍ TU CLAVE ANON DE SUPABASE
+        const sb = supabase.createClient(SB_URL, SB_KEY);
+
+        // 3. INICIALIZAR EL MAPA
+        // Lo centramos en la Parada 1 que ya cargaste
+        var map = L.map('mapa-osm').setView([-34.561264, -58.770506], 15);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // 4. FUNCIÓN PARA CARGAR LAS 20 PARADAS
+        async function cargarRuta() {
+            console.log("Intentando conectar con Supabase...");
             
-            // Guardamos el punto para la línea
-            puntosParaLinea.push([p.latitud, p.longitud]);
+            const { data: paradas, error } = await sb
+                .from('paradas')
+                .select('*')
+                .order('orden', { ascending: true });
+            
+            if (error) {
+                console.error("Error de conexión:", error.message);
+                return;
+            }
+
+            console.log("Paradas encontradas:", paradas.length);
+
+            const puntosParaLinea = [];
+
+            paradas.forEach(p => {
+                if (p.latitud && p.longitud) {
+                    // Ponemos un marcador en cada parada cargada
+                    L.marker([p.latitud, p.longitud]).addTo(map)
+                        .bindPopup(`<b>${p.orden}. ${p.nombre}</b>`);
+                    
+                    puntosParaLinea.push([p.latitud, p.longitud]);
+                }
+            });
+
+            // Dibujamos la línea azul si hay al menos 2 paradas
+            if (puntosParaLinea.length > 1) {
+                L.polyline(puntosParaLinea, {color: 'blue', weight: 4, opacity: 0.6}).addTo(map);
+                
+                // Esto hace que el mapa se ajuste para mostrar todo el recorrido
+                map.fitBounds(L.polyline(puntosParaLinea).getBounds());
+            }
         }
-    });
 
-    // Dibujamos la línea azul que une las paradas
-    if (puntosParaLinea.length > 1) {
-        L.polyline(puntosParaLinea, {color: 'blue', weight: 4}).addTo(map);
-    }
-}
-
-cargarRuta();
+        // Ejecutar la función al cargar la página
+        cargarRuta();
+    </script>
+</body>
+</html>
