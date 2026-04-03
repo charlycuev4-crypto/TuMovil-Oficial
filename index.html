@@ -6,7 +6,7 @@
     <title>Tu Móvil - Ruta Oficial</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        #mapa-osm { height: 100vh; width: 100%; background: #e5e5e5; }
+        #mapa-osm { height: 100vh; width: 100%; background: #f0f0f0; }
         body { margin: 0; padding: 0; overflow: hidden; }
     </style>
 </head>
@@ -17,59 +17,64 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        // CONFIGURACIÓN DE CONEXIÓN (LLAVE CORREGIDA)
+        // 1. DATOS DE CONEXIÓN (Verificados de tus capturas)
         const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
         const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        // INICIALIZAR EL MAPA (CENTRADO EN SANTA BRÍGIDA)
+        // 2. INICIALIZAR MAPA CENTRADO EN SANTA BRÍGIDA
+        // Coordenadas de la primera parada: Miguel Cané y Marchena
         var map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
 
-        async function cargarParadas() {
-            // Buscamos las paradas en la tabla 'paradas'
+        // 3. CARGAR LAS 20 PARADAS DESDE LA TABLA
+        async function cargarPuntos() {
             const { data: paradas, error } = await sb
                 .from('paradas')
                 .select('*')
                 .order('orden', { ascending: true });
 
             if (error) {
-                console.error("Error de conexión:", error.message);
+                console.error("Error conectando a Supabase:", error.message);
                 return;
             }
 
-            if (paradas && paradas.length > 0) {
-                const rutaCoordenadas = [];
+            const rutaCoordenadas = [];
 
-                paradas.forEach(p => {
-                    if (p.latitud && p.longitud) {
-                        const punto = [p.latitud, p.longitud];
-                        
-                        // Crear marcador para cada parada
-                        L.circleMarker(punto, {
-                            radius: 8,
-                            color: '#007bff',
-                            fillColor: '#ffffff',
-                            fillOpacity: 1,
-                            weight: 3
-                        }).addTo(map).bindPopup("Parada " + p.orden + ": " + p.nombre);
+            paradas.forEach(p => {
+                if (p.latitud && p.longitud) {
+                    const posicion = [p.latitud, p.longitud];
+                    
+                    // Dibujar el circulito de la parada
+                    L.circleMarker(posicion, {
+                        radius: 8,
+                        color: '#007bff',
+                        fillColor: '#ffffff',
+                        fillOpacity: 1,
+                        weight: 3
+                    }).addTo(map).bindPopup("<b>Parada " + p.orden + "</b><br>" + p.nombre);
 
-                        rutaCoordenadas.push(punto);
-                    }
-                });
-
-                // Dibujar la línea azul que une todas las paradas
-                if (rutaCoordenadas.length > 1) {
-                    L.polyline(rutaCoordenadas, { color: '#007bff', weight: 5 }).addTo(map);
-                    // Ajustar la cámara para que se vean todas las paradas
-                    map.fitBounds(rutaCoordenadas, { padding: [50, 50] });
+                    rutaCoordenadas.push(posicion);
                 }
-            } else {
-                console.log("No se encontraron paradas en la tabla.");
+            });
+
+            // 4. DIBUJAR LA LÍNEA DE RECORRIDO
+            if (rutaCoordenadas.length > 1) {
+                L.polyline(rutaCoordenadas, {
+                    color: '#007bff',
+                    weight: 5,
+                    opacity: 0.7
+                }).addTo(map);
+
+                // Ajustar el zoom para que se vean todas las paradas juntas
+                map.fitBounds(rutaCoordenadas, { padding: [40, 40] });
             }
         }
 
-        cargarParadas();
+        cargarPuntos();
     </script>
 </body>
 </html>
