@@ -3,80 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Conductor - Tu Móvil</title>
+    <title>Tu Móvil Oficial - Operativo</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; font-family: Arial, sans-serif; }
-        #map { height: 100vh; width: 100%; }
-        .controles { position: absolute; bottom: 20px; left: 10px; right: 10px; z-index: 1000; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
-        .btn-gps { background: #28a745; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; }
-        .status { font-size: 12px; text-align: center; margin-top: 8px; color: #666; }
+        body { margin: 0; font-family: sans-serif; }
+        #map { height: 400px; width: 100%; }
+        .panel { padding: 20px; background: #fff; }
+        .btn-gps { background: #28a745; color: white; padding: 15px; width: 100%; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        select { width: 100%; padding: 12px; margin-top: 10px; border-radius: 5px; }
     </style>
 </head>
 <body>
 
-    <div id="map"></div>
+<div id="map"></div>
+<div class="panel">
+    <button class="btn-gps" onclick="activarGps()">📍 INICIAR GPS Y TRANSMITIR</button>
+    <hr>
+    <label><b>Paradas de la Ruta (Cané - Roca):</b></label>
+    <select id="lista-paradas"><option>Cargando ruta real...</option></select>
+</div>
 
-    <div class="controles">
-        <button id="btn-gps" class="btn-gps" onclick="toggleServicio()">🔴 INICIAR SERVICIO (GPS)</button>
-        <div id="gps-info" class="status">GPS: Inactivo</div>
-    </div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+    // TUS LLAVES (RECUPERADAS)
+    const URL_SUPA = 'https://nvumdlxervrewqiiaicl.supabase.co';
+    const KEY_SUPA = 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs';
+    const _supabase = supabase.createClient(URL_SUPA, KEY_SUPA);
 
-    <script>
-        const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
+    var map = L.map('map').setView([-34.561264, -58.770506], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    var marcadorAuto = L.marker([-34.561264, -58.770506]).addTo(map).bindPopup("Móvil en Camino");
 
-        var map = L.map('map').setView([-34.561128, -58.770586], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    // CARGAR LA RUTA DE 34 PUNTOS QUE ME PASASTE
+    async function cargarRutaReal() {
+        const { data: paradas } = await _supabase.from('paradas').select('*').order('orden', { ascending: true });
         
-        var carMarker = L.marker([-34.561128, -58.770586]).addTo(map).bindPopup("Tu ubicación");
-        let watchId = null;
+        if (paradas) {
+            // Dibujar la línea del recorrido
+            const puntos = paradas.map(p => [p.latitud, p.longitud]);
+            L.polyline(puntos, {color: 'blue', weight: 4}).addTo(map);
 
-        // 1. CARGAR RUTA DESDE SUPABASE (SOLO LECTURA)
-        async function dibujarRuta() {
-            const { data: paradas } = await _supabase.from('paradas').select('*').order('orden');
-            if (paradas) {
-                const latlngs = paradas.map(p => [p.latitud, p.longitud]);
-                L.polyline(latlngs, {color: 'red', weight: 4}).addTo(map);
-                paradas.forEach(p => {
-                    L.circleMarker([p.latitud, p.longitud], {radius: 5, color: 'blue'}).addTo(map).bindPopup(p.nombre);
-                });
-            }
+            // Cargar el menú de paradas para el pasajero
+            const combo = document.getElementById('lista-paradas');
+            combo.innerHTML = '<option>Selecciona tu destino...</option>';
+            paradas.forEach(p => {
+                if (!p.nombre.includes("Giro")) {
+                    combo.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
+                    L.circleMarker([p.latitud, p.longitud], {radius: 3, color: 'red'}).addTo(map);
+                }
+            });
         }
+    }
 
-        // 2. FUNCIÓN DEL CONDUCTOR: TRANSMITIR GPS
-        function toggleServicio() {
-            const btn = document.getElementById('btn-gps');
-            if (watchId) {
-                navigator.geolocation.clearWatch(watchId);
-                watchId = null;
-                btn.innerText = "🔴 INICIAR SERVICIO (GPS)";
-                btn.style.background = "#28a745";
-                document.getElementById('gps-info').innerText = "GPS: Apagado";
-            } else {
-                watchId = navigator.geolocation.watchPosition(async (pos) => {
-                    const { latitude, longitude } = pos.coords;
-                    carMarker.setLatLng([latitude, longitude]);
-                    map.panTo([latitude, longitude]);
-                    
-                    // Actualiza Supabase para que el Pasajero te vea
-                    await _supabase.from('estado_movil').update({ 
-                        latitud: latitude, 
-                        longitud: longitude,
-                        ultima_actualizacion: new Date().toISOString()
-                    }).eq('id', 1);
+    // TRANSMITIR GPS (CONDUCTOR)
+    function activarGps() {
+        navigator.geolocation.watchPosition(async (pos) => {
+            const { latitude, longitude } = pos.coords;
+            marcadorAuto.setLatLng([latitude, longitude]);
+            await _supabase.from('estado_movil').update({ latitud: latitude, longitud: longitude }).eq('id', 1);
+        }, null, { enableHighAccuracy: true });
+        alert("GPS Activo: Ya estás transmitiendo a los pasajeros.");
+    }
 
-                    document.getElementById('gps-info').innerText = "📡 Transmitiendo ubicación real...";
-                }, null, { enableHighAccuracy: true });
-
-                btn.innerText = "🛑 FINALIZAR SERVICIO";
-                btn.style.background = "#dc3545";
-            }
-        }
-
-        dibujarRuta();
-    </script>
+    cargarRutaReal();
+</script>
 </body>
 </html>
