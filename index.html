@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CONDUCTOR - Tu Móvil</title>
+    <title>CONDUCTOR - Tu Móvil Santa Brígida</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; padding: 0; font-family: sans-serif; background: #121212; color: white; overflow: hidden; }
-        #mapa-osm { height: 60vh; width: 100%; background: #222; }
+        body { margin: 0; padding: 0; font-family: sans-serif; background: #121212; color: white; height: 100vh; display: flex; flex-direction: column; }
+        #mapa-osm { flex-grow: 1; width: 100%; background: #222; }
         .panel-control { height: 40vh; padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: space-around; background: #1e1e1e; border-top: 4px solid #007bff; box-sizing: border-box; }
         .asientos-container { display: flex; gap: 10px; }
         .asiento { width: 55px; height: 55px; border-radius: 12px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; cursor: pointer; }
         .libre { background: #28a745; }
         .ocupado { background: #dc3545; }
-        .btn-encendido { width: 90%; padding: 20px; border-radius: 35px; border: none; font-size: 18px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; transition: 0.3s; }
+        .btn-encendido { width: 95%; padding: 20px; border-radius: 35px; border: none; font-size: 18px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; transition: 0.3s; }
         .inactivo { background: #34495e; box-shadow: 0 4px #2c3e50; }
         .activo { background: #e74c3c; box-shadow: 0 4px #c0392b; animation: pulse 1.5s infinite; }
-        #status-gps { font-size: 14px; color: #3498db; font-weight: bold; }
+        #status-gps { font-size: 14px; color: #3498db; font-weight: bold; margin-bottom: 5px; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
     </style>
 </head>
@@ -38,13 +38,23 @@
         const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        let map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 16);
+        let map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         let marcadorAuto = L.marker([-34.561264, -58.770506]).addTo(map);
 
         let enServicio = false;
         let asientosLibres = 4;
         let watchId = null;
+
+        // --- RECUPERAMOS TUS PARADAS ---
+        async function cargarRuta() {
+            const { data: paradas } = await sb.from('paradas').select('*').order('orden', { ascending: true });
+            if (paradas) {
+                const pts = paradas.map(p => [p.latitud, p.longitud]);
+                L.polyline(pts, { color: '#007bff', weight: 5, opacity: 0.6 }).addTo(map);
+                paradas.forEach(p => L.circleMarker([p.latitud, p.longitud], { radius: 6, color: '#fff', fillColor: '#007bff', fillOpacity: 1, weight: 2 }).addTo(map));
+            }
+        }
 
         function dibujarAsientos() {
             const container = document.getElementById('cont-asientos');
@@ -86,7 +96,7 @@
                             latitud: lat, longitud: lng, en_servicio: true, ultima_actualizacion: new Date() 
                         }).eq('id', 1);
                     },
-                    (err) => { statusText.innerText = "❌ Error: Activa el GPS"; },
+                    (err) => { statusText.innerText = "❌ Error: Activá el GPS"; },
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                 );
             } else {
@@ -97,6 +107,9 @@
                 sb.from('estado_movil').update({ en_servicio: false }).eq('id', 1);
             }
         }
+
+        // Ejecutar funciones iniciales
+        cargarRuta();
         dibujarAsientos();
     </script>
 </body>
