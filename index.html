@@ -1,10 +1,82 @@
--- UNIFICACIÓN DE TRAMO: LIBERTADOR -> MATERNIDAD -> CRUCE CASTELAR
-INSERT INTO paradas (orden, nombre, latitud, longitud) VALUES
-(19, 'Av. del Libertador y Aeronáutica Argentina', -34.585554, -58.749812),
-(20, 'Av. del Libertador 7300', -34.586494, -58.750574),
-(21, 'Av. del Libertador 7200', -34.588041, -58.751542),
-(22, 'Giro: Av. del Libertador y Manuel Maza', -34.588273, -58.751338),
-(23, 'Manuel Maza y Albatros', -34.588771, -58.750804),
-(24, 'Albatros y Boulogne Sur Mer (Maternidad)', -34.588244, -58.749877),
-(25, 'Esquina: Manuel Maza y Albatros', -34.588930, -58.750543),
-(26, 'Giro: Albatros y Av. Néstor Kirchner', -34.586030, -58.747278);
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Conductor - Tu Móvil</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        .controles { position: absolute; bottom: 20px; left: 10px; right: 10px; z-index: 1000; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+        .btn-gps { background: #28a745; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; }
+        .status { font-size: 12px; text-align: center; margin-top: 8px; color: #666; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="controles">
+        <button id="btn-gps" class="btn-gps" onclick="toggleServicio()">🔴 INICIAR SERVICIO (GPS)</button>
+        <div id="gps-info" class="status">GPS: Inactivo</div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
+
+        var map = L.map('map').setView([-34.561128, -58.770586], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        
+        var carMarker = L.marker([-34.561128, -58.770586]).addTo(map).bindPopup("Tu ubicación");
+        let watchId = null;
+
+        // 1. CARGAR RUTA DESDE SUPABASE (SOLO LECTURA)
+        async function dibujarRuta() {
+            const { data: paradas } = await _supabase.from('paradas').select('*').order('orden');
+            if (paradas) {
+                const latlngs = paradas.map(p => [p.latitud, p.longitud]);
+                L.polyline(latlngs, {color: 'red', weight: 4}).addTo(map);
+                paradas.forEach(p => {
+                    L.circleMarker([p.latitud, p.longitud], {radius: 5, color: 'blue'}).addTo(map).bindPopup(p.nombre);
+                });
+            }
+        }
+
+        // 2. FUNCIÓN DEL CONDUCTOR: TRANSMITIR GPS
+        function toggleServicio() {
+            const btn = document.getElementById('btn-gps');
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                btn.innerText = "🔴 INICIAR SERVICIO (GPS)";
+                btn.style.background = "#28a745";
+                document.getElementById('gps-info').innerText = "GPS: Apagado";
+            } else {
+                watchId = navigator.geolocation.watchPosition(async (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    carMarker.setLatLng([latitude, longitude]);
+                    map.panTo([latitude, longitude]);
+                    
+                    // Actualiza Supabase para que el Pasajero te vea
+                    await _supabase.from('estado_movil').update({ 
+                        latitud: latitude, 
+                        longitud: longitude,
+                        ultima_actualizacion: new Date().toISOString()
+                    }).eq('id', 1);
+
+                    document.getElementById('gps-info').innerText = "📡 Transmitiendo ubicación real...";
+                }, null, { enableHighAccuracy: true });
+
+                btn.innerText = "🛑 FINALIZAR SERVICIO";
+                btn.style.background = "#dc3545";
+            }
+        }
+
+        dibujarRuta();
+    </script>
+</body>
+</html>
