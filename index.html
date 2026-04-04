@@ -3,78 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tu Móvil - Ruta Oficial</title>
+    <title>CONDUCTOR - Tu Móvil Santa Brígida</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        #mapa-osm { height: 100vh; width: 100%; background: #f0f0f0; }
-        body { margin: 0; padding: 0; overflow: hidden; }
+        #mapa-osm { height: 70vh; width: 100%; background: #f0f0f0; }
+        body { margin: 0; padding: 0; font-family: sans-serif; background: #1a1a1a; color: white; }
+        .panel-control { height: 30vh; padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: space-around; background: #222; border-top: 3px solid #007bff; }
+        .asientos-container { display: flex; gap: 15px; }
+        .asiento { width: 50px; height: 50px; border-radius: 10px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .libre { background: #28a745; } /* Verde */
+        .ocupado { background: #dc3545; } /* Rojo */
+        .btn-servicio { padding: 10px 20px; border-radius: 20px; border: none; font-weight: bold; cursor: pointer; }
+        .activo { background: #007bff; color: white; }
+        .inactivo { background: #555; color: #ccc; }
     </style>
 </head>
 <body>
     <div id="mapa-osm"></div>
 
+    <div class="panel-control">
+        <div id="status-gps">Esperando GPS...</div>
+        <div class="asientos-container" id="cont-asientos">
+            </div>
+        <button id="btn-servicio" class="btn-servicio inactivo" onclick="toggleServicio()">INICIAR SERVICIO</button>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        // 1. DATOS DE CONEXIÓN (Verificados de tus capturas)
         const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
         const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        // 2. INICIALIZAR MAPA CENTRADO EN SANTA BRÍGIDA
-        // Coordenadas de la primera parada: Miguel Cané y Marchena
-        var map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
-        
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+        let map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        // 3. CARGAR LAS 20 PARADAS DESDE LA TABLA
-        async function cargarPuntos() {
-            const { data: paradas, error } = await sb
-                .from('paradas')
-                .select('*')
-                .order('orden', { ascending: true });
+        let marcadorAuto = L.marker([-34.561264, -58.770506]).addTo(map).bindPopup("Tu ubicación");
+        let enServicio = false;
+        let asientosLibres = 4;
 
-            if (error) {
-                console.error("Error conectando a Supabase:", error.message);
-                return;
-            }
+        // 1. CARGAR RUTA FIJA (Lo que ya tenías)
+        async function cargarRuta() {
+            const { data: paradas } = await sb.from('paradas').select('*').order('orden', { ascending: true });
+            const pts = paradas.map(p => [p.latitud, p.longitud]);
+            L.polyline(pts, { color: '#007bff', weight: 4, opacity: 0.5 }).addTo(map);
+            paradas.forEach(p => L.circleMarker([p.latitud, p.longitud], { radius: 5, color: '#007bff' }).addTo(map));
+        }
 
-            const rutaCoordenadas = [];
-
-            paradas.forEach(p => {
-                if (p.latitud && p.longitud) {
-                    const posicion = [p.latitud, p.longitud];
-                    
-                    // Dibujar el circulito de la parada
-                    L.circleMarker(posicion, {
-                        radius: 8,
-                        color: '#007bff',
-                        fillColor: '#ffffff',
-                        fillOpacity: 1,
-                        weight: 3
-                    }).addTo(map).bindPopup("<b>Parada " + p.orden + "</b><br>" + p.nombre);
-
-                    rutaCoordenadas.push(posicion);
-                }
-            });
-
-            // 4. DIBUJAR LA LÍNEA DE RECORRIDO
-            if (rutaCoordenadas.length > 1) {
-                L.polyline(rutaCoordenadas, {
-                    color: '#007bff',
-                    weight: 5,
-                    opacity: 0.7
-                }).addTo(map);
-
-                // Ajustar el zoom para que se vean todas las paradas juntas
-                map.fitBounds(rutaCoordenadas, { padding: [40, 40] });
+        // 2. LÓGICA DE ASIENTOS (El corazón de tu negocio)
+        function dibujarAsientos() {
+            const container = document.getElementById('cont-asientos');
+            container.innerHTML = '';
+            for (let i = 1; i <= 4; i++) {
+                const div = document.createElement('div');
+                div.className = `asiento ${i <= asientosLibres ? 'libre' : 'ocupado'}`;
+                div.innerText = i;
+                div.onclick = () => cambiarAsiento(i);
+                container.appendChild(div);
             }
         }
 
-        cargarPuntos();
+        async function cambiarAsiento(num) {
+            // Lógica simple: si tocas el 4 y estaba libre, ahora hay 3 libres.
+            if (num <= asientosLibres) asientosLibres = num - 1;
+            else asientosLibres = num;
+            
+            dibujarAsientos();
+            await sb.from('estado_movil').update({ asientos_libres: asientosLibres }).eq('id', 1);
+        }
+
+        // 3. GPS EN TIEMPO REAL
+        function toggleServicio() {
+            enServicio = !enServicio;
+            const btn = document.getElementById('btn-servicio');
+            btn.innerText = enServicio ? "EN SERVICIO (TRANSMITIENDO)" : "INICIAR SERVICIO";
+            btn.className = `btn-servicio ${enServicio ? 'activo' : 'inactivo'}`;
+            
+            if (enServicio) {
+                navigator.geolocation.watchPosition(actualizarPosicion, null, { enableHighAccuracy: true });
+            }
+        }
+
+        async function actualizarPosicion(pos) {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            
+            marcadorAuto.setLatLng([lat, lng]);
+            map.panTo([lat, lng]);
+            document.getElementById('status-gps').innerText = `GPS: OK (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+
+            if (enServicio) {
+                await sb.from('estado_movil').update({ 
+                    latitud: lat, 
+                    longitud: lng, 
+                    en_servicio: true,
+                    ultima_actualizacion: new Date()
+                }).eq('id', 1);
+            }
+        }
+
+        cargarRuta();
+        dibujarAsientos();
     </script>
 </body>
 </html>
