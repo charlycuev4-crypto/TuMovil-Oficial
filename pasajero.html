@@ -3,76 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pasajeros - Tu Móvil Santa Brígida</title>
+    <title>Tu Móvil Santa Brígida</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; font-family: sans-serif; }
+        body { margin: 0; font-family: sans-serif; background: #f0f2f5; }
         #map { height: 350px; width: 100%; }
-        .panel { padding: 20px; }
-        .asientos-grid { display: flex; justify-content: space-around; margin: 15px 0; }
-        .btn-asiento { width: 55px; height: 55px; border: 2px solid #007bff; background: white; color: #007bff; font-weight: bold; border-radius: 12px; }
-        .btn-asiento.seleccionado { background: #007bff; color: white; }
-        .btn-confirmar { background: #007bff; color: white; width: 100%; padding: 15px; border: none; border-radius: 10px; font-weight: bold; margin-top: 15px; }
+        .contenedor { padding: 15px; max-width: 500px; margin: auto; }
+        
+        /* Estilos Paneles */
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .chofer { border-left: 5px solid #28a745; }
+        .pasajero { border-left: 5px solid #007bff; }
+        
+        /* Botones */
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 16px; }
+        .btn-gps { background: #28a745; color: white; }
+        .btn-fin { background: #dc3545; color: white; }
+        .btn-reserva { background: #007bff; color: white; }
+        
+        /* Asientos */
+        .grid-asientos { display: flex; justify-content: space-around; margin: 15px 0; }
+        .asiento { width: 50px; height: 50px; border: 2px solid #007bff; border-radius: 10px; background: white; font-weight: bold; cursor: pointer; }
+        .asiento.ocupado { background: #007bff; color: white; }
+        .asiento.bloqueado { background: #ccc; border-color: #999; cursor: not-allowed; }
+        
+        select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; margin: 10px 0; }
+        .label { font-size: 14px; font-weight: bold; color: #555; }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div class="panel">
-        <h3 style="text-align:center">Asientos disponibles: <span id="libres">--</span></h3>
-        <div class="asientos-grid">
-            <button class="btn-asiento" onclick="seleccionar(1, this)">1</button>
-            <button class="btn-asiento" onclick="seleccionar(2, this)">2</button>
-            <button class="btn-asiento" onclick="seleccionar(3, this)">3</button>
-            <button class="btn-asiento" onclick="seleccionar(4, this)">4</button>
-        </div>
-        <select id="destino" style="width:100%; padding:10px; margin-top:10px;"></select>
-        <button class="btn-confirmar" onclick="reservar()">RESERVAR MI LUGAR</button>
+
+<div id="map"></div>
+
+<div class="contenedor">
+    <div class="card chofer">
+        <span class="label">CONDUCTOR: CARLOS</span>
+        <button id="btn-gps" class="btn btn-gps" onclick="toggleGps()">📍 INICIAR RECORRIDO (GPS)</button>
+        <button class="btn btn-fin" onclick="finalizarViaje()">🏁 FINALIZAR VIAJE (RESETEAR)</button>
+        <div style="margin-top:10px; font-size:13px;" id="gps-status">GPS inactivo</div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
+    <div class="card pasajero">
+        <span class="label">RESERVA DE PASAJERO</span>
+        <div style="text-align:center; margin:10px 0;">
+            Asientos disponibles: <span id="txt-libres" style="font-weight:bold; font-size:20px;">--</span>
+        </div>
         
-        var map = L.map('map').setView([-34.561128, -58.770586], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        var auto = L.marker([-34.561128, -58.770586]).addTo(map);
+        <div class="grid-asientos">
+            <button id="a1" class="asiento" onclick="elegirAsiento(1)">1</button>
+            <button id="a2" class="asiento" onclick="elegirAsiento(2)">2</button>
+            <button id="a3" class="asiento" onclick="elegirAsiento(3)">3</button>
+            <button id="a4" class="asiento" onclick="elegirAsiento(4)">4</button>
+        </div>
 
-        let elegido = null;
-        let libres = 4;
+        <select id="lista-paradas">
+            <option>Cargando paradas...</option>
+        </select>
 
-        async function inicio() {
-            const { data: p } = await _supabase.from('paradas').select('*').order('orden');
-            p.forEach(parada => {
-                let o = document.createElement('option');
-                o.text = parada.nombre; o.value = parada.id;
-                document.getElementById('destino').add(o);
-            });
+        <button class="btn btn-reserva" onclick="confirmarReserva()">RESERVAR MI LUGAR</button>
+    </div>
+</div>
 
-            const { data: e } = await _supabase.from('estado_movil').select('asientos_libres').eq('id', 1).single();
-            libres = e.asientos_libres;
-            document.getElementById('libres').innerText = libres;
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+    const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
+
+    // Mapa e ícono de auto 🚓
+    var map = L.map('map').setView([-34.561128, -58.770586], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
+    var carIcon = L.divIcon({ html: '🚓', className: 'car-icon', iconSize: [30, 30] });
+    var marcadorAuto = L.marker([-34.561128, -58.770586], {icon: carIcon}).addTo(map);
+
+    let idGps = null;
+    let asientoSel = null;
+    let asientosLibres = 4;
+
+    // --- FUNCIONES CONDUCTOR ---
+    function toggleGps() {
+        const btn = document.getElementById('btn-gps');
+        if (idGps) {
+            navigator.geolocation.clearWatch(idGps);
+            idGps = null;
+            btn.innerText = "📍 INICIAR RECORRIDO (GPS)";
+            document.getElementById('gps-status').innerText = "GPS detenido";
+        } else {
+            idGps = navigator.geolocation.watchPosition(async (pos) => {
+                const { latitude, longitude } = pos.coords;
+                await _supabase.from('estado_movil').update({ latitud: latitude, longitud: longitude }).eq('id', 1);
+                document.getElementById('gps-status').innerText = "Transmitiendo: " + latitude.toFixed(4) + ", " + longitude.toFixed(4);
+            }, null, { enableHighAccuracy: true });
+            btn.innerText = "🛑 DETENER GPS";
         }
+    }
 
-        function seleccionar(n, btn) {
-            elegido = n;
-            document.querySelectorAll('.btn-asiento').forEach(b => b.classList.remove('seleccionado'));
-            btn.classList.add('seleccionado');
+    async function finalizarViaje() {
+        if(confirm("¿Terminaste el recorrido? Esto reseteará los asientos a 4.")) {
+            await _supabase.from('estado_movil').update({ asientos_libres: 4 }).eq('id', 1);
+            alert("Viaje finalizado. Asientos liberados.");
         }
+    }
 
-        async function reservar() {
-            if(!elegido) return alert("Elegí asiento");
-            await _supabase.from('estado_movil').update({ asientos_libres: libres - 1 }).eq('id', 1);
-            alert("Reserva confirmada");
+    // --- FUNCIONES PASAJERO ---
+    async function cargarBase() {
+        // Cargar Paradas
+        const { data: paradas } = await _supabase.from('paradas').select('*').order('orden');
+        const sel = document.getElementById('lista-paradas');
+        sel.innerHTML = '<option value="">¿Dónde te bajás?</option>';
+        paradas.forEach(p => sel.innerHTML += `<option value="${p.id}">${p.nombre}</option>`);
+
+        // Cargar Asientos
+        const { data: est } = await _supabase.from('estado_movil').select('asientos_libres').eq('id', 1).single();
+        actualizarUIAsientos(est.asientos_libres);
+    }
+
+    function elegirAsiento(n) {
+        asientoSel = n;
+        document.querySelectorAll('.asiento').forEach(b => b.classList.remove('ocupado'));
+        document.getElementById('a'+n).classList.add('ocupado');
+    }
+
+    function actualizarUIAsientos(num) {
+        asientosLibres = num;
+        document.getElementById('txt-libres').innerText = num;
+        // Bloqueamos visualmente si ya están ocupados (ejemplo simple)
+        for(let i=1; i<=4; i++) {
+            const el = document.getElementById('a'+i);
+            if(i > num) el.classList.add('bloqueado');
+            else el.classList.remove('bloqueado');
         }
+    }
 
-        _supabase.channel('movimiento').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, (payload) => {
-            auto.setLatLng([payload.new.latitud, payload.new.longitud]);
-            document.getElementById('libres').innerText = payload.new.asientos_libres;
-            libres = payload.new.asientos_libres;
-        }).subscribe();
+    async function confirmarReserva() {
+        const par = document.getElementById('lista-paradas').value;
+        if (!asientoSel || !par) return alert("Elegí asiento y parada");
+        
+        if (asientosLibres > 0) {
+            const nuevo = asientosLibres - 1;
+            await _supabase.from('estado_movil').update({ asientos_libres: nuevo }).eq('id', 1);
+            alert("¡Reserva confirmada!");
+        }
+    }
 
-        inicio();
-    </script>
+    // --- ESCUCHADOR EN TIEMPO REAL ---
+    _supabase.channel('movimiento').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, (payload) => {
+        const { latitud, longitud, asientos_libres } = payload.new;
+        if (latitud && longitud) marcadorAuto.setLatLng([latitud, longitud]);
+        if (asientos_libres !== undefined) actualizarUIAsientos(asientos_libres);
+    }).subscribe();
+
+    cargarBase();
+</script>
+
 </body>
 </html>
