@@ -1,50 +1,20 @@
-async function cargarParadasYDibujarRuta() {
-    console.log("Intentando recuperar paradas de Santa Brígida...");
-    
-    // 1. Pedimos las paradas a Supabase
-    const { data: paradas, error } = await sb
-        .from('paradas')
-        .select('*')
-        .order('orden', { ascending: true });
+<div id="mapa-pasajero" style="height: 500px; width: 100%;"></div>
 
-    if (error) {
-        console.error("Error de Supabase:", error.message);
-        return;
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+    // ... Acá va todo el código de Supabase que ya tenés ...
+
+    // INICIALIZACIÓN DEL MAPA (Si no ponés esto, el mapa no existe)
+    var map = L.map('mapa-pasajero').setView([-34.5612, -58.7705], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // ACÁ PEGA LA FUNCIÓN QUE TENÉS EN LA FOTO
+    async function cargarParadasYDibujarRuta() { 
+        // ... tu código ...
     }
 
-    if (paradas && paradas.length > 0) {
-        console.log("¡Paradas recuperadas! Cantidad:", paradas.length);
-        
-        // 2. Creamos los puntos (latitud y longitud)
-        const puntosRuta = paradas.map(p => [p.latitud, p.longitud]);
-
-        // 3. Dibujamos la línea azul de la ruta
-        L.polyline(puntosRuta, { 
-            color: '#007bff', 
-            weight: 5, 
-            opacity: 0.7,
-            lineJoin: 'round'
-        }).addTo(map);
-
-        // 4. Dibujamos los circulitos de cada parada
-        paradas.forEach(p => {
-            L.circleMarker([p.latitud, p.longitud], {
-                radius: 6,
-                fillColor: "white",
-                color: "#007bff",
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 1
-            })
-            .addTo(map)
-            .bindPopup(`<b>Parada:</b> ${p.nombre || 'Sin nombre'}`);
-        });
-
-        // 5. Ajustar el mapa para que se vean todas las paradas automáticamente
-        const bounds = L.latLngBounds(puntosRuta);
-        map.fitBounds(bounds);
-
-    } else {
-        console.warn("No se encontraron paradas en la tabla.");
-    }
-}
+    // EL PASO QUE FALTÓ: EJECUTARLA
+    cargarParadasYDibujarRuta();
+</script>
