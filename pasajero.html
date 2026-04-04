@@ -2,100 +2,75 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pasajero - Tu Móvil</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pasajeros - Tu Móvil Santa Brígida</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; height: 100vh; display: flex; flex-direction: column; }
-        #mapa-pasajero { flex-grow: 1; width: 100%; }
-        .panel-info { padding: 15px; background: white; border-top: 5px solid #007bff; text-align: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); }
-        .badge { display: inline-block; padding: 8px 15px; border-radius: 20px; font-weight: bold; margin-bottom: 8px; }
-        .activo { background: #d4edda; color: #155724; }
-        .inactivo { background: #f8d7da; color: #721c24; }
-        .asientos { font-size: 20px; font-weight: bold; color: #007bff; }
+        body { margin: 0; font-family: sans-serif; }
+        #map { height: 350px; width: 100%; }
+        .panel { padding: 20px; }
+        .asientos-grid { display: flex; justify-content: space-around; margin: 15px 0; }
+        .btn-asiento { width: 55px; height: 55px; border: 2px solid #007bff; background: white; color: #007bff; font-weight: bold; border-radius: 12px; }
+        .btn-asiento.seleccionado { background: #007bff; color: white; }
+        .btn-confirmar { background: #007bff; color: white; width: 100%; padding: 15px; border: none; border-radius: 10px; font-weight: bold; margin-top: 15px; }
     </style>
 </head>
 <body>
-
-    <div id="mapa-pasajero"></div>
-
-    <div class="panel-info">
-        <div id="estado-badge" class="badge inactivo">BUSCANDO MÓVIL...</div>
-        <div id="info-asientos">Esperando señal del conductor...</div>
+    <div id="map"></div>
+    <div class="panel">
+        <h3 style="text-align:center">Asientos disponibles: <span id="libres">--</span></h3>
+        <div class="asientos-grid">
+            <button class="btn-asiento" onclick="seleccionar(1, this)">1</button>
+            <button class="btn-asiento" onclick="seleccionar(2, this)">2</button>
+            <button class="btn-asiento" onclick="seleccionar(3, this)">3</button>
+            <button class="btn-asiento" onclick="seleccionar(4, this)">4</button>
+        </div>
+        <select id="destino" style="width:100%; padding:10px; margin-top:10px;"></select>
+        <button class="btn-confirmar" onclick="reservar()">RESERVAR MI LUGAR</button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <script>
-        // Configuración de Supabase
-        const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
-        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
-        const sb = supabase.createClient(SB_URL, SB_KEY);
-
-        // Inicializar el Mapa
-        var map = L.map('mapa-pasajero', { zoomControl: false }).setView([-34.5612, -58.7705], 15);
+        const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
+        
+        var map = L.map('map').setView([-34.561128, -58.770586], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        var auto = L.marker([-34.561128, -58.770586]).addTo(map);
 
-        // Marcador del auto (ícono azul por ahora)
-        var marcadorMovil = L.marker([0, 0]).addTo(map);
-        var capaRuta = L.layerGroup().addTo(map); // Para limpiar y dibujar la ruta
+        let elegido = null;
+        let libres = 4;
 
-        // --- FUNCIÓN 1: DIBUJAR LAS PARADAS ---
-        async function cargarRuta() {
-            const { data: paradas, error } = await sb.from('paradas').select('*').order('orden', { ascending: true });
-            
-            if (paradas) {
-                capaRuta.clearLayers(); // Limpiamos antes de dibujar
-                const pts = paradas.map(p => [p.latitud, p.longitud]);
-                
-                // Dibujar línea de ruta
-                L.polyline(pts, { color: '#007bff', weight: 4, opacity: 0.6 }).addTo(capaRuta);
-                
-                // Dibujar circulitos de paradas
-                paradas.forEach(p => {
-                    L.circleMarker([p.latitud, p.longitud], { radius: 5, color: '#007bff', fillColor: 'white', fillOpacity: 1 }).addTo(capaRuta);
-                });
-            }
-        }
-
-        // --- FUNCIÓN 2: ACTUALIZAR ESTADO EN PANTALLA ---
-        function actualizarPantalla(datos) {
-            const badge = document.getElementById('estado-badge');
-            const info = document.getElementById('info-asientos');
-
-            if (datos.en_servicio) {
-                badge.innerText = "✅ MÓVIL EN RECORRIDO";
-                badge.className = "badge activo";
-                info.innerHTML = `Asientos disponibles: <span class="asientos">${datos.asientos_libres}</span>`;
-                
-                // Mover el auto en el mapa
-                marcadorMovil.setLatLng([datos.latitud, datos.longitud]).setOpacity(1);
-            } else {
-                badge.innerText = "❌ FUERA DE SERVICIO";
-                badge.className = "badge inactivo";
-                info.innerText = "El chofer aún no inició el recorrido.";
-                marcadorMovil.setOpacity(0); // Escondemos el auto si no hay servicio
-            }
-        }
-
-        // --- FUNCIÓN 3: ESCUCHA EN TIEMPO REAL (REALTIME) ---
-        const suscripcion = sb.channel('cambios-pasajero')
-            .on('postgres_changes', 
-                { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.1' }, 
-                (payload) => {
-                    console.log("¡Cambio detectado!", payload.new);
-                    actualizarPantalla(payload.new);
-                }
-            )
-            .subscribe();
-
-        // --- INICIO ---
         async function inicio() {
-            await cargarRuta(); // Primero las paradas
-            const { data } = await sb.from('estado_movil').select('*').eq('id', 1).single();
-            if (data) actualizarPantalla(data); // Estado inicial
+            const { data: p } = await _supabase.from('paradas').select('*').order('orden');
+            p.forEach(parada => {
+                let o = document.createElement('option');
+                o.text = parada.nombre; o.value = parada.id;
+                document.getElementById('destino').add(o);
+            });
+
+            const { data: e } = await _supabase.from('estado_movil').select('asientos_libres').eq('id', 1).single();
+            libres = e.asientos_libres;
+            document.getElementById('libres').innerText = libres;
         }
+
+        function seleccionar(n, btn) {
+            elegido = n;
+            document.querySelectorAll('.btn-asiento').forEach(b => b.classList.remove('seleccionado'));
+            btn.classList.add('seleccionado');
+        }
+
+        async function reservar() {
+            if(!elegido) return alert("Elegí asiento");
+            await _supabase.from('estado_movil').update({ asientos_libres: libres - 1 }).eq('id', 1);
+            alert("Reserva confirmada");
+        }
+
+        _supabase.channel('movimiento').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, (payload) => {
+            auto.setLatLng([payload.new.latitud, payload.new.longitud]);
+            document.getElementById('libres').innerText = payload.new.asientos_libres;
+            libres = payload.new.asientos_libres;
+        }).subscribe();
 
         inicio();
     </script>
