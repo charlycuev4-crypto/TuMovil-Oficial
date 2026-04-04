@@ -2,102 +2,90 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PASAJERO - Tu Móvil Santa Brígida</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PASAJERO - Tu Móvil</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        #mapa-osm { height: 75vh; width: 100%; background: #f0f0f0; }
-        body { margin: 0; padding: 0; font-family: sans-serif; background: #f4f4f4; color: #333; }
-        .info-pasajero { height: 25vh; padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; border-top: 5px solid #28a745; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); }
-        .asientos-badge { font-size: 24px; font-weight: bold; color: white; background: #28a745; padding: 10px 20px; border-radius: 50px; margin-top: 10px; }
-        .asientos-badge.poco-lugar { background: #ffc107; color: #000; }
-        .asientos-badge.lleno { background: #dc3545; }
-        .estado-text { font-size: 18px; color: #666; }
+        body { margin: 0; padding: 0; font-family: sans-serif; background: #f4f4f4; }
+        #map { height: 75vh; width: 100%; }
+        .info-panel { 
+            height: 25vh; background: white; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; text-align: center;
+            border-top: 5px solid #007bff;
+        }
+        .status-badge { padding: 10px 20px; border-radius: 20px; font-weight: bold; margin-bottom: 10px; }
+        .online { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .offline { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .asientos-info { font-size: 24px; font-weight: bold; color: #333; }
     </style>
 </head>
 <body>
-    <div id="mapa-osm"></div>
 
-    <div class="info-pasajero">
-        <div class="estado-text" id="estado-servicio">Buscando móvil...</div>
-        <div id="badge-asientos" class="asientos-badge">--</div>
-        <div style="font-size: 12px; color: #999; margin-top: 5px;">Actualizado en tiempo real</div>
-    </div>
+<div id="map"></div>
+<div class="info-panel" id="panel">
+    <div id="status-label" class="status-badge offline">Buscando móvil...</div>
+    <div class="asientos-info" id="asientos-text">Esperando señal</div>
+</div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <script>
-        const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
-        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
-        const sb = supabase.createClient(SB_URL, SB_KEY);
+<script>
+    const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
+    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
+    const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        let map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    let map = L.map('map').setView([-34.561264, -58.770506], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
+    // Marcador del móvil (el autito que el pasajero verá moverse)
+    let carIcon = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3082/3082349.png',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+    });
+    let carMarker = L.marker([-34.561264, -58.770506], {icon: carIcon}).addTo(map);
 
-        // Ícono personalizado para tu auto
-        const carIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/3082/3082349.png', // Un ícono de auto azul
-            iconSize: [40, 40],
-            iconAnchor: [20, 20]
-        });
-
-        let marcadorAuto = L.marker([-34.561264, -58.770506], {icon: carIcon}).addTo(map);
-
-        // 1. CARGAR RUTA FIJA (Misma que el conductor)
-        async function cargarRuta() {
-            const { data: paradas } = await sb.from('paradas').select('*').order('orden', { ascending: true });
+    // Cargar Ruta y Paradas
+    async function init() {
+        const { data: paradas } = await sb.from('paradas').select('*').order('orden', { ascending: true });
+        if(paradas) {
             const pts = paradas.map(p => [p.latitud, p.longitud]);
-            L.polyline(pts, { color: '#007bff', weight: 4, opacity: 0.4 }).addTo(map);
-            paradas.forEach(p => L.circleMarker([p.latitud, p.longitud], { radius: 4, color: '#007bff' }).addTo(map));
-            if(pts.length > 0) map.fitBounds(pts);
+            L.polyline(pts, {color: '#007bff', weight: 4, opacity: 0.5}).addTo(map);
+            paradas.forEach(p => L.circleMarker([p.latitud, p.longitud], {radius: 5, color: '#007bff'}).addTo(map));
         }
+        actualizarDatos();
+    }
 
-        // 2. ESCUCHAR CAMBIOS EN TIEMPO REAL (Realtime)
-        function suscribirCambios() {
-            sb.channel('estado_movil_cambios')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, payload => {
-                actualizarVista(payload.new);
-            })
-            .subscribe();
-        }
+    // Función que revisa si el conductor está activo
+    async function actualizarDatos() {
+        const { data, error } = await sb.from('estado_movil').select('*').eq('id', 1).single();
+        
+        if (data) {
+            const statusLabel = document.getElementById('status-label');
+            const asientosText = document.getElementById('asientos-text');
 
-        // 3. ACTUALIZAR MAPA Y BOTÓN DE ASIENTOS
-        function actualizarVista(datos) {
-            const { latitud, longitud, asientos_libres, en_servicio } = datos;
-            
-            if (latitud && longitud) {
-                marcadorAuto.setLatLng([latitud, longitud]);
-                map.panTo([latitud, longitud]);
-            }
-
-            const badge = document.getElementById('badge-asientos');
-            const statusText = document.getElementById('estado-servicio');
-
-            if (en_servicio) {
-                statusText.innerText = "Móvil en recorrido";
-                badge.innerText = `Asientos Libres: ${asientos_libres}`;
-                badge.style.display = "block";
+            if (data.en_servicio) {
+                // EL CONDUCTOR ESTÁ EN LÍNEA
+                statusLabel.innerText = "✅ MÓVIL EN RECORRIDO";
+                statusLabel.className = "status-badge online";
+                asientosText.innerText = `Asientos libres: ${data.asientos_libres}`;
                 
-                // Cambiar colores según disponibilidad
-                badge.className = "asientos-badge";
-                if (asientos_libres === 0) badge.classList.add('lleno');
-                else if (asientos_libres < 2) badge.classList.add('poco-lugar');
+                // Mover el autito en el mapa
+                carMarker.setLatLng([data.latitud, data.longitud]);
+                map.panTo([data.latitud, data.longitud]);
             } else {
-                statusText.innerText = "Móvil fuera de servicio";
-                badge.style.display = "none";
+                // EL CONDUCTOR ESTÁ APAGADO
+                statusLabel.innerText = "❌ MÓVIL FUERA DE SERVICIO";
+                statusLabel.className = "status-badge offline";
+                asientosText.innerText = "Vuelve a consultar pronto";
             }
         }
+        // Repetir cada 3 segundos para que sea "tiempo real"
+        setTimeout(actualizarDatos, 3000);
+    }
 
-        // Carga inicial de datos
-        async function inicio() {
-            await cargarRuta();
-            const { data } = await sb.from('estado_movil').select('*').eq('id', 1).single();
-            if (data) actualizarVista(data);
-            suscribirCambios();
-        }
-
-        inicio();
-    </script>
+    init();
+</script>
 </body>
 </html>
