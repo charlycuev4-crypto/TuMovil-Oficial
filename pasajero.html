@@ -1,83 +1,50 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pasajero - Tu Móvil</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; height: 100vh; display: flex; flex-direction: column; }
-        #mapa-pasajero { flex-grow: 1; width: 100%; }
-        .panel-info { padding: 20px; background: white; text-align: center; border-top: 5px solid #28a745; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); }
-        .estado-badge { display: inline-block; padding: 8px 15px; border-radius: 20px; font-weight: bold; margin-bottom: 10px; }
-        .activo { background: #d4edda; color: #155724; }
-        .inactivo { background: #f8d7da; color: #721c24; }
-        .asientos-cont { font-size: 1.2rem; }
-        #num-asientos { font-weight: bold; color: #28a745; font-size: 1.5rem; }
-    </style>
-</head>
-<body>
+async function cargarParadasYDibujarRuta() {
+    console.log("Intentando recuperar paradas de Santa Brígida...");
+    
+    // 1. Pedimos las paradas a Supabase
+    const { data: paradas, error } = await sb
+        .from('paradas')
+        .select('*')
+        .order('orden', { ascending: true });
 
-    <div id="mapa-pasajero"></div>
+    if (error) {
+        console.error("Error de Supabase:", error.message);
+        return;
+    }
 
-    <div class="panel-info">
-        <div id="txt-estado" class="estado-badge inactivo">Buscando móvil...</div>
-        <div class="asientos-cont">Asientos disponibles: <span id="num-asientos">-</span></div>
-    </div>
+    if (paradas && paradas.length > 0) {
+        console.log("¡Paradas recuperadas! Cantidad:", paradas.length);
+        
+        // 2. Creamos los puntos (latitud y longitud)
+        const puntosRuta = paradas.map(p => [p.latitud, p.longitud]);
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        // 3. Dibujamos la línea azul de la ruta
+        L.polyline(puntosRuta, { 
+            color: '#007bff', 
+            weight: 5, 
+            opacity: 0.7,
+            lineJoin: 'round'
+        }).addTo(map);
 
-    <script>
-        // Configuración de tu "Cerebro" (Supabase)
-        const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
-        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
-        const sb = supabase.createClient(SB_URL, SB_KEY);
+        // 4. Dibujamos los circulitos de cada parada
+        paradas.forEach(p => {
+            L.circleMarker([p.latitud, p.longitud], {
+                radius: 6,
+                fillColor: "white",
+                color: "#007bff",
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 1
+            })
+            .addTo(map)
+            .bindPopup(`<b>Parada:</b> ${p.nombre || 'Sin nombre'}`);
+        });
 
-        // Inicializamos el mapa en Trujui
-        let map = L.map('mapa-pasajero', { zoomControl: false }).setView([-34.5612, -58.7705], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        // 5. Ajustar el mapa para que se vean todas las paradas automáticamente
+        const bounds = L.latLngBounds(puntosRuta);
+        map.fitBounds(bounds);
 
-        // El marcador azul que representa al conductor
-        let marcadorMovil = L.marker([-34.5612, -58.7705]).addTo(map).bindPopup("Móvil Santa Brígida");
-
-        // Función para actualizar los elementos visuales
-        function actualizarUI(datos) {
-            const elEstado = document.getElementById('txt-estado');
-            const elAsientos = document.getElementById('num-asientos');
-
-            if (datos.en_servicio) {
-                elEstado.innerText = "✅ TRANSMITIENDO EN VIVO";
-                elEstado.className = "estado-badge activo";
-                elAsientos.innerText = datos.asientos_libres;
-                
-                // MOVE EL MARCADOR (Efecto WhatsApp)
-                marcadorMovil.setLatLng([datos.latitud, datos.longitud]);
-            } else {
-                elEstado.innerText = "❌ MÓVIL FUERA DE SERVICIO";
-                elEstado.className = "estado-badge inactivo";
-                elAsientos.innerText = "-";
-            }
-        }
-
-        // --- LA MAGIA DEL TIEMPO REAL (Lo que faltaba unir) ---
-        const canal = sb.channel('movimiento-vivo')
-            .on('postgres_changes', 
-                { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.1' }, 
-                (payload) => {
-                    console.log("Cambio en tiempo real recibido:", payload.new);
-                    actualizarUI(payload.new);
-                }
-            )
-            .subscribe();
-
-        // Carga inicial al abrir la app
-        async function inicio() {
-            const { data } = await sb.from('estado_movil').select('*').eq('id', 1).single();
-            if (data) actualizarUI(data);
-        }
-
-        inicio();
-    </script>
-</body>
-</html>
+    } else {
+        console.warn("No se encontraron paradas en la tabla.");
+    }
+}
