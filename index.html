@@ -1,48 +1,10 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Conductor - Tu Móvil</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body { margin: 0; font-family: sans-serif; background: #e8f5e9; }
-        #map { height: 400px; width: 100%; }
-        .panel { padding: 20px; text-align: center; }
-        .btn-gps { background: #28a745; color: white; width: 100%; padding: 20px; border: none; border-radius: 10px; font-weight: bold; font-size: 18px; cursor: pointer; }
-    </style>
-</head>
-<body>
-    <div id="map"></div>
-    <div class="panel">
-        <button class="btn-gps" onclick="iniciarGpsCarlos()">📍 ACTIVAR MI GPS (EN RECORRIDO)</button>
-        <p id="status">GPS inactivo</p>
-    </div>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
-
-        var map = L.map('map').setView([-34.561128, -58.770586], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        var marcador = L.marker([-34.561128, -58.770586]).addTo(map);
-
-        function iniciarGpsCarlos() {
-            if ("geolocation" in navigator) {
-                navigator.geolocation.watchPosition(async (pos) => {
-                    const { latitude, longitude } = pos.coords;
-                    marcador.setLatLng([latitude, longitude]);
-                    map.panTo([latitude, longitude]);
-                    document.getElementById('status').innerText = "Transmitiendo posición...";
-                    
-                    await _supabase.from('estado_movil').update({ 
-                        latitud: latitude, longitud: longitude, ultima_actualizacion: new Date().toISOString() 
-                    }).eq('id', 1);
-                }, null, { enableHighAccuracy: true });
-                alert("📍 GPS Iniciado");
-            }
-        }
-    </script>
-</body>
-</html>
+-- UNIFICACIÓN DE TRAMO: LIBERTADOR -> MATERNIDAD -> CRUCE CASTELAR
+INSERT INTO paradas (orden, nombre, latitud, longitud) VALUES
+(19, 'Av. del Libertador y Aeronáutica Argentina', -34.585554, -58.749812),
+(20, 'Av. del Libertador 7300', -34.586494, -58.750574),
+(21, 'Av. del Libertador 7200', -34.588041, -58.751542),
+(22, 'Giro: Av. del Libertador y Manuel Maza', -34.588273, -58.751338),
+(23, 'Manuel Maza y Albatros', -34.588771, -58.750804),
+(24, 'Albatros y Boulogne Sur Mer (Maternidad)', -34.588244, -58.749877),
+(25, 'Esquina: Manuel Maza y Albatros', -34.588930, -58.750543),
+(26, 'Giro: Albatros y Av. Néstor Kirchner', -34.586030, -58.747278);
