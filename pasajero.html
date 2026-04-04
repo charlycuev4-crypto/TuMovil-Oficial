@@ -1,93 +1,19 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PASAJERO - Tu Móvil</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body { margin: 0; padding: 0; font-family: sans-serif; background: #f0f2f5; height: 100vh; display: flex; flex-direction: column; }
-        #mapa-pasajero { flex-grow: 1; width: 100%; }
-        .panel-pasajero { height: 30vh; padding: 15px; background: white; border-top: 4px solid #28a745; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 -5px 15px rgba(0,0,0,0.1); }
-        .estado-box { padding: 10px 20px; border-radius: 25px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; }
-        .en-linea { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .fuera { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .asientos-info { font-size: 18px; color: #333; }
-        .numero-asientos { font-size: 24px; font-weight: bold; color: #28a745; }
-    </style>
-</head>
-<body>
-
-    <div id="mapa-pasajero"></div>
-
-    <div class="panel-pasajero">
-        <div id="txt-estado" class="estado-box fuera">Buscando móvil...</div>
-        <div id="txt-asientos" class="asientos-info">Cargando disponibilidad...</div>
-    </div>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <script>
-        const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
-        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
-        const sb = supabase.createClient(SB_URL, SB_KEY);
-
-        // Mapa centrado en la zona de Santa Brígida
-        let map = L.map('mapa-pasajero', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-        // Ícono del móvil que se va a mover
-        let marcadorMovil = L.marker([-34.561264, -58.770506]).addTo(map);
-
-        // --- TRAER LAS PARADAS ---
-        async function dibujarRuta() {
-            const { data: paradas } = await sb.from('paradas').select('*').order('orden', { ascending: true });
-            if (paradas) {
-                const pts = paradas.map(p => [p.latitud, p.longitud]);
-                L.polyline(pts, { color: '#007bff', weight: 4, opacity: 0.5 }).addTo(map);
-                paradas.forEach(p => L.circleMarker([p.latitud, p.longitud], { radius: 5, color: '#007bff' }).addTo(map));
-            }
-        }
-
-        // --- ACTUALIZAR LA VISTA ---
-        function refrescarPantalla(datos) {
-            const elEstado = document.getElementById('txt-estado');
-            const elAsientos = document.getElementById('txt-asientos');
-
-            if (datos.en_servicio) {
-                elEstado.innerText = "✅ Móvil en Recorrido";
-                elEstado.className = "estado-box en-linea";
-                elAsientos.innerHTML = `Asientos disponibles: <span class="numero-asientos">${datos.asientos_libres}</span>`;
-                
-                // EL EFECTO WHATSAPP: Mueve el marcador sin refrescar
-                marcadorMovil.setLatLng([datos.latitud, datos.longitud]);
-            } else {
-                elEstado.innerText = "❌ Móvil Fuera de Servicio";
-                elEstado.className = "estado-box fuera";
-                elAsientos.innerText = "El chofer no ha iniciado el turno.";
-            }
-        }
-
-        // --- LA MAGIA DEL TIEMPO REAL ---
-        const suscripcion = sb.channel('cambios-movil')
-            .on('postgres_changes', 
-                { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.1' }, 
-                (payload) => {
-                    console.log("¡Movimiento detectado!", payload.new);
-                    refrescarPantalla(payload.new);
-                }
-            )
-            .subscribe();
-
-        // Carga inicial
-        async function cargarInicial() {
-            await dibujarRuta();
-            const { data } = await sb.from('estado_movil').select('*').eq('id', 1).single();
-            if (data) refrescarPantalla(data);
-        }
-
-        cargarInicial();
-    </script>
-</body>
-</html>
+// Conectamos con el megáfono que activaste recién
+const canal = sb.channel('movimiento-vivo')
+  .on('postgres_changes', 
+      { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'estado_movil', 
+        filter: 'id=eq.1' 
+      }, 
+      (payload) => {
+          // Esto se dispara SOLITO cada vez que vos te movés
+          const { latitud, longitud, asientos_libres, en_servicio } = payload.new;
+          
+          if (en_servicio) {
+              marcadorMovil.setLatLng([latitud, longitud]); // El autito se mueve solo
+              document.getElementById('asientos').innerText = asientos_libres;
+          }
+      })
+  .subscribe();
