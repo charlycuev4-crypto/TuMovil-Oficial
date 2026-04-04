@@ -3,64 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tu Móvil Santa Brígida</title>
+    <title>Tu Móvil Oficial - Pasajeros y Ruta</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; font-family: sans-serif; background: #f0f2f5; }
-        #map { height: 350px; width: 100%; }
-        .contenedor { padding: 15px; max-width: 500px; margin: auto; }
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2f3; }
+        #map { height: 300px; width: 100%; border-bottom: 4px solid #007bff; }
+        .panel { padding: 15px; max-width: 450px; margin: auto; }
+        .seccion { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .titulo { font-weight: bold; margin-bottom: 10px; display: block; font-size: 14px; text-transform: uppercase; }
         
-        /* Estilos Paneles */
-        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
-        .chofer { border-left: 5px solid #28a745; }
-        .pasajero { border-left: 5px solid #007bff; }
+        /* Botones Chofer */
+        .btn-gps { background: #28a745; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .btn-reset { background: #6c757d; color: white; border: none; padding: 10px; width: 100%; border-radius: 10px; margin-top: 10px; cursor: pointer; }
         
-        /* Botones */
-        .btn { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 16px; }
-        .btn-gps { background: #28a745; color: white; }
-        .btn-fin { background: #dc3545; color: white; }
-        .btn-reserva { background: #007bff; color: white; }
+        /* Asientos Pasajero */
+        .asientos-container { display: flex; justify-content: space-between; margin: 15px 0; }
+        .btn-asiento { width: 50px; height: 50px; border: 2px solid #007bff; background: white; color: #007bff; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .btn-asiento.selected { background: #007bff; color: white; }
+        .btn-asiento.busy { background: #ddd; border-color: #aaa; color: #888; cursor: not-allowed; }
         
-        /* Asientos */
-        .grid-asientos { display: flex; justify-content: space-around; margin: 15px 0; }
-        .asiento { width: 50px; height: 50px; border: 2px solid #007bff; border-radius: 10px; background: white; font-weight: bold; cursor: pointer; }
-        .asiento.ocupado { background: #007bff; color: white; }
-        .asiento.bloqueado { background: #ccc; border-color: #999; cursor: not-allowed; }
+        select { width: 100%; padding: 15px; border-radius: 10px; border: 2px solid #ddd; font-size: 16px; margin-top: 5px; }
+        .btn-confirmar { background: #007bff; color: white; border: none; padding: 18px; width: 100%; border-radius: 10px; font-weight: bold; margin-top: 20px; font-size: 18px; }
         
-        select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; margin: 10px 0; }
-        .label { font-size: 14px; font-weight: bold; color: #555; }
+        #status-gps { font-size: 12px; color: #28a745; text-align: center; margin-top: 5px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="map"></div>
 
-<div class="contenedor">
-    <div class="card chofer">
-        <span class="label">CONDUCTOR: CARLOS</span>
-        <button id="btn-gps" class="btn btn-gps" onclick="toggleGps()">📍 INICIAR RECORRIDO (GPS)</button>
-        <button class="btn btn-fin" onclick="finalizarViaje()">🏁 FINALIZAR VIAJE (RESETEAR)</button>
-        <div style="margin-top:10px; font-size:13px;" id="gps-status">GPS inactivo</div>
+<div class="panel">
+    <div class="seccion" style="border-top: 5px solid #28a745;">
+        <span class="titulo" style="color: #28a745;">Panel Conductor (Carlos)</span>
+        <button class="btn-gps" id="btn-gps" onclick="activarGps()">📍 INICIAR RUTA Y GPS</button>
+        <div id="status-gps"></div>
+        <button class="btn-reset" onclick="resetViaje()">🏁 FINALIZAR VIAJE / LIBERAR</button>
     </div>
 
-    <div class="card pasajero">
-        <span class="label">RESERVA DE PASAJERO</span>
-        <div style="text-align:center; margin:10px 0;">
-            Asientos disponibles: <span id="txt-libres" style="font-weight:bold; font-size:20px;">--</span>
-        </div>
+    <div class="seccion" style="border-top: 5px solid #007bff;">
+        <span class="titulo" style="color: #007bff;">Reserva tu Asiento</span>
+        <div style="text-align: center; font-weight: bold;">Disponibles: <span id="libres-count">4</span></div>
         
-        <div class="grid-asientos">
-            <button id="a1" class="asiento" onclick="elegirAsiento(1)">1</button>
-            <button id="a2" class="asiento" onclick="elegirAsiento(2)">2</button>
-            <button id="a3" class="asiento" onclick="elegirAsiento(3)">3</button>
-            <button id="a4" class="asiento" onclick="elegirAsiento(4)">4</button>
+        <div class="asientos-container">
+            <button id="as1" class="btn-asiento" onclick="seleccionarAsiento(1)">1</button>
+            <button id="as2" class="btn-asiento" onclick="seleccionarAsiento(2)">2</button>
+            <button id="as3" class="btn-asiento" onclick="seleccionarAsiento(3)">3</button>
+            <button id="as4" class="btn-asiento" onclick="seleccionarAsiento(4)">4</button>
         </div>
 
-        <select id="lista-paradas">
-            <option>Cargando paradas...</option>
+        <span class="titulo">Selecciona tu Parada (Destino)</span>
+        <select id="select-paradas">
+            <option value="">Cargando paradas de la ruta...</option>
         </select>
 
-        <button class="btn btn-reserva" onclick="confirmarReserva()">RESERVAR MI LUGAR</button>
+        <button class="btn-confirmar" onclick="confirmarReserva()">CONFIRMAR RESERVA</button>
     </div>
 </div>
 
@@ -70,92 +66,99 @@
 <script>
     const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
 
-    // Mapa e ícono de auto 🚓
+    // 1. LAS 23 PARADAS DE LA RUTA (Hardcoded para que no fallen)
+    const paradasRuta = [
+        "Parada 1: Inicio Recorrido", "Parada 2: Santa Brígida", "Parada 3: Plaza Murillo",
+        "Parada 4: Escuela 25", "Parada 5: Av. Principal", "Parada 6: Calle 7", 
+        "Parada 7: Centro Comercial", "Parada 8: Hospital Local", "Parada 9: Biblioteca",
+        "Parada 10: Plaza Central", "Parada 11: Estación Norte", "Parada 12: Barrio Nuevo",
+        "Parada 13: Calle Solís", "Parada 14: Los Pinos", "Parada 15: Av. del Libertador",
+        "Parada 16: Club Social", "Parada 17: Parada del Puente", "Parada 18: Zona Industrial",
+        "Parada 19: Calle Belgrano", "Parada 20: El Ombú", "Parada 21: Final Av.",
+        "Parada 22: Barrio San Jorge", "Parada 23: Terminal Final"
+    ];
+
     var map = L.map('map').setView([-34.561128, -58.770586], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    
     var carIcon = L.divIcon({ html: '🚓', className: 'car-icon', iconSize: [30, 30] });
-    var marcadorAuto = L.marker([-34.561128, -58.770586], {icon: carIcon}).addTo(map);
+    var marker = L.marker([-34.561128, -58.770586], {icon: carIcon}).addTo(map);
 
     let idGps = null;
-    let asientoSel = null;
-    let asientosLibres = 4;
+    let nAsiento = null;
+    let libres = 4;
 
-    // --- FUNCIONES CONDUCTOR ---
-    function toggleGps() {
-        const btn = document.getElementById('btn-gps');
+    function cargarParadas() {
+        const select = document.getElementById('select-paradas');
+        select.innerHTML = '<option value="">-- Elige dónde bajás --</option>';
+        paradasRuta.forEach((nombre, index) => {
+            select.innerHTML += `<option value="${index + 1}">${nombre}</option>`;
+        });
+    }
+
+    // CONDUCTOR
+    function activarGps() {
         if (idGps) {
             navigator.geolocation.clearWatch(idGps);
             idGps = null;
-            btn.innerText = "📍 INICIAR RECORRIDO (GPS)";
-            document.getElementById('gps-status').innerText = "GPS detenido";
+            document.getElementById('btn-gps').innerText = "📍 INICIAR RUTA Y GPS";
+            document.getElementById('status-gps').innerText = "GPS APAGADO";
         } else {
             idGps = navigator.geolocation.watchPosition(async (pos) => {
                 const { latitude, longitude } = pos.coords;
                 await _supabase.from('estado_movil').update({ latitud: latitude, longitud: longitude }).eq('id', 1);
-                document.getElementById('gps-status').innerText = "Transmitiendo: " + latitude.toFixed(4) + ", " + longitude.toFixed(4);
+                document.getElementById('status-gps').innerText = "TRANSMITIENDO EN VIVO 📡";
             }, null, { enableHighAccuracy: true });
-            btn.innerText = "🛑 DETENER GPS";
+            document.getElementById('btn-gps').innerText = "🛑 DETENER GPS";
         }
     }
 
-    async function finalizarViaje() {
-        if(confirm("¿Terminaste el recorrido? Esto reseteará los asientos a 4.")) {
+    async function resetViaje() {
+        if(confirm("¿Resetear asientos a 4?")) {
             await _supabase.from('estado_movil').update({ asientos_libres: 4 }).eq('id', 1);
-            alert("Viaje finalizado. Asientos liberados.");
         }
     }
 
-    // --- FUNCIONES PASAJERO ---
-    async function cargarBase() {
-        // Cargar Paradas
-        const { data: paradas } = await _supabase.from('paradas').select('*').order('orden');
-        const sel = document.getElementById('lista-paradas');
-        sel.innerHTML = '<option value="">¿Dónde te bajás?</option>';
-        paradas.forEach(p => sel.innerHTML += `<option value="${p.id}">${p.nombre}</option>`);
-
-        // Cargar Asientos
-        const { data: est } = await _supabase.from('estado_movil').select('asientos_libres').eq('id', 1).single();
-        actualizarUIAsientos(est.asientos_libres);
-    }
-
-    function elegirAsiento(n) {
-        asientoSel = n;
-        document.querySelectorAll('.asiento').forEach(b => b.classList.remove('ocupado'));
-        document.getElementById('a'+n).classList.add('ocupado');
-    }
-
-    function actualizarUIAsientos(num) {
-        asientosLibres = num;
-        document.getElementById('txt-libres').innerText = num;
-        // Bloqueamos visualmente si ya están ocupados (ejemplo simple)
-        for(let i=1; i<=4; i++) {
-            const el = document.getElementById('a'+i);
-            if(i > num) el.classList.add('bloqueado');
-            else el.classList.remove('bloqueado');
-        }
+    // PASAJERO
+    function seleccionarAsiento(n) {
+        if(n > libres) return;
+        nAsiento = n;
+        document.querySelectorAll('.btn-asiento').forEach(b => b.classList.remove('selected'));
+        document.getElementById('as'+n).classList.add('selected');
     }
 
     async function confirmarReserva() {
-        const par = document.getElementById('lista-paradas').value;
-        if (!asientoSel || !par) return alert("Elegí asiento y parada");
-        
-        if (asientosLibres > 0) {
-            const nuevo = asientosLibres - 1;
-            await _supabase.from('estado_movil').update({ asientos_libres: nuevo }).eq('id', 1);
-            alert("¡Reserva confirmada!");
+        const p = document.getElementById('select-paradas').value;
+        if(!nAsiento || !p) return alert("Elegí asiento y parada");
+        if(libres > 0) {
+            await _supabase.from('estado_movil').update({ asientos_libres: libres - 1 }).eq('id', 1);
+            alert("✅ ¡Reserva realizada con éxito!");
         }
     }
 
-    // --- ESCUCHADOR EN TIEMPO REAL ---
-    _supabase.channel('movimiento').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, (payload) => {
+    function syncUI(num) {
+        libres = num;
+        document.getElementById('libres-count').innerText = num;
+        for(let i=1; i<=4; i++) {
+            const b = document.getElementById('as'+i);
+            if(i > num) b.className = 'btn-asiento busy';
+            else b.className = 'btn-asiento';
+        }
+    }
+
+    // REALTIME SUPABASE
+    _supabase.channel('cambios').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, (payload) => {
         const { latitud, longitud, asientos_libres } = payload.new;
-        if (latitud && longitud) marcadorAuto.setLatLng([latitud, longitud]);
-        if (asientos_libres !== undefined) actualizarUIAsientos(asientos_libres);
+        if(latitud && longitud) marker.setLatLng([latitud, longitud]);
+        if(asientos_libres !== undefined) syncUI(asientos_libres);
     }).subscribe();
 
-    cargarBase();
+    // INICIO
+    cargarParadas();
+    async function init() {
+        const { data } = await _supabase.from('estado_movil').select('*').eq('id', 1).single();
+        if(data) syncUI(data.asientos_libres);
+    }
+    init();
 </script>
-
 </body>
 </html>
