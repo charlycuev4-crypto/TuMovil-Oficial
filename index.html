@@ -3,71 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tu Móvil Oficial - Operativo</title>
+    <title>Pasajero - Tu Móvil Santa Brígida</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; font-family: sans-serif; }
-        #map { height: 400px; width: 100%; }
-        .panel { padding: 20px; background: #fff; }
-        .btn-gps { background: #28a745; color: white; padding: 15px; width: 100%; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        select { width: 100%; padding: 12px; margin-top: 10px; border-radius: 5px; }
+        body { margin: 0; font-family: sans-serif; background: #f4f7f6; }
+        #map { height: 350px; width: 100%; }
+        .contenedor { padding: 15px; }
+        .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 5px solid #007bff; }
+        .status-badge { background: #e8f5e9; color: #2e7d32; padding: 5px 15px; border-radius: 20px; font-weight: bold; display: inline-block; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
 <div id="map"></div>
-<div class="panel">
-    <button class="btn-gps" onclick="activarGps()">📍 INICIAR GPS Y TRANSMITIR</button>
-    <hr>
-    <label><b>Paradas de la Ruta (Cané - Roca):</b></label>
-    <select id="lista-paradas"><option>Cargando ruta real...</option></select>
+
+<div class="contenedor">
+    <div class="card">
+        <div class="status-badge">✅ MÓVIL EN RECORRIDO</div>
+        <p>Asientos disponibles: <b id="asientos">--</b></p>
+        <select id="destino" style="width:100%; padding:10px; border-radius:5px;">
+            <option>Cargando paradas...</option>
+        </select>
+    </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
-    // TUS LLAVES (RECUPERADAS)
-    const URL_SUPA = 'https://nvumdlxervrewqiiaicl.supabase.co';
-    const KEY_SUPA = 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs';
-    const _supabase = supabase.createClient(URL_SUPA, KEY_SUPA);
+    const _supabase = supabase.createClient(
+        'https://nvumdlxervrewqiiaicl.supabase.co', 
+        'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs'
+    );
 
     var map = L.map('map').setView([-34.561264, -58.770506], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    var marcadorAuto = L.marker([-34.561264, -58.770506]).addTo(map).bindPopup("Móvil en Camino");
 
-    // CARGAR LA RUTA DE 34 PUNTOS QUE ME PASASTE
-    async function cargarRutaReal() {
-        const { data: paradas } = await _supabase.from('paradas').select('*').order('orden', { ascending: true });
-        
+    async function recuperarRutaDeseada() {
+        // Buscamos solo las 25 paradas de ida
+        const { data: paradas } = await _supabase
+            .from('paradas')
+            .select('*')
+            .lte('orden', 25) // Filtramos para que no haga el rulo de vuelta
+            .order('orden', { ascending: true });
+
         if (paradas) {
-            // Dibujar la línea del recorrido
             const puntos = paradas.map(p => [p.latitud, p.longitud]);
-            L.polyline(puntos, {color: 'blue', weight: 4}).addTo(map);
+            
+            // Dibujamos la línea azul (Como la captura 1191)
+            L.polyline(puntos, {color: '#007bff', weight: 6, opacity: 0.6}).addTo(map);
 
-            // Cargar el menú de paradas para el pasajero
-            const combo = document.getElementById('lista-paradas');
-            combo.innerHTML = '<option>Selecciona tu destino...</option>';
+            const combo = document.getElementById('destino');
+            combo.innerHTML = '<option>-- Elige dónde bajás --</option>';
+
             paradas.forEach(p => {
+                // Dibujamos los circulitos azules de las paradas
+                L.circleMarker([p.latitud, p.longitud], {
+                    radius: 5, color: '#007bff', fillColor: 'white', fillOpacity: 1
+                }).addTo(map);
+
                 if (!p.nombre.includes("Giro")) {
-                    combo.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
-                    L.circleMarker([p.latitud, p.longitud], {radius: 3, color: 'red'}).addTo(map);
+                    combo.innerHTML += `<option>${p.nombre}</option>`;
                 }
             });
         }
     }
 
-    // TRANSMITIR GPS (CONDUCTOR)
-    function activarGps() {
-        navigator.geolocation.watchPosition(async (pos) => {
-            const { latitude, longitude } = pos.coords;
-            marcadorAuto.setLatLng([latitude, longitude]);
-            await _supabase.from('estado_movil').update({ latitud: latitude, longitud: longitude }).eq('id', 1);
-        }, null, { enableHighAccuracy: true });
-        alert("GPS Activo: Ya estás transmitiendo a los pasajeros.");
-    }
-
-    cargarRutaReal();
+    recuperarRutaDeseada();
 </script>
 </body>
 </html>
