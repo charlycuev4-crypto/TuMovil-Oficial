@@ -3,136 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tu Móvil Santa Brígida</title>
+    <title>Panel Conductor - Tu Móvil</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; }
-        #map { height: 350px; width: 100%; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        .panel { padding: 20px; max-width: 500px; margin: auto; }
-        
-        /* Estilo Chofer */
-        .seccion-chofer { background: #e8f5e9; padding: 15px; border-radius: 12px; border: 2px solid #28a745; margin-bottom: 20px; }
-        .btn-gps { background: #28a745; color: white; width: 100%; padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
-        
-        /* Estilo Pasajero */
-        .seccion-pasajero { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .asientos-grid { display: flex; justify-content: space-around; margin: 15px 0; }
-        .btn-asiento { width: 55px; height: 55px; border: 2px solid #007bff; background: white; color: #007bff; font-weight: bold; border-radius: 12px; cursor: pointer; }
-        .btn-asiento.seleccionado { background: #007bff; color: white; }
-        select { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #ccc; }
-        .btn-confirmar { background: #007bff; color: white; width: 100%; padding: 15px; border: none; border-radius: 10px; font-weight: bold; margin-top: 20px; cursor: pointer; }
-        .status-asientos { text-align: center; font-weight: bold; color: #333; margin-top: 10px; }
+        body { margin: 0; font-family: sans-serif; background: #e8f5e9; }
+        #map { height: 400px; width: 100%; }
+        .panel { padding: 20px; text-align: center; }
+        .btn-gps { background: #28a745; color: white; width: 100%; padding: 20px; border: none; border-radius: 10px; font-weight: bold; font-size: 18px; cursor: pointer; }
     </style>
 </head>
 <body>
-
-<div id="map"></div>
-
-<div class="panel">
-    <div class="seccion-chofer">
-        <label style="display:block; margin-bottom:10px; font-weight:bold; color: #1b5e20;">PANEL DEL CONDUCTOR</label>
+    <div id="map"></div>
+    <div class="panel">
         <button class="btn-gps" onclick="iniciarGpsCarlos()">📍 ACTIVAR MI GPS (EN RECORRIDO)</button>
+        <p id="status">GPS inactivo</p>
     </div>
 
-    <div class="seccion-pasajero">
-        <h3 style="text-align: center; margin-top: 0;">Reserva de Pasajeros</h3>
-        
-        <div class="status-asientos">
-            Asientos disponibles: <span id="num-libres">--</span>
-        </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
 
-        <div class="asientos-grid">
-            <button id="as1" class="btn-asiento" onclick="marcarAsiento(1)">1</button>
-            <button id="as2" class="btn-asiento" onclick="marcarAsiento(2)">2</button>
-            <button id="as3" class="btn-asiento" onclick="marcarAsiento(3)">3</button>
-            <button id="as4" class="btn-asiento" onclick="marcarAsiento(4)">4</button>
-        </div>
+        var map = L.map('map').setView([-34.561128, -58.770586], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        var marcador = L.marker([-34.561128, -58.770586]).addTo(map);
 
-        <label style="color: #666; font-size: 14px;"><b>¿Dónde te bajas?:</b></label>
-        <select id="select-destino">
-            <option value="">Cargando paradas...</option>
-        </select>
-
-        <button class="btn-confirmar" onclick="confirmarViaje()">RESERVAR MI LUGAR</button>
-    </div>
-</div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script>
-    const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
-
-    var map = L.map('map').setView([-34.561128, -58.770586], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    var marcadorAuto = L.marker([-34.561128, -58.770586]).addTo(map).bindPopup("Tu Móvil Oficial");
-
-    let asientoElegido = null;
-    let asientosActuales = 4;
-
-    // --- LÓGICA CHOFER ---
-    function iniciarGpsCarlos() {
-        if ("geolocation" in navigator) {
-            navigator.geolocation.watchPosition(async (pos) => {
-                const { latitude, longitude } = pos.coords;
-                await _supabase.from('estado_movil').update({ 
-                    latitud: latitude, longitud: longitude, ultima_actualizacion: new Date().toISOString() 
-                }).eq('id', 1);
-            }, null, { enableHighAccuracy: true });
-            alert("📍 GPS transmitiendo posición.");
+        function iniciarGpsCarlos() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition(async (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    marcador.setLatLng([latitude, longitude]);
+                    map.panTo([latitude, longitude]);
+                    document.getElementById('status').innerText = "Transmitiendo posición...";
+                    
+                    await _supabase.from('estado_movil').update({ 
+                        latitud: latitude, longitud: longitude, ultima_actualizacion: new Date().toISOString() 
+                    }).eq('id', 1);
+                }, null, { enableHighAccuracy: true });
+                alert("📍 GPS Iniciado");
+            }
         }
-    }
-
-    // --- LÓGICA PASAJERO ---
-    function marcarAsiento(num) {
-        asientoElegido = num;
-        document.querySelectorAll('.btn-asiento').forEach(b => b.classList.remove('seleccionado'));
-        document.getElementById('as'+num).classList.add('seleccionado');
-    }
-
-    async function cargarDatosIniciales() {
-        // Cargar Paradas
-        const { data: paradas } = await _supabase.from('paradas').select('*').order('orden', { ascending: true });
-        const combo = document.getElementById('select-destino');
-        combo.innerHTML = '<option value="">Selecciona tu destino...</option>';
-        paradas.forEach(p => {
-            let opt = document.createElement('option');
-            opt.value = p.id; opt.text = p.nombre;
-            combo.appendChild(opt);
-        });
-
-        // Cargar Asientos Disponibles
-        const { data: estado } = await _supabase.from('estado_movil').select('asientos_libres').eq('id', 1).single();
-        if(estado) {
-            asientosActuales = estado.asientos_libres;
-            document.getElementById('num-libres').innerText = asientosActuales;
-        }
-    }
-
-    async function confirmarViaje() {
-        const destino = document.getElementById('select-destino').value;
-        if (!asientoElegido || !destino) return alert("Elige asiento y destino.");
-        
-        if(asientosActuales > 0) {
-            const nuevoTotal = asientosActuales - 1;
-            await _supabase.from('estado_movil').update({ asientos_libres: nuevoTotal }).eq('id', 1);
-            alert("✅ ¡Reserva realizada! Te quedan " + nuevoTotal + " asientos.");
-        } else {
-            alert("❌ Lo siento, el móvil está lleno.");
-        }
-    }
-
-    // REALTIME
-    _supabase.channel('cambios').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, (payload) => {
-        const { latitud, longitud, asientos_libres } = payload.new;
-        if (latitud && longitud) marcadorAuto.setLatLng([latitud, longitud]);
-        if (asientos_libres !== undefined) {
-            asientosActuales = asientos_libres;
-            document.getElementById('num-libres').innerText = asientos_libres;
-        }
-    }).subscribe();
-
-    cargarDatosIniciales();
-</script>
+    </script>
 </body>
 </html>
