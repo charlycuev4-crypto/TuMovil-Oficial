@@ -1,88 +1,55 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recuperación: Ruta de Ida 25 Paradas</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PANEL CONDUCTOR - PRUEBA REAL</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f0f2f5; }
-        #map { height: 380px; width: 100%; border-bottom: 4px solid #007bff; }
-        .info-panel { padding: 20px; background: white; border-radius: 15px 15px 0 0; margin-top: -15px; position: relative; z-index: 1000; box-shadow: 0 -5px 15px rgba(0,0,0,0.1); }
-        .badge { background: #e7f3ff; color: #007bff; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 14px; }
-        .asientos { font-size: 24px; font-weight: bold; color: #28a745; margin: 15px 0; }
-        select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; }
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #1a1a1a; color: white; }
+        .btn-asiento { width: 60px; height: 60px; margin: 10px; font-size: 20px; cursor: pointer; border-radius: 10px; border: none; }
+        .libre { background: #28a745; color: white; }
+        .ocupado { background: #dc3545; color: white; }
+        #status { color: #ffc107; margin-top: 20px; font-size: 14px; }
     </style>
 </head>
 <body>
-
-<div id="map"></div>
-
-<div class="info-panel">
-    <span class="badge">🚌 MÓVIL EN SERVICIO</span>
-    <div class="asientos">💺 Asientos Libres: <span id="num-asientos">--</span></div>
-    <p style="color: #666; margin-bottom: 10px;"><b>Recorrido:</b> Miguel Cané ➔ Roca y Albatros</p>
-    <select id="lista-paradas">
-        <option>Cargando paradas reales...</option>
-    </select>
-</div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <h2>CONTROL DE ASIENTOS</h2>
+    <div id="controles-asientos">
+        <button id="btn1" class="btn-asiento libre" onclick="toggleAsiento(1)">1</button>
+        <button id="btn2" class="btn-asiento libre" onclick="toggleAsiento(2)">2</button>
+        <button id="btn3" class="btn-asiento libre" onclick="toggleAsiento(3)">3</button>
+        <button id="btn4" class="btn-asiento libre" onclick="toggleAsiento(4)">4</button>
+    </div>
+    <p>Asientos Libres: <b id="contador">4</b></p>
+    <div id="status">🛰️ Esperando GPS...</div>
 
 <script>
-    // 1. TUS LLAVES (CONEXIÓN SEGURA)
-    const _supabase = supabase.createClient(
-        'https://nvumdlxervrewqiiaicl.supabase.co', 
-        'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs'
-    );
+    const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
 
-    var map = L.map('map').setView([-34.561264, -58.770506], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    let asientos = [true, true, true, true]; // true = libre
 
-    // 2. RECUPERAR LAS 25 PARADAS (CARPETA SQL 1)
-    async function cargarRecorrido() {
-        const { data: paradas } = await _supabase
-            .from('paradas')
-            .select('*')
-            .lte('orden', 25) // Solo ida
-            .order('orden', { ascending: true });
+    async function toggleAsiento(num) {
+        asientos[num-1] = !asientos[num-1];
+        const btn = document.getElementById('btn' + num);
+        btn.className = asientos[num-1] ? 'btn-asiento libre' : 'btn-asiento ocupado';
+        
+        const libres = asientos.filter(a => a).length;
+        document.getElementById('contador').innerText = libres;
 
-        if (paradas) {
-            // Dibujar la línea azul continua
-            const puntos = paradas.map(p => [p.latitud, p.longitud]);
-            L.polyline(puntos, {color: '#007bff', weight: 6, opacity: 0.6}).addTo(map);
-
-            // Cargar nombres en el menú y puntos en el mapa
-            const selector = document.getElementById('lista-paradas');
-            selector.innerHTML = '<option>-- ¿Dónde bajás? --</option>';
-
-            paradas.forEach(p => {
-                L.circleMarker([p.latitud, p.longitud], {radius: 4, color: '#007bff', fillColor: 'white', fillOpacity: 1}).addTo(map);
-                if (!p.nombre.includes("Giro")) {
-                    selector.innerHTML += `<option>${p.nombre}</option>`;
-                }
-            });
-        }
+        await _supabase.from('estado_movil').update({ asientos_libres: libres }).eq('id', 1);
     }
 
-    // 3. RECUPERAR ASIENTOS (CARPETA SQL 2 - TRABAJO DE AYER)
-    async function monitorearAsientos() {
-        // Ver valor actual
-        const { data } = await _supabase.from('estado_movil').select('asientos_libres').eq('id', 1).single();
-        if (data) { document.getElementById('num-asientos').innerText = data.asientos_libres; }
-
-        // Suscribirse a cambios en tiempo real
-        _supabase.channel('asientos_realtime').on('postgres_changes', 
-            { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, 
-            (payload) => {
-                document.getElementById('num-asientos').innerText = payload.new.asientos_libres;
-            }
-        ).subscribe();
-    }
-
-    cargarRecorrido();
-    monitorearAsientos();
+    // GPS REAL
+    navigator.geolocation.watchPosition(async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        document.getElementById('status').innerText = "📍 Transmitiendo: " + latitude.toFixed(4) + ", " + longitude.toFixed(4);
+        
+        await _supabase.from('estado_movil').update({ 
+            latitud: latitude, 
+            longitud: longitude,
+            ultima_actualizacion: new Date().toISOString()
+        }).eq('id', 1);
+    }, null, { enableHighAccuracy: true });
 </script>
 </body>
 </html>
