@@ -14,8 +14,8 @@
             box-shadow: 0 -10px 20px rgba(0,0,0,0.1);
         }
         #asientos-val { font-size: 130px; font-weight: bold; color: #28a745; margin: 0; line-height: 1; }
-        .label { color: #888; font-weight: bold; font-size: 14px; letter-spacing: 1px; margin-bottom: 10px; }
-        .btn-vivo { background: #eef6ff; color: #007bff; padding: 8px 20px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-top: 15px; border: none; }
+        .label { color: #888; font-weight: bold; font-size: 14px; letter-spacing: 1px; margin-bottom: 5px; }
+        .btn-vivo { background: #eef6ff; color: #007bff; padding: 8px 20px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-top: 10px; border: none; }
     </style>
 </head>
 <body>
@@ -30,23 +30,61 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    var map = L.map('map').setView([-34.5747, -58.7744], 16);
+    
+    // 1. INICIAR MAPA
+    var map = L.map('map', {zoomControl: false}).setView([-34.5755, -58.7758], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    var carIcon = L.marker([-34.5747, -58.7744]).addTo(map);
 
+    // 2. RUTA COMPLETA (Tus 34 puntos de SQL)
+    const puntosRuta = [
+        [-34.561264, -58.770506], [-34.562160, -58.771380], [-34.562494, -58.772133],
+        [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061],
+        [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443],
+        [-34.571956, -58.763201], [-34.577371, -58.755909], [-34.578528, -58.757064],
+        [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842],
+        [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804],
+        [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542],
+        [-34.588273, -58.751338], [-34.588771, -58.750804], [-34.588244, -58.749877],
+        [-34.588930, -58.750543], [-34.586030, -58.747278], [-34.585000, -58.748500],
+        [-34.584000, -58.749500], [-34.583319, -58.750710], [-34.581998, -58.752441],
+        [-34.580901, -58.753842], [-34.579296, -58.755864], [-34.562160, -58.771380],
+        [-34.561264, -58.770506]
+    ];
+
+    L.polyline(puntosRuta, {color: '#3498db', weight: 6, opacity: 0.7}).addTo(map);
+    puntosRuta.forEach(p => L.circleMarker(p, {radius: 4, color: '#3498db', fillOpacity: 1}).addTo(map));
+
+    // 3. ICONO AUTO ROJO 🚗
+    const iconoAuto = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png',
+        iconSize: [40, 40], iconAnchor: [20, 20]
+    });
+    var carIcon = L.marker(puntosRuta[0], {icon: iconoAuto}).addTo(map);
+
+    // 4. FUNCIÓN PARA ACTUALIZAR TODO
     function refrescar(datos) {
         if (datos) {
+            // Actualiza número de asientos (Sigue funcionando igual!)
             document.getElementById('asientos-val').innerText = datos.asientos_libres;
+            
+            // Mueve el autito 🚗
             const p = [datos.latitud, datos.longitud];
             carIcon.setLatLng(p);
             map.panTo(p);
         }
     }
+
+    // 5. CARGA INICIAL Y ESCUCHADOR EN VIVO
     async function carga() {
         const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
         refrescar(data);
     }
-    _s.channel('cambios').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, payload => refrescar(payload.new)).subscribe();
+
+    _s.channel('cambios').on('postgres_changes', 
+        { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, 
+        payload => refrescar(payload.new)
+    ).subscribe();
+
     carga();
 </script>
 </body>
