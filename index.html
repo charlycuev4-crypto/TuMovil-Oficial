@@ -1,43 +1,17 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conductor - Tu Móvil</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { background: #121212; color: white; font-family: sans-serif; text-align: center; padding: 20px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 300px; margin: auto; }
-        button { height: 100px; font-size: 30px; border-radius: 15px; border: none; cursor: pointer; color: white; }
-        .on { background: #28a745; } .off { background: #dc3545; }
-        #status { margin-top: 20px; font-size: 12px; color: #888; }
-    </style>
-</head>
-<body>
-    <h2>CONTROL DE ASIENTOS</h2>
-    <div class="grid">
-        <button id="b1" class="on" onclick="t(1)">1</button>
-        <button id="b2" class="on" onclick="t(2)">2</button>
-        <button id="b3" class="on" onclick="t(3)">3</button>
-        <button id="b4" class="on" onclick="t(4)">4</button>
-    </div>
-    <p id="status">Sincronizando con base de datos...</p>
+-- 1. Limpieza total de la tabla
+TRUNCATE TABLE paradas RESTART IDENTITY;
 
-    <script>
-        const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-        let est = [true, true, true, true];
-
-        async function t(i) {
-            est[i-1] = !est[i-1];
-            document.getElementById('b'+i).className = est[i-1] ? 'on' : 'off';
-            const libres = est.filter(x => x).length;
-            await _s.from('estado_movil').update({ asientos_libres: libres }).eq('id', 1);
-        }
-
-        navigator.geolocation.watchPosition(async p => {
-            const { latitude, longitude } = p.coords;
-            document.getElementById('status').innerText = `📍 Transmitiendo: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-            await _s.from('estado_movil').update({ latitud: latitude, longitud: longitude }).eq('id', 1);
-        }, null, { enableHighAccuracy: true });
-    </script>
-</body>
-</html>
+-- 2. Inserción del recorrido respetando tus coordenadas originales hasta Lafinur
+INSERT INTO paradas (orden, nombre, latitud, longitud) VALUES
+(1, 'M. Cané y Marchena', -34.561128, -58.770586),
+(2, 'Esquina: Cané y Los Aromos', -34.562160, -58.771380),
+(3, 'Los Aromos 11016', -34.562494, -58.772133),
+(4, 'Los Aromos 10874', -34.563541, -58.773244),
+(5, 'Esquina: Los Aromos y Murillo', -34.564109, -58.773759),
+(6, 'Murillo 601', -34.565342, -58.772061),
+(7, 'Murillo y Güiraldes', -34.567268, -58.769484),
+(8, 'Murillo y Jacobo Watt', -34.569090, -58.767095),
+(9, 'A. Prado 2555', -34.571016, -58.764443),
+(10, 'A. Prado y Roberto J. Payró', -34.571956, -58.763201),
+-- PUNTO DE CORTE SOLICITADO: Prado y Lafinur
+(11, 'Esquina Final: Prado y Lafinur', -34.576135, -58.757545);
