@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tu Móvil - Dinámico Día</title>
+    <title>Conductor Pro - Tu Móvil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -11,10 +11,9 @@
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #f0f0f0; height: 100vh; font-family: 'Arial', sans-serif; overflow: hidden; }
 
-        /* MAPA PANTALLA COMPLETA */
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
 
-        /* VISORES FLOTANTES ARRIBA */
+        /* VISORES SUPERIORES */
         .overlay-top {
             position: absolute; top: 10px; left: 10px; right: 10px;
             display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
@@ -25,12 +24,12 @@
             border: 2px solid #00d4ff; border-radius: 12px;
             padding: 8px; text-align: center; color: white;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            pointer-events: auto;
+            pointer-events: auto; transition: background 0.3s;
         }
         .visor-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; display: block; }
         .visor-num { font-size: 22px; font-weight: bold; }
 
-        /* PANEL INFERIOR DINÁMICO */
+        /* PANEL INFERIOR */
         .overlay-bottom {
             position: absolute; bottom: 25px; left: 0; right: 0;
             display: flex; flex-direction: column; align-items: center; gap: 12px;
@@ -45,9 +44,8 @@
             background: transparent; color: #00d4ff; font-size: 20px; font-weight: bold;
             cursor: pointer; transition: 0.2s;
         }
-        .ocupado { background: #ff3b30; border-color: #ff3b30; color: white; box-shadow: 0 0 10px #ff3b30; }
+        .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; box-shadow: 0 0 10px #ff3b30; }
 
-        /* BOTÓN POWER REDONDO */
         .btn-pwr {
             width: 60px; height: 60px; border-radius: 50%; border: 3px solid white;
             font-weight: bold; font-size: 12px; cursor: pointer;
@@ -56,7 +54,6 @@
         .on { background: #00d4ff; color: black; }
         .off { background: #ff3b30; color: white; display: none; }
 
-        /* SPLASH SCREEN */
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 10000; display: flex; align-items: center; justify-content: center; transition: opacity 0.5s; }
         .splash-text { color: #00d4ff; font-size: 30px; font-weight: bold; text-shadow: 0 0 10px #00d4ff; }
     </style>
@@ -72,7 +69,7 @@
             <span class="visor-label">TARIFA HOY</span>
             <div class="visor-num">$ <span id="v-dinero">0</span></div>
         </div>
-        <div class="visor">
+        <div id="visor-pax" class="visor">
             <span class="visor-label">PASAJEROS</span>
             <div class="visor-num" id="v-pax">0</div>
         </div>
@@ -80,10 +77,10 @@
 
     <div class="overlay-bottom">
         <div class="asientos-cont">
-            <button id="b1" class="btn-as" onclick="t(0)">1</button>
-            <button id="b2" class="btn-as" onclick="t(1)">2</button>
-            <button id="b3" class="btn-as" onclick="t(2)">3</button>
-            <button id="b4" class="btn-as" onclick="t(3)">4</button>
+            <button id="b1" class="btn-as" onclick="toggleAsiento(0)">1</button>
+            <button id="b2" class="btn-as" onclick="toggleAsiento(1)">2</button>
+            <button id="b3" class="btn-as" onclick="toggleAsiento(2)">3</button>
+            <button id="b4" class="btn-as" onclick="toggleAsiento(3)">4</button>
         </div>
         <button id="p-on" class="btn-pwr on" onclick="power(true)">ON</button>
         <button id="p-off" class="btn-pwr off" onclick="power(false)">OFF</button>
@@ -91,9 +88,56 @@
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    let activo = false, recaudado = 0, pasajeros = 0, est = [true, true, true, true];
+    
+    let activo = false;
+    let recaudado = 0;
+    let est = [true, true, true, true]; // true = libre, false = ocupado
 
-    window.onload = () => { setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display = 'none', 500); }, 1500); };
+    window.onload = () => { 
+        setTimeout(() => { 
+            document.getElementById('splash').style.opacity = '0'; 
+            setTimeout(() => document.getElementById('splash').style.display = 'none', 500); 
+        }, 1500); 
+        sincronizarInicial();
+    };
+
+    // 1. CARGA INICIAL Y ESCUCHA DE CAMBIOS (Para cuando el pasajero reserve)
+    async function sincronizarInicial() {
+        const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
+        if(data) actualizarInterfaz(data);
+
+        // Suscribirse a cambios en tiempo real
+        _s.channel('cambios-chofer').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
+            actualizarInterfaz(payload.new);
+            alertarNuevaReserva();
+        }).subscribe();
+    }
+
+    function actualizarInterfaz(data) {
+        const libres = data.asientos_libres;
+        const ocupados = 4 - libres;
+        
+        // Actualizar contador visual
+        document.getElementById('v-pax').innerText = ocupados;
+        
+        // Actualizar botones de asientos automáticamente
+        for(let i=0; i<4; i++) {
+            if(i < ocupados) {
+                est[i] = false;
+                document.getElementById('b'+(i+1)).classList.add('ocupado');
+            } else {
+                est[i] = true;
+                document.getElementById('b'+(i+1)).classList.remove('ocupado');
+            }
+        }
+    }
+
+    function alertarNuevaReserva() {
+        const v = document.getElementById('visor-pax');
+        v.style.background = "#00ff88"; // Parpadeo verde
+        if (navigator.vibrate) navigator.vibrate(500); // Vibra si es celu
+        setTimeout(() => { v.style.background = "rgba(0,0,0,0.85)"; }, 2000);
+    }
 
     function power(v) {
         activo = v;
@@ -101,17 +145,22 @@
         document.getElementById('p-off').style.display = v ? 'flex' : 'none';
     }
 
-    async function t(i) {
+    // Función manual (cuando vos tocas el botón)
+    async function toggleAsiento(i) {
         if(!activo) return;
-        if(est[i]) { recaudado += 1000; pasajeros += 1; }
+        
+        if(est[i]) { // Si estaba libre y lo ocupas
+            recaudado += 1000;
+            document.getElementById('v-dinero').innerText = recaudado;
+        }
+        
         est[i] = !est[i];
-        document.getElementById('b'+(i+1)).className = 'btn-as ' + (est[i] ? '' : 'ocupado');
-        document.getElementById('v-dinero').innerText = recaudado;
-        document.getElementById('v-pax').innerText = pasajeros;
-        await _s.from('estado_movil').update({ asientos_libres: est.filter(x=>x).length }).eq('id', 1);
+        const libres = est.filter(x => x).length;
+        
+        await _s.from('estado_movil').update({ asientos_libres: libres }).eq('id', 1);
     }
 
-    // MAPA MODO DÍA (OPENSTREETMAP ESTÁNDAR)
+    // CONFIGURACIÓN DEL MAPA
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -134,6 +183,7 @@
         icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] })
     }).addTo(map);
 
+    // GPS CONDUCTOR
     navigator.geolocation.watchPosition(p => { 
         if(!activo) return;
         const pos = [p.coords.latitude, p.coords.longitude];
