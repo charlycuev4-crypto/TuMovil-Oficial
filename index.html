@@ -1,17 +1,130 @@
--- 1. Limpieza total de la tabla
-TRUNCATE TABLE paradas RESTART IDENTITY;
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Conductor - Tu Móvil</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; }
+        #mapa-conductor { height: 50vh; width: 100%; }
+        .panel-control { padding: 20px; text-align: center; }
+        .btn-principal { 
+            width: 100%; padding: 15px; font-size: 1.2rem; border: none; border-radius: 10px;
+            color: white; cursor: pointer; margin-bottom: 20px; font-weight: bold;
+        }
+        .btn-verde { background-color: #28a745; }
+        .btn-rojo { background-color: #dc3545; }
+        .asientos-container { display: flex; justify-content: center; gap: 10px; }
+        .circulo-asiento {
+            width: 50px; height: 50px; border-radius: 50%; background: #007bff;
+            color: white; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-weight: bold; border: 3px solid transparent;
+        }
+        .ocupado { background: #004085; border-color: #fff; }
+    </style>
+</head>
+<body>
 
--- 2. Inserción del recorrido respetando tus coordenadas originales hasta Lafinur
-INSERT INTO paradas (orden, nombre, latitud, longitud) VALUES
-(1, 'M. Cané y Marchena', -34.561128, -58.770586),
-(2, 'Esquina: Cané y Los Aromos', -34.562160, -58.771380),
-(3, 'Los Aromos 11016', -34.562494, -58.772133),
-(4, 'Los Aromos 10874', -34.563541, -58.773244),
-(5, 'Esquina: Los Aromos y Murillo', -34.564109, -58.773759),
-(6, 'Murillo 601', -34.565342, -58.772061),
-(7, 'Murillo y Güiraldes', -34.567268, -58.769484),
-(8, 'Murillo y Jacobo Watt', -34.569090, -58.767095),
-(9, 'A. Prado 2555', -34.571016, -58.764443),
-(10, 'A. Prado y Roberto J. Payró', -34.571956, -58.763201),
--- PUNTO DE CORTE SOLICITADO: Prado y Lafinur
-(11, 'Esquina Final: Prado y Lafinur', -34.576135, -58.757545);
+    <div id="mapa-conductor"></div>
+
+    <div class="panel-control">
+        <button id="btn-estado" class="btn-principal btn-rojo" onclick="toggleServicio()">
+            INICIAR RECORRIDO
+        </button>
+
+        <h3>Asientos Ocupados</h3>
+        <div class="asientos-container">
+            <div id="as-1" class="circulo-asiento" onclick="actualizarAsientos(1)">1</div>
+            <div id="as-2" class="circulo-asiento" onclick="actualizarAsientos(2)">2</div>
+            <div id="as-3" class="circulo-asiento" onclick="actualizarAsientos(3)">3</div>
+            <div id="as-4" class="circulo-asiento" onclick="actualizarAsientos(4)">4</div>
+        </div>
+        <p id="info-asientos" style="margin-top:10px;">Quedan 4 asientos libres</p>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        // CONFIGURACIÓN SUPABASE
+        const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
+        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
+        const sb = supabase.createClient(SB_URL, SB_KEY);
+
+        let mapa = L.map('mapa-conductor').setView([-34.5611, -58.7705], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapa);
+        
+        let marcadorConductor = L.marker([-34.5611, -58.7705]).addTo(mapa);
+        let enServicio = false;
+        let watchId = null;
+
+        // 1. DIBUJAR LA RUTA DESDE SQL (Para que el conductor vea por dónde ir)
+        async function cargarRuta() {
+            const { data: paradas } = await sb.from('paradas').select('*').order('orden', { ascending: true });
+            if (paradas) {
+                const puntos = paradas.map(p => [p.latitud, p.longitud]);
+                L.polyline(puntos, { color: 'blue', weight: 3, dashArray: '5, 10' }).addTo(mapa);
+            }
+        }
+        cargarRuta();
+
+        // 2. LÓGICA DEL BOTÓN DE INICIO
+        async function toggleServicio() {
+            enServicio = !enServicio;
+            const btn = document.getElementById('btn-estado');
+            
+            if (enServicio) {
+                btn.innerText = "TERMINAR RECORRIDO";
+                btn.className = "btn-principal btn-verde";
+                iniciarGPS();
+            } else {
+                btn.innerText = "INICIAR RECORRIDO";
+                btn.className = "btn-principal btn-rojo";
+                detenerGPS();
+            }
+
+            await sb.from('estado_movil').update({ en_servicio: enServicio }).eq('id', 1);
+        }
+
+        // 3. LÓGICA DEL GPS
+        function iniciarGPS() {
+            if (navigator.geolocation) {
+                watchId = navigator.geolocation.watchPosition(async (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+
+                    marcadorConductor.setLatLng([lat, lng]);
+                    mapa.panTo([lat, lng]);
+
+                    // ENVIAR A SUPABASE
+                    await sb.from('estado_movil').update({
+                        latitud: lat,
+                        longitud: lng,
+                        ultima_actualizacion: new Date()
+                    }).eq('id', 1);
+
+                }, null, { enableHighAccuracy: true });
+            }
+        }
+
+        function detenerGPS() {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+        }
+
+        // 4. LÓGICA DE ASIENTOS
+        async function actualizarAsientos(ocupados) {
+            const libres = 4 - ocupados;
+            
+            // Actualizar Visual
+            for(let i=1; i<=4; i++) {
+                document.getElementById('as-'+i).className = i <= ocupados ? "circulo-asiento ocupado" : "circulo-asiento";
+            }
+            document.getElementById('info-asientos').innerText = `Quedan ${libres} asientos libres`;
+
+            // ENVIAR A SUPABASE
+            await sb.from('estado_movil').update({ asientos_libres: libres }).eq('id', 1);
+        }
+    </script>
+</body>
+</html>
