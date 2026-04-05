@@ -2,89 +2,40 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pasajero - Tu Móvil Santa Brígida</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>Control Conductor</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8f9fa; }
-        
-        /* El mapa de la parte superior (segunda imagen) */
-        #map { height: 60vh; width: 100%; border-bottom: 4px solid #28a745; }
-        
-        /* El panel de información inferior */
-        .info-panel { 
-            height: 40vh; 
-            background: white; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center;
-            border-radius: 25px 25px 0 0;
-            margin-top: -25px;
-            position: relative;
-            z-index: 1000;
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.1);
-        }
-
-        .label { color: #6c757d; font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
-        #asientos-numero { font-size: 110px; font-weight: bold; color: #28a745; margin: 10px 0; line-height: 1; }
-        .badge-vivo { background: #e7f3ff; color: #007bff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-top: 5px; }
+        body { font-family: sans-serif; text-align: center; background: #121212; color: white; padding: 20px; }
+        .grid-asientos { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 320px; margin: 20px auto; }
+        .btn-asiento { height: 100px; font-size: 32px; font-weight: bold; border: none; border-radius: 20px; cursor: pointer; color: white; }
+        .libre { background: #28a745; } .ocupado { background: #dc3545; }
+        #gps-status { color: #ffc107; font-size: 14px; margin-top: 20px; }
     </style>
 </head>
 <body>
-
-    <div id="map"></div>
-
-    <div class="info-panel">
-        <div class="label">Asientos Disponibles</div>
-        <div id="asientos-numero">--</div>
-        <div class="badge-vivo">MÓVIL EN VIVO 🛰️</div>
+    <h2>CONTROL CONDUCTOR</h2>
+    <div class="grid-asientos">
+        <button id="a1" class="libre" onclick="toggle(0)">1</button>
+        <button id="a2" class="libre" onclick="toggle(1)">2</button>
+        <button id="a3" class="libre" onclick="toggle(2)">3</button>
+        <button id="a4" class="libre" onclick="toggle(3)">4</button>
     </div>
+    <div id="gps-status">📍 Sincronizando GPS...</div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <script>
-        const _supabase = supabase.createClient(
-            'https://nvumdlxervrewqiiaicl.supabase.co', 
-            'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE'
-        );
-
-        // Iniciamos el mapa en la zona de Santa Brígida
-        var map = L.map('map').setView([-34.5747, -58.7744], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        
-        // Marcador del auto (el azul que se mueve)
-        var marker = L.marker([-34.5747, -58.7744]).addTo(map);
-
-        // Esta es la función que "mueve" todo en la pantalla
-        function actualizarPantalla(datos) {
-            if (datos) {
-                // 1. Cambia el número de asientos
-                document.getElementById('asientos-numero').innerText = datos.asientos_libres;
-                
-                // 2. Mueve el auto en el mapa
-                const nuevaPos = [datos.latitud, datos.longitud];
-                marker.setLatLng(nuevaPos);
-                map.panTo(nuevaPos);
-            }
-        }
-
-        // LEER DATOS AL ARRANCAR
-        async function inicio() {
-            const { data } = await _supabase.from('estado_movil').select('*').eq('id', 1).single();
-            if (data) actualizarPantalla(data);
-        }
-
-        // ESCUCHAR CAMBIOS EN VIVO (Para que el pasajero no toque nada)
-        _supabase.channel('cambios-pasajero')
-        .on('postgres_changes', 
-            { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.1' }, 
-            (payload) => {
-                actualizarPantalla(payload.new);
-            }
-        ).subscribe();
-
-        inicio();
-    </script>
+<script>
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    let est = [true, true, true, true];
+    async function toggle(i) {
+        est[i] = !est[i];
+        document.getElementById('a' + (i + 1)).className = est[i] ? 'libre' : 'ocupado';
+        const libres = est.filter(a => a).length;
+        await _s.from('estado_movil').update({ asientos_libres: libres }).eq('id', 1);
+    }
+    navigator.geolocation.watchPosition(async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        document.getElementById('gps-status').innerText = `📍 Enviando: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+        await _s.from('estado_movil').update({ latitud: latitude, longitud: longitude }).eq('id', 1);
+    }, null, { enableHighAccuracy: true });
+</script>
 </body>
 </html>
