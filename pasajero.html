@@ -2,76 +2,53 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prueba de Conexión - Pasajero</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>Panel Conductor - Tu Móvil</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { margin: 0; font-family: sans-serif; text-align: center; background: #f0f2f5; }
-        #map { height: 50vh; width: 100%; }
-        .panel-prueba { height: 50vh; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 20px 20px 0 0; margin-top: -20px; position: relative; z-index: 1000; box-shadow: 0 -5px 15px rgba(0,0,0,0.1); }
-        .btn-test { background: #28a745; color: white; border: none; padding: 20px 40px; font-size: 24px; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(40,167,69,0.3); transition: 0.3s; }
-        .btn-test:active { transform: scale(0.95); background: #218838; }
-        #status-msg { margin-top: 15px; color: #666; font-size: 14px; }
+        body { font-family: sans-serif; text-align: center; background: #121212; color: white; padding: 20px; }
+        .grid-asientos { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 300px; margin: 20px auto; }
+        .btn-asiento { height: 80px; font-size: 24px; font-weight: bold; border: none; border-radius: 15px; cursor: pointer; transition: 0.2s; }
+        .libre { background: #28a745; color: white; }
+        .ocupado { background: #dc3545; color: white; }
+        #gps-status { color: #ffc107; font-size: 14px; margin-top: 20px; background: #222; padding: 10px; border-radius: 10px; }
     </style>
 </head>
 <body>
-
-    <div id="map"></div>
-
-    <div class="panel-prueba">
-        <p style="color:#888; font-weight: bold;">TOCÁ PARA PROBAR CONEXIÓN</p>
-        <button id="btn-asiento" class="btn-test" onclick="probarComunicacion()">?</button>
-        <p id="status-msg">Esperando señal de Supabase...</p>
+    <h2>CONTROL DE ASIENTOS</h2>
+    <div class="grid-asientos">
+        <button id="a1" class="btn-asiento libre" onclick="toggle(0)">1</button>
+        <button id="a2" class="btn-asiento libre" onclick="toggle(1)">2</button>
+        <button id="a3" class="btn-asiento libre" onclick="toggle(2)">3</button>
+        <button id="a4" class="btn-asiento libre" onclick="toggle(3)">4</button>
     </div>
+    <div id="gps-status">🛰️ Buscando señal GPS...</div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+    const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    <script>
-        const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
+    let estadoAsientos = [true, true, true, true]; // true = libre
 
-        var map = L.map('map').setView([-34.5747, -58.7744], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        var carMarker = L.marker([-34.5747, -58.7744]).addTo(map);
+    async function toggle(index) {
+        estadoAsientos[index] = !estadoAsientos[index];
+        const btn = document.getElementById('a' + (index + 1));
+        btn.className = 'btn-asiento ' + (estadoAsientos[index] ? 'libre' : 'ocupado');
+        
+        const libres = estadoAsientos.filter(a => a).length;
+        await _supabase.from('estado_movil').update({ asientos_libres: libres }).eq('id', 1);
+    }
 
-        // Función para enviar un cambio desde el pasajero
-        async function probarComunicacion() {
-            const boton = document.getElementById('btn-asiento');
-            const actual = boton.innerText === "?" ? 4 : parseInt(boton.innerText);
-            const nuevoValor = actual > 0 ? actual - 1 : 4; // Va bajando de 4 a 0
-
-            document.getElementById('status-msg').innerText = "Enviando señal...";
-            
-            const { error } = await _supabase
-                .from('estado_movil')
-                .update({ asientos_libres: nuevoValor })
-                .eq('id', 1);
-
-            if (error) {
-                document.getElementById('status-msg').innerText = "Error: " + error.message;
-            }
-        }
-
-        // Escuchar la respuesta (si Supabase lo cambia, el botón se actualiza)
-        _supabase.channel('test_canal').on('postgres_changes', 
-            { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.1' }, 
-            (payload) => {
-                const { latitud, longitud, asientos_libres } = payload.new;
-                document.getElementById('btn-asiento').innerText = asientos_libres;
-                carMarker.setLatLng([latitud, longitud]);
-                map.panTo([latitud, longitud]);
-                document.getElementById('status-msg').innerText = "¡Conexión OK! " + new Date().toLocaleTimeString();
-            }
-        ).subscribe();
-
-        // Carga inicial
-        async function inicio() {
-            const { data } = await _supabase.from('estado_movil').select('*').eq('id', 1).single();
-            if (data) {
-                document.getElementById('btn-asiento').innerText = data.asientos_libres;
-                carMarker.setLatLng([data.latitud, data.longitud]);
-            }
-        }
-        inicio();
-    </script>
+    // GPS REAL
+    navigator.geolocation.watchPosition(async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        document.getElementById('gps-status').innerText = `📍 Transmitiendo: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+        
+        await _supabase.from('estado_movil').update({ 
+            latitud: latitude, 
+            longitud: longitude 
+        }).eq('id', 1);
+    }, (err) => {
+        document.getElementById('gps-status').innerText = "❌ Error GPS: " + err.message;
+    }, { enableHighAccuracy: true });
+</script>
 </body>
 </html>
