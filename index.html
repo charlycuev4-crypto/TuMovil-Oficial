@@ -1,121 +1,85 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Conductor - En Vivo</title>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Conductor - Santa Brígida</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; margin: 0; text-align: center; }
-        #map { height: 40vh; width: 100%; border-bottom: 2px solid #333; }
-        
-        .status-bar { background: #121212; padding: 10px; font-size: 14px; color: #4caf50; font-weight: bold; }
-        
-        .grid-asientos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 20px; max-width: 400px; margin: auto; }
-        .btn-asiento { height: 70px; font-size: 24px; font-weight: bold; border: none; border-radius: 12px; color: white; cursor: pointer; transition: 0.3s; }
-        
-        .libre { background: #2e7d32; border: 2px solid #4caf50; }
-        .ocupado { background: #c62828; border: 2px solid #ef5350; }
-        
-        .btn-terminar { background: #d32f2f; color: white; width: 80%; padding: 15px; font-size: 18px; border: none; border-radius: 50px; margin-top: 20px; font-weight: bold; cursor: pointer; }
+        body { margin: 0; font-family: sans-serif; background: #121212; color: white; display: flex; flex-direction: column; height: 100vh; }
+        #map { flex-grow: 1; width: 100%; }
+        .panel-control { background: #121212; padding: 10px; text-align: center; border-top: 1px solid #333; }
+        .status { color: #2ecc71; font-size: 12px; font-weight: bold; margin-bottom: 8px; }
+        .grid-asientos { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
+        .btn-asiento { width: 65px; height: 60px; font-size: 22px; font-weight: bold; border: 2px solid white; border-radius: 12px; cursor: pointer; color: white; }
+        .libre { background: #28a745; }
+        .ocupado { background: #dc3545; }
+        .btn-terminar { background: #d63031; color: white; border: none; padding: 12px; border-radius: 30px; width: 90%; font-weight: bold; text-transform: uppercase; }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
-    
-    <div class="status-bar" id="status">
-        ✅ TRANSMITIENDO EN VIVO
-    </div>
 
-    <div class="grid-asientos">
-        <button id="a1" class="btn-asiento libre" onclick="toggle(0)">1</button>
-        <button id="a2" class="btn-asiento libre" onclick="toggle(1)">2</button>
-        <button id="a3" class="btn-asiento libre" onclick="toggle(2)">3</button>
-        <button id="a4" class="btn-asiento libre" onclick="toggle(3)">4</button>
+    <div class="panel-control">
+        <div class="status">✅ TRANSMITIENDO EN VIVO</div>
+        <div class="grid-asientos">
+            <button id="a1" class="btn-asiento libre" onclick="toggle(0)">1</button>
+            <button id="a2" class="btn-asiento libre" onclick="toggle(1)">2</button>
+            <button id="a3" class="btn-asiento libre" onclick="toggle(2)">3</button>
+            <button id="a4" class="btn-asiento libre" onclick="toggle(3)">4</button>
+        </div>
+        <button class="btn-terminar">🛑 APAGAR / TERMINAR RUTA</button>
     </div>
-
-    <button class="btn-terminar" onclick="terminarRuta()">🛑 APAGAR / TERMINAR RUTA</button>
 
 <script>
-    // Configuración de Supabase
-    const _supabase = supabase.createClient(
-        'https://nvumdlxervrewqiiaicl.supabase.co', 
-        'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE'
-    );
+    const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // Inicializar Mapa centrado en la zona (Trujui/Santa Brígida)
-    const map = L.map('map').setView([-34.5747, -58.7744], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    // 1. MAPA Y ESTILO
+    const map = L.map('map', { zoomControl: false }).setView([-34.5747, -58.7744], 16);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-    // Icono para la posición actual del conductor (como el de tu imagen)
-    const driverIcon = L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3082/3082383.png',
-        iconSize: [35, 35],
-        iconAnchor: [17, 17]
+    // 2. RUTA FIJA (Puntos y Línea Azul)
+    const coordenadasRuta = [
+        [-34.5714, -58.7701], [-34.5725, -58.7715], [-34.5738, -58.7732],
+        [-34.5747, -58.7744], [-34.5760, -58.7760], [-34.5785, -58.7795],
+        [-34.5802, -58.7820], [-34.5825, -58.7850]
+    ];
+
+    L.polyline(coordenadasRuta, { color: '#3498db', weight: 5, opacity: 0.7 }).addTo(map);
+    coordenadasRuta.forEach(coord => {
+        L.circleMarker(coord, { radius: 5, color: '#3498db', fillOpacity: 1 }).addTo(map);
     });
-    let markerConductor = L.marker([-34.5747, -58.7744], {icon: driverIcon}).addTo(map);
 
-    // FUNCIÓN PARA CARGAR LAS PARADAS DESDE SQL
-    async function cargarParadas() {
-        const { data: paradas, error } = await _supabase
-            .from('paradas_ruta') // Asegúrate de que el nombre de la tabla sea correcto
-            .select('*')
-            .order('orden', { ascending: true });
+    // 3. EL AUTITO 🚗 (Icono del Conductor)
+    const iconoAuto = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', // URL de un auto azul
+        iconSize: [35, 35], // Tamaño del icono
+        iconAnchor: [17, 17] // Punto central del icono
+    });
 
-        if (paradas) {
-            paradas.forEach(p => {
-                // Dibujar círculo azul por cada parada
-                L.circleMarker([p.latitud, p.longitud], {
-                    radius: 6,
-                    fillColor: "#2196f3",
-                    color: "#fff",
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.8
-                }).addTo(map).bindPopup(`Parada: ${p.nombre || p.orden}`);
-            });
-        }
-    }
+    // Marcador inicial con el icono del auto
+    let marker = L.marker([-34.5747, -58.7744], { icon: iconoAuto }).addTo(map);
 
-    // Lógica de Asientos
-    let estadoAsientos = [true, true, true, true];
-    async function toggle(index) {
-        estadoAsientos[index] = !estadoAsientos[index];
-        const btn = document.getElementById('a' + (index + 1));
-        btn.className = 'btn-asiento ' + (estadoAsientos[index] ? 'libre' : 'ocupado');
-        
-        const libres = estadoAsientos.filter(a => a).length;
-        await _supabase.from('estado_movil').update({ asientos_libres: libres }).eq('id', 1);
-    }
-
-    // GPS en tiempo real
+    // 4. TRANSMITIR GPS Y MOVER AUTO
     navigator.geolocation.watchPosition(async (pos) => {
         const { latitude, longitude } = pos.coords;
-        
-        // Mover marcador en el mapa del conductor
-        markerConductor.setLatLng([latitude, longitude]);
-        map.panTo([latitude, longitude]);
+        const p = [latitude, longitude];
+        marker.setLatLng(p); // Mueve el autito 🚗 por el mapa
+        map.panTo(p); // Centra el mapa en el autito
 
-        // Enviar a la base de datos
-        await _supabase.from('estado_movil')
-            .update({ latitud: latitude, longitud: longitude, en_servicio: true })
-            .eq('id', 1);
-            
+        await _supabase.from('estado_movil').update({ latitud: latitude, longitud: longitude }).eq('id', 1);
     }, null, { enableHighAccuracy: true });
 
-    function terminarRuta() {
-        if(confirm("¿Seguro quieres terminar la ruta? Se dejará de transmitir.")) {
-            _supabase.from('estado_movil').update({ en_servicio: false }).eq('id', 1)
-            .then(() => alert("Ruta terminada."));
-        }
+    // 5. CONTROL DE ASIENTOS
+    let asientos = [true, true, true, true];
+    async function toggle(i) {
+        asientos[i] = !asientos[i];
+        document.getElementById('a' + (i + 1)).className = 'btn-asiento ' + (asientos[i] ? 'libre' : 'ocupado');
+        const libres = asientos.filter(a => a).length;
+        await _supabase.from('estado_movil').update({ asientos_libres: libres }).eq('id', 1);
     }
-
-    // Al iniciar, cargamos las paradas
-    cargarParadas();
 </script>
 </body>
 </html>
