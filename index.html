@@ -3,73 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pasajero - Tu Móvil Santa Brígida</title>
+    <title>Recuperación: Ruta de Ida 25 Paradas</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; font-family: sans-serif; background: #f4f7f6; }
-        #map { height: 350px; width: 100%; }
-        .contenedor { padding: 15px; }
-        .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 5px solid #007bff; }
-        .status-badge { background: #e8f5e9; color: #2e7d32; padding: 5px 15px; border-radius: 20px; font-weight: bold; display: inline-block; margin-bottom: 10px; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f0f2f5; }
+        #map { height: 380px; width: 100%; border-bottom: 4px solid #007bff; }
+        .info-panel { padding: 20px; background: white; border-radius: 15px 15px 0 0; margin-top: -15px; position: relative; z-index: 1000; box-shadow: 0 -5px 15px rgba(0,0,0,0.1); }
+        .badge { background: #e7f3ff; color: #007bff; padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 14px; }
+        .asientos { font-size: 24px; font-weight: bold; color: #28a745; margin: 15px 0; }
+        select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; }
     </style>
 </head>
 <body>
 
 <div id="map"></div>
 
-<div class="contenedor">
-    <div class="card">
-        <div class="status-badge">✅ MÓVIL EN RECORRIDO</div>
-        <p>Asientos disponibles: <b id="asientos">--</b></p>
-        <select id="destino" style="width:100%; padding:10px; border-radius:5px;">
-            <option>Cargando paradas...</option>
-        </select>
-    </div>
+<div class="info-panel">
+    <span class="badge">🚌 MÓVIL EN SERVICIO</span>
+    <div class="asientos">💺 Asientos Libres: <span id="num-asientos">--</span></div>
+    <p style="color: #666; margin-bottom: 10px;"><b>Recorrido:</b> Miguel Cané ➔ Roca y Albatros</p>
+    <select id="lista-paradas">
+        <option>Cargando paradas reales...</option>
+    </select>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
+    // 1. TUS LLAVES (CONEXIÓN SEGURA)
     const _supabase = supabase.createClient(
         'https://nvumdlxervrewqiiaicl.supabase.co', 
-        'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs'
+        'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs'
     );
 
     var map = L.map('map').setView([-34.561264, -58.770506], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    async function recuperarRutaDeseada() {
-        // Buscamos solo las 25 paradas de ida
+    // 2. RECUPERAR LAS 25 PARADAS (CARPETA SQL 1)
+    async function cargarRecorrido() {
         const { data: paradas } = await _supabase
             .from('paradas')
             .select('*')
-            .lte('orden', 25) // Filtramos para que no haga el rulo de vuelta
+            .lte('orden', 25) // Solo ida
             .order('orden', { ascending: true });
 
         if (paradas) {
+            // Dibujar la línea azul continua
             const puntos = paradas.map(p => [p.latitud, p.longitud]);
-            
-            // Dibujamos la línea azul (Como la captura 1191)
             L.polyline(puntos, {color: '#007bff', weight: 6, opacity: 0.6}).addTo(map);
 
-            const combo = document.getElementById('destino');
-            combo.innerHTML = '<option>-- Elige dónde bajás --</option>';
+            // Cargar nombres en el menú y puntos en el mapa
+            const selector = document.getElementById('lista-paradas');
+            selector.innerHTML = '<option>-- ¿Dónde bajás? --</option>';
 
             paradas.forEach(p => {
-                // Dibujamos los circulitos azules de las paradas
-                L.circleMarker([p.latitud, p.longitud], {
-                    radius: 5, color: '#007bff', fillColor: 'white', fillOpacity: 1
-                }).addTo(map);
-
+                L.circleMarker([p.latitud, p.longitud], {radius: 4, color: '#007bff', fillColor: 'white', fillOpacity: 1}).addTo(map);
                 if (!p.nombre.includes("Giro")) {
-                    combo.innerHTML += `<option>${p.nombre}</option>`;
+                    selector.innerHTML += `<option>${p.nombre}</option>`;
                 }
             });
         }
     }
 
-    recuperarRutaDeseada();
+    // 3. RECUPERAR ASIENTOS (CARPETA SQL 2 - TRABAJO DE AYER)
+    async function monitorearAsientos() {
+        // Ver valor actual
+        const { data } = await _supabase.from('estado_movil').select('asientos_libres').eq('id', 1).single();
+        if (data) { document.getElementById('num-asientos').innerText = data.asientos_libres; }
+
+        // Suscribirse a cambios en tiempo real
+        _supabase.channel('asientos_realtime').on('postgres_changes', 
+            { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, 
+            (payload) => {
+                document.getElementById('num-asientos').innerText = payload.new.asientos_libres;
+            }
+        ).subscribe();
+    }
+
+    cargarRecorrido();
+    monitorearAsientos();
 </script>
 </body>
 </html>
