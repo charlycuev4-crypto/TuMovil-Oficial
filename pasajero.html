@@ -3,69 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pasajero - Conexión Real</title>
+    <title>Pasajero - Conexión Total</title>
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
-        body { margin: 0; font-family: sans-serif; background: #f4f4f9; }
-        #map { height: 60vh; width: 100%; }
-        .panel-pasajero { height: 40vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; border-radius: 20px 20px 0 0; margin-top: -20px; position: relative; z-index: 1000; box-shadow: 0 -5px 15px rgba(0,0,0,0.1); }
-        .titulo { color: #555; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
-        #res-asientos { font-size: 80px; font-weight: bold; color: #28a745; margin: 10px 0; }
+        body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f9; }
+        #map { height: 60vh; width: 100%; z-index: 1; }
+        .panel { 
+            height: 40vh; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; 
+            background: white; border-radius: 25px 25px 0 0; 
+            margin-top: -25px; position: relative; z-index: 100; 
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.1); 
+        }
+        #res-asientos { font-size: 85px; font-weight: bold; color: #28a745; margin: 5px 0; }
+        .label { color: #888; text-transform: uppercase; font-size: 14px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
     
-    <div class="panel-pasajero">
-        <div class="titulo">Asientos Disponibles</div>
+    <div class="panel">
+        <div class="label">Asientos Disponibles</div>
         <div id="res-asientos">--</div>
-        <div id="recorrido" style="color: #888; font-size: 12px;">Conectado a Móvil Santa Brígida</div>
+        <div style="color: #bbb; font-size: 12px;">Móvil Santa Brígida • En Vivo</div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+    // 2. TUS DATOS DE CONEXIÓN
+    const _supabase = supabase.createClient(
+        'https://nvumdlxervrewqiiaicl.supabase.co', 
+        'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs'
+    );
 
-    <script>
-        // CONEXIÓN
-        const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
+    // 3. INICIAR MAPA
+    var map = L.map('map', {zoomControl: false}).setView([-34.5612, -58.7705], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
+    // Icono de auto azul
+    var carMarker = L.marker([-34.5612, -58.7705]).addTo(map);
 
-        // MAPA INICIAL
-        var map = L.map('map').setView([-34.5612, -58.7705], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        var carMarker = L.marker([-34.5612, -58.7705]).addTo(map);
+    function refrescarApp(datos) {
+        if (!datos) return;
+        const { latitud, longitud, asientos_libres } = datos;
+        
+        // Mover el marcador y la cámara
+        carMarker.setLatLng([latitud, longitud]);
+        map.panTo([latitud, longitud]);
 
-        function actualizarDatos(payload) {
-            const { latitud, longitud, asientos_libres } = payload;
-            
-            // Mueve el auto
-            carMarker.setLatLng([latitud, longitud]);
-            map.panTo([latitud, longitud]);
+        // Actualizar el número gigante
+        document.getElementById('res-asientos').innerText = asientos_libres;
+    }
 
-            // Actualiza el número gigante
-            document.getElementById('res-asientos').innerText = asientos_libres;
-        }
+    // 4. PEDIR DATOS APENAS ABRE
+    async function cargarAhora() {
+        const { data, error } = await _supabase
+            .from('estado_movil')
+            .select('*')
+            .eq('id', 1)
+            .single();
+        
+        if (data) refrescarApp(data);
+    }
 
-        // CARGA AL ABRIR
-        async function cargarEstadoActual() {
-            const { data } = await _supabase.from('estado_movil').select('*').eq('id', 1).single();
-            if (data) {
-                actualizarDatos(data);
+    // 5. ESCUCHAR CAMBIOS (TIEMPO REAL)
+    _supabase
+        .channel('canal_pasajero')
+        .on('postgres_changes', 
+            { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.1' }, 
+            (payload) => {
+                console.log("¡Cambio detectado!", payload.new);
+                refrescarApp(payload.new);
             }
-        }
+        )
+        .subscribe();
 
-        // ESCUCHAR EN TIEMPO REAL (IMPORTANTE)
-        _supabase
-            .channel('cambios_pasajero')
-            .on('postgres_changes', 
-                { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.1' }, 
-                (payload) => {
-                    actualizarDatos(payload.new);
-                }
-            )
-            .subscribe();
-
-        cargarEstadoActual();
-    </script>
+    cargarAhora();
+</script>
 </body>
 </html>
