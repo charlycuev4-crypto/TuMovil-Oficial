@@ -1,87 +1,134 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pasajero - Tu Móvil Santa Brígida</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pasajero - Tu Móvil</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; font-family: sans-serif; background: #f4f7f6; overflow: hidden; }
-        #map { height: 60vh; width: 100%; }
-        .info-card { 
-            height: 40vh; background: white; border-radius: 30px 30px 0 0; 
-            margin-top: -30px; position: relative; z-index: 1000; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            box-shadow: 0 -10px 20px rgba(0,0,0,0.1);
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #f0f0f0; height: 100vh; font-family: 'Arial', sans-serif; overflow: hidden; }
+
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+
+        /* PANEL SUPERIOR (IGUAL AL DEL CHOFER) */
+        .overlay-top {
+            position: absolute; top: 10px; left: 10px; right: 10px;
+            z-index: 1000; display: flex; flex-direction: column; gap: 8px;
         }
-        #asientos-val { font-size: 130px; font-weight: bold; color: #28a745; margin: 0; line-height: 1; }
-        .label { color: #888; font-weight: bold; font-size: 14px; letter-spacing: 1px; margin-bottom: 5px; }
-        .btn-vivo { background: #eef6ff; color: #007bff; padding: 8px 20px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-top: 10px; border: none; }
+        .card-negra {
+            background: rgba(0, 0, 0, 0.85); border: 2px solid #00d4ff; border-radius: 12px;
+            padding: 10px; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .label-neon { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; display: block; }
+        
+        select {
+            width: 100%; padding: 10px; border-radius: 8px; border: none;
+            background: #222; color: #fff; font-size: 14px; outline: none; border: 1px solid #444;
+        }
+
+        /* PANEL INFERIOR DINÁMICO */
+        .overlay-bottom {
+            position: absolute; bottom: 25px; left: 10px; right: 10px;
+            display: flex; justify-content: space-between; align-items: center; z-index: 1000;
+        }
+        .info-pill {
+            background: white; padding: 12px 18px; border-radius: 20px;
+            border: 2px solid #00d4ff; font-weight: bold; color: #333;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 16px;
+        }
+        .distancia-pill { background: #00d4ff; color: #000; border: 2px solid #fff; }
     </style>
 </head>
 <body>
+
     <div id="map"></div>
-    <div class="info-card">
-        <div class="label">ASIENTOS DISPONIBLES</div>
-        <div id="asientos-val">--</div>
-        <button class="btn-vivo">MÓVIL EN VIVO 🛰️</button>
+
+    <div class="overlay-top">
+        <div class="card-negra">
+            <span class="label-neon">¿DÓNDE BAJÁS? (TU DESTINO)</span>
+            <select id="select-destino" onchange="irADestino()">
+                <option value="">Seleccioná tu parada...</option>
+            </select>
+        </div>
     </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <div class="overlay-bottom">
+        <div class="info-pill distancia-pill">A: <span id="val-dist">--</span> m</div>
+        <div class="info-pill">LUGARES: <span id="val-asientos">-</span> / 4</div>
+    </div>
+
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
-    // 1. INICIAR MAPA
-    var map = L.map('map', {zoomControl: false}).setView([-34.5612, -58.7705], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // 2. RUTA DE IDA CORREGIDA (Solo 8 puntos clave)
-    const rutaIda = [
-        [-34.561264, -58.770506], // Miguel Cané y Marchena (Inicio)
-        [-34.562160, -58.771380], // Giro: Cané y Los Aromos
-        [-34.563541, -58.773244], // Los Aromos 10874
-        [-34.564109, -58.773759], // Giro: Los Aromos y Murillo
-        [-34.569090, -58.767095], // Murillo y Jacobo Watt
-        [-34.571016, -58.764443], // A. Prado 2555
-        [-34.588273, -58.751338], // Giro: Av. del Libertador y Manuel Maza
-        [-34.588930, -58.750543]  // Esquina: Manuel Maza y Albatros (Final)
+    // COORDENADAS SACADAS DE TU SQL
+    const paradas = [
+        {n: 'M. Cané y Marchena', c: [-34.561128, -58.770586]}, {n: 'Cané y Los Aromos', c: [-34.562160, -58.771380]},
+        {n: 'Los Aromos 11016', c: [-34.562494, -58.772133]}, {n: 'Los Aromos 10874', c: [-34.563541, -58.773244]},
+        {n: 'Los Aromos y Murillo', c: [-34.564109, -58.773759]}, {n: 'Murillo 601', c: [-34.565342, -58.772061]},
+        {n: 'Murillo y Güiraldes', c: [-34.567268, -58.769484]}, {n: 'Murillo y Watt', c: [-34.569090, -58.767095]},
+        {n: 'A. Prado 2555', c: [-34.571016, -58.764443]}, {n: 'Prado y Payró', c: [-34.571956, -58.763201]},
+        {n: 'Prado 1744', c: [-34.577371, -58.755909]}, {n: 'Bulevar Caveri 1', c: [-34.578528, -58.757064]},
+        {n: 'Caveri y Azara', c: [-34.579296, -58.755864]}, {n: 'Caveri y Vedia', c: [-34.580020, -58.755063]},
+        {n: 'Caveri y Tablada', c: [-34.580901, -58.753842]}, {n: 'Caveri y Echeverría', c: [-34.581998, -58.752441]},
+        {n: 'Caveri y Gálvez', c: [-34.583319, -58.750710]}, {n: 'Caveri Final', c: [-34.584740, -58.748804]},
+        {n: 'Libertador y Aeronáutica', c: [-34.585554, -58.749812]}, {n: 'Libertador 7300', c: [-34.586494, -58.750574]},
+        {n: 'Libertador 7200', c: [-34.588041, -58.751542]}, {n: 'Giro Maza', c: [-34.588273, -58.751338]},
+        {n: 'Maza y Albatros', c: [-34.588771, -58.750804]}, {n: 'Maternidad', c: [-34.588244, -58.749877]},
+        {n: 'Esquina Albatros', c: [-34.588930, -58.750543]}, {n: 'Cruce Castelar', c: [-34.586030, -58.747278]}
     ];
 
-    L.polyline(rutaIda, {color: '#3498db', weight: 6, opacity: 0.7}).addTo(map);
-    rutaIda.forEach(p => L.circleMarker(p, {radius: 4, color: '#3498db', fillOpacity: 1}).addTo(map));
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(paradas[0].c, 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // 3. ICONO AUTO ROJO 🚗
-    const iconoAuto = L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png',
-        iconSize: [40, 40], iconAnchor: [20, 20]
+    // Dibujamos la ruta
+    L.polyline(paradas.map(p => p.c), {color: '#00d4ff', weight: 5, opacity: 0.6}).addTo(map);
+
+    // Llenar el selector de paradas
+    const sel = document.getElementById('select-destino');
+    paradas.forEach((p, i) => {
+        let opt = document.createElement('option');
+        opt.value = i; opt.innerText = p.n;
+        sel.appendChild(opt);
     });
-    var carIcon = L.marker(rutaIda[0], {icon: iconoAuto}).addTo(map);
 
-    // 4. FUNCIÓN PARA ACTUALIZAR TODO
-    function refrescar(datos) {
-        if (datos) {
-            // Sincronización de asientos (Sigue perfecta!)
-            document.getElementById('asientos-val').innerText = datos.asientos_libres;
-            
-            // Mueve el autito 🚗
-            const p = [datos.latitud, datos.longitud];
-            carIcon.setLatLng(p);
-            map.panTo(p);
+    // Iconos personalizados
+    const iconAuto = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] });
+    const iconYo = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2802/2802928.png', iconSize: [30, 30] });
+
+    let markerAuto = L.marker(paradas[0].c, {icon: iconAuto}).addTo(map);
+    let markerYo = L.marker([0,0], {icon: iconYo}).addTo(map);
+    let markerDestino = L.marker([0,0]).addTo(map);
+
+    // GPS REAL DEL PASAJERO
+    navigator.geolocation.watchPosition(p => {
+        const miPos = [p.coords.latitude, p.coords.longitude];
+        markerYo.setLatLng(miPos);
+    }, null, { enableHighAccuracy: true });
+
+    function irADestino() {
+        const p = paradas[sel.value];
+        if(p) {
+            markerDestino.setLatLng(p.c).bindPopup("Tu Destino: " + p.n).openPopup();
+            map.flyTo(p.c, 16);
         }
     }
 
-    // 5. CARGA INICIAL Y ESCUCHADOR EN VIVO
-    async function carga() {
-        const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
-        refrescar(data);
-    }
-
-    _s.channel('cambios').on('postgres_changes', 
-        { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, 
-        payload => refrescar(payload.new)
-    ).subscribe();
-
-    carga();
+    // ESCUCHAR AL CHOFER EN TIEMPO REAL
+    _s.channel('movil').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
+        const d = payload.new;
+        const autoPos = [d.latitud, d.longitud];
+        markerAuto.setLatLng(autoPos);
+        document.getElementById('val-asientos').innerText = d.asientos_libres;
+        
+        // Calcular distancia móvil-pasajero
+        if(markerYo.getLatLng().lat !== 0) {
+            const dist = map.distance(markerAuto.getLatLng(), markerYo.getLatLng());
+            document.getElementById('val-dist').innerText = Math.round(dist);
+        }
+    }).subscribe();
 </script>
 </body>
 </html>
