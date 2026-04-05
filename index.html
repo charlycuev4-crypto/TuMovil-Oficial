@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pasajero - Tu Móvil</title>
+    <title>Tu Móvil - Dinámico Día</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -11,124 +11,136 @@
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #f0f0f0; height: 100vh; font-family: 'Arial', sans-serif; overflow: hidden; }
 
+        /* MAPA PANTALLA COMPLETA */
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
 
-        /* PANEL SUPERIOR DINÁMICO */
+        /* VISORES FLOTANTES ARRIBA */
         .overlay-top {
             position: absolute; top: 10px; left: 10px; right: 10px;
-            z-index: 1000; display: flex; flex-direction: column; gap: 10px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            z-index: 1000; pointer-events: none;
         }
-        .card {
-            background: rgba(0, 0, 0, 0.9); color: white; border-radius: 15px;
-            padding: 12px; border: 2px solid #00d4ff; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        .visor {
+            background: rgba(0, 0, 0, 0.85); 
+            border: 2px solid #00d4ff; border-radius: 12px;
+            padding: 8px; text-align: center; color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            pointer-events: auto;
         }
-        .label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; display: block; }
-        
-        select {
-            width: 100%; padding: 10px; border-radius: 8px; border: none;
-            background: #222; color: #fff; font-size: 14px; outline: none;
-        }
+        .visor-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; display: block; }
+        .visor-num { font-size: 22px; font-weight: bold; }
 
-        /* INFO DE DISTANCIA Y ASIENTOS */
+        /* PANEL INFERIOR DINÁMICO */
         .overlay-bottom {
-            position: absolute; bottom: 25px; left: 10px; right: 10px;
-            display: flex; justify-content: space-between; align-items: center; z-index: 1000;
-            pointer-events: none;
+            position: absolute; bottom: 25px; left: 0; right: 0;
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+            z-index: 1000;
         }
-        .badge {
-            background: white; padding: 10px 15px; border-radius: 15px;
-            border: 2px solid #00d4ff; font-weight: bold; color: #333;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2); pointer-events: auto;
+        .asientos-cont {
+            display: flex; gap: 10px; background: rgba(0, 0, 0, 0.8);
+            padding: 12px 15px; border-radius: 20px; border: 1px solid #00d4ff;
         }
-        .dist-badge { background: #00d4ff; color: #000; }
+        .btn-as {
+            width: 52px; height: 52px; border-radius: 10px; border: 2px solid #00d4ff;
+            background: transparent; color: #00d4ff; font-size: 20px; font-weight: bold;
+            cursor: pointer; transition: 0.2s;
+        }
+        .ocupado { background: #ff3b30; border-color: #ff3b30; color: white; box-shadow: 0 0 10px #ff3b30; }
+
+        /* BOTÓN POWER REDONDO */
+        .btn-pwr {
+            width: 60px; height: 60px; border-radius: 50%; border: 3px solid white;
+            font-weight: bold; font-size: 12px; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .on { background: #00d4ff; color: black; }
+        .off { background: #ff3b30; color: white; display: none; }
+
+        /* SPLASH SCREEN */
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 10000; display: flex; align-items: center; justify-content: center; transition: opacity 0.5s; }
+        .splash-text { color: #00d4ff; font-size: 30px; font-weight: bold; text-shadow: 0 0 10px #00d4ff; }
     </style>
 </head>
 <body>
 
+    <div id="splash"><div class="splash-text">TU MÓVIL</div></div>
+
     <div id="map"></div>
 
     <div class="overlay-top">
-        <div class="card">
-            <span class="label">TU DESTINO (DÓNDE BAJÁS)</span>
-            <select id="select-destino" onchange="actualizarDestino()">
-                <option value="">Selecciona una parada...</option>
-            </select>
+        <div class="visor">
+            <span class="visor-label">TARIFA HOY</span>
+            <div class="visor-num">$ <span id="v-dinero">0</span></div>
+        </div>
+        <div class="visor">
+            <span class="visor-label">PASAJEROS</span>
+            <div class="visor-num" id="v-pax">0</div>
         </div>
     </div>
 
     <div class="overlay-bottom">
-        <div class="badge dist-badge">A: <span id="txt-dist">--</span> m</div>
-        <div class="badge">LUGARES: <span id="txt-asientos">-</span> / 4</div>
+        <div class="asientos-cont">
+            <button id="b1" class="btn-as" onclick="t(0)">1</button>
+            <button id="b2" class="btn-as" onclick="t(1)">2</button>
+            <button id="b3" class="btn-as" onclick="t(2)">3</button>
+            <button id="b4" class="btn-as" onclick="t(3)">4</button>
+        </div>
+        <button id="p-on" class="btn-pwr on" onclick="power(true)">ON</button>
+        <button id="p-off" class="btn-pwr off" onclick="power(false)">OFF</button>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    let activo = false, recaudado = 0, pasajeros = 0, est = [true, true, true, true];
 
-    // 26 PARADAS SINCRONIZADAS
-    const paradas = [
-        {n: 'M. Cané y Marchena', c: [-34.561128, -58.770586]}, {n: 'Cané y Los Aromos', c: [-34.562160, -58.771380]},
-        {n: 'Los Aromos 11016', c: [-34.562494, -58.772133]}, {n: 'Los Aromos 10874', c: [-34.563541, -58.773244]},
-        {n: 'Los Aromos y Murillo', c: [-34.564109, -58.773759]}, {n: 'Murillo 601', c: [-34.565342, -58.772061]},
-        {n: 'Murillo y Güiraldes', c: [-34.567268, -58.769484]}, {n: 'Murillo y Watt', c: [-34.569090, -58.767095]},
-        {n: 'A. Prado 2555', c: [-34.571016, -58.764443]}, {n: 'Prado y Payró', c: [-34.571956, -58.763201]},
-        {n: 'Prado 1744', c: [-34.577371, -58.755909]}, {n: 'Bulevar Caveri 1', c: [-34.578528, -58.757064]},
-        {n: 'Caveri y Azara', c: [-34.579296, -58.755864]}, {n: 'Caveri y Vedia', c: [-34.580020, -58.755063]},
-        {n: 'Caveri y Tablada', c: [-34.580901, -58.753842]}, {n: 'Caveri y Echeverría', c: [-34.581998, -58.752441]},
-        {n: 'Caveri y Gálvez', c: [-34.583319, -58.750710]}, {n: 'Caveri Final', c: [-34.584740, -58.748804]},
-        {n: 'Libertador y Aeronáutica', c: [-34.585554, -58.749812]}, {n: 'Libertador 7300', c: [-34.586494, -58.750574]},
-        {n: 'Libertador 7200', c: [-34.588041, -58.751542]}, {n: 'Giro Maza', c: [-34.588273, -58.751338]},
-        {n: 'Maza y Albatros', c: [-34.588771, -58.750804]}, {n: 'Maternidad', c: [-34.588244, -58.749877]},
-        {n: 'Esquina Albatros', c: [-34.588930, -58.750543]}, {n: 'Cruce Castelar', c: [-34.586030, -58.747278]}
-    ];
+    window.onload = () => { setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display = 'none', 500); }, 1500); };
 
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(paradas[0].c, 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    // Dibujar Ruta
-    L.polyline(paradas.map(p => p.c), {color: '#00d4ff', weight: 4, opacity: 0.5}).addTo(map);
-
-    // Llenar selector
-    const sel = document.getElementById('select-destino');
-    paradas.forEach((p, i) => {
-        let opt = document.createElement('option');
-        opt.value = i; opt.innerText = p.n;
-        sel.appendChild(opt);
-    });
-
-    // Iconos
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] });
-    const userIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2802/2802928.png', iconSize: [30, 30] });
-
-    let markerAuto = L.marker(paradas[0].c, {icon: carIcon}).addTo(map);
-    let markerUser = L.marker([0,0], {icon: userIcon}).addTo(map);
-    let markerDest = L.marker([0,0]).addTo(map);
-
-    // GPS Pasajero (Ubicación real)
-    navigator.geolocation.watchPosition(p => {
-        const pos = [p.coords.latitude, p.coords.longitude];
-        markerUser.setLatLng(pos);
-    }, null, { enableHighAccuracy: true });
-
-    function actualizarDestino() {
-        const p = paradas[sel.value];
-        if(p) {
-            markerDest.setLatLng(p.c).bindPopup("Bajás en: " + p.n).openPopup();
-            map.flyTo(p.c, 16);
-        }
+    function power(v) {
+        activo = v;
+        document.getElementById('p-on').style.display = v ? 'none' : 'flex';
+        document.getElementById('p-off').style.display = v ? 'flex' : 'none';
     }
 
-    // Escuchar cambios del Conductor
-    _s.channel('movil').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
-        const d = payload.new;
-        markerAuto.setLatLng([d.latitud, d.longitud]);
-        document.getElementById('txt-asientos').innerText = d.asientos_libres;
-        
-        // Calcular distancia dinámica
-        if(markerUser.getLatLng().lat !== 0) {
-            const dist = map.distance(markerAuto.getLatLng(), markerUser.getLatLng());
-            document.getElementById('txt-dist').innerText = Math.round(dist);
-        }
-    }).subscribe();
+    async function t(i) {
+        if(!activo) return;
+        if(est[i]) { recaudado += 1000; pasajeros += 1; }
+        est[i] = !est[i];
+        document.getElementById('b'+(i+1)).className = 'btn-as ' + (est[i] ? '' : 'ocupado');
+        document.getElementById('v-dinero').innerText = recaudado;
+        document.getElementById('v-pax').innerText = pasajeros;
+        await _s.from('estado_movil').update({ asientos_libres: est.filter(x=>x).length }).eq('id', 1);
+    }
+
+    // MAPA MODO DÍA (OPENSTREETMAP ESTÁNDAR)
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    const rutaSantaBrigida = [
+        [-34.561128, -58.770586], [-34.562160, -58.771380], [-34.562494, -58.772133], 
+        [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061], 
+        [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443], 
+        [-34.571956, -58.763201], [-34.577371, -58.755909], [-34.578528, -58.757064], 
+        [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842], 
+        [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804], 
+        [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542], 
+        [-34.588273, -58.751338], [-34.588771, -58.750804], [-34.588244, -58.749877], 
+        [-34.588930, -58.750543], [-34.586030, -58.747278]
+    ];
+
+    L.polyline(rutaSantaBrigida, {color: '#00d4ff', weight: 6, opacity: 0.7}).addTo(map);
+    rutaSantaBrigida.forEach(coord => { L.circleMarker(coord, {radius: 5, fillColor: "#00d4ff", color: "#000", weight: 1, fillOpacity: 1}).addTo(map); });
+    
+    let marker = L.marker(rutaSantaBrigida[0], {
+        icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] })
+    }).addTo(map);
+
+    navigator.geolocation.watchPosition(p => { 
+        if(!activo) return;
+        const pos = [p.coords.latitude, p.coords.longitude];
+        marker.setLatLng(pos); 
+        map.panTo(pos);
+        _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1] }).eq('id', 1);
+    }, null, { enableHighAccuracy: true });
 </script>
 </body>
 </html>
