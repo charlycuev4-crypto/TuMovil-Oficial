@@ -1,35 +1,42 @@
-// ... (mantené el resto del código igual: SB_URL, SB_KEY y el mapa inicial)
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-// ESTA ES LA PARTE QUE DIBUJA LA LÍNEA Y LOS CÍRCULOS
-async function cargarRutaYParadas() {
-    const { data: paradas, error } = await sb
-        .from('paradas')
-        .select('*')
-        .order('orden', { ascending: true });
+<script>
+    const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
+    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
+    const sb = supabase.createClient(SB_URL, SB_KEY);
 
-    if (!error && paradas.length > 0) {
-        const puntos = paradas.map(p => [p.latitud, p.longitud]);
+    var map = L.map('mapa').setView([-34.5611, -58.7705], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    var markerGps = L.marker([-34.5611, -58.7705]).addTo(map);
 
-        // 1. Dibujamos la línea azul (recorrido)
-        L.polyline(puntos, { color: '#007bff', weight: 4, opacity: 0.8 }).addTo(mapa);
-
-        // 2. Dibujamos los CÍRCULOS (lo que faltaba)
-        paradas.forEach(p => {
-            L.circleMarker([p.latitud, p.longitud], {
-                radius: 6,           // Tamaño del círculo
-                fillColor: "white",  // Fondo blanco como en tu foto
-                color: "#007bff",    // Borde azul
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 1
-            }).addTo(mapa).bindPopup(`Parada: ${p.nombre}`);
-        });
-
-        console.log("Ruta cargada con " + paradas.length + " paradas.");
+    // DIBUJAR RUTA CON CÍRCULOS BLANCOS
+    async function cargarRuta() {
+        const { data: paradas } = await sb.from('paradas').select('*').order('orden', {ascending: true});
+        if (paradas) {
+            const pts = paradas.map(p => [p.latitud, p.longitud]);
+            L.polyline(pts, {color: '#007bff', weight: 4}).addTo(map);
+            paradas.forEach(p => {
+                L.circleMarker([p.latitud, p.longitud], {
+                    radius: 6, fillColor: "white", color: "#007bff", weight: 2, fillOpacity: 1
+                }).addTo(map);
+            });
+        }
     }
-}
 
-// Llamamos a la función
-cargarRutaYParadas();
+    // GPS REALTIME
+    function iniciarGps() {
+        navigator.geolocation.watchPosition(async (pos) => {
+            const { latitude, longitude } = pos.coords;
+            markerGps.setLatLng([latitude, longitude]);
+            await sb.from('estado_movil').update({ latitud: latitude, longitud: longitude, en_servicio: true }).eq('id', 1);
+        }, null, { enableHighAccuracy: true });
+    }
 
-// ... (el resto de las funciones de GPS y Asientos siguen igual)
+    // CONTROL DE ASIENTOS
+    async function actualizarAsientos(n) {
+        await sb.from('estado_movil').update({ asientos_libres: 4 - n }).eq('id', 1);
+    }
+
+    cargarRuta();
+</script>
