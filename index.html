@@ -3,68 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pasajero Pro - Tu Móvil</title>
+    <title>Pasajero - Tu Móvil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #f7f7f7; height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        body { margin: 0; padding: 0; background: #f0f0f0; height: 100vh; font-family: 'Arial', sans-serif; overflow: hidden; }
 
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
 
-        /* PANEL FLOTANTE SUPERIOR */
-        .top-panel {
+        /* PANEL SUPERIOR DINÁMICO */
+        .overlay-top {
             position: absolute; top: 10px; left: 10px; right: 10px;
-            z-index: 1000; display: flex; flex-direction: column; gap: 8px;
+            z-index: 1000; display: flex; flex-direction: column; gap: 10px;
         }
         .card {
-            background: rgba(0, 0, 0, 0.85); color: white; border-radius: 15px;
-            padding: 12px; border: 1.5px solid #00d4ff; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            background: rgba(0, 0, 0, 0.9); color: white; border-radius: 15px;
+            padding: 12px; border: 2px solid #00d4ff; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
         }
-
-        /* SELECTOR DE PARADA */
+        .label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; display: block; }
+        
         select {
             width: 100%; padding: 10px; border-radius: 8px; border: none;
-            background: #222; color: #00d4ff; font-weight: bold; font-size: 14px;
+            background: #222; color: #fff; font-size: 14px; outline: none;
         }
 
-        /* INFO DE ASIENTOS */
-        .bottom-panel {
-            position: absolute; bottom: 25px; left: 0; right: 0;
-            display: flex; justify-content: center; z-index: 1000;
+        /* INFO DE DISTANCIA Y ASIENTOS */
+        .overlay-bottom {
+            position: absolute; bottom: 25px; left: 10px; right: 10px;
+            display: flex; justify-content: space-between; align-items: center; z-index: 1000;
+            pointer-events: none;
         }
         .badge {
-            background: white; color: #333; padding: 10px 20px; border-radius: 25px;
-            border: 2px solid #00d4ff; font-weight: bold; font-size: 18px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            background: white; padding: 10px 15px; border-radius: 15px;
+            border: 2px solid #00d4ff; font-weight: bold; color: #333;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); pointer-events: auto;
         }
+        .dist-badge { background: #00d4ff; color: #000; }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
 
-    <div class="top-panel">
+    <div class="overlay-top">
         <div class="card">
-            <span style="font-size: 10px; color: #00d4ff; font-weight: bold;">¿DÓNDE BAJÁS?</span>
-            <select id="select-destino" onchange="marcarDestino()">
-                <option value="">Selecciona tu parada...</option>
+            <span class="label">TU DESTINO (DÓNDE BAJÁS)</span>
+            <select id="select-destino" onchange="actualizarDestino()">
+                <option value="">Selecciona una parada...</option>
             </select>
-        </div>
-        <div class="card" id="info-viaje" style="display:none;">
-            <div style="font-size: 13px;">Móvil a: <b id="distancia-txt">--</b> m</div>
         </div>
     </div>
 
-    <div class="bottom-panel">
-        <div class="badge">LUGARES: <span id="asientos-count">-</span> / 4</div>
+    <div class="overlay-bottom">
+        <div class="badge dist-badge">A: <span id="txt-dist">--</span> m</div>
+        <div class="badge">LUGARES: <span id="txt-asientos">-</span> / 4</div>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
-    // 26 PARADAS ACTUALIZADAS
+
+    // 26 PARADAS SINCRONIZADAS
     const paradas = [
         {n: 'M. Cané y Marchena', c: [-34.561128, -58.770586]}, {n: 'Cané y Los Aromos', c: [-34.562160, -58.771380]},
         {n: 'Los Aromos 11016', c: [-34.562494, -58.772133]}, {n: 'Los Aromos 10874', c: [-34.563541, -58.773244]},
@@ -81,55 +81,54 @@
         {n: 'Esquina Albatros', c: [-34.588930, -58.750543]}, {n: 'Cruce Castelar', c: [-34.586030, -58.747278]}
     ];
 
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     // Dibujar Ruta
-    const coordsRuta = paradas.map(p => p.c);
-    L.polyline(coordsRuta, {color: '#00d4ff', weight: 4}).addTo(map);
+    L.polyline(paradas.map(p => p.c), {color: '#00d4ff', weight: 4, opacity: 0.5}).addTo(map);
 
-    // Poblar Selector
-    const select = document.getElementById('select-destino');
+    // Llenar selector
+    const sel = document.getElementById('select-destino');
     paradas.forEach((p, i) => {
-        if(i === 0) return; // No bajar en el inicio
         let opt = document.createElement('option');
         opt.value = i; opt.innerText = p.n;
-        select.appendChild(opt);
+        sel.appendChild(opt);
     });
 
-    // Marcadores
-    let markerAuto = L.marker(paradas[0].c, {icon: L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize:[35,35]})}).addTo(map);
-    let markerPasajero = L.marker([0,0], {icon: L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/2802/2802928.png', iconSize:[30,30]})}).addTo(map);
-    let markerDestino = L.marker([0,0]).addTo(map);
+    // Iconos
+    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] });
+    const userIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2802/2802928.png', iconSize: [30, 30] });
 
-    // GPS del Pasajero
+    let markerAuto = L.marker(paradas[0].c, {icon: carIcon}).addTo(map);
+    let markerUser = L.marker([0,0], {icon: userIcon}).addTo(map);
+    let markerDest = L.marker([0,0]).addTo(map);
+
+    // GPS Pasajero (Ubicación real)
     navigator.geolocation.watchPosition(p => {
         const pos = [p.coords.latitude, p.coords.longitude];
-        markerPasajero.setLatLng(pos);
-    });
+        markerUser.setLatLng(pos);
+    }, null, { enableHighAccuracy: true });
 
-    function marcarDestino() {
-        const idx = select.value;
-        if(!idx) return;
-        const posDestino = paradas[idx].c;
-        markerDestino.setLatLng(posDestino).bindPopup("Bajás acá").openPopup();
-        document.getElementById('info-viaje').style.display = 'block';
+    function actualizarDestino() {
+        const p = paradas[sel.value];
+        if(p) {
+            markerDest.setLatLng(p.c).bindPopup("Bajás en: " + p.n).openPopup();
+            map.flyTo(p.c, 16);
+        }
     }
 
-    // Escuchar al Conductor
+    // Escuchar cambios del Conductor
     _s.channel('movil').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
         const d = payload.new;
-        const posAuto = [d.latitud, d.longitud];
-        markerAuto.setLatLng(posAuto);
-        document.getElementById('asientos-count').innerText = d.asientos_libres;
+        markerAuto.setLatLng([d.latitud, d.longitud]);
+        document.getElementById('txt-asientos').innerText = d.asientos_libres;
         
-        // Calcular distancia al auto (aprox)
-        if(markerPasajero.getLatLng().lat !== 0) {
-            const dist = map.distance(markerAuto.getLatLng(), markerPasajero.getLatLng());
-            document.getElementById('distancia-txt').innerText = Math.round(dist);
+        // Calcular distancia dinámica
+        if(markerUser.getLatLng().lat !== 0) {
+            const dist = map.distance(markerAuto.getLatLng(), markerUser.getLatLng());
+            document.getElementById('txt-dist').innerText = Math.round(dist);
         }
     }).subscribe();
-
 </script>
 </body>
 </html>
