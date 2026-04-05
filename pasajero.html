@@ -2,21 +2,25 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pasajero - Siguiendo al Móvil</title>
+    <title>Prueba de Conexión - Pasajero</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; font-family: sans-serif; text-align: center; }
-        #map { height: 60vh; width: 100%; }
-        .info { padding: 20px; background: white; border-radius: 20px 20px 0 0; margin-top: -20px; position: relative; z-index: 1000; }
-        #res-asientos { font-size: 80px; color: #28a745; font-weight: bold; margin: 5px 0; }
+        body { margin: 0; font-family: sans-serif; text-align: center; background: #f0f2f5; }
+        #map { height: 50vh; width: 100%; }
+        .panel-prueba { height: 50vh; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 20px 20px 0 0; margin-top: -20px; position: relative; z-index: 1000; box-shadow: 0 -5px 15px rgba(0,0,0,0.1); }
+        .btn-test { background: #28a745; color: white; border: none; padding: 20px 40px; font-size: 24px; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(40,167,69,0.3); transition: 0.3s; }
+        .btn-test:active { transform: scale(0.95); background: #218838; }
+        #status-msg { margin-top: 15px; color: #666; font-size: 14px; }
     </style>
 </head>
 <body>
+
     <div id="map"></div>
-    <div class="info">
-        <p style="color:#888; font-size: 12px; font-weight: bold;">ASIENTOS DISPONIBLES</p>
-        <div id="res-asientos">?</div>
-        <p id="recorrido" style="color: #007bff; font-weight: bold;">Móvil en movimiento...</p>
+
+    <div class="panel-prueba">
+        <p style="color:#888; font-weight: bold;">TOCÁ PARA PROBAR CONEXIÓN</p>
+        <button id="btn-asiento" class="btn-test" onclick="probarComunicacion()">?</button>
+        <p id="status-msg">Esperando señal de Supabase...</p>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -25,40 +29,49 @@
     <script>
         const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
 
-        // Mapa inicial (se ajustará solo al recibir tus coordenadas)
         var map = L.map('map').setView([-34.5747, -58.7744], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        
-        // Icono del auto
         var carMarker = L.marker([-34.5747, -58.7744]).addTo(map);
 
-        async function sincronizarConConductor() {
-            const { data } = await _supabase.from('estado_movil').select('*').eq('id', 1).single();
-            
-            if (data) {
-                // 1. Mover el mapa a tu ubicación real transmitida
-                const nuevaPos = [data.latitud, data.longitud];
-                carMarker.setLatLng(nuevaPos);
-                map.setView(nuevaPos); // Esto hace que el mapa te busque y te siga
+        // Función para enviar un cambio desde el pasajero
+        async function probarComunicacion() {
+            const boton = document.getElementById('btn-asiento');
+            const actual = boton.innerText === "?" ? 4 : parseInt(boton.innerText);
+            const nuevoValor = actual > 0 ? actual - 1 : 4; // Va bajando de 4 a 0
 
-                // 2. Actualizar el número de asientos (adiós al "?")
-                document.getElementById('res-asientos').innerText = data.asientos_libres;
+            document.getElementById('status-msg').innerText = "Enviando señal...";
+            
+            const { error } = await _supabase
+                .from('estado_movil')
+                .update({ asientos_libres: nuevoValor })
+                .eq('id', 1);
+
+            if (error) {
+                document.getElementById('status-msg').innerText = "Error: " + error.message;
             }
         }
 
-        // Escuchar cambios en tiempo real para que el movimiento sea fluido
-        _supabase.channel('seguimiento_vivo').on('postgres_changes', 
+        // Escuchar la respuesta (si Supabase lo cambia, el botón se actualiza)
+        _supabase.channel('test_canal').on('postgres_changes', 
             { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.1' }, 
             (payload) => {
                 const { latitud, longitud, asientos_libres } = payload.new;
+                document.getElementById('btn-asiento').innerText = asientos_libres;
                 carMarker.setLatLng([latitud, longitud]);
-                map.panTo([latitud, longitud]); // El mapa se desplaza suavemente con el auto
-                document.getElementById('res-asientos').innerText = asientos_libres;
+                map.panTo([latitud, longitud]);
+                document.getElementById('status-msg').innerText = "¡Conexión OK! " + new Date().toLocaleTimeString();
             }
         ).subscribe();
 
-        // Ejecutar al abrir
-        sincronizarConConductor();
+        // Carga inicial
+        async function inicio() {
+            const { data } = await _supabase.from('estado_movil').select('*').eq('id', 1).single();
+            if (data) {
+                document.getElementById('btn-asiento').innerText = data.asientos_libres;
+                carMarker.setLatLng([data.latitud, data.longitud]);
+            }
+        }
+        inicio();
     </script>
 </body>
 </html>
