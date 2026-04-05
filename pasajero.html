@@ -1,33 +1,127 @@
-<button id="btn-reservar" onclick="reservarLugar()" style="display:none; width:100%; margin-top:10px; background:#00ff88; color:#000; border:none; padding:12px; border-radius:10px; font-weight:bold; font-size:16px; cursor:pointer; box-shadow: 0 4px 10px rgba(0,255,136,0.3);">
-    📩 RESERVAR MI LUGAR
-</button>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pasajero - Tu Móvil</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { 
+            margin: 0; padding: 20px; 
+            background: #0a0a0a; color: white; 
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            height: 100vh; justify-content: center;
+        }
+
+        .card {
+            background: #1a1a1a;
+            border: 2px solid #00d4ff;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            width: 100%; max-width: 350px;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+        }
+
+        h2 { color: #00d4ff; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; }
+
+        .asientos-badge {
+            font-size: 80px; font-weight: bold;
+            color: #00ff88; margin: 20px 0;
+            text-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+        }
+
+        .label { font-size: 14px; color: #aaa; text-transform: uppercase; }
+
+        select {
+            width: 100%; padding: 15px; margin-top: 20px;
+            background: #222; border: 1px solid #444;
+            color: white; border-radius: 10px; font-size: 16px;
+        }
+
+        #btn-confirmar {
+            width: 100%; margin-top: 20px; padding: 18px;
+            background: #00ff88; color: #000;
+            border: none; border-radius: 12px;
+            font-size: 18px; font-weight: bold;
+            cursor: pointer; display: none; /* Se muestra al elegir parada */
+            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.4);
+            transition: 0.3s;
+        }
+
+        #btn-confirmar:active { transform: scale(0.95); }
+
+        .status { margin-top: 15px; font-size: 14px; color: #00d4ff; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <span class="label">Asientos Disponibles</span>
+        <div id="libres-pax" class="asientos-badge">--</div>
+
+        <span class="label">¿A dónde vas?</span>
+        <select id="select-destino" onchange="mostrarBoton()">
+            <option value="">Seleccioná tu parada...</option>
+            <option value="1">Boulevard Caveri</option>
+            <option value="2">Murillo 601</option>
+            <option value="3">Santa Brígida</option>
+        </select>
+
+        <button id="btn-confirmar" onclick="confirmarAsiento()">
+            CONFIRMAR MI ASIENTO 📩
+        </button>
+        
+        <div id="msg" class="status"></div>
+    </div>
 
 <script>
-// Función para reservar
-async function reservarLugar() {
-    const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
-    
-    if (data.asientos_libres > 0) {
-        const nuevosAsientos = data.asientos_libres - 1;
-        const { error } = await _s.from('estado_movil').update({ asientos_libres: nuevosAsientos }).eq('id', 1);
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-        if (!error) {
-            alert("¡Lugar reservado! El chofer ya recibió tu aviso.");
-            document.getElementById('btn-reservar').style.display = 'none';
-            document.getElementById('btn-reservar').innerText = "✅ YA RESERVASTE";
+    // 1. ESCUCHAR LOS ASIENTOS EN TIEMPO REAL
+    async function iniciar() {
+        // Carga inicial
+        const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
+        if(data) document.getElementById('libres-pax').innerText = data.asientos_libres;
+
+        // Suscripción para que el número cambie solo cuando el chofer toca un botón
+        _s.channel('cambios').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
+            document.getElementById('libres-pax').innerText = payload.new.asientos_libres;
+        }).subscribe();
+    }
+
+    function mostrarBoton() {
+        const sel = document.getElementById('select-destino').value;
+        document.getElementById('btn-confirmar').style.display = sel ? 'block' : 'none';
+    }
+
+    // 2. LA FUNCIÓN CLAVE: CONFIRMAR ASIENTO
+    async function confirmarAsiento() {
+        const btn = document.getElementById('btn-confirmar');
+        const badge = document.getElementById('libres-pax');
+        const actual = parseInt(badge.innerText);
+
+        if (actual > 0) {
+            btn.disabled = true;
+            btn.innerText = "PROCESANDO...";
+
+            const { error } = await _s.from('estado_movil')
+                .update({ asientos_libres: actual - 1 })
+                .eq('id', 1);
+
+            if (!error) {
+                btn.style.background = "#444";
+                btn.style.color = "#fff";
+                btn.innerText = "✅ ASIENTO RESERVADO";
+                document.getElementById('msg').innerText = "El chofer ya recibió tu confirmación.";
+            }
+        } else {
+            alert("¡Lo sentimos! Ya no quedan asientos.");
         }
-    } else {
-        alert("Lo siento, no quedan lugares libres.");
     }
-}
 
-// Modificamos la función de irADestino para que muestre el botón
-function irADestino() {
-    const p = paradas[sel.value];
-    if(p) {
-        markerDestino.setLatLng(p.c).bindPopup("Tu Destino: " + p.n).openPopup();
-        map.flyTo(p.c, 16);
-        document.getElementById('btn-reservar').style.display = 'block'; // Muestra el botón al elegir parada
-    }
-}
+    iniciar();
 </script>
+</body>
+</html>
