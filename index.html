@@ -2,20 +2,19 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
-    const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
-    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
-    const sb = supabase.createClient(SB_URL, SB_KEY);
+    const sb = supabase.createClient("https://nvumdlxervrewqiiaicl.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs");
 
     var map = L.map('mapa').setView([-34.5611, -58.7705], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     var markerGps = L.marker([-34.5611, -58.7705]).addTo(map);
 
-    // DIBUJAR RUTA CON CÍRCULOS BLANCOS
+    // DIBUJAR RUTA Y CÍRCULOS BLANCOS
     async function cargarRuta() {
         const { data: paradas } = await sb.from('paradas').select('*').order('orden', {ascending: true});
         if (paradas) {
-            const pts = paradas.map(p => [p.latitud, p.longitud]);
-            L.polyline(pts, {color: '#007bff', weight: 4}).addTo(map);
+            const puntos = paradas.map(p => [p.latitud, p.longitud]);
+            L.polyline(puntos, {color: '#007bff', weight: 4}).addTo(map);
+            
             paradas.forEach(p => {
                 L.circleMarker([p.latitud, p.longitud], {
                     radius: 6, fillColor: "white", color: "#007bff", weight: 2, fillOpacity: 1
@@ -24,18 +23,20 @@
         }
     }
 
-    // GPS REALTIME
-    function iniciarGps() {
+    // ACTUALIZAR ASIENTOS (1 a 4)
+    async function setAsientos(ocupados) {
+        const libres = 4 - ocupados;
+        await sb.from('estado_movil').update({ asientos_libres: libres }).eq('id', 1);
+        alert("Asientos actualizados: " + libres + " libres");
+    }
+
+    // TRANSMITIR GPS
+    function iniciarViaje() {
         navigator.geolocation.watchPosition(async (pos) => {
             const { latitude, longitude } = pos.coords;
             markerGps.setLatLng([latitude, longitude]);
             await sb.from('estado_movil').update({ latitud: latitude, longitud: longitude, en_servicio: true }).eq('id', 1);
         }, null, { enableHighAccuracy: true });
-    }
-
-    // CONTROL DE ASIENTOS
-    async function actualizarAsientos(n) {
-        await sb.from('estado_movil').update({ asientos_libres: 4 - n }).eq('id', 1);
     }
 
     cargarRuta();
