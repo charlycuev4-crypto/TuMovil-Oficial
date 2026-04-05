@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Conductor Pro - Tu Móvil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -10,7 +11,7 @@
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-family: sans-serif; }
 
-        /* PRESENTACIÓN DINÁMICA */
+        /* PRESENTACIÓN CELESTE NEÓN */
         #splash {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 10000; display: flex; align-items: center; justify-content: center;
@@ -23,47 +24,43 @@
         }
         @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
 
-        /* GPS (70% de la pantalla) */
-        #map { height: 72vh; width: 100%; border-bottom: 1px solid #00d4ff; }
+        /* GPS (72% de la pantalla) */
+        #map { height: 72vh; width: 100%; border-bottom: 2px solid #00d4ff; }
 
-        /* MENÚ DINÁMICO (28% aprox) */
+        /* PANEL DE CONTROL (28% aprox) */
         .panel { 
-            height: 28vh; background: #000; padding: 8px;
+            height: 28vh; background: #000; padding: 10px;
             display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-            position: relative; border-top: 1px solid #00d4ff;
+            position: relative;
         }
 
         .visor { 
-            background: #000; border: 1.5px solid #00d4ff; border-radius: 12px; 
-            padding: 4px; text-align: center; display: flex; flex-direction: column; justify-content: center;
-            box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.2), 0 0 5px rgba(0, 212, 255, 0.2);
+            background: #000; border: 2px solid #00d4ff; border-radius: 12px; 
+            padding: 6px; text-align: center; display: flex; flex-direction: column; justify-content: center;
+            box-shadow: inset 0 0 10px rgba(0, 212, 255, 0.1);
         }
-        .visor-label { font-size: 9px; color: #00d4ff; font-weight: bold; margin-bottom: 2px; }
-        .visor-num { font-size: 18px; font-weight: bold; color: #fff; }
+        .visor-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; }
+        .visor-num { font-size: 22px; font-weight: bold; color: #fff; }
 
-        .asientos-cont { grid-column: span 2; display: flex; justify-content: space-around; padding-top: 5px; }
+        .asientos-cont { grid-column: span 2; display: flex; justify-content: space-around; align-items: center; padding-top: 5px; }
         
         .btn-as { 
-            width: 50px; height: 42px; border: 2px solid #00d4ff; border-radius: 10px; 
-            font-size: 18px; font-weight: bold; color: #fff; cursor: pointer; background: transparent;
-            transition: transform 0.1s, box-shadow 0.2s;
-            box-shadow: 0 0 5px rgba(0, 212, 255, 0.1);
+            width: 55px; height: 48px; border: 2px solid #00d4ff; border-radius: 10px; 
+            font-size: 20px; font-weight: bold; color: #00d4ff; cursor: pointer; background: transparent;
+            transition: all 0.2s;
         }
-        .btn-as:active { transform: scale(0.9); } /* Efecto de rebote */
-
-        .libre { border-color: #00d4ff; color: #00d4ff; }
         .ocupado { background: #ff3b30; border-color: #ff3b30; color: #fff; box-shadow: 0 0 10px #ff3b30; }
 
-        /* BOTÓN ON/OFF REDONDO */
+        /* BOTÓN ON/OFF FLOTANTE */
         .btn-pwr {
-            position: absolute; top: -25px; right: 15px; width: 50px; height: 50px;
-            border-radius: 50%; border: 2px solid #00d4ff; font-weight: bold;
-            font-size: 10px; cursor: pointer; z-index: 2000;
+            position: absolute; top: -30px; right: 20px; width: 60px; height: 60px;
+            border-radius: 50%; border: 3px solid #fff; font-weight: bold;
+            font-size: 12px; cursor: pointer; z-index: 2000;
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
-        .on { background: #000; color: #00d4ff; }
-        .off { background: #ff3b30; color: #fff; border-color: #fff; display: none; }
+        .on { background: #00d4ff; color: #000; }
+        .off { background: #ff3b30; color: #fff; display: none; }
     </style>
 </head>
 <body>
@@ -88,21 +85,23 @@
         </div>
 
         <div class="asientos-cont">
-            <button id="b1" class="btn-as libre" onclick="t(0)">1</button>
-            <button id="b2" class="btn-as libre" onclick="t(1)">2</button>
-            <button id="b3" class="btn-as libre" onclick="t(2)">3</button>
-            <button id="b4" class="btn-as libre" onclick="t(3)">4</button>
+            <button id="b1" class="btn-as" onclick="t(0)">1</button>
+            <button id="b2" class="btn-as" onclick="t(1)">2</button>
+            <button id="b3" class="btn-as" onclick="t(2)">3</button>
+            <button id="b4" class="btn-as" onclick="t(3)">4</button>
         </div>
     </div>
 
 <script>
-    // Splash screen timer
-    window.onload = () => { setTimeout(() => { 
-        document.getElementById('splash').style.opacity = '0'; 
-        setTimeout(() => document.getElementById('splash').style.display = 'none', 500); 
-    }, 2000); };
+    // Quitar splash screen
+    window.onload = () => { 
+        setTimeout(() => { 
+            document.getElementById('splash').style.opacity = '0'; 
+            setTimeout(() => document.getElementById('splash').style.display = 'none', 500); 
+        }, 2000); 
+    };
 
-    // Conexión Supabase (Se mantienen tus credenciales)
+    // Configuración Supabase
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
     let activo = false;
@@ -114,42 +113,52 @@
         activo = v;
         document.getElementById('p-on').style.display = v ? 'none' : 'flex';
         document.getElementById('p-off').style.display = v ? 'flex' : 'none';
-        if(v) { alert("¡Turno Iniciado! GPS Activo."); }
     }
 
     async function t(i) {
         if(!activo) return;
-        
-        // Efecto visual rápido al tocar
-        const btn = document.getElementById('b'+(i+1));
-        
-        if(est[i]) { 
-            recaudado += 1000; 
-            pasajeros += 1; 
-        }
-        
+        if(est[i]) { recaudado += 1000; pasajeros += 1; }
         est[i] = !est[i];
-        btn.className = 'btn-as ' + (est[i] ? 'libre' : 'ocupado');
+        document.getElementById('b'+(i+1)).className = 'btn-as ' + (est[i] ? '' : 'ocupado');
         document.getElementById('v-dinero').innerText = recaudado;
         document.getElementById('v-pax').innerText = pasajeros;
-
-        // Actualizar base de datos
-        await _s.from('estado_movil').update({ 
-            asientos_libres: est.filter(x=>x).length 
-        }).eq('id', 1);
+        await _s.from('estado_movil').update({ asientos_libres: est.filter(x=>x).length }).eq('id', 1);
     }
 
     // Inicializar Mapa
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.575, -58.775], 15);
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // RUTA TRONCAL (Sincronizada con tus 22 puntos)
+    const rutaSantaBrigida = [
+        [-34.561128, -58.770586], [-34.562160, -58.771380], [-34.562494, -58.772133], 
+        [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061], 
+        [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443], 
+        [-34.571956, -58.763201], [-34.577371, -58.755909], [-34.578528, -58.757064], 
+        [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842], 
+        [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804], 
+        [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542], 
+        [-34.588273, -58.751338]
+    ];
+
+    // Dibujar la línea celeste
+    L.polyline(rutaSantaBrigida, {color: '#00d4ff', weight: 5, opacity: 0.6}).addTo(map);
+
+    // Dibujar las paradas
+    rutaSantaBrigida.forEach(coord => {
+        L.circleMarker(coord, {radius: 6, fillColor: "#00d4ff", color: "#fff", weight: 2, fillOpacity: 1}).addTo(map);
+    });
+
+    // Auto-ajustar mapa a la ruta
+    map.fitBounds(L.polyline(rutaSantaBrigida).getBounds());
 
     const carIcon = L.icon({ 
         iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', 
-        iconSize: [32, 32] 
+        iconSize: [35, 35] 
     });
-    let marker = L.marker([-34.575, -58.775], {icon: carIcon}).addTo(map);
+    let marker = L.marker(rutaSantaBrigida[0], {icon: carIcon}).addTo(map);
 
-    // Seguimiento GPS
+    // GPS Activo
     navigator.geolocation.watchPosition(p => {
         if(!activo) return;
         const pos = [p.coords.latitude, p.coords.longitude];
