@@ -1,1 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pasajero - Siguiendo al Móvil</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; font-family: sans-serif; text-align: center; }
+        #map { height: 60vh; width: 100%; }
+        .info { padding: 20px; background: white; border-radius: 20px 20px 0 0; margin-top: -20px; position: relative; z-index: 1000; }
+        #res-asientos { font-size: 80px; color: #28a745; font-weight: bold; margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="info">
+        <p style="color:#888; font-size: 12px; font-weight: bold;">ASIENTOS DISPONIBLES</p>
+        <div id="res-asientos">?</div>
+        <p id="recorrido" style="color: #007bff; font-weight: bold;">Móvil en movimiento...</p>
+    </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
+
+        // Mapa inicial (se ajustará solo al recibir tus coordenadas)
+        var map = L.map('map').setView([-34.5747, -58.7744], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        
+        // Icono del auto
+        var carMarker = L.marker([-34.5747, -58.7744]).addTo(map);
+
+        async function sincronizarConConductor() {
+            const { data } = await _supabase.from('estado_movil').select('*').eq('id', 1).single();
+            
+            if (data) {
+                // 1. Mover el mapa a tu ubicación real transmitida
+                const nuevaPos = [data.latitud, data.longitud];
+                carMarker.setLatLng(nuevaPos);
+                map.setView(nuevaPos); // Esto hace que el mapa te busque y te siga
+
+                // 2. Actualizar el número de asientos (adiós al "?")
+                document.getElementById('res-asientos').innerText = data.asientos_libres;
+            }
+        }
+
+        // Escuchar cambios en tiempo real para que el movimiento sea fluido
+        _supabase.channel('seguimiento_vivo').on('postgres_changes', 
+            { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.1' }, 
+            (payload) => {
+                const { latitud, longitud, asientos_libres } = payload.new;
+                carMarker.setLatLng([latitud, longitud]);
+                map.panTo([latitud, longitud]); // El mapa se desplaza suavemente con el auto
+                document.getElementById('res-asientos').innerText = asientos_libres;
+            }
+        ).subscribe();
+
+        // Ejecutar al abrir
+        sincronizarConConductor();
+    </script>
+</body>
+</html>
