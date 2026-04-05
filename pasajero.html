@@ -1,68 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Conductor - Santa Brígida</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #121212; color: white; padding: 20px; }
+        h2 { letter-spacing: 2px; margin-bottom: 20px; color: #f8f9fa; }
+        
+        /* Contenedor de botones igual a tu captura exitosa */
+        .grid-asientos { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 320px; margin: 20px auto; }
+        
+        .btn-asiento { height: 100px; font-size: 32px; font-weight: bold; border: none; border-radius: 20px; cursor: pointer; color: white; transition: 0.2s; }
+        
+        /* Colores: Verde para libre, Rojo para ocupado */
+        .libre { background: #28a745; box-shadow: 0 4px 15px rgba(40,167,69,0.3); } 
+        .ocupado { background: #dc3545; box-shadow: 0 4px 15px rgba(220,53,69,0.3); }
+        
+        .gps-status { margin-top: 30px; background: #222; padding: 15px; border-radius: 15px; border: 1px solid #333; color: #ffc107; font-family: monospace; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <h2>CONTROL DE ASIENTOS</h2>
+    
+    <div class="grid-asientos">
+        <button id="a1" class="libre" onclick="toggle(0)">1</button>
+        <button id="a2" class="libre" onclick="toggle(1)">2</button>
+        <button id="a3" class="libre" onclick="toggle(2)">3</button>
+        <button id="a4" class="libre" onclick="toggle(3)">4</button>
+    </div>
+
+    <div class="gps-status" id="gps-display">
+        🛰️ Buscando señal GPS...
+    </div>
+
 <script>
-    // 1. CONFIGURACIÓN DE CONEXIÓN (Tus llaves de la captura 1000251137)
-    const SB_URL = "https://nvumdlxervrewqiiaicl.supabase.co";
-    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs";
-    const sb = supabase.createClient(SB_URL, SB_KEY);
+    // Conexión con tus llaves reales
+    const _supabase = supabase.createClient(
+        'https://nvumdlxervrewqiiaicl.supabase.co', 
+        'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE'
+    );
+    
+    // Estado inicial: todos los asientos libres (true)
+    let estadoAsientos = [true, true, true, true];
 
-    // 2. INICIALIZAR MAPA (Moreno / Santa Brígida)
-    var map = L.map('mapa-osm', { zoomControl: false }).setView([-34.561264, -58.770506], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    async function toggle(index) {
+        // Cambiamos el estado (si era true pasa a false y viceversa)
+        estadoAsientos[index] = !estadoAsientos[index];
+        
+        // Actualizamos el color del botón en pantalla
+        const btn = document.getElementById('a' + (index + 1));
+        btn.className = 'btn-asiento ' + (estadoAsientos[index] ? 'libre' : 'ocupado');
+        
+        // Contamos cuántos asientos quedaron en verde (true)
+        const cantidadLibres = estadoAsientos.filter(asiento => asiento === true).length;
+        
+        // ENVIAR A SUPABASE: Esto hace que el número cambie en la app del pasajero
+        const { error } = await _supabase
+            .from('estado_movil')
+            .update({ asientos_libres: cantidadLibres })
+            .eq('id', 1);
 
-    // Marcador del móvil (El que se va a mover solo)
-    var marcadorMovil = L.marker([-34.561264, -58.770506]).addTo(map)
-        .bindPopup("<b>Tu Móvil Oficial</b>");
-
-    // 3. CARGAR LA RUTA AZUL (Desde M. Cané hasta Roca)
-    async function dibujarRuta() {
-        const { data: paradas, error } = await sb
-            .from('paradas')
-            .select('*')
-            .order('orden', { ascending: true }); //
-
-        if (!error && paradas.length > 0) {
-            const puntos = paradas.map(p => [p.latitud, p.longitud]);
-            L.polyline(puntos, { color: '#007bff', weight: 5, opacity: 0.7 }).addTo(map);
-            
-            // Dibujamos los puntitos de las paradas
-            paradas.forEach(p => {
-                L.circleMarker([p.latitud, p.longitud], { radius: 5, color: '#007bff', fillColor: '#fff', fillOpacity: 1 }).addTo(map);
-            });
-        }
+        if (error) console.log("Error al actualizar asientos:", error.message);
     }
 
-    // 4. ESCUCHAR AL CONDUCTOR EN TIEMPO REAL (Realtime)
-    const canal = sb.channel('cambios-movil')
-        .on('postgres_changes', { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'estado_movil',
-            filter: 'id=eq.1' //
-        }, (payload) => {
-            const datos = payload.new;
-            console.log("Señal recibida:", datos);
-
-            // Actualizar GPS en el mapa
-            if (datos.latitud && datos.longitud) {
-                marcadorMovil.setLatLng([datos.latitud, datos.longitud]);
-            }
-
-            // Actualizar Asientos en el panel
-            const divAsientos = document.getElementById('asientos-disponibles');
-            if (divAsientos) divAsientos.innerText = datos.asientos_libres;
-
-            // Actualizar Estado (Verde/Rojo)
-            const indicador = document.getElementById('estado-recorrido');
-            if (indicador) {
-                if (datos.en_servicio) {
-                    indicador.style.backgroundColor = "#28a745"; 
-                    indicador.innerText = "✅ MÓVIL EN RECORRIDO";
-                } else {
-                    indicador.style.backgroundColor = "#dc3545";
-                    indicador.innerText = "❌ FUERA DE SERVICIO";
-                }
-            }
-        })
-        .subscribe();
-
-    dibujarRuta();
+    // TRANSMITIR GPS EN TIEMPO REAL
+    navigator.geolocation.watchPosition(async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        
+        // Mostramos en pantalla para que sepas que está funcionando
+        document.getElementById('gps-display').innerText = `📍 GPS OK: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+        
+        // Enviamos la posición a la base de datos
+        await _supabase
+            .from('estado_movil')
+            .update({ 
+                latitud: latitude, 
+                longitud: longitude 
+            })
+            .eq('id', 1);
+            
+    }, (err) => {
+        document.getElementById('gps-display').innerText = "❌ Error GPS: " + err.message;
+    }, { 
+        enableHighAccuracy: true 
+    });
 </script>
+</body>
+</html>
