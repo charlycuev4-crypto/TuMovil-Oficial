@@ -2,56 +2,65 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor - Tu Móvil</title>
+    <title>Conductor Pro - Tu Móvil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #000; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        body { margin: 0; padding: 0; background: #000; height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-family: sans-serif; }
 
-        /* 1. PRESENTACIÓN: TEXTO CELESTE SOBRE NEGRO */
+        /* PRESENTACIÓN DINÁMICA */
         #splash {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 10000; display: flex; align-items: center; justify-content: center;
-            transition: opacity 0.6s;
+            transition: opacity 0.5s;
         }
         .splash-text {
-            color: #00d4ff; font-size: 40px; font-weight: bold; letter-spacing: 5px;
-            text-shadow: 0 0 20px rgba(0, 212, 255, 0.6);
+            color: #00d4ff; font-size: 35px; font-weight: bold; letter-spacing: 4px;
+            text-shadow: 0 0 15px #00d4ff;
+            animation: pulse 2s infinite;
         }
+        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
 
-        /* 2. GPS AL 70% */
-        #map { height: 70vh; width: 100%; border-bottom: 2px solid #00d4ff; }
+        /* GPS (70% de la pantalla) */
+        #map { height: 72vh; width: 100%; border-bottom: 1px solid #00d4ff; }
 
-        /* 3. MENÚ AL 30% */
+        /* MENÚ DINÁMICO (28% aprox) */
         .panel { 
-            height: 30vh; background: #000; padding: 10px;
+            height: 28vh; background: #000; padding: 8px;
             display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-            position: relative;
+            position: relative; border-top: 1px solid #00d4ff;
         }
 
         .visor { 
-            background: #000; border: 1px solid #00d4ff; border-radius: 8px; 
-            padding: 5px; text-align: center; display: flex; flex-direction: column; justify-content: center;
+            background: #000; border: 1.5px solid #00d4ff; border-radius: 12px; 
+            padding: 4px; text-align: center; display: flex; flex-direction: column; justify-content: center;
+            box-shadow: inset 0 0 8px rgba(0, 212, 255, 0.2), 0 0 5px rgba(0, 212, 255, 0.2);
         }
-        .visor-label { font-size: 10px; color: #00d4ff; text-transform: uppercase; }
-        .visor-num { font-size: 22px; font-weight: bold; color: #fff; }
+        .visor-label { font-size: 9px; color: #00d4ff; font-weight: bold; margin-bottom: 2px; }
+        .visor-num { font-size: 18px; font-weight: bold; color: #fff; }
 
-        .asientos-cont { grid-column: span 2; display: flex; justify-content: space-around; align-items: center; }
+        .asientos-cont { grid-column: span 2; display: flex; justify-content: space-around; padding-top: 5px; }
+        
         .btn-as { 
-            width: 55px; height: 45px; border: 2px solid #00d4ff; border-radius: 8px; 
-            font-size: 20px; font-weight: bold; color: #fff; cursor: pointer; background: transparent;
+            width: 50px; height: 42px; border: 2px solid #00d4ff; border-radius: 10px; 
+            font-size: 18px; font-weight: bold; color: #fff; cursor: pointer; background: transparent;
+            transition: transform 0.1s, box-shadow 0.2s;
+            box-shadow: 0 0 5px rgba(0, 212, 255, 0.1);
         }
-        .libre { border-color: #00d4ff; color: #00d4ff; }
-        .ocupado { background: #ff3b30; border-color: #ff3b30; color: #fff; }
+        .btn-as:active { transform: scale(0.9); } /* Efecto de rebote */
 
-        /* BOTÓN DE PODER FLOTANTE PEQUEÑO */
+        .libre { border-color: #00d4ff; color: #00d4ff; }
+        .ocupado { background: #ff3b30; border-color: #ff3b30; color: #fff; box-shadow: 0 0 10px #ff3b30; }
+
+        /* BOTÓN ON/OFF REDONDO */
         .btn-pwr {
             position: absolute; top: -25px; right: 15px; width: 50px; height: 50px;
             border-radius: 50%; border: 2px solid #00d4ff; font-weight: bold;
-            font-size: 9px; cursor: pointer; z-index: 2000;
-            display: flex; align-items: center; justify-content: center; text-align: center;
+            font-size: 10px; cursor: pointer; z-index: 2000;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
         }
         .on { background: #000; color: #00d4ff; }
         .off { background: #ff3b30; color: #fff; border-color: #fff; display: none; }
@@ -70,7 +79,7 @@
         <button id="p-off" class="btn-pwr off" onclick="power(false)">OFF</button>
 
         <div class="visor">
-            <span class="visor-label">TARIFA</span>
+            <span class="visor-label">TARIFA HOY</span>
             <span class="visor-num">$ <span id="v-dinero">0</span></span>
         </div>
         <div class="visor">
@@ -87,9 +96,13 @@
     </div>
 
 <script>
-    // Splash logic
-    window.onload = () => { setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display = 'none', 600); }, 2000); };
+    // Splash screen timer
+    window.onload = () => { setTimeout(() => { 
+        document.getElementById('splash').style.opacity = '0'; 
+        setTimeout(() => document.getElementById('splash').style.display = 'none', 500); 
+    }, 2000); };
 
+    // Conexión Supabase (Se mantienen tus credenciales)
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
     let activo = false;
@@ -101,29 +114,47 @@
         activo = v;
         document.getElementById('p-on').style.display = v ? 'none' : 'flex';
         document.getElementById('p-off').style.display = v ? 'flex' : 'none';
+        if(v) { alert("¡Turno Iniciado! GPS Activo."); }
     }
 
     async function t(i) {
         if(!activo) return;
-        if(est[i]) { recaudado += 1000; pasajeros += 1; }
+        
+        // Efecto visual rápido al tocar
+        const btn = document.getElementById('b'+(i+1));
+        
+        if(est[i]) { 
+            recaudado += 1000; 
+            pasajeros += 1; 
+        }
+        
         est[i] = !est[i];
-        document.getElementById('b'+(i+1)).className = 'btn-as ' + (est[i] ? 'libre' : 'ocupado');
+        btn.className = 'btn-as ' + (est[i] ? 'libre' : 'ocupado');
         document.getElementById('v-dinero').innerText = recaudado;
         document.getElementById('v-pax').innerText = pasajeros;
-        await _s.from('estado_movil').update({ asientos_libres: est.filter(x=>x).length }).eq('id', 1);
+
+        // Actualizar base de datos
+        await _s.from('estado_movil').update({ 
+            asientos_libres: est.filter(x=>x).length 
+        }).eq('id', 1);
     }
 
-    // Mapa centrado
-    const map = L.map('map', { zoomControl: false }).setView([-34.575, -58.775], 15);
+    // Inicializar Mapa
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.575, -58.775], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] });
+    const carIcon = L.icon({ 
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', 
+        iconSize: [32, 32] 
+    });
     let marker = L.marker([-34.575, -58.775], {icon: carIcon}).addTo(map);
 
+    // Seguimiento GPS
     navigator.geolocation.watchPosition(p => {
         if(!activo) return;
         const pos = [p.coords.latitude, p.coords.longitude];
-        marker.setLatLng(pos); map.panTo(pos);
+        marker.setLatLng(pos); 
+        map.panTo(pos);
         _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1] }).eq('id', 1);
     }, null, { enableHighAccuracy: true });
 </script>
