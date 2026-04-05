@@ -93,7 +93,6 @@
     </div>
 
 <script>
-    // Quitar splash screen
     window.onload = () => { 
         setTimeout(() => { 
             document.getElementById('splash').style.opacity = '0'; 
@@ -101,7 +100,6 @@
         }, 2000); 
     };
 
-    // Configuración Supabase
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
     let activo = false;
@@ -129,7 +127,7 @@
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // RUTA TRONCAL (Sincronizada con tus 22 puntos)
+    // RUTA COMPLETA CORREGIDA (25 PUNTOS)
     const rutaSantaBrigida = [
         [-34.561128, -58.770586], [-34.562160, -58.771380], [-34.562494, -58.772133], 
         [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061], 
@@ -138,18 +136,18 @@
         [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842], 
         [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804], 
         [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542], 
-        [-34.588273, -58.751338]
+        [-34.588273, -58.751338], [-34.588771, -58.750804], [-34.588244, -58.749877], 
+        [-34.588930, -58.750543]
     ];
 
-    // Dibujar la línea celeste
+    // Dibujar línea celeste neón
     L.polyline(rutaSantaBrigida, {color: '#00d4ff', weight: 5, opacity: 0.6}).addTo(map);
 
-    // Dibujar las paradas
+    // Dibujar paradas
     rutaSantaBrigida.forEach(coord => {
         L.circleMarker(coord, {radius: 6, fillColor: "#00d4ff", color: "#fff", weight: 2, fillOpacity: 1}).addTo(map);
     });
 
-    // Auto-ajustar mapa a la ruta
     map.fitBounds(L.polyline(rutaSantaBrigida).getBounds());
 
     const carIcon = L.icon({ 
@@ -158,7 +156,6 @@
     });
     let marker = L.marker(rutaSantaBrigida[0], {icon: carIcon}).addTo(map);
 
-    // GPS Activo
     navigator.geolocation.watchPosition(p => {
         if(!activo) return;
         const pos = [p.coords.latitude, p.coords.longitude];
