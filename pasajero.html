@@ -1,45 +1,38 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>APP PASAJERO - PRUEBA REAL</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { margin: 0; } #map { height: 70vh; width: 100%; }
-        .info { height: 30vh; padding: 20px; text-align: center; font-family: sans-serif; background: white; }
-        #res-asientos { font-size: 40px; font-weight: bold; color: #28a745; }
-    </style>
-</head>
-<body>
-    <div id="map"></div>
-    <div class="info">
-        <p>ASIENTOS DISPONIBLES</p>
-        <div id="res-asientos">--</div>
-    </div>
+// 1. CONEXIÓN (Tus llaves actuales)
+const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
 
-<script>
-    const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
+var map = L.map('map').setView([-34.5612, -58.7705], 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+var carMarker = L.marker([-34.5612, -58.7705]).addTo(map);
 
-    var map = L.map('map').setView([-34.5612, -58.7705], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    var carMarker = L.marker([-34.5612, -58.7705]).addTo(map);
+// 2. FUNCIÓN PARA ACTUALIZAR LA PANTALLA
+function actualizarPantalla(datos) {
+    const { latitud, longitud, asientos_libres } = datos;
+    
+    // Mueve el auto donde estás vos de verdad
+    carMarker.setLatLng([latitud, longitud]);
+    map.panTo([latitud, longitud]);
 
-    // ESCUCHAR EN TIEMPO REAL
-    _supabase.channel('cambios_reales').on('postgres_changes', 
+    // Cambia el "--" por el número real
+    document.getElementById('res-asientos').innerText = asientos_libres;
+    console.log("¡Datos recibidos de Carlos!", datos);
+}
+
+// 3. CARGA INICIAL (Para que no aparezca -- al abrir)
+async function inicio() {
+    const { data } = await _supabase.from('estado_movil').select('*').eq('id', 1).single();
+    if (data) actualizarPantalla(data);
+}
+
+// 4. SUSCRIPCIÓN EN TIEMPO REAL (El "Oído")
+_supabase
+    .channel('cambios_reales')
+    .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.1' }, 
         (payload) => {
-            const { latitud, longitud, asientos_libres } = payload.new;
-            
-            // Mover el auto en el mapa del pasajero
-            carMarker.setLatLng([latitud, longitud]);
-            map.panTo([latitud, longitud]);
-
-            // Actualizar asientos
-            document.getElementById('res-asientos').innerText = asientos_libres;
+            actualizarPantalla(payload.new);
         }
-    ).subscribe();
-</script>
-</body>
-</html>
+    )
+    .subscribe();
+
+inicio();
