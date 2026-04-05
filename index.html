@@ -2,83 +2,86 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Conductor - Santa Brígida</title>
+    <title>Conductor - Ruta Completa</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; font-family: sans-serif; background: #121212; color: white; display: flex; flex-direction: column; height: 100vh; }
         #map { flex-grow: 1; width: 100%; }
-        .panel-control { background: #121212; padding: 10px; text-align: center; border-top: 1px solid #333; }
-        .status { color: #2ecc71; font-size: 12px; font-weight: bold; margin-bottom: 8px; }
-        .grid-asientos { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
-        .btn-asiento { width: 65px; height: 60px; font-size: 22px; font-weight: bold; border: 2px solid white; border-radius: 12px; cursor: pointer; color: white; }
-        .libre { background: #28a745; }
-        .ocupado { background: #dc3545; }
-        .btn-terminar { background: #d63031; color: white; border: none; padding: 12px; border-radius: 30px; width: 90%; font-weight: bold; text-transform: uppercase; }
+        .panel { background: #121212; padding: 10px; text-align: center; border-top: 1px solid #333; }
+        .grid { display: flex; justify-content: center; gap: 8px; margin-bottom: 10px; }
+        .btn { width: 60px; height: 55px; font-size: 20px; font-weight: bold; border: 2px solid white; border-radius: 12px; cursor: pointer; color: white; }
+        .libre { background: #28a745; } .ocupado { background: #dc3545; }
+        .status { color: #2ecc71; font-size: 11px; font-weight: bold; margin-bottom: 5px; }
     </style>
 </head>
 <body>
-
     <div id="map"></div>
-
-    <div class="panel-control">
-        <div class="status">✅ TRANSMITIENDO EN VIVO</div>
-        <div class="grid-asientos">
-            <button id="a1" class="btn-asiento libre" onclick="toggle(0)">1</button>
-            <button id="a2" class="btn-asiento libre" onclick="toggle(1)">2</button>
-            <button id="a3" class="btn-asiento libre" onclick="toggle(2)">3</button>
-            <button id="a4" class="btn-asiento libre" onclick="toggle(3)">4</button>
+    <div class="panel">
+        <div class="status">🛰️ TRANSMITIENDO RUTA COMPLETA</div>
+        <div class="grid">
+            <button id="a1" class="btn libre" onclick="toggle(0)">1</button>
+            <button id="a2" class="btn libre" onclick="toggle(1)">2</button>
+            <button id="a3" class="btn libre" onclick="toggle(2)">3</button>
+            <button id="a4" class="btn libre" onclick="toggle(3)">4</button>
         </div>
-        <button class="btn-terminar">🛑 APAGAR / TERMINAR RUTA</button>
     </div>
 
 <script>
-    const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // 1. MAPA Y ESTILO
-    const map = L.map('map', { zoomControl: false }).setView([-34.5747, -58.7744], 16);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+    // 1. INICIAR MAPA
+    const map = L.map('map', { zoomControl: false }).setView([-34.5612, -58.7705], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // 2. RUTA FIJA (Puntos y Línea Azul)
-    const coordenadasRuta = [
-        [-34.5714, -58.7701], [-34.5725, -58.7715], [-34.5738, -58.7732],
-        [-34.5747, -58.7744], [-34.5760, -58.7760], [-34.5785, -58.7795],
-        [-34.5802, -58.7820], [-34.5825, -58.7850]
+    // 2. TUS COORDENADAS DEL SQL (IDA Y VUELTA)
+    const puntosRuta = [
+        [-34.561264, -58.770506], [-34.562160, -58.771380], [-34.562494, -58.772133],
+        [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061],
+        [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443],
+        [-34.571956, -58.763201], [-34.577371, -58.755909], [-34.578528, -58.757064],
+        [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842],
+        [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804],
+        [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542],
+        [-34.588273, -58.751338], [-34.588771, -58.750804], [-34.588244, -58.749877],
+        [-34.588930, -58.750543], [-34.586030, -58.747278], [-34.585000, -58.748500],
+        [-34.584000, -58.749500], [-34.583319, -58.750710], [-34.581998, -58.752441],
+        [-34.580901, -58.753842], [-34.579296, -58.755864], [-34.562160, -58.771380],
+        [-34.561264, -58.770506]
     ];
 
-    L.polyline(coordenadasRuta, { color: '#3498db', weight: 5, opacity: 0.7 }).addTo(map);
-    coordenadasRuta.forEach(coord => {
-        L.circleMarker(coord, { radius: 5, color: '#3498db', fillOpacity: 1 }).addTo(map);
+    // Dibujar la línea azul de la ruta completa
+    L.polyline(puntosRuta, { color: '#3498db', weight: 5, opacity: 0.7 }).addTo(map);
+    
+    // Puntos de parada (Círculos)
+    puntosRuta.forEach(p => {
+        L.circleMarker(p, { radius: 4, color: '#3498db', fillOpacity: 1 }).addTo(map);
     });
 
-    // 3. EL AUTITO 🚗 (Icono del Conductor)
+    // 3. ICONO DEL AUTO ROJO 🚗
     const iconoAuto = L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', // URL de un auto azul
-        iconSize: [35, 35], // Tamaño del icono
-        iconAnchor: [17, 17] // Punto central del icono
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png',
+        iconSize: [38, 38],
+        iconAnchor: [19, 19]
     });
+    let marker = L.marker(puntosRuta[0], { icon: iconoAuto }).addTo(map);
 
-    // Marcador inicial con el icono del auto
-    let marker = L.marker([-34.5747, -58.7744], { icon: iconoAuto }).addTo(map);
-
-    // 4. TRANSMITIR GPS Y MOVER AUTO
+    // 4. GPS REAL
     navigator.geolocation.watchPosition(async (pos) => {
         const { latitude, longitude } = pos.coords;
-        const p = [latitude, longitude];
-        marker.setLatLng(p); // Mueve el autito 🚗 por el mapa
-        map.panTo(p); // Centra el mapa en el autito
-
-        await _supabase.from('estado_movil').update({ latitud: latitude, longitud: longitude }).eq('id', 1);
+        marker.setLatLng([latitude, longitude]);
+        map.panTo([latitude, longitude]);
+        await _s.from('estado_movil').update({ latitud: latitude, longitud: longitude }).eq('id', 1);
     }, null, { enableHighAccuracy: true });
 
-    // 5. CONTROL DE ASIENTOS
-    let asientos = [true, true, true, true];
+    // 5. BOTONES ASIENTOS
+    let est = [true, true, true, true];
     async function toggle(i) {
-        asientos[i] = !asientos[i];
-        document.getElementById('a' + (i + 1)).className = 'btn-asiento ' + (asientos[i] ? 'libre' : 'ocupado');
-        const libres = asientos.filter(a => a).length;
-        await _supabase.from('estado_movil').update({ asientos_libres: libres }).eq('id', 1);
+        est[i] = !est[i];
+        document.getElementById('a'+(i+1)).className = 'btn ' + (est[i] ? 'libre' : 'ocupado');
+        const libres = est.filter(x => x).length;
+        await _s.from('estado_movil').update({ asientos_libres: libres }).eq('id', 1);
     }
 </script>
 </body>
