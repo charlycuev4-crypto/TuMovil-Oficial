@@ -1,148 +1,33 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pasajero - Tu Móvil</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #f0f0f0; height: 100vh; font-family: 'Arial', sans-serif; overflow: hidden; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
-
-        /* BUSCADOR DE DESTINO */
-        .top-panel {
-            position: absolute; top: 10px; left: 10px; right: 10px;
-            z-index: 1000;
-        }
-        .selector-card {
-            background: rgba(0, 0, 0, 0.9); border: 2px solid #00d4ff; border-radius: 15px;
-            padding: 12px; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-        }
-        .label { font-size: 11px; color: #00d4ff; font-weight: bold; margin-bottom: 6px; display: block; }
-        select {
-            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444;
-            background: #222; color: #fff; font-size: 15px; outline: none;
-        }
-
-        /* BOTONES INFERIORES EXPLICATIVOS */
-        .bottom-panel {
-            position: absolute; bottom: 25px; left: 10px; right: 10px;
-            display: flex; gap: 10px; z-index: 1000;
-        }
-        .info-box {
-            flex: 1; background: white; padding: 15px 10px; border-radius: 15px;
-            border: 2px solid #00d4ff; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        }
-        .info-box.distancia { background: #00d4ff; color: #000; }
-        .box-label { font-size: 10px; text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px; }
-        .box-value { font-size: 20px; font-weight: 900; }
-    </style>
-</head>
-<body>
-
-    <div id="map"></div>
-
-    <div class="top-panel">
-        <div class="selector-card">
-            <span class="label">📍 SELECCIONÁ TU DESTINO (DÓNDE BAJÁS)</span>
-            <select id="select-destino" onchange="irADestino()">
-                <option value="">Tocá aquí para elegir parada...</option>
-            </select>
-        </div>
-    </div>
-
-    <div class="bottom-panel">
-        <div class="info-box distancia">
-            <span class="box-label">El móvil está a:</span>
-            <span class="box-value" id="dist-val">Calculando...</span>
-        </div>
-        <div class="info-box">
-            <span class="box-label">Lugares Libres:</span>
-            <span class="box-value" id="seats-val">...</span>
-        </div>
-    </div>
+<button id="btn-reservar" onclick="reservarLugar()" style="display:none; width:100%; margin-top:10px; background:#00ff88; color:#000; border:none; padding:12px; border-radius:10px; font-weight:bold; font-size:16px; cursor:pointer; box-shadow: 0 4px 10px rgba(0,255,136,0.3);">
+    📩 RESERVAR MI LUGAR
+</button>
 
 <script>
-    // 1. CONEXIÓN (Chequeá que estas credenciales sean las mismas que en el chofer)
-    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+// Función para reservar
+async function reservarLugar() {
+    const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
+    
+    if (data.asientos_libres > 0) {
+        const nuevosAsientos = data.asientos_libres - 1;
+        const { error } = await _s.from('estado_movil').update({ asientos_libres: nuevosAsientos }).eq('id', 1);
 
-    // 2. PARADAS (Las 26 que cargaste en SQL)
-    const paradas = [
-        {n: 'M. Cané y Marchena', c: [-34.561128, -58.770586]}, {n: 'Cané y Los Aromos', c: [-34.562160, -58.771380]},
-        {n: 'Los Aromos 11016', c: [-34.562494, -58.772133]}, {n: 'Los Aromos 10874', c: [-34.563541, -58.773244]},
-        {n: 'Esquina: Los Aromos y Murillo', c: [-34.564109, -58.773759]}, {n: 'Murillo 601', c: [-34.565342, -58.772061]},
-        {n: 'Murillo y Güiraldes', c: [-34.567268, -58.769484]}, {n: 'Murillo y Jacobo Watt', c: [-34.569090, -58.767095]},
-        {n: 'A. Prado 2555', c: [-34.571016, -58.764443]}, {n: 'A. Prado y Roberto J. Payró', c: [-34.571956, -58.763201]},
-        {n: 'Prado 1744', c: [-34.577371, -58.755909]}, {n: 'Boulevard Caveri (Llegada)', c: [-34.578528, -58.757064]},
-        {n: 'Bulevar Caveri y Félix de Azara', c: [-34.579296, -58.755864]}, {n: 'Bulevar Caveri y Mariano Vedia', c: [-34.580020, -58.755063]},
-        {n: 'Boulevard Caveri y Tablada', c: [-34.580901, -58.753842]}, {n: 'Boulevard Caveri y Echeverría', c: [-34.581998, -58.752441]},
-        {n: 'Boulevard Caveri y Gálvez', c: [-34.583319, -58.750710]}, {n: 'Boulevard Caveri (Final)', c: [-34.584740, -58.748804]},
-        {n: 'Av. Libertador y Aeronáutica', c: [-34.585554, -58.749812]}, {n: 'Av. Libertador 7300', c: [-34.586494, -58.750574]},
-        {n: 'Av. Libertador 7200', c: [-34.588041, -58.751542]}, {n: 'Giro: Libertador y Manuel Maza', c: [-34.588273, -58.751338]},
-        {n: 'Esquina: Manuel Maza y Albatros', c: [-34.588930, -58.750543]}, {n: 'Maternidad', c: [-34.588244, -58.749877]},
-        {n: 'Esquina Albatros', c: [-34.588930, -58.750543]}, {n: 'Giro: Albatros y Kirchner', c: [-34.586030, -58.747278]}
-    ];
-
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(paradas[0].c, 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    // Ruta visual
-    L.polyline(paradas.map(p => p.c), {color: '#00d4ff', weight: 5, opacity: 0.4}).addTo(map);
-
-    // Llenar selector
-    const sel = document.getElementById('select-destino');
-    paradas.forEach((p, i) => {
-        let opt = document.createElement('option');
-        opt.value = i; opt.innerText = p.n;
-        sel.appendChild(opt);
-    });
-
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] });
-    const userIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2802/2802928.png', iconSize: [30, 30] });
-
-    let markerAuto = L.marker(paradas[0].c, {icon: carIcon}).addTo(map);
-    let markerYo = L.marker([0,0], {icon: userIcon}).addTo(map);
-    let markerDestino = L.marker([0,0]).addTo(map);
-
-    // GPS Pasajero
-    navigator.geolocation.watchPosition(p => {
-        markerYo.setLatLng([p.coords.latitude, p.coords.longitude]);
-    }, null, { enableHighAccuracy: true });
-
-    function irADestino() {
-        const p = paradas[sel.value];
-        if(p) {
-            markerDestino.setLatLng(p.c).bindPopup("Bajás en: " + p.n).openPopup();
-            map.flyTo(p.c, 16);
+        if (!error) {
+            alert("¡Lugar reservado! El chofer ya recibió tu aviso.");
+            document.getElementById('btn-reservar').style.display = 'none';
+            document.getElementById('btn-reservar').innerText = "✅ YA RESERVASTE";
         }
+    } else {
+        alert("Lo siento, no quedan lugares libres.");
     }
+}
 
-    // 3. FUNCIÓN DE ACTUALIZACIÓN REAL
-    async function cargarYEscuchar() {
-        // Carga inicial
-        const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
-        if(data) actualizarPantalla(data);
-
-        // Escuchar cambios (Aquí es donde se conectan)
-        _s.channel('cambios').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
-            actualizarPantalla(payload.new);
-        }).subscribe();
+// Modificamos la función de irADestino para que muestre el botón
+function irADestino() {
+    const p = paradas[sel.value];
+    if(p) {
+        markerDestino.setLatLng(p.c).bindPopup("Tu Destino: " + p.n).openPopup();
+        map.flyTo(p.c, 16);
+        document.getElementById('btn-reservar').style.display = 'block'; // Muestra el botón al elegir parada
     }
-
-    function actualizarPantalla(d) {
-        markerAuto.setLatLng([d.latitud, d.longitud]);
-        document.getElementById('seats-val').innerText = d.asientos_libres;
-        
-        if(markerYo.getLatLng().lat !== 0) {
-            const dist = map.distance(markerAuto.getLatLng(), markerYo.getLatLng());
-            document.getElementById('dist-val').innerText = Math.round(dist) + " m";
-        }
-    }
-
-    cargarYEscuchar();
+}
 </script>
-</body>
-</html>
