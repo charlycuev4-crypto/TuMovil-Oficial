@@ -1,38 +1,71 @@
-// 1. CONEXIÓN (Tus llaves actuales)
-const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pasajero - Conexión Real</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; font-family: sans-serif; background: #f4f4f9; }
+        #map { height: 60vh; width: 100%; }
+        .panel-pasajero { height: 40vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; border-radius: 20px 20px 0 0; margin-top: -20px; position: relative; z-index: 1000; box-shadow: 0 -5px 15px rgba(0,0,0,0.1); }
+        .titulo { color: #555; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        #res-asientos { font-size: 80px; font-weight: bold; color: #28a745; margin: 10px 0; }
+    </style>
+</head>
+<body>
 
-var map = L.map('map').setView([-34.5612, -58.7705], 15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-var carMarker = L.marker([-34.5612, -58.7705]).addTo(map);
-
-// 2. FUNCIÓN PARA ACTUALIZAR LA PANTALLA
-function actualizarPantalla(datos) {
-    const { latitud, longitud, asientos_libres } = datos;
+    <div id="map"></div>
     
-    // Mueve el auto donde estás vos de verdad
-    carMarker.setLatLng([latitud, longitud]);
-    map.panTo([latitud, longitud]);
+    <div class="panel-pasajero">
+        <div class="titulo">Asientos Disponibles</div>
+        <div id="res-asientos">--</div>
+        <div id="recorrido" style="color: #888; font-size: 12px;">Conectado a Móvil Santa Brígida</div>
+    </div>
 
-    // Cambia el "--" por el número real
-    document.getElementById('res-asientos').innerText = asientos_libres;
-    console.log("¡Datos recibidos de Carlos!", datos);
-}
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-// 3. CARGA INICIAL (Para que no aparezca -- al abrir)
-async function inicio() {
-    const { data } = await _supabase.from('estado_movil').select('*').eq('id', 1).single();
-    if (data) actualizarPantalla(data);
-}
+    <script>
+        // CONEXIÓN
+        const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
 
-// 4. SUSCRIPCIÓN EN TIEMPO REAL (El "Oído")
-_supabase
-    .channel('cambios_reales')
-    .on('postgres_changes', 
-        { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.1' }, 
-        (payload) => {
-            actualizarPantalla(payload.new);
+        // MAPA INICIAL
+        var map = L.map('map').setView([-34.5612, -58.7705], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        var carMarker = L.marker([-34.5612, -58.7705]).addTo(map);
+
+        function actualizarDatos(payload) {
+            const { latitud, longitud, asientos_libres } = payload;
+            
+            // Mueve el auto
+            carMarker.setLatLng([latitud, longitud]);
+            map.panTo([latitud, longitud]);
+
+            // Actualiza el número gigante
+            document.getElementById('res-asientos').innerText = asientos_libres;
         }
-    )
-    .subscribe();
 
-inicio();
+        // CARGA AL ABRIR
+        async function cargarEstadoActual() {
+            const { data } = await _supabase.from('estado_movil').select('*').eq('id', 1).single();
+            if (data) {
+                actualizarDatos(data);
+            }
+        }
+
+        // ESCUCHAR EN TIEMPO REAL (IMPORTANTE)
+        _supabase
+            .channel('cambios_pasajero')
+            .on('postgres_changes', 
+                { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.1' }, 
+                (payload) => {
+                    actualizarDatos(payload.new);
+                }
+            )
+            .subscribe();
+
+        cargarEstadoActual();
+    </script>
+</body>
+</html>
