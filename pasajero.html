@@ -32,39 +32,35 @@
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
     // 1. INICIAR MAPA
-    var map = L.map('map', {zoomControl: false}).setView([-34.5755, -58.7758], 15);
+    var map = L.map('map', {zoomControl: false}).setView([-34.5612, -58.7705], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // 2. RUTA COMPLETA (Tus 34 puntos de SQL)
-    const puntosRuta = [
-        [-34.561264, -58.770506], [-34.562160, -58.771380], [-34.562494, -58.772133],
-        [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061],
-        [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443],
-        [-34.571956, -58.763201], [-34.577371, -58.755909], [-34.578528, -58.757064],
-        [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842],
-        [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804],
-        [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542],
-        [-34.588273, -58.751338], [-34.588771, -58.750804], [-34.588244, -58.749877],
-        [-34.588930, -58.750543], [-34.586030, -58.747278], [-34.585000, -58.748500],
-        [-34.584000, -58.749500], [-34.583319, -58.750710], [-34.581998, -58.752441],
-        [-34.580901, -58.753842], [-34.579296, -58.755864], [-34.562160, -58.771380],
-        [-34.561264, -58.770506]
+    // 2. RUTA DE IDA CORREGIDA (Solo 8 puntos clave)
+    const rutaIda = [
+        [-34.561264, -58.770506], // Miguel Cané y Marchena (Inicio)
+        [-34.562160, -58.771380], // Giro: Cané y Los Aromos
+        [-34.563541, -58.773244], // Los Aromos 10874
+        [-34.564109, -58.773759], // Giro: Los Aromos y Murillo
+        [-34.569090, -58.767095], // Murillo y Jacobo Watt
+        [-34.571016, -58.764443], // A. Prado 2555
+        [-34.588273, -58.751338], // Giro: Av. del Libertador y Manuel Maza
+        [-34.588930, -58.750543]  // Esquina: Manuel Maza y Albatros (Final)
     ];
 
-    L.polyline(puntosRuta, {color: '#3498db', weight: 6, opacity: 0.7}).addTo(map);
-    puntosRuta.forEach(p => L.circleMarker(p, {radius: 4, color: '#3498db', fillOpacity: 1}).addTo(map));
+    L.polyline(rutaIda, {color: '#3498db', weight: 6, opacity: 0.7}).addTo(map);
+    rutaIda.forEach(p => L.circleMarker(p, {radius: 4, color: '#3498db', fillOpacity: 1}).addTo(map));
 
     // 3. ICONO AUTO ROJO 🚗
     const iconoAuto = L.icon({
         iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png',
         iconSize: [40, 40], iconAnchor: [20, 20]
     });
-    var carIcon = L.marker(puntosRuta[0], {icon: iconoAuto}).addTo(map);
+    var carIcon = L.marker(rutaIda[0], {icon: iconoAuto}).addTo(map);
 
     // 4. FUNCIÓN PARA ACTUALIZAR TODO
     function refrescar(datos) {
         if (datos) {
-            // Actualiza número de asientos (Sigue funcionando igual!)
+            // Sincronización de asientos (Sigue perfecta!)
             document.getElementById('asientos-val').innerText = datos.asientos_libres;
             
             // Mueve el autito 🚗
