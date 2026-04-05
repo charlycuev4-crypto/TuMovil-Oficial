@@ -1,169 +1,45 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tu Móvil Oficial - Ruta Santa Brígida</title>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APP PASAJERO - PRUEBA REAL</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; }
-        #map { height: 320px; width: 100%; border-bottom: 3px solid #007bff; }
-        .contenedor { padding: 15px; max-width: 500px; margin: auto; }
-        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px; border-left: 6px solid; }
-        .chofer { border-left-color: #28a745; }
-        .pasajero { border-left-color: #007bff; }
-        .btn { width: 100%; padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
-        .btn-gps { background: #28a745; color: white; }
-        .btn-fin { background: #6c757d; color: white; font-size: 14px; }
-        .btn-reserva { background: #007bff; color: white; }
-        .grid-asientos { display: flex; justify-content: space-around; margin: 15px 0; }
-        .asiento { width: 50px; height: 50px; border: 2px solid #007bff; border-radius: 10px; background: white; font-weight: bold; cursor: pointer; }
-        .asiento.seleccionado { background: #007bff; color: white; }
-        .asiento.ocupado { background: #ddd; border-color: #999; color: #999; cursor: not-allowed; }
-        select { width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #ccc; font-size: 16px; margin-top: 5px; }
-        .status { font-weight: bold; color: #333; }
+        body { margin: 0; } #map { height: 70vh; width: 100%; }
+        .info { height: 30vh; padding: 20px; text-align: center; font-family: sans-serif; background: white; }
+        #res-asientos { font-size: 40px; font-weight: bold; color: #28a745; }
     </style>
 </head>
 <body>
-
-<div id="map"></div>
-
-<div class="contenedor">
-    <div class="card chofer">
-        <div style="font-weight: bold; color: #28a745;">CONDUCTOR: CARLOS</div>
-        <button id="btn-gps" class="btn btn-gps" onclick="toggleGps()">📍 INICIAR GPS (EN RUTA)</button>
-        <button class="btn btn-fin" onclick="resetAsientos()">🏁 FINALIZAR / REINICIAR ASIENTOS</button>
-        <div id="gps-info" style="font-size: 11px; margin-top: 5px; color: #666; text-align: center;">GPS: Desconectado</div>
+    <div id="map"></div>
+    <div class="info">
+        <p>ASIENTOS DISPONIBLES</p>
+        <div id="res-asientos">--</div>
     </div>
-
-    <div class="card pasajero">
-        <div style="font-weight: bold; color: #007bff;">RESERVA TU LUGAR</div>
-        <div style="text-align: center; margin: 10px 0;">Libres: <span id="num-libres" class="status">--</span></div>
-        
-        <div class="grid-asientos">
-            <button id="as1" class="asiento" onclick="elegirAsiento(1)">1</button>
-            <button id="as2" class="asiento" onclick="elegirAsiento(2)">2</button>
-            <button id="as3" class="asiento" onclick="elegirAsiento(3)">3</button>
-            <button id="as4" class="asiento" onclick="elegirAsiento(4)">4</button>
-        </div>
-
-        <label style="font-size: 13px; color: #555;"><b>¿Dónde bajás? (Ruta Cané - Roca):</b></label>
-        <select id="paradas-select"></select>
-
-        <button class="btn btn-reserva" onclick="confirmarReserva()">CONFIRMAR RESERVA</button>
-    </div>
-</div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
-    const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JJeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
+    const _supabase = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52dW1kbHhlcnZyZXdxaWlhaWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMTA4NTMsImV4cCI6MjA4OTg4Njg1M30.ejh7dtL2O6JHeoVq47cUK_hXAfRetJPyzks1yI-Lrhs');
 
-    // --- LA RUTA SOLICITADA POR CARLOS ---
-    const paradasMiguelCane = [
-        "Inicio: Miguel Cané y Av. Caveri",
-        "Miguel Cané y Marchena",
-        "Miguel Cané y Moctezuma",
-        "Miguel Cané y Santos Discépolo",
-        "Miguel Cané y Pampa",
-        "Miguel Cané y San Jorge",
-        "Miguel Cané y Marcos Paz",
-        "Miguel Cané y Uriarte",
-        "Miguel Cané y Las Catonas",
-        "Gutiérrez y Miguel Cané",
-        "Gutiérrez y Marchena",
-        "Roca y Marchena",
-        "Roca y Juan de la Cierva",
-        "Roca y Watt",
-        "Roca y Einstein",
-        "Roca y Barker",
-        "Final: Roca y Albatros"
-    ];
-
-    var map = L.map('map').setView([-34.561128, -58.770586], 15);
+    var map = L.map('map').setView([-34.5612, -58.7705], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    var carIcon = L.divIcon({ html: '🚓', className: 'car-icon', iconSize: [30, 30] });
-    var marcador = L.marker([-34.561128, -58.770586], {icon: carIcon}).addTo(map);
+    var carMarker = L.marker([-34.5612, -58.7705]).addTo(map);
 
-    let gpsId = null;
-    let nSel = null;
-    let nLibres = 4;
+    // ESCUCHAR EN TIEMPO REAL
+    _supabase.channel('cambios_reales').on('postgres_changes', 
+        { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.1' }, 
+        (payload) => {
+            const { latitud, longitud, asientos_libres } = payload.new;
+            
+            // Mover el auto en el mapa del pasajero
+            carMarker.setLatLng([latitud, longitud]);
+            map.panTo([latitud, longitud]);
 
-    // Cargar menú de paradas
-    function initParadas() {
-        const sel = document.getElementById('paradas-select');
-        sel.innerHTML = '<option value="">Selecciona tu destino...</option>';
-        paradasMiguelCane.forEach((p, i) => {
-            sel.innerHTML += `<option value="${i+1}">${p}</option>`;
-        });
-    }
-
-    // CONDUCTOR
-    function toggleGps() {
-        const btn = document.getElementById('btn-gps');
-        if (gpsId) {
-            navigator.geolocation.clearWatch(gpsId);
-            gpsId = null;
-            btn.innerText = "📍 INICIAR GPS (EN RUTA)";
-            document.getElementById('gps-info').innerText = "GPS Apagado";
-        } else {
-            gpsId = navigator.geolocation.watchPosition(async (pos) => {
-                const { latitude, longitude } = pos.coords;
-                await _supabase.from('estado_movil').update({ latitud: latitude, longitud: longitude }).eq('id', 1);
-                document.getElementById('gps-info').innerText = "📡 Transmitiendo ubicación real";
-            }, null, { enableHighAccuracy: true });
-            btn.innerText = "🛑 DETENER GPS";
+            // Actualizar asientos
+            document.getElementById('res-asientos').innerText = asientos_libres;
         }
-    }
-
-    async function resetAsientos() {
-        if(confirm("¿Querés liberar los 4 asientos?")) {
-            await _supabase.from('estado_movil').update({ asientos_libres: 4 }).eq('id', 1);
-        }
-    }
-
-    // PASAJERO
-    function elegirAsiento(n) {
-        if(n > nLibres) return;
-        nSel = n;
-        document.querySelectorAll('.asiento').forEach(b => b.classList.remove('seleccionado'));
-        document.getElementById('as'+n).classList.add('seleccionado');
-    }
-
-    function actualizarInterfaz(num) {
-        nLibres = num;
-        document.getElementById('num-libres').innerText = num;
-        for(let i=1; i<=4; i++) {
-            const b = document.getElementById('as'+i);
-            if(i > num) b.className = 'asiento ocupado';
-            else b.className = 'asiento';
-        }
-    }
-
-    async function confirmarReserva() {
-        const p = document.getElementById('paradas-select').value;
-        if(!nSel || !p) return alert("Elegí asiento y parada");
-        if(nLibres > 0) {
-            await _supabase.from('estado_movil').update({ asientos_libres: nLibres - 1 }).eq('id', 1);
-            alert("✅ ¡Reserva confirmada!");
-        }
-    }
-
-    // REALTIME SUPABASE
-    _supabase.channel('cambios').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, (payload) => {
-        const { latitud, longitud, asientos_libres } = payload.new;
-        if(latitud && longitud) marcador.setLatLng([latitud, longitud]);
-        if(asientos_libres !== undefined) actualizarInterfaz(asientos_libres);
-    }).subscribe();
-
-    // INICIO
-    initParadas();
-    async function cargarEstado() {
-        const { data } = await _supabase.from('estado_movil').select('*').eq('id', 1).single();
-        if(data) actualizarInterfaz(data.asientos_libres);
-    }
-    cargarEstado();
+    ).subscribe();
 </script>
 </body>
 </html>
