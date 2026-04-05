@@ -3,61 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor Pro - Dinámico</title>
+    <title>Tu Móvil - Dinámico Día</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #000; height: 100vh; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; }
+        body { margin: 0; padding: 0; background: #f0f0f0; height: 100vh; font-family: 'Arial', sans-serif; overflow: hidden; }
 
-        /* MAPA EN TODA LA PANTALLA */
+        /* MAPA PANTALLA COMPLETA */
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
 
-        /* VISORES FLOTANTES (ESTILO DINÁMICO) */
+        /* VISORES FLOTANTES ARRIBA */
         .overlay-top {
-            position: absolute; top: 15px; left: 10px; right: 10px;
+            position: absolute; top: 10px; left: 10px; right: 10px;
             display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
             z-index: 1000; pointer-events: none;
         }
         .visor {
-            background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(5px);
-            border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 15px;
-            padding: 10px; text-align: center; color: white;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.85); 
+            border: 2px solid #00d4ff; border-radius: 12px;
+            padding: 8px; text-align: center; color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            pointer-events: auto;
         }
-        .visor-label { font-size: 11px; color: #00d4ff; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 2px; }
-        .visor-num { font-size: 24px; font-weight: bold; }
+        .visor-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; display: block; }
+        .visor-num { font-size: 22px; font-weight: bold; }
 
-        /* PANEL DE ASIENTOS INFERIOR */
+        /* PANEL INFERIOR DINÁMICO */
         .overlay-bottom {
-            position: absolute; bottom: 30px; left: 0; right: 0;
-            display: flex; flex-direction: column; align-items: center; gap: 15px;
+            position: absolute; bottom: 25px; left: 0; right: 0;
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
             z-index: 1000;
         }
         .asientos-cont {
-            display: flex; gap: 12px; background: rgba(0, 0, 0, 0.6);
-            padding: 12px 20px; border-radius: 25px; backdrop-filter: blur(5px);
+            display: flex; gap: 10px; background: rgba(0, 0, 0, 0.8);
+            padding: 12px 15px; border-radius: 20px; border: 1px solid #00d4ff;
         }
         .btn-as {
-            width: 50px; height: 50px; border-radius: 12px; border: 2px solid #00d4ff;
-            background: transparent; color: white; font-size: 20px; font-weight: bold;
-            cursor: pointer; transition: all 0.3s;
+            width: 52px; height: 52px; border-radius: 10px; border: 2px solid #00d4ff;
+            background: transparent; color: #00d4ff; font-size: 20px; font-weight: bold;
+            cursor: pointer; transition: 0.2s;
         }
-        .ocupado { background: #ff3b30; border-color: #ff3b30; box-shadow: 0 0 15px rgba(255, 59, 48, 0.5); }
+        .ocupado { background: #ff3b30; border-color: #ff3b30; color: white; box-shadow: 0 0 10px #ff3b30; }
 
-        /* BOTÓN POWER FLOTANTE */
+        /* BOTÓN POWER REDONDO */
         .btn-pwr {
-            width: 55px; height: 55px; border-radius: 50%; border: none;
-            font-weight: bold; font-size: 14px; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            width: 60px; height: 60px; border-radius: 50%; border: 3px solid white;
+            font-weight: bold; font-size: 12px; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
-        .on { background: #00d4ff; color: #000; }
-        .off { background: #ff3b30; color: #fff; display: none; }
+        .on { background: #00d4ff; color: black; }
+        .off { background: #ff3b30; color: white; display: none; }
 
         /* SPLASH SCREEN */
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 10000; display: flex; align-items: center; justify-content: center; transition: opacity 0.5s; }
-        .splash-text { color: #00d4ff; font-size: 32px; font-weight: bold; letter-spacing: 3px; text-shadow: 0 0 10px #00d4ff; }
+        .splash-text { color: #00d4ff; font-size: 30px; font-weight: bold; text-shadow: 0 0 10px #00d4ff; }
     </style>
 </head>
 <body>
@@ -89,9 +90,7 @@
     </div>
 
 <script>
-    // Tu configuración de Supabase
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
     let activo = false, recaudado = 0, pasajeros = 0, est = [true, true, true, true];
 
     window.onload = () => { setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display = 'none', 500); }, 1500); };
@@ -100,8 +99,6 @@
         activo = v;
         document.getElementById('p-on').style.display = v ? 'none' : 'flex';
         document.getElementById('p-off').style.display = v ? 'flex' : 'none';
-        // Opcional: Centrar mapa al encender
-        if(v && marker) map.panTo(marker.getLatLng());
     }
 
     async function t(i) {
@@ -114,9 +111,9 @@
         await _s.from('estado_movil').update({ asientos_libres: est.filter(x=>x).length }).eq('id', 1);
     }
 
-    // MAPA Y RUTA
+    // MAPA MODO DÍA (OPENSTREETMAP ESTÁNDAR)
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map); // Fondo oscuro más elegante
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     const rutaSantaBrigida = [
         [-34.561128, -58.770586], [-34.562160, -58.771380], [-34.562494, -58.772133], 
@@ -130,11 +127,11 @@
         [-34.588930, -58.750543], [-34.586030, -58.747278]
     ];
 
-    L.polyline(rutaSantaBrigida, {color: '#00d4ff', weight: 4, opacity: 0.8}).addTo(map);
-    rutaSantaBrigida.forEach(coord => { L.circleMarker(coord, {radius: 5, fillColor: "#00d4ff", color: "#fff", weight: 1, fillOpacity: 1}).addTo(map); });
+    L.polyline(rutaSantaBrigida, {color: '#00d4ff', weight: 6, opacity: 0.7}).addTo(map);
+    rutaSantaBrigida.forEach(coord => { L.circleMarker(coord, {radius: 5, fillColor: "#00d4ff", color: "#000", weight: 1, fillOpacity: 1}).addTo(map); });
     
     let marker = L.marker(rutaSantaBrigida[0], {
-        icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] })
+        icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] })
     }).addTo(map);
 
     navigator.geolocation.watchPosition(p => { 
