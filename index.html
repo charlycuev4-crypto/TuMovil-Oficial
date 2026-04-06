@@ -1,3 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Conductor Pro - Tu Móvil</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #000; height: 100vh; font-family: sans-serif; overflow: hidden; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        
+        .overlay-top {
+            position: absolute; top: 10px; left: 10px; right: 10px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            z-index: 1000;
+        }
+        .visor {
+            background: rgba(0, 0, 0, 0.9); border: 2px solid #00d4ff; border-radius: 12px;
+            padding: 8px; text-align: center; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .visor-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; display: block; }
+        .visor-num { font-size: 22px; font-weight: bold; }
+
+        .overlay-bottom {
+            position: absolute; bottom: 25px; left: 0; right: 0;
+            display: flex; flex-direction: column; align-items: center; gap: 12px; z-index: 1000;
+        }
+        .asientos-cont {
+            display: flex; gap: 10px; background: rgba(0, 0, 0, 0.85);
+            padding: 12px 15px; border-radius: 20px; border: 1px solid #00d4ff;
+        }
+        .btn-as {
+            width: 52px; height: 52px; border-radius: 10px; border: 2px solid #00d4ff;
+            background: transparent; color: #00d4ff; font-size: 20px; font-weight: bold;
+        }
+        .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; }
+
+        .control-panel {
+            display: flex; width: 280px; height: 60px; background: #000;
+            border-radius: 15px; border: 2px solid #00d4ff; overflow: hidden;
+        }
+        .btn-control { flex: 1; border: none; font-weight: bold; text-transform: uppercase; cursor: pointer; }
+        .btn-start { background: transparent; color: #00ff88; }
+        .btn-start.active { background: #00ff88; color: black; }
+        .btn-end { background: transparent; color: #ff3b30; border-left: 1px solid #333; }
+        .btn-end.active { background: #ff3b30; color: white; }
+
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 10000; display: flex; align-items: center; justify-content: center; transition: opacity 0.5s; }
+    </style>
+</head>
+<body>
+
+    <div id="splash"><div style="color:#00d4ff; font-size:30px; font-weight:bold;">MODO CONDUCTOR</div></div>
+    <div id="map"></div>
+
+    <div class="overlay-top">
+        <div class="visor">
+            <span class="visor-label">TARIFA HOY</span>
+            <div class="visor-num">$ <span id="v-dinero">0</span></div>
+        </div>
+        <div id="visor-pax" class="visor">
+            <span class="visor-label">PASAJEROS</span>
+            <div class="visor-num" id="v-pax">0</div>
+        </div>
+    </div>
+
+    <div class="overlay-bottom">
+        <div class="asientos-cont">
+            <button id="b1" class="btn-as">1</button>
+            <button id="b2" class="btn-as">2</button>
+            <button id="b3" class="btn-as">3</button>
+            <button id="b4" class="btn-as">4</button>
+        </div>
+        <div class="control-panel">
+            <button id="btn-on" class="btn-control btn-start" onclick="setEstado(true)">Iniciar</button>
+            <button id="btn-off" class="btn-control btn-end active" onclick="setEstado(false)">Finalizar</button>
+        </div>
+    </div>
+
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
@@ -17,7 +99,7 @@
 
     let markerBus = L.marker([-34.561128, -58.770586], { icon: busIcon }).addTo(map);
 
-    // 1. CARGAR RUTA
+    // 1. CARGAR RUTA DE PUNTOS AZULES DESDE SUPABASE
     async function cargarRuta() {
         const { data: paradas } = await _s.from('paradas').select('*').order('orden', { ascending: true });
         if(paradas) {
@@ -32,7 +114,7 @@
         }
     }
 
-    // 2. SINCRONIZAR REALTIME
+    // 2. SINCRONIZAR ESTADO Y UBICACIÓN DEL PASAJERO
     function sincronizarRealTime() {
         _s.from('estado_movil').select('*').eq('id', 1).single().then(({data}) => {
             if(data) actualizarInterfaz(data);
@@ -44,7 +126,6 @@
     }
 
     function actualizarInterfaz(data) {
-        // Actualizar UI de texto y botones
         const ocupados = 4 - data.asientos_libres;
         document.getElementById('v-pax').innerText = ocupados;
         document.getElementById('v-dinero').innerText = ocupados * PRECIO_ASIENTO;
@@ -54,53 +135,29 @@
             btn.className = i <= ocupados ? 'btn-as ocupado' : 'btn-as';
         }
 
-        // --- MEJORA: LÓGICA DE MARCADORES INDEPENDIENTES ---
-        
-        // Manejo del ORIGEN (Pasajero esperando)
+        // DIBUJAR UBICACIÓN DEL PASAJERO (EL ORIGEN Y EL DESTINO)
         if (data.pasa_lat_origen && data.pasa_lng_origen) {
-            const posOri = [data.pasa_lat_origen, data.pasa_lng_origen];
-            if (markerPasajeroOrigen) {
-                markerPasajeroOrigen.setLatLng(posOri);
-            } else {
-                markerPasajeroOrigen = L.marker(posOri, {icon: paxIcon}).addTo(map).bindPopup("RECOGER AQUÍ").openPopup();
-            }
-        } else if (markerPasajeroOrigen) {
-            map.removeLayer(markerPasajeroOrigen);
-            markerPasajeroOrigen = null;
-        }
+            // Origen (Dónde recoger)
+            if (markerPasajeroOrigen) markerPasajeroOrigen.setLatLng([data.pasa_lat_origen, data.pasa_lng_origen]);
+            else markerPasajeroOrigen = L.marker([data.pasa_lat_origen, data.pasa_lng_origen], {icon: paxIcon}).addTo(map).bindPopup("RECOGER AQUÍ").openPopup();
 
-        // Manejo del DESTINO (Hacia dónde va)
-        if (data.pasa_lat_destino && data.pasa_lng_destino) {
-            const posDest = [data.pasa_lat_destino, data.pasa_lng_destino];
-            if (markerPasajeroDestino) {
-                markerPasajeroDestino.setLatLng(posDest);
-            } else {
-                markerPasajeroDestino = L.marker(posDest, {icon: destIcon}).addTo(map).bindPopup("DESTINO FINAL");
-            }
-        } else if (markerPasajeroDestino) {
-            map.removeLayer(markerPasajeroDestino);
-            markerPasajeroDestino = null;
+            // Destino (Dónde dejar)
+            if (markerPasajeroDestino) markerPasajeroDestino.setLatLng([data.pasa_lat_destino, data.pasa_lng_destino]);
+            else markerPasajeroDestino = L.marker([data.pasa_lat_destino, data.pasa_lng_destino], {icon: destIcon}).addTo(map).bindPopup("DESTINO");
+        } else {
+            // Si no hay datos, limpiamos el mapa
+            if (markerPasajeroOrigen) { map.removeLayer(markerPasajeroOrigen); markerPasajeroOrigen = null; }
+            if (markerPasajeroDestino) { map.removeLayer(markerPasajeroDestino); markerPasajeroDestino = null; }
         }
     }
 
-    // 3. ESTADO DEL CONDUCTOR (CON LIMPIEZA DE BASE DE DATOS)
     async function setEstado(v) {
         activo = v;
         document.getElementById('btn-on').className = v ? 'btn-control btn-start active' : 'btn-control btn-start';
         document.getElementById('btn-off').className = v ? 'btn-control btn-end' : 'btn-control btn-end active';
         
-        let updates = { en_servicio: v };
-
-        // Si el conductor finaliza, reseteamos la unidad en la DB para el próximo pasajero
-        if (!v) {
-            updates.asientos_libres = 4;
-            updates.pasa_lat_origen = null;
-            updates.pasa_lng_origen = null;
-            updates.pasa_lat_destino = null;
-            updates.pasa_lng_destino = null;
-        }
-
-        await _s.from('estado_movil').update(updates).eq('id', 1);
+        // Actualizamos en Supabase que el móvil está en servicio
+        await _s.from('estado_movil').update({ en_servicio: v }).eq('id', 1);
     }
 
     navigator.geolocation.watchPosition(p => { 
@@ -114,10 +171,8 @@
     window.onload = () => {
         cargarRuta();
         sincronizarRealTime();
-        setTimeout(() => { 
-            const splash = document.getElementById('splash');
-            splash.style.opacity = '0';
-            setTimeout(() => splash.style.display = 'none', 500);
-        }, 2000);
+        setTimeout(() => { document.getElementById('splash').style.display = 'none'; }, 2000);
     };
 </script>
+</body>
+</html>
