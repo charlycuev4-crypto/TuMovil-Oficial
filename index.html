@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CONDUCTOR</title>
+    <title>CONDUCTOR - Panel</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -31,16 +31,22 @@
             <button class="btn-reset" onclick="resetGlobal()">Resetear Todos los Asientos</button>
         </div>
     </div>
+
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561264, -58.770506], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
     const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] });
     let markerBus = L.marker([-34.561264, -58.770506], { icon: busIcon }).addTo(map);
 
+    // GPS REAL
     navigator.geolocation.watchPosition(p => {
-        const lat = p.coords.latitude, lon = p.coords.longitude;
+        const lat = p.coords.latitude;
+        const lon = p.coords.longitude;
         markerBus.setLatLng([lat, lon]);
+        map.panTo([lat, lon]);
         _s.from('estado_movil').update({ latitud: lat, longitud: lon }).eq('id', 1).then();
     }, null, { enableHighAccuracy: true });
 
