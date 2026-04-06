@@ -3,35 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pasajero - Reserva Única</title>
+    <title>Pasajero - Reserva</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #000; font-family: 'Arial', sans-serif; overflow: hidden; }
+        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
-        .overlay { position: absolute; z-index: 1000; width: 100%; display: flex; justify-content: center; padding: 10px; }
-        .top { top: 10px; }
-        .bottom { bottom: 20px; flex-direction: column; align-items: center; }
-        .card { background: #000; border: 2px solid #00d4ff; border-radius: 20px; padding: 15px; width: 95%; box-shadow: 0 0 15px rgba(0, 212, 255, 0.3); }
-        select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #444; background: #1a1a1a; color: #fff; font-size: 16px; }
-        .asientos-grid { display: flex; gap: 15px; margin-bottom: 10px; justify-content: center; }
-        .btn-as { width: 60px; height: 60px; border-radius: 15px; border: 2px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 22px; }
+        .overlay { position: absolute; z-index: 1000; width: 100%; display: flex; flex-direction: column; align-items: center; padding: 10px; }
+        .bottom { bottom: 20px; }
+        .card { background: #000; border: 2px solid #00d4ff; border-radius: 20px; padding: 15px; width: 95%; box-shadow: 0 0 15px rgba(0,212,255,0.4); text-align: center; color: white; }
+        .asientos-grid { display: flex; gap: 10px; justify-content: center; margin-bottom: 8px; }
+        .btn-as { width: 55px; height: 55px; border-radius: 12px; border: 2px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 20px; }
         .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; }
-        
-        /* CLASE PARA BLOQUEAR OTROS CLICS */
-        .desactivado { opacity: 0.4; pointer-events: none; filter: grayscale(1); border-color: #444 !important; color: #444 !important; }
-        
-        .instruccion { color: #fff; font-size: 12px; text-align: center; margin-top: 5px; font-weight: bold; }
-        .dist-tag { background: #00d4ff; color: #000; padding: 5px 15px; border-radius: 10px; font-weight: bold; margin-bottom: 10px; }
+        .desactivado { opacity: 0.4; pointer-events: none; filter: grayscale(1); }
+        .instruccion { font-size: 12px; font-weight: bold; margin-top: 5px; text-transform: uppercase; }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div class="overlay top"><div class="card"><select id="sel-p" onchange="marcar()"></select></div></div>
     <div class="overlay bottom">
-        <div id="dist-ui" class="dist-tag" style="display:none;">MÓVIL A: <span id="v-dist">--</span>m</div>
         <div class="card">
             <div class="asientos-grid">
                 <button id="as1" class="btn-as" onclick="reservar(1)">1</button>
@@ -47,65 +38,55 @@
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     let yaReservo = false;
 
-    // (Mantenemos tu lista de paradas de siempre)
-    const paradas = [{n:'M. Cané y Marchena', c:[-34.561128, -58.770586]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]}, {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]}, {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]}, {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]}, {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]}, {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Bulevar Caveri 1', c:[-34.578528, -58.757064]}, {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]}, {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]}, {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri Final', c:[-34.584740, -58.748804]}, {n:'Libertador y Aeronáutica', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]}, {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Giro Maza', c:[-34.588273, -58.751338]}, {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]}, {n:'Esquina Albatros', c:[-34.588930, -58.750543]}, {n:'Cruce Castelar', c:[-34.586030, -58.747278]}];
-
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(paradas[0].c, 15);
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561, -58.770], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 4, opacity: 0.6 }).addTo(map);
-    let busM = L.marker(paradas[0].c, { icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] }) }).addTo(map);
-    let miPos = null;
-    navigator.geolocation.watchPosition(p => { miPos = [p.coords.latitude, p.coords.longitude]; }, null, {enableHighAccuracy:true});
 
-    const sel = document.getElementById('sel-p');
-    paradas.forEach((p, i) => { let o = document.createElement('option'); o.value = i; o.text = p.n; sel.add(o); });
-
-    function marcar() {
-        const p = paradas[sel.value];
-        if(p) { L.marker(p.c).addTo(map).bindPopup("Destino").openPopup(); map.flyTo(p.c, 16); }
-    }
+    const busIcon = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png',
+        iconSize: [35, 35]
+    });
+    let markerBus = L.marker([-34.561, -58.770], { icon: busIcon }).addTo(map);
 
     async function reservar(n) {
-        if (yaReservo) return; // BLOQUEO 1: Lógica
+        if (yaReservo) return;
         if (navigator.vibrate) navigator.vibrate(80);
 
+        // RPC es la función segura que creamos en Supabase
         const { error } = await _s.rpc('reservar_asiento_seguro', { row_id: 1 });
 
         if (!error) {
-            yaReservo = true; // BLOQUEO 2: Variable
+            yaReservo = true;
             bloquearInterfaz();
-            alert("Reserva confirmada. ¡Buen viaje!");
+            alert("¡Asiento " + n + " reservado! Buen viaje.");
         }
     }
 
     function bloquearInterfaz() {
-        // BLOQUEO 3: Visual y físico
-        for(let i=1; i<=4; i++) { document.getElementById('as' + i).classList.add('desactivado'); }
+        for(let i=1; i<=4; i++) document.getElementById('as'+i).classList.add('desactivado');
         document.querySelector('.instruccion').innerText = "TENÉS UNA RESERVA ACTIVA";
         document.querySelector('.instruccion').style.color = "#00ff88";
     }
 
-    async function monitor() {
-        const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
-        if(data) act(data);
-        _s.channel('c1').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => act(r.new)).subscribe();
+    function desbloquearInterfaz() {
+        yaReservo = false;
+        for(let i=1; i<=4; i++) document.getElementById('as'+i).classList.remove('desactivado');
+        document.querySelector('.instruccion').innerText = "Presione un asiento para confirmar viaje";
+        document.querySelector('.instruccion').style.color = "#fff";
     }
 
-    function act(d) {
-        busM.setLatLng([d.latitud, d.longitud]);
-        const ocup = 4 - d.asientos_libres;
+    _s.channel('cambios_p').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
+        markerBus.setLatLng([r.new.latitud, r.new.longitud]);
+        
+        // Si el chofer resetea a 4, liberamos al pasajero
+        if (r.new.asientos_libres === 4) desbloquearInterfaz();
+
+        const ocup = 4 - r.new.asientos_libres;
         for(let i=1; i<=4; i++) {
             const btn = document.getElementById('as'+i);
             if (i <= ocup) btn.classList.add('ocupado');
             else btn.classList.remove('ocupado');
         }
-        if(miPos) {
-            const dist = map.distance(busM.getLatLng(), miPos);
-            document.getElementById('dist-ui').style.display = 'block';
-            document.getElementById('v-dist').innerText = Math.round(dist);
-        }
-    }
-    monitor();
+    }).subscribe();
 </script>
 </body>
 </html>
