@@ -20,38 +20,51 @@
         select { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #222; color: #fff; font-size: 18px; outline: none; }
         .card-asientos { background: #000; border: 2.5px solid #00d4ff; border-radius: 22px; padding: 18px; width: 95%; text-align: center; }
         .asientos-grid { display: flex; gap: 12px; margin-bottom: 12px; justify-content: center; }
-        .btn-as { width: 65px; height: 65px; border-radius: 15px; border: 2.5px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 24px; }
-        .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; }
+        .btn-as { width: 65px; height: 65px; border-radius: 15px; border: 2.5px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 24px; transition: 0.3s; }
+        
+        /* Estados de los asientos */
+        .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; opacity: 0.6; }
+        .seleccionado-local { background: #00d4ff !important; color: #000 !important; box-shadow: 0 0 15px #00d4ff; }
+        
         .btn-finalizar { background: #ff3b30; color: white; border: none; padding: 14px; border-radius: 12px; font-weight: bold; width: 100%; margin-top: 10px; text-transform: uppercase; }
+        .btn-confirmar { background: #28a745; color: white; border: none; padding: 14px; border-radius: 12px; font-weight: bold; width: 100%; margin-top: 10px; text-transform: uppercase; display: none; }
+        
         .dist-tag { background: #00d4ff; color: #000; padding: 6px 16px; border-radius: 12px; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
+        .price-tag { color: #fff; font-size: 16px; margin-bottom: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
     <div id="splash"><div class="logo-m">M</div><div style="color:white; font-weight:bold;">MÓVIL EN VIVO</div></div>
     <div id="map"></div>
+    
     <div class="overlay top">
         <div class="card-destino">
             <span style="color:#00d4ff; font-size:11px; font-weight:bold; display:block; margin-bottom:5px;">📍 TU DESTINO</span>
             <select id="sel-p" onchange="marcarDestino()"></select>
         </div>
     </div>
+
     <div class="overlay bottom">
         <div id="ui-dist" class="dist-tag" style="display:none;">EL MÓVIL ESTÁ A: <span id="v-dist">0</span>m</div>
+        
         <div class="card-asientos">
+            <div id="info-pago" class="price-tag">TOTAL A PAGAR: <span id="monto" style="color:#00d4ff;">$0</span></div>
+            
             <div class="asientos-grid">
-                <button id="as1" class="btn-as" onclick="reservar(1)">1</button>
-                <button id="as2" class="btn-as" onclick="reservar(2)">2</button>
-                <button id="as3" class="btn-as" onclick="reservar(3)">3</button>
-                <button id="as4" class="btn-as" onclick="reservar(4)">4</button>
+                <button id="as1" class="btn-as" onclick="toggleSeleccion(1)">1</button>
+                <button id="as2" class="btn-as" onclick="toggleSeleccion(2)">2</button>
+                <button id="as3" class="btn-as" onclick="toggleSeleccion(3)">3</button>
+                <button id="as4" class="btn-as" onclick="toggleSeleccion(4)">4</button>
             </div>
-            <button class="btn-finalizar" onclick="liberarAsiento()">Finalizar mi viaje</button>
+
+            <button id="btn-confirmar" class="btn-confirmar" onclick="confirmarReserva()">Confirmar Reserva</button>
+            <button id="btn-finalizar" class="btn-finalizar" onclick="liberarAsiento()">Finalizar mi viaje</button>
         </div>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    // TODAS TUS COORDENADAS REALES (DE MIGUEL CANÉ HASTA ABASTO Y ROCA)
     const rutaCompleta = [
         {n:'Miguel Cané (Inicio)', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -76,8 +89,11 @@
     let markerBus = L.marker(rutaCompleta[0].c, { icon: busIcon }).addTo(map);
     let markerDest = null;
     let miPos = null;
+    
+    // Variables de lógica de asientos
+    let misAsientosLocal = [];
+    const PRECIO_ASIENTO = 1000;
 
-    // Cargar Selector solo con paradas principales
     const sel = document.getElementById('sel-p');
     rutaCompleta.forEach((p,i)=>{ 
         if(!p.n.includes('Giro')) {
@@ -94,21 +110,63 @@
         map.flyTo(p.c, 16);
     }
 
-    async function reservar(n) {
-        if (navigator.vibrate) navigator.vibrate(80);
+    // --- LÓGICA DE SELECCIÓN LOCAL ---
+    function toggleSeleccion(n) {
+        const btn = document.getElementById('as' + n);
+        
+        // Si el asiento está marcado como ocupado en la DB, no permitir tocarlo
+        if (btn.classList.contains('ocupado')) return;
+
+        if (misAsientosLocal.includes(n)) {
+            misAsientosLocal = misAsientosLocal.filter(id => id !== n);
+            btn.classList.remove('seleccionado-local');
+        } else {
+            misAsientosLocal.push(n);
+            btn.classList.add('seleccionado-local');
+        }
+        
+        if (navigator.vibrate) navigator.vibrate(50);
+        actualizarUI();
+    }
+
+    function actualizarUI() {
+        const total = misAsientosLocal.length * PRECIO_ASIENTO;
+        document.getElementById('monto').innerText = `$${total}`;
+        
+        const btnConf = document.getElementById('btn-confirmar');
+        const btnFin = document.getElementById('btn-finalizar');
+
+        if (misAsientosLocal.length > 0) {
+            btnConf.style.display = 'block';
+            btnFin.style.display = 'none';
+        } else {
+            btnConf.style.display = 'none';
+            btnFin.style.display = 'block';
+        }
+    }
+
+    async function confirmarReserva() {
         const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
-        if(data && data.asientos_libres > 0) {
-            await _s.from('estado_movil').update({ asientos_libres: data.asientos_libres - 1 }).eq('id', 1);
+        const cant = misAsientosLocal.length;
+
+        if(data && data.asientos_libres >= cant) {
+            await _s.from('estado_movil').update({ asientos_libres: data.asientos_libres - cant }).eq('id', 1);
+            alert(`¡Reserva confirmada por $${cant * PRECIO_ASIENTO}!`);
+            misAsientosLocal = []; // Limpiar selección tras reservar
+            actualizarUI();
+        } else {
+            alert("No hay suficientes asientos disponibles.");
         }
     }
 
     async function liberarAsiento() {
         const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
         if(data && data.asientos_libres < 4) {
-            await _s.from('estado_movil').update({ asientos_libres: data.asientos_libres + 1 }).eq('id', 1);
+            await _s.from('estado_movil').update({ asientos_libres: 4 }).eq('id', 1); // Reset total
         }
     }
 
+    // ESCUCHA DE CAMBIOS EN TIEMPO REAL
     _s.channel('cambios').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
         markerBus.setLatLng([r.new.latitud, r.new.longitud]);
         if(miPos) {
@@ -116,13 +174,27 @@
             document.getElementById('ui-dist').style.display = 'block';
             document.getElementById('v-dist').innerText = Math.round(d);
         }
-        const ocup = 4 - r.new.asientos_libres;
+        
+        const ocupadosDB = 4 - r.new.asientos_libres;
         for(let i=1; i<=4; i++) {
-            document.getElementById('as'+i).className = 'btn-as ' + (i <= ocup ? 'ocupado' : '');
+            const btn = document.getElementById('as'+i);
+            // Si el asiento i es menor o igual a los ocupados en DB, se pone rojo
+            if (i <= ocupadosDB) {
+                btn.className = 'btn-as ocupado';
+                // Si justo ese asiento lo tenía el usuario seleccionado localmente, se lo quitamos
+                misAsientosLocal = misAsientosLocal.filter(id => id !== i);
+            } else {
+                // Si está libre en DB, mantenemos la clase base, pero respetamos si el usuario lo tiene tildado
+                btn.className = 'btn-as' + (misAsientosLocal.includes(i) ? ' seleccionado-local' : '');
+            }
         }
+        actualizarUI();
     }).subscribe();
 
-    setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display='none', 800); }, 2500);
+    setTimeout(() => { 
+        document.getElementById('splash').style.opacity = '0'; 
+        setTimeout(() => document.getElementById('splash').style.display='none', 800); 
+    }, 2500);
 </script>
 </body>
 </html>
