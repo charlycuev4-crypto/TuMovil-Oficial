@@ -1,4 +1,5 @@
 <script>
+    // Configuración de Supabase
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
     let activo = false;
@@ -7,6 +8,7 @@
     let markerPasajeroDestino = null;
     let paradasRuta = [];
 
+    // Inicializar Mapa con precaución
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -17,16 +19,19 @@
     let markerBus = L.marker([-34.561128, -58.770586], { icon: busIcon }).addTo(map);
 
     async function cargarRuta() {
-        const { data: paradas } = await _s.from('paradas').select('*').order('orden', { ascending: true });
-        if(paradas) {
-            paradasRuta = paradas.map(p => [p.latitud, p.longitud]);
-            L.polyline(paradasRuta, {color: '#00d4ff', weight: 4, opacity: 0.5}).addTo(map);
-            paradas.forEach(p => {
-                L.circleMarker([p.latitud, p.longitud], {
-                    radius: 5, fillColor: '#007AFF', color: '#FFF', weight: 2, fillOpacity: 0.8
-                }).addTo(map);
-            });
-        }
+        try {
+            const { data: paradas, error } = await _s.from('paradas').select('*').order('orden', { ascending: true });
+            if (error) throw error;
+            if(paradas && paradas.length > 0) {
+                paradasRuta = paradas.map(p => [p.latitud, p.longitud]);
+                L.polyline(paradasRuta, {color: '#00d4ff', weight: 4, opacity: 0.5}).addTo(map);
+                paradas.forEach(p => {
+                    L.circleMarker([p.latitud, p.longitud], {
+                        radius: 5, fillColor: '#007AFF', color: '#FFF', weight: 2, fillOpacity: 0.8
+                    }).addTo(map);
+                });
+            }
+        } catch (e) { console.error("Error cargando ruta:", e); }
     }
 
     function sincronizarRealTime() {
@@ -35,62 +40,87 @@
         });
 
         _s.channel('cambios-chofer').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
-            actualizarInterfaz(payload.new);
+            if (payload.new) actualizarInterfaz(payload.new);
         }).subscribe();
     }
 
     function actualizarInterfaz(data) {
-        const ocupados = 4 - data.asientos_libres;
-        
-        // Actualizar Visores
-        document.getElementById('v-pax').innerText = ocupados;
-        document.getElementById('v-dinero').innerText = ocupados * PRECIO_ASIENTO;
-        
-        // CORRECCIÓN: Lógica de Asientos
-        for(let i=1; i<=4; i++) {
-            const btn = document.getElementById('b' + i);
-            // Si el viaje se reseteó (asientos libres = 4) o no hay coordenadas, limpiar todo
-            if (data.asientos_libres === 4 || !data.pasa_lat_origen) {
-                btn.className = 'btn-as';
-            } else {
-                btn.className = i <= ocupados ? 'btn-as ocupado' : 'btn-as';
+        try {
+            // 1. Calcular pasajeros (asegurando que no sea negativo)
+            const ocupados = Math.max(0, 4 - (data.asientos_libres || 4));
+            
+            // 2. Actualizar textos (Validar que existan los IDs)
+            const elPax = document.getElementById('v-pax');
+            const elDinero = document.getElementById('v-dinero');
+            if (elPax) elPax.innerText = ocupados;
+            if (elDinero) elDinero.innerText = ocupados * PRECIO_ASIENTO;
+            
+            // 3. Actualizar botones de asientos
+            for(let i=1; i<=4; i++) {
+                const btn = document.getElementById('b' + i);
+                if (btn) {
+                    // Si el bus está vacío o no hay coordenadas de origen, resetear color
+                    if (data.asientos_libres === 4 || !data.pasa_lat_origen) {
+                        btn.className = 'btn-as';
+                    } else {
+                        btn.className = i <= ocupados ? 'btn-as ocupado' : 'btn-as';
+                    }
+                }
             }
-        }
 
-        // CORRECCIÓN: Limpieza de Marcadores
-        if (data.pasa_lat_origen && data.pasa_lng_origen && data.asientos_libres < 4) {
-            // Origen
-            if (markerPasajeroOrigen) markerPasajeroOrigen.setLatLng([data.pasa_lat_origen, data.pasa_lng_origen]);
-            else markerPasajeroOrigen = L.marker([data.pasa_lat_origen, data.pasa_lng_origen], {icon: paxIcon}).addTo(map).bindPopup("RECOGER AQUÍ").openPopup();
+            // 4. Gestión de Marcadores en el Mapa
+            const tieneCoordenadas = data.pasa_lat_origen && data.pasa_lng_origen;
+            
+            if (tieneCoordenadas && ocupados > 0) {
+                // Actualizar o crear marcador de Origen
+                if (markerPasajeroOrigen) {
+                    markerPasajeroOrigen.setLatLng([data.pasa_lat_origen, data.pasa_lng_origen]);
+                } else {
+                    markerPasajeroOrigen = L.marker([data.pasa_lat_origen, data.pasa_lng_origen], {icon: paxIcon}).addTo(map);
+                }
 
-            // Destino
-            if (markerPasajeroDestino) markerPasajeroDestino.setLatLng([data.pasa_lat_destino, data.pasa_lng_destino]);
-            else markerPasajeroDestino = L.marker([data.pasa_lat_destino, data.pasa_lng_destino], {icon: destIcon}).addTo(map).bindPopup("DESTINO");
-        } else {
-            // Si el pasajero finalizó viaje, borramos los marcadores del mapa del chofer
-            if (markerPasajeroOrigen) { map.removeLayer(markerPasajeroOrigen); markerPasajeroOrigen = null; }
-            if (markerPasajeroDestino) { map.removeLayer(markerPasajeroDestino); markerPasajeroDestino = null; }
+                // Actualizar o crear marcador de Destino
+                if (data.pasa_lat_destino && data.pasa_lng_destino) {
+                    if (markerPasajeroDestino) {
+                        markerPasajeroDestino.setLatLng([data.pasa_lat_destino, data.pasa_lng_destino]);
+                    } else {
+                        markerPasajeroDestino = L.marker([data.pasa_lat_destino, data.pasa_lng_destino], {icon: destIcon}).addTo(map);
+                    }
+                }
+            } else {
+                // LIMPIEZA: Si no hay viaje activo, quitar marcadores
+                if (markerPasajeroOrigen) { map.removeLayer(markerPasajeroOrigen); markerPasajeroOrigen = null; }
+                if (markerPasajeroDestino) { map.removeLayer(markerPasajeroDestino); markerPasajeroDestino = null; }
+            }
+        } catch (err) {
+            console.error("Error en actualizarInterfaz:", err);
         }
     }
 
     async function setEstado(v) {
         activo = v;
-        document.getElementById('btn-on').className = v ? 'btn-control btn-start active' : 'btn-control btn-start';
-        document.getElementById('btn-off').className = v ? 'btn-control btn-end' : 'btn-control btn-end active';
+        const btnOn = document.getElementById('btn-on');
+        const btnOff = document.getElementById('btn-off');
+        if (btnOn) btnOn.className = v ? 'btn-control btn-start active' : 'btn-control btn-start';
+        if (btnOff) btnOff.className = v ? 'btn-control btn-end' : 'btn-control btn-end active';
+        
         await _s.from('estado_movil').update({ en_servicio: v }).eq('id', 1);
     }
 
+    // GPS con validación
     navigator.geolocation.watchPosition(p => { 
         if(!activo) return;
         const pos = [p.coords.latitude, p.coords.longitude];
-        markerBus.setLatLng(pos); 
+        if (markerBus) markerBus.setLatLng(pos); 
         map.panTo(pos);
         _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1] }).eq('id', 1);
-    }, null, { enableHighAccuracy: true });
+    }, (err) => console.warn("GPS Error:", err), { enableHighAccuracy: true });
 
     window.onload = () => {
         cargarRuta();
         sincronizarRealTime();
-        setTimeout(() => { document.getElementById('splash').style.display = 'none'; }, 2000);
+        // Ocultar splash
+        const splash = document.getElementById('splash');
+        if (splash) setTimeout(() => { splash.style.display = 'none'; }, 2000);
     };
 </script>
