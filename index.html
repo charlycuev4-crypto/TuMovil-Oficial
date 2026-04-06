@@ -1,101 +1,99 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor - Tu Móvil</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tu Móvil - Dinámico Día</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #000; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        body { margin: 0; padding: 0; background: #f0f0f0; height: 100vh; font-family: 'Arial', sans-serif; overflow: hidden; }
 
-        /* 1. PRESENTACIÓN: TEXTO CELESTE SOBRE NEGRO */
-        #splash {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 10000; display: flex; align-items: center; justify-content: center;
-            transition: opacity 0.6s;
+        /* MAPA PANTALLA COMPLETA */
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+
+        /* VISORES FLOTANTES ARRIBA */
+        .overlay-top {
+            position: absolute; top: 10px; left: 10px; right: 10px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            z-index: 1000; pointer-events: none;
         }
-        .splash-text {
-            color: #00d4ff; font-size: 40px; font-weight: bold; letter-spacing: 5px;
-            text-shadow: 0 0 20px rgba(0, 212, 255, 0.6);
+        .visor {
+            background: rgba(0, 0, 0, 0.85); 
+            border: 2px solid #00d4ff; border-radius: 12px;
+            padding: 8px; text-align: center; color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            pointer-events: auto;
         }
+        .visor-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; display: block; }
+        .visor-num { font-size: 22px; font-weight: bold; }
 
-        /* 2. GPS AL 70% */
-        #map { height: 70vh; width: 100%; border-bottom: 2px solid #00d4ff; }
-
-        /* 3. MENÚ AL 30% */
-        .panel { 
-            height: 30vh; background: #000; padding: 10px;
-            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-            position: relative;
+        /* PANEL INFERIOR DINÁMICO */
+        .overlay-bottom {
+            position: absolute; bottom: 25px; left: 0; right: 0;
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+            z-index: 1000;
         }
-
-        .visor { 
-            background: #000; border: 1px solid #00d4ff; border-radius: 8px; 
-            padding: 5px; text-align: center; display: flex; flex-direction: column; justify-content: center;
+        .asientos-cont {
+            display: flex; gap: 10px; background: rgba(0, 0, 0, 0.8);
+            padding: 12px 15px; border-radius: 20px; border: 1px solid #00d4ff;
         }
-        .visor-label { font-size: 10px; color: #00d4ff; text-transform: uppercase; }
-        .visor-num { font-size: 22px; font-weight: bold; color: #fff; }
-
-        .asientos-cont { grid-column: span 2; display: flex; justify-content: space-around; align-items: center; }
-        .btn-as { 
-            width: 55px; height: 45px; border: 2px solid #00d4ff; border-radius: 8px; 
-            font-size: 20px; font-weight: bold; color: #fff; cursor: pointer; background: transparent;
+        .btn-as {
+            width: 52px; height: 52px; border-radius: 10px; border: 2px solid #00d4ff;
+            background: transparent; color: #00d4ff; font-size: 20px; font-weight: bold;
+            cursor: pointer; transition: 0.2s;
         }
-        .libre { border-color: #00d4ff; color: #00d4ff; }
-        .ocupado { background: #ff3b30; border-color: #ff3b30; color: #fff; }
+        .ocupado { background: #ff3b30; border-color: #ff3b30; color: white; box-shadow: 0 0 10px #ff3b30; }
 
-        /* BOTÓN DE PODER FLOTANTE PEQUEÑO */
+        /* BOTÓN POWER REDONDO */
         .btn-pwr {
-            position: absolute; top: -25px; right: 15px; width: 50px; height: 50px;
-            border-radius: 50%; border: 2px solid #00d4ff; font-weight: bold;
-            font-size: 9px; cursor: pointer; z-index: 2000;
-            display: flex; align-items: center; justify-content: center; text-align: center;
+            width: 60px; height: 60px; border-radius: 50%; border: 3px solid white;
+            font-weight: bold; font-size: 12px; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
-        .on { background: #000; color: #00d4ff; }
-        .off { background: #ff3b30; color: #fff; border-color: #fff; display: none; }
+        .on { background: #00d4ff; color: black; }
+        .off { background: #ff3b30; color: white; display: none; }
+
+        /* SPLASH SCREEN */
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 10000; display: flex; align-items: center; justify-content: center; transition: opacity 0.5s; }
+        .splash-text { color: #00d4ff; font-size: 30px; font-weight: bold; text-shadow: 0 0 10px #00d4ff; }
     </style>
 </head>
 <body>
 
-    <div id="splash">
-        <div class="splash-text">TU MÓVIL</div>
-    </div>
+    <div id="splash"><div class="splash-text">TU MÓVIL</div></div>
 
     <div id="map"></div>
 
-    <div class="panel">
-        <button id="p-on" class="btn-pwr on" onclick="power(true)">ON</button>
-        <button id="p-off" class="btn-pwr off" onclick="power(false)">OFF</button>
-
+    <div class="overlay-top">
         <div class="visor">
-            <span class="visor-label">TARIFA</span>
-            <span class="visor-num">$ <span id="v-dinero">0</span></span>
+            <span class="visor-label">TARIFA HOY</span>
+            <div class="visor-num">$ <span id="v-dinero">0</span></div>
         </div>
         <div class="visor">
             <span class="visor-label">PASAJEROS</span>
-            <span class="visor-num" id="v-pax">0</span>
-        </div>
-
-        <div class="asientos-cont">
-            <button id="b1" class="btn-as libre" onclick="t(0)">1</button>
-            <button id="b2" class="btn-as libre" onclick="t(1)">2</button>
-            <button id="b3" class="btn-as libre" onclick="t(2)">3</button>
-            <button id="b4" class="btn-as libre" onclick="t(3)">4</button>
+            <div class="visor-num" id="v-pax">0</div>
         </div>
     </div>
 
-<script>
-    // Splash logic
-    window.onload = () => { setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display = 'none', 600); }, 2000); };
+    <div class="overlay-bottom">
+        <div class="asientos-cont">
+            <button id="b1" class="btn-as" onclick="t(0)">1</button>
+            <button id="b2" class="btn-as" onclick="t(1)">2</button>
+            <button id="b3" class="btn-as" onclick="t(2)">3</button>
+            <button id="b4" class="btn-as" onclick="t(3)">4</button>
+        </div>
+        <button id="p-on" class="btn-pwr on" onclick="power(true)">ON</button>
+        <button id="p-off" class="btn-pwr off" onclick="power(false)">OFF</button>
+    </div>
 
+<script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
-    let activo = false;
-    let recaudado = 0;
-    let pasajeros = 0;
-    let est = [true, true, true, true];
+    let activo = false, recaudado = 0, pasajeros = 0, est = [true, true, true, true];
+
+    window.onload = () => { setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display = 'none', 500); }, 1500); };
 
     function power(v) {
         activo = v;
@@ -107,23 +105,40 @@
         if(!activo) return;
         if(est[i]) { recaudado += 1000; pasajeros += 1; }
         est[i] = !est[i];
-        document.getElementById('b'+(i+1)).className = 'btn-as ' + (est[i] ? 'libre' : 'ocupado');
+        document.getElementById('b'+(i+1)).className = 'btn-as ' + (est[i] ? '' : 'ocupado');
         document.getElementById('v-dinero').innerText = recaudado;
         document.getElementById('v-pax').innerText = pasajeros;
         await _s.from('estado_movil').update({ asientos_libres: est.filter(x=>x).length }).eq('id', 1);
     }
 
-    // Mapa centrado
-    const map = L.map('map', { zoomControl: false }).setView([-34.575, -58.775], 15);
+    // MAPA MODO DÍA (OPENSTREETMAP ESTÁNDAR)
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] });
-    let marker = L.marker([-34.575, -58.775], {icon: carIcon}).addTo(map);
+    const rutaSantaBrigida = [
+        [-34.561128, -58.770586], [-34.562160, -58.771380], [-34.562494, -58.772133], 
+        [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061], 
+        [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443], 
+        [-34.571956, -58.763201], [-34.577371, -58.755909], [-34.578528, -58.757064], 
+        [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842], 
+        [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804], 
+        [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542], 
+        [-34.588273, -58.751338], [-34.588771, -58.750804], [-34.588244, -58.749877], 
+        [-34.588930, -58.750543], [-34.586030, -58.747278]
+    ];
 
-    navigator.geolocation.watchPosition(p => {
+    L.polyline(rutaSantaBrigida, {color: '#00d4ff', weight: 6, opacity: 0.7}).addTo(map);
+    rutaSantaBrigida.forEach(coord => { L.circleMarker(coord, {radius: 5, fillColor: "#00d4ff", color: "#000", weight: 1, fillOpacity: 1}).addTo(map); });
+    
+    let marker = L.marker(rutaSantaBrigida[0], {
+        icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] })
+    }).addTo(map);
+
+    navigator.geolocation.watchPosition(p => { 
         if(!activo) return;
         const pos = [p.coords.latitude, p.coords.longitude];
-        marker.setLatLng(pos); map.panTo(pos);
+        marker.setLatLng(pos); 
+        map.panTo(pos);
         _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1] }).eq('id', 1);
     }, null, { enableHighAccuracy: true });
 </script>
