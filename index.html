@@ -8,7 +8,7 @@
     let markerPasajeroDestino = null;
     let paradasRuta = [];
 
-    // Inicializar Mapa con precaución
+    // 1. Inicializar Mapa con validación de contenedor
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -18,6 +18,7 @@
 
     let markerBus = L.marker([-34.561128, -58.770586], { icon: busIcon }).addTo(map);
 
+    // 2. Cargar paradas de la base de datos
     async function cargarRuta() {
         try {
             const { data: paradas, error } = await _s.from('paradas').select('*').order('orden', { ascending: true });
@@ -31,9 +32,10 @@
                     }).addTo(map);
                 });
             }
-        } catch (e) { console.error("Error cargando ruta:", e); }
+        } catch (e) { console.error("Error en ruta:", e); }
     }
 
+    // 3. Sincronización Real-Time
     function sincronizarRealTime() {
         _s.from('estado_movil').select('*').eq('id', 1).single().then(({data}) => {
             if(data) actualizarInterfaz(data);
@@ -44,23 +46,25 @@
         }).subscribe();
     }
 
+    // 4. Actualización Segura de Interfaz
     function actualizarInterfaz(data) {
         try {
-            // 1. Calcular pasajeros (asegurando que no sea negativo)
-            const ocupados = Math.max(0, 4 - (data.asientos_libres || 4));
+            // Calcular ocupación (evitar errores si el dato es nulo)
+            const asientosLibres = data.asientos_libres ?? 4;
+            const ocupados = Math.max(0, 4 - asientosLibres);
             
-            // 2. Actualizar textos (Validar que existan los IDs)
+            // Actualizar textos superiores
             const elPax = document.getElementById('v-pax');
             const elDinero = document.getElementById('v-dinero');
             if (elPax) elPax.innerText = ocupados;
             if (elDinero) elDinero.innerText = ocupados * PRECIO_ASIENTO;
             
-            // 3. Actualizar botones de asientos
+            // Actualizar botones de asientos inferiores
             for(let i=1; i<=4; i++) {
                 const btn = document.getElementById('b' + i);
                 if (btn) {
-                    // Si el bus está vacío o no hay coordenadas de origen, resetear color
-                    if (data.asientos_libres === 4 || !data.pasa_lat_origen) {
+                    // Si el bus se vació o no hay origen, resetear a azul
+                    if (asientosLibres === 4 || !data.pasa_lat_origen) {
                         btn.className = 'btn-as';
                     } else {
                         btn.className = i <= ocupados ? 'btn-as ocupado' : 'btn-as';
@@ -68,18 +72,17 @@
                 }
             }
 
-            // 4. Gestión de Marcadores en el Mapa
-            const tieneCoordenadas = data.pasa_lat_origen && data.pasa_lng_origen;
+            // Gestión de marcadores de Pasajeros en el Mapa
+            const tienePax = data.pasa_lat_origen && data.pasa_lng_origen && ocupados > 0;
             
-            if (tieneCoordenadas && ocupados > 0) {
-                // Actualizar o crear marcador de Origen
+            if (tienePax) {
+                // Dibujar/Mover Origen
                 if (markerPasajeroOrigen) {
                     markerPasajeroOrigen.setLatLng([data.pasa_lat_origen, data.pasa_lng_origen]);
                 } else {
                     markerPasajeroOrigen = L.marker([data.pasa_lat_origen, data.pasa_lng_origen], {icon: paxIcon}).addTo(map);
                 }
-
-                // Actualizar o crear marcador de Destino
+                // Dibujar/Mover Destino
                 if (data.pasa_lat_destino && data.pasa_lng_destino) {
                     if (markerPasajeroDestino) {
                         markerPasajeroDestino.setLatLng([data.pasa_lat_destino, data.pasa_lng_destino]);
@@ -88,39 +91,37 @@
                     }
                 }
             } else {
-                // LIMPIEZA: Si no hay viaje activo, quitar marcadores
+                // Si el viaje terminó, limpiar el mapa del chofer
                 if (markerPasajeroOrigen) { map.removeLayer(markerPasajeroOrigen); markerPasajeroOrigen = null; }
                 if (markerPasajeroDestino) { map.removeLayer(markerPasajeroDestino); markerPasajeroDestino = null; }
             }
-        } catch (err) {
-            console.error("Error en actualizarInterfaz:", err);
-        }
+        } catch (err) { console.error("Error Interfaz:", err); }
     }
 
     async function setEstado(v) {
         activo = v;
-        const btnOn = document.getElementById('btn-on');
-        const btnOff = document.getElementById('btn-off');
-        if (btnOn) btnOn.className = v ? 'btn-control btn-start active' : 'btn-control btn-start';
-        if (btnOff) btnOff.className = v ? 'btn-control btn-end' : 'btn-control btn-end active';
-        
+        const bOn = document.getElementById('btn-on');
+        const bOff = document.getElementById('btn-off');
+        if (bOn) bOn.className = v ? 'btn-control btn-start active' : 'btn-control btn-start';
+        if (bOff) bOff.className = v ? 'btn-control btn-end' : 'btn-control btn-end active';
         await _s.from('estado_movil').update({ en_servicio: v }).eq('id', 1);
     }
 
-    // GPS con validación
+    // Ubicación GPS
     navigator.geolocation.watchPosition(p => { 
         if(!activo) return;
         const pos = [p.coords.latitude, p.coords.longitude];
         if (markerBus) markerBus.setLatLng(pos); 
         map.panTo(pos);
         _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1] }).eq('id', 1);
-    }, (err) => console.warn("GPS Error:", err), { enableHighAccuracy: true });
+    }, (e) => console.warn(e), { enableHighAccuracy: true });
 
     window.onload = () => {
         cargarRuta();
         sincronizarRealTime();
-        // Ocultar splash
-        const splash = document.getElementById('splash');
-        if (splash) setTimeout(() => { splash.style.display = 'none'; }, 2000);
+        setTimeout(() => { 
+            const s = document.getElementById('splash');
+            if(s) s.style.display = 'none'; 
+        }, 2000);
     };
 </script>
