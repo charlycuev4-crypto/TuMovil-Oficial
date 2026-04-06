@@ -1,36 +1,101 @@
+📣📣📣 código conductor 
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CONDUCTOR - Tu Móvil</title>
+    <title>Conductor Pro - Tu Móvil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        /* Mantenemos tus estilos originales de Modo Día */
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #f0f0f0; height: 100vh; font-family: 'Arial', sans-serif; overflow: hidden; }
+
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
-        .overlay-top { position: absolute; top: 10px; left: 10px; right: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; z-index: 1000; }
-        .visor { background: rgba(0, 0, 0, 0.85); border: 2px solid #00d4ff; border-radius: 12px; padding: 8px; text-align: center; color: white; }
+
+        .overlay-top {
+            position: absolute; top: 10px; left: 10px; right: 10px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            z-index: 1000; pointer-events: none;
+        }
+        .visor {
+            background: rgba(0, 0, 0, 0.85); 
+            border: 2px solid #00d4ff; border-radius: 12px;
+            padding: 8px; text-align: center; color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            pointer-events: auto; transition: background 0.3s;
+        }
         .visor-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; display: block; }
         .visor-num { font-size: 22px; font-weight: bold; }
-        .overlay-bottom { position: absolute; bottom: 25px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; z-index: 1000; }
-        .asientos-cont { display: flex; gap: 10px; background: rgba(0, 0, 0, 0.8); padding: 12px 15px; border-radius: 20px; border: 1px solid #00d4ff; }
-        .btn-as { width: 52px; height: 52px; border-radius: 10px; border: 2px solid #00d4ff; background: transparent; color: #00d4ff; font-size: 20px; font-weight: bold; }
-        .ocupado { background: #ff3b30; border-color: #ff3b30; color: white; }
-        .btn-pwr { width: 60px; height: 60px; border-radius: 50%; border: 3px solid white; font-weight: bold; font-size: 12px; }
-        .on { background: #00d4ff; color: black; }
-        .off { background: #ff3b30; color: white; display: none; }
+
+        .overlay-bottom {
+            position: absolute; bottom: 25px; left: 0; right: 0;
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+            z-index: 1000;
+        }
+        .asientos-cont {
+            display: flex; gap: 10px; background: rgba(0, 0, 0, 0.8);
+            padding: 12px 15px; border-radius: 20px; border: 1px solid #00d4ff;
+        }
+        .btn-as {
+            width: 52px; height: 52px; border-radius: 10px; border: 2px solid #00d4ff;
+            background: transparent; color: #00d4ff; font-size: 20px; font-weight: bold;
+            transition: 0.2s;
+        }
+        .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; box-shadow: 0 0 10px #ff3b30; }
+
+        /* NUEVO PANEL DE CONTROL ALARGADO */
+        .control-panel {
+            display: flex;
+            width: 280px;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 15px;
+            border: 2px solid #00d4ff;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .btn-control {
+            flex: 1;
+            border: none;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-transform: uppercase;
+        }
+
+        .btn-start { background: transparent; color: #00ff88; }
+        .btn-start.active { background: #00ff88; color: black; }
+
+        .btn-end { background: transparent; color: #ff3b30; border-left: 1px solid #333; }
+        .btn-end.active { background: #ff3b30; color: white; }
+
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 10000; display: flex; align-items: center; justify-content: center; transition: opacity 0.5s; }
+        .splash-text { color: #00d4ff; font-size: 30px; font-weight: bold; text-shadow: 0 0 10px #00d4ff; }
     </style>
 </head>
 <body>
+
+    <div id="splash"><div class="splash-text">TU MÓVIL</div></div>
     <div id="map"></div>
+
     <div class="overlay-top">
-        <div class="visor"><span class="visor-label">TARIFA HOY</span><div class="visor-num">$ <span id="v-dinero">0</span></div></div>
-        <div class="visor"><span class="visor-label">PASAJEROS</span><div class="visor-num" id="v-pax">0</div></div>
+        <div class="visor">
+            <span class="visor-label">TARIFA HOY</span>
+            <div class="visor-num">$ <span id="v-dinero">0</span></div>
+        </div>
+        <div id="visor-pax" class="visor">
+            <span class="visor-label">PASAJEROS</span>
+            <div class="visor-num" id="v-pax">0</div>
+        </div>
     </div>
+
     <div class="overlay-bottom">
         <div class="asientos-cont">
             <button id="b1" class="btn-as">1</button>
@@ -38,57 +103,90 @@
             <button id="b3" class="btn-as">3</button>
             <button id="b4" class="btn-as">4</button>
         </div>
-        <button id="p-on" class="btn-pwr on" onclick="power(true)">ON</button>
-        <button id="p-off" class="btn-pwr off" onclick="power(false)">OFF</button>
+        
+        <div class="control-panel">
+            <button id="btn-on" class="btn-control btn-start" onclick="setEstado(true)">Iniciar</button>
+            <button id="btn-off" class="btn-control btn-end active" onclick="setEstado(false)">Finalizar</button>
+        </div>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    let activo = false, recaudado = 0, pasajeros = 0;
+    
+    let activo = false;
+    const PRECIO_ASIENTO = 1000;
+
+    window.onload = () => { 
+        setTimeout(() => { 
+            document.getElementById('splash').style.opacity = '0'; 
+            setTimeout(() => document.getElementById('splash').style.display = 'none', 500); 
+        }, 1500); 
+        sincronizarRealTime();
+    };
+
+    function sincronizarRealTime() {
+        _s.from('estado_movil').select('*').eq('id', 1).single().then(({data}) => {
+            if(data) actualizarInterfaz(data);
+        });
+
+        _s.channel('cambios-chofer').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
+            actualizarInterfaz(payload.new);
+            alertarNuevaReserva();
+        }).subscribe();
+    }
+
+    function actualizarInterfaz(data) {
+        const libres = data.asientos_libres;
+        const ocupados = 4 - libres;
+        document.getElementById('v-pax').innerText = ocupados;
+        document.getElementById('v-dinero').innerText = ocupados * PRECIO_ASIENTO;
+        
+        for(let i=1; i<=4; i++) {
+            const btn = document.getElementById('b' + i);
+            if(i <= ocupados) btn.classList.add('ocupado');
+            else btn.classList.remove('ocupado');
+        }
+    }
+
+    function alertarNuevaReserva() {
+        const v = document.getElementById('visor-pax');
+        v.style.background = "#00ff88"; 
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        setTimeout(() => { v.style.background = "rgba(0,0,0,0.85)"; }, 2000);
+    }
+
+    // NUEVA FUNCIÓN DE ESTADO
+    function setEstado(v) {
+        activo = v;
+        const btnOn = document.getElementById('btn-on');
+        const btnOff = document.getElementById('btn-off');
+
+        if(v) {
+            btnOn.classList.add('active');
+            btnOff.classList.remove('active');
+        } else {
+            btnOff.classList.add('active');
+            btnOn.classList.remove('active');
+        }
+    }
 
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Iconos
-    const iconBus = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] });
-    let markerConductor = L.marker([-34.561128, -58.770586], { icon: iconBus }).addTo(map);
+    const rutaSantaBrigida = [[-34.561128, -58.770586], [-34.562160, -58.771380], [-34.562494, -58.772133], [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061], [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443], [-34.571956, -58.763201], [-34.577371, -58.755909], [-34.578528, -58.757064], [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842], [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804], [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542], [-34.588273, -58.751338], [-34.588771, -58.750804], [-34.588244, -58.749877], [-34.588930, -58.750543], [-34.586030, -58.747278]];
+    L.polyline(rutaSantaBrigida, {color: '#00d4ff', weight: 6, opacity: 0.7}).addTo(map);
     
-    // MARCADOR DEL PASAJERO (Azul brillante)
-    let markerPasajero = L.circleMarker([0,0], { radius: 10, color: 'white', fillColor: '#007bff', fillOpacity: 1, weight: 2 }).addTo(map);
+    let marker = L.marker(rutaSantaBrigida[0], {
+        icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] })
+    }).addTo(map);
 
-    function power(v) {
-        activo = v;
-        document.getElementById('p-on').style.display = v ? 'none' : 'flex';
-        document.getElementById('p-off').style.display = v ? 'flex' : 'none';
-    }
-
-    // 1. EL CONDUCTOR ENVÍA SU GPS
     navigator.geolocation.watchPosition(p => { 
         if(!activo) return;
         const pos = [p.coords.latitude, p.coords.longitude];
-        markerConductor.setLatLng(pos);
+        marker.setLatLng(pos); 
+        map.panTo(pos);
         _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1] }).eq('id', 1);
     }, null, { enableHighAccuracy: true });
-
-    // 2. EL CONDUCTOR "ESCUCHA" AL PASAJERO Y LOS ASIENTOS
-    _s.channel('cambios_db').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, payload => {
-        const d = payload.new;
-        
-        // Ver al pasajero en el mapa
-        if(d.lat_p && d.lon_p) {
-            markerPasajero.setLatLng([d.lat_p, d.lon_p]);
-        }
-
-        // Actualizar visual de asientos (si el pasajero reservó)
-        const libres = d.asientos_libres;
-        for(let i=1; i<=4; i++) {
-            document.getElementById('b'+i).className = 'btn-as ' + (i > libres ? 'ocupado' : '');
-        }
-        
-        // Actualizar contadores arriba
-        document.getElementById('v-pax').innerText = 4 - libres;
-        document.getElementById('v-dinero').innerText = (4 - libres) * 1000; 
-    }).subscribe();
 </script>
 </body>
 </html>
