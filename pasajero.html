@@ -1,7 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pasajero - Línea en Vivo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #000; height: 100vh; font-family: 'Arial', sans-serif; overflow: hidden; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+
+        /* VISOR SUPERIOR NEÓN */
+        .overlay-top { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 1000; }
+        .visor { 
+            background: rgba(0, 0, 0, 0.9); border: 2px solid #00d4ff; border-radius: 15px; 
+            padding: 12px; color: white; box-shadow: 0 4px 15px rgba(0,212,255,0.3);
+        }
+        select { 
+            width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #444; 
+            background: #222; color: #fff; font-size: 16px; outline: none; margin-top: 5px;
+        }
+
+        /* PANEL INFERIOR */
+        .overlay-bottom { 
+            position: absolute; bottom: 25px; left: 0; right: 0; 
+            display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 1000; 
+        }
+        .distancia-tag { 
+            background: #00d4ff; color: #000; padding: 5px 15px; border-radius: 10px; 
+            font-weight: bold; font-size: 14px; 
+        }
+        .asientos-cont { 
+            display: flex; gap: 12px; background: rgba(0, 0, 0, 0.85); 
+            padding: 15px 20px; border-radius: 20px; border: 2px solid #00d4ff; 
+        }
+        .btn-as { 
+            width: 55px; height: 55px; border-radius: 12px; border: 2px solid #00d4ff; 
+            background: transparent; color: #00d4ff; font-size: 20px; font-weight: bold; transition: 0.2s;
+        }
+        .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; box-shadow: 0 0 10px #ff3b30; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="overlay-top">
+        <div class="visor">
+            <div style="font-size: 10px; color: #00d4ff; font-weight: bold;">¿DÓNDE BAJÁS? (TU DESTINO)</div>
+            <select id="sel-p" onchange="irAParada()">
+                <option value="">Seleccioná tu parada...</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="overlay-bottom">
+        <div id="tag-dist" class="distancia-tag" style="display:none;">EL MÓVIL ESTÁ A: <span id="m-dist">--</span>m</div>
+        <div class="asientos-cont">
+            <button id="b1" class="btn-as" onclick="reservar(1)">1</button>
+            <button id="b2" class="btn-as" onclick="reservar(2)">2</button>
+            <button id="b3" class="btn-as" onclick="reservar(3)">3</button>
+            <button id="b4" class="btn-as" onclick="reservar(4)">4</button>
+        </div>
+    </div>
+
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // 1. TUS 26 PARADAS REALES
     const paradas = [
         {n: 'M. Cané y Marchena', c: [-34.561128, -58.770586]}, {n: 'Cané y Los Aromos', c: [-34.562160, -58.771380]},
         {n: 'Los Aromos 11016', c: [-34.562494, -58.772133]}, {n: 'Los Aromos 10874', c: [-34.563541, -58.773244]},
@@ -21,38 +88,60 @@
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // 2. DIBUJAR LA LÍNEA DE RECORRIDO (Igual a la del conductor)
-    const puntosRuta = paradas.map(p => p.c);
-    const polyline = L.polyline(puntosRuta, {
-        color: '#00d4ff', // Azul Neón
-        weight: 5,
-        opacity: 0.7,
-        lineJoin: 'round'
-    }).addTo(map);
+    // DIBUJAR LÍNEA AZUL (RECORRIDO)
+    const rutaPts = paradas.map(p => p.c);
+    L.polyline(rutaPts, { color: '#00d4ff', weight: 4, opacity: 0.6 }).addTo(map);
 
-    // Agregar circulitos en cada parada para que el pasajero las vea
-    paradas.forEach(p => {
-        L.circleMarker(p.c, { radius: 4, color: '#00d4ff', fillOpacity: 1 }).addTo(map);
-    });
-
-    let markerBus = L.marker(paradas[0].c, {
+    let busM = L.marker(paradas[0].c, {
         icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] })
     }).addTo(map);
 
-    // FUNCIÓN DE VIBRACIÓN Y RESERVA
-    async function reservar(n) {
-        // Vibrar el celular (solo funciona en Android/Chrome con interacción previa)
-        if (navigator.vibrate) {
-            navigator.vibrate(100); // Vibra 100 milisegundos
-        }
+    let destM = L.marker([0,0]).addTo(map);
+    let miP = [0,0];
 
+    // Llenar selector
+    const combo = document.getElementById('sel-p');
+    paradas.forEach((p, i) => {
+        let o = document.createElement('option'); o.value = i; o.text = p.n; combo.add(o);
+    });
+
+    navigator.geolocation.watchPosition(pos => {
+        miP = [pos.coords.latitude, pos.coords.longitude];
+    }, null, {enableHighAccuracy: true});
+
+    async function reservar(n) {
+        if (navigator.vibrate) navigator.vibrate(80); // VIBRACIÓN
         const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
         if(data.asientos_libres > 0) {
-            const nuevosLibres = data.asientos_libres - 1;
-            await _s.from('estado_movil').update({ asientos_libres: nuevosLibres }).eq('id', 1);
-            console.log("Reserva confirmada");
+            await _s.from('estado_movil').update({ asientos_libres: data.asientos_libres - 1 }).eq('id', 1);
         }
     }
 
-    // ... (Resto de la lógica de conexión y actualización de distancia) ...
+    function irAParada() {
+        const p = paradas[combo.value];
+        if(p) { destM.setLatLng(p.c).bindPopup("Bajás aquí").openPopup(); map.flyTo(p.c, 16); }
+    }
+
+    async function init() {
+        const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
+        if(data) updateUI(data);
+        _s.channel('p').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => updateUI(r.new)).subscribe();
+    }
+
+    function updateUI(d) {
+        busM.setLatLng([d.latitud, d.longitud]);
+        const ocup = 4 - d.asientos_libres;
+        for(let i=1; i<=4; i++) {
+            document.getElementById('b'+i).className = 'btn-as ' + (i <= ocup ? 'ocupado' : '');
+        }
+        if(miP[0] !== 0) {
+            const dist = map.distance(busM.getLatLng(), miP);
+            document.getElementById('tag-dist').style.display = 'block';
+            document.getElementById('m-dist').innerText = Math.round(dist);
+        }
+    }
+
+    init();
 </script>
+</body>
+</html>
