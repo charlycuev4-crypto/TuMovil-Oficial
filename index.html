@@ -1,53 +1,33 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pasajero - Tu Móvil Santa Brígida</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body { margin: 0; font-family: sans-serif; background: #f4f7f6; overflow: hidden; }
-        #map { height: 60vh; width: 100%; }
-        .info-card { 
-            height: 40vh; background: white; border-radius: 30px 30px 0 0; 
-            margin-top: -30px; position: relative; z-index: 1000; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            box-shadow: 0 -10px 20px rgba(0,0,0,0.1);
-        }
-        #asientos-val { font-size: 130px; font-weight: bold; color: #28a745; margin: 0; line-height: 1; }
-        .label { color: #888; font-weight: bold; font-size: 14px; letter-spacing: 1px; margin-bottom: 10px; }
-        .btn-vivo { background: #eef6ff; color: #007bff; padding: 8px 20px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-top: 15px; border: none; }
-    </style>
-</head>
-<body>
-    <div id="map"></div>
-    <div class="info-card">
-        <div class="label">ASIENTOS DISPONIBLES</div>
-        <div id="asientos-val">--</div>
-        <button class="btn-vivo">MÓVIL EN VIVO 🛰️</button>
-    </div>
+// Escuchar cuando el pasajero reserva un asiento
+_s.channel('alertas-chofer').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
+    const d = payload.new;
+    
+    // 1. Actualiza tu contador de pasajeros arriba a la derecha
+    document.getElementById('v-pax').innerText = 4 - d.asientos_libres;
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    var map = L.map('map').setView([-34.5747, -58.7744], 16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    var carIcon = L.marker([-34.5747, -58.7744]).addTo(map);
+    // 2. Si los asientos bajaron, avisarte visualmente
+    if (d.asientos_libres < 4) {
+        // Hace que el panel de pasajeros parpadee en verde para avisarte
+        const panel = document.querySelector('.pax-panel');
+        panel.style.background = "#00ff88"; 
+        setTimeout(() => { panel.style.background = "rgba(0,0,0,0.8)"; }, 2000);
+        
+        // Si el celu lo permite, vibra
+        if (navigator.vibrate) navigator.vibrate(500);
+    }
+    
+    // 3. Pintar los botones de asientos automáticamente
+    actualizarBotonesChofer(d.asientos_libres);
+}).subscribe();
 
-    function refrescar(datos) {
-        if (datos) {
-            document.getElementById('asientos-val').innerText = datos.asientos_libres;
-            const p = [datos.latitud, datos.longitud];
-            carIcon.setLatLng(p);
-            map.panTo(p);
+function actualizarBotonesChofer(libres) {
+    const ocupados = 4 - libres;
+    const botones = document.querySelectorAll('.btn-pax');
+    botones.forEach((btn, index) => {
+        if (index < ocupados) {
+            btn.classList.add('active'); // Se pone rojo
+        } else {
+            btn.classList.remove('active'); // Se pone gris
         }
-    }
-    async function carga() {
-        const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
-        refrescar(data);
-    }
-    _s.channel('cambios').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, payload => refrescar(payload.new)).subscribe();
-    carga();
-</script>
-</body>
-</html>
+    });
+}
