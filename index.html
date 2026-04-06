@@ -1,157 +1,131 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Conductor Pro - Tu Móvil</title>
-    
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Conductor - Tu Móvil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
     <style>
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #0c101d; color: white; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        
-        /* === 1. PANTALLA DE PRESENTACIÓN (Basada en Image 1) === */
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #000; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* 1. PRESENTACIÓN: TEXTO CELESTE SOBRE NEGRO */
         #splash {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #0c101d; /* Fondo oscuro de Image 1 */
-            z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: opacity 0.8s, visibility 0.8s;
+            background: #000; z-index: 10000; display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.6s;
         }
-        #splash img {
-            width: 100%; height: 100%; object-fit: cover; /* Muestra tu imagen de Image 1 completa */
+        .splash-text {
+            color: #00d4ff; font-size: 40px; font-weight: bold; letter-spacing: 5px;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.6);
         }
 
-        /* === 2. PANEL DEL CONDUCTOR (Basado en Image 0 y 20) === */
-        #map { flex-grow: 1; width: 100%; filter: brightness(0.7); }
+        /* 2. GPS AL 70% */
+        #map { height: 70vh; width: 100%; border-bottom: 2px solid #00d4ff; }
 
+        /* 3. MENÚ AL 30% */
         .panel { 
-            background: #1c1c1e; padding: 15px; border-radius: 20px 20px 0 0; 
-            margin-top: -20px; position: relative; z-index: 100;
-            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            height: 30vh; background: #000; padding: 10px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+            position: relative;
         }
 
-        /* Bloques de Info (Basado en el estilo de Image 20) */
-        .info-block { background: #2c2c2e; border-radius: 12px; padding: 10px; text-align: center; border: 1px solid #333;}
-        .info-label { font-size: 10px; text-transform: uppercase; color: #8e8e93; letter-spacing: 1px;}
-        .info-value { font-size: 20px; font-weight: bold; margin-top: 3px;}
-        .money { color: #f1c40f; } /* Amarillo para el dinero */
-        .green-block { background: #28a745; border: none; } /* Verde para asientos (Image 0) */
-        
-        /* Asientos (Image 0) */
-        .asientos-label { grid-column: span 2; font-size: 12px; color: #aaa; text-align: center; margin-top: 5px; }
-        .grid-asientos { grid-column: span 2; display: flex; justify-content: center; gap: 8px; }
-        .btn-asiento { width: 50px; height: 45px; font-size: 20px; border-radius: 10px; border: 2px solid white; cursor: pointer; color: white; background: #28a745; font-weight: bold;}
-        .ocupado { background: #dc3545; }
+        .visor { 
+            background: #000; border: 1px solid #00d4ff; border-radius: 8px; 
+            padding: 5px; text-align: center; display: flex; flex-direction: column; justify-content: center;
+        }
+        .visor-label { font-size: 10px; color: #00d4ff; text-transform: uppercase; }
+        .visor-num { font-size: 22px; font-weight: bold; color: #fff; }
 
-        /* Botones Poder */
-        .btn-power { grid-column: span 2; padding: 12px; border-radius: 25px; border: none; font-weight: bold; text-transform: uppercase; cursor: pointer; font-size: 14px;}
-        .power-on { background: #34c759; color: white; }
-        .power-off { background: #ff3b30; color: white; display: none; }
+        .asientos-cont { grid-column: span 2; display: flex; justify-content: space-around; align-items: center; }
+        .btn-as { 
+            width: 55px; height: 45px; border: 2px solid #00d4ff; border-radius: 8px; 
+            font-size: 20px; font-weight: bold; color: #fff; cursor: pointer; background: transparent;
+        }
+        .libre { border-color: #00d4ff; color: #00d4ff; }
+        .ocupado { background: #ff3b30; border-color: #ff3b30; color: #fff; }
+
+        /* BOTÓN DE PODER FLOTANTE PEQUEÑO */
+        .btn-pwr {
+            position: absolute; top: -25px; right: 15px; width: 50px; height: 50px;
+            border-radius: 50%; border: 2px solid #00d4ff; font-weight: bold;
+            font-size: 9px; cursor: pointer; z-index: 2000;
+            display: flex; align-items: center; justify-content: center; text-align: center;
+        }
+        .on { background: #000; color: #00d4ff; }
+        .off { background: #ff3b30; color: #fff; border-color: #fff; display: none; }
     </style>
 </head>
 <body>
 
     <div id="splash">
-        <img src="tu-imagen-1.png" alt="Tu Móvil - Presentación">
+        <div class="splash-text">TU MÓVIL</div>
     </div>
 
     <div id="map"></div>
 
     <div class="panel">
-        <div class="info-block">
-            <div class="info-label">TARIFA HOY</div>
-            <div class="info-value money">$ <span id="monto-total">0</span></div>
+        <button id="p-on" class="btn-pwr on" onclick="power(true)">ON</button>
+        <button id="p-off" class="btn-pwr off" onclick="power(false)">OFF</button>
+
+        <div class="visor">
+            <span class="visor-label">TARIFA</span>
+            <span class="visor-num">$ <span id="v-dinero">0</span></span>
         </div>
-        
-        <div class="info-block">
-            <div class="info-label">PASAJEROS TOTALES</div>
-            <div class="info-value"><span id="pax-total">0</span></div>
+        <div class="visor">
+            <span class="visor-label">PASAJEROS</span>
+            <span class="visor-num" id="v-pax">0</span>
         </div>
 
-        <div class="asientos-label">ASIENTOS ACTUALES (Tocá para ocupar)</div>
-        <div class="grid-asientos">
-            <button id="a1" class="btn-asiento" onclick="toggle(0)">1</button>
-            <button id="a2" class="btn-asiento" onclick="toggle(1)">2</button>
-            <button id="a3" class="btn-asiento" onclick="toggle(2)">3</button>
-            <button id="a4" class="btn-asiento" onclick="toggle(3)">4</button>
+        <div class="asientos-cont">
+            <button id="b1" class="btn-as libre" onclick="t(0)">1</button>
+            <button id="b2" class="btn-as libre" onclick="t(1)">2</button>
+            <button id="b3" class="btn-as libre" onclick="t(2)">3</button>
+            <button id="b4" class="btn-as libre" onclick="t(3)">4</button>
         </div>
-
-        <button id="btnPowerOn" class="btn-power power-on" onclick="turnPower(true)">▶️ INICIAR TURNO</button>
-        <button id="btnPowerOff" class="btn-power power-off" onclick="turnPower(false)">🛑 TERMINAR TURNO</button>
     </div>
 
 <script>
-    // 1. LÓGICA PRESENTACIÓN (Splash Screen)
-    window.addEventListener('load', function() {
-        const splash = document.getElementById('splash');
-        setTimeout(() => {
-            splash.style.opacity = '0';
-            setTimeout(() => splash.remove(), 800); // Elimina el elemento después del desvanecido
-        }, 2500); // Muestra la presentación por 2.5 segundos
-    });
+    // Splash logic
+    window.onload = () => { setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display = 'none', 600); }, 2000); };
 
-    // 2. CONEXIÓN SUPABASE
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    let turnoActivo = false;
-    let dineroAcumulado = 0;
-    let pasajerosAcumulados = 0;
+    let activo = false;
+    let recaudado = 0;
+    let pasajeros = 0;
+    let est = [true, true, true, true];
 
-    // 3. LÓGICA ENCENDIDO/APAGADO
-    function turnPower(encender) {
-        turnoActivo = encender;
-        document.getElementById('btnPowerOn').style.display = encender ? 'none' : 'block';
-        document.getElementById('btnPowerOff').style.display = encender ? 'block' : 'none';
-        
-        if (encender) {
-            alert("Turno iniciado. ¡Buen viaje, Santa Brígida!");
-        } else {
-            alert(`Turno cerrado. Recaudación final: $${dineroAcumulado}. Pasajeros: ${pasajerosAcumulados}`);
-            // Aquí podrías enviar un resumen final a Supabase si quisieras
-        }
+    function power(v) {
+        activo = v;
+        document.getElementById('p-on').style.display = v ? 'none' : 'flex';
+        document.getElementById('p-off').style.display = v ? 'flex' : 'none';
     }
 
-    // 4. LÓGICA ASIENTOS Y TARIFA ($1000 c/u)
-    let est = [true, true, true, true]; // True = Libre (Verde), False = Ocupado (Rojo)
-
-    async function toggle(i) {
-        if (!turnoActivo) return alert("Primero debés INICIAR TURNO.");
-
-        // Si estaba libre (verde) y lo ocupamos (rojo), sumamos tarifa
-        if (est[i] === true) {
-            dineroAcumulado += 1000;
-            pasajerosAcumulados += 1;
-            document.getElementById('monto-total').innerText = dineroAcumulado;
-            document.getElementById('pax-total').innerText = pasajerosAcumulados;
-        }
-
+    async function t(i) {
+        if(!activo) return;
+        if(est[i]) { recaudado += 1000; pasajeros += 1; }
         est[i] = !est[i];
-        document.getElementById('a'+(i+1)).className = 'btn-asiento ' + (est[i] ? '' : 'ocupado');
-        
-        const libres = est.filter(x => x).length;
-        
-        // Actualizamos Supabase para el Pasajero y Administrador
-        // NOTA: Asegurate de crear la columna 'recaudacion_dia' en tu tabla Supabase
-        await _s.from('estado_movil').update({ 
-            asientos_libres: libres,
-            recaudacion_dia: dineroAcumulado
-        }).eq('id', 1);
+        document.getElementById('b'+(i+1)).className = 'btn-as ' + (est[i] ? 'libre' : 'ocupado');
+        document.getElementById('v-dinero').innerText = recaudado;
+        document.getElementById('v-pax').innerText = pasajeros;
+        await _s.from('estado_movil').update({ asientos_libres: est.filter(x=>x).length }).eq('id', 1);
     }
 
-    // 5. MAPA Y GPS (Lo que ya teníamos funcionando)
+    // Mapa centrado
     const map = L.map('map', { zoomControl: false }).setView([-34.575, -58.775], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    const icono = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] });
-    let marker = L.marker([-34.575, -58.775], {icon: icono}).addTo(map);
+
+    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] });
+    let marker = L.marker([-34.575, -58.775], {icon: carIcon}).addTo(map);
 
     navigator.geolocation.watchPosition(p => {
-        if (!turnoActivo) return; // No envía GPS si está apagado
+        if(!activo) return;
         const pos = [p.coords.latitude, p.coords.longitude];
         marker.setLatLng(pos); map.panTo(pos);
         _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1] }).eq('id', 1);
     }, null, { enableHighAccuracy: true });
-
 </script>
 </body>
 </html>
