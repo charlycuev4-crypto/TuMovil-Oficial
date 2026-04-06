@@ -3,45 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pasajero PRO</title>
+    <title>Pasajero - Confirmar Viaje</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; overflow: hidden; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #000; font-family: 'Arial', sans-serif; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
-        .overlay { position: absolute; z-index: 1000; width: 100%; padding: 10px; box-sizing: border-box; }
+
+        .overlay { position: absolute; z-index: 1000; width: 100%; display: flex; justify-content: center; padding: 10px; }
         .top { top: 10px; }
-        .bottom { bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-        .card { background: rgba(0,0,0,0.9); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; color: white; width: 95%; }
-        select { width: 100%; padding: 12px; border-radius: 8px; background: #222; color: #fff; border: 1px solid #444; font-size: 16px; }
-        .asientos-grid { display: flex; gap: 10px; }
-        .btn-as { width: 55px; height: 55px; border-radius: 12px; border: 2px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 18px; }
-        .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; box-shadow: 0 0 10px #ff3b30; }
-        .tag-info { background: #00d4ff; color: #000; padding: 5px 15px; border-radius: 10px; font-weight: bold; font-size: 14px; }
+        .bottom { bottom: 20px; flex-direction: column; align-items: center; }
+
+        /* FONDO NEGRO SÓLIDO (IGUAL AL CONDUCTOR) */
+        .card { 
+            background: #000000; /* Negro puro para máxima visibilidad */
+            border: 2px solid #00d4ff; 
+            border-radius: 20px; 
+            padding: 15px; 
+            width: 95%;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+        }
+
+        select { 
+            width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #444; 
+            background: #1a1a1a; color: #fff; font-size: 16px; 
+        }
+
+        .asientos-grid { display: flex; gap: 15px; margin-bottom: 10px; }
+        
+        .btn-as { 
+            width: 60px; height: 60px; border-radius: 15px; border: 2px solid #00d4ff; 
+            background: transparent; color: #00d4ff; font-weight: bold; font-size: 22px; 
+            transition: 0.2s;
+        }
+
+        .ocupado { 
+            background: #ff3b30 !important; 
+            border-color: #ff3b30 !important; 
+            color: white !important; 
+            box-shadow: 0 0 15px #ff3b30; 
+        }
+
+        /* TEXTO DE INSTRUCCIÓN */
+        .instruccion {
+            color: #fff;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .dist-tag { 
+            background: #00d4ff; color: #000; padding: 5px 15px; 
+            border-radius: 10px; font-weight: bold; margin-bottom: 10px; 
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+
     <div class="overlay top">
         <div class="card">
-            <div style="font-size: 11px; color: #00d4ff; font-weight: bold; margin-bottom: 5px;">📍 ¿DÓNDE TE BAJÁS?</div>
-            <select id="sel-p" onchange="marcarDestino()"><option value="">Cargando paradas...</option></select>
+            <div style="font-size: 10px; color: #00d4ff; font-weight: bold; margin-bottom: 5px;">📍 TU DESTINO</div>
+            <select id="sel-p" onchange="marcar()"><option value="">Seleccionar parada...</option></select>
         </div>
     </div>
+
     <div class="overlay bottom">
-        <div id="dist-ui" class="tag-info" style="display:none;">EL MÓVIL ESTÁ A: <span id="val-d">--</span>m</div>
-        <div class="asientos-grid">
-            <button id="as1" class="btn-as" onclick="reservar(1)">1</button>
-            <button id="as2" class="btn-as" onclick="reservar(2)">2</button>
-            <button id="as3" class="btn-as" onclick="reservar(3)">3</button>
-            <button id="as4" class="btn-as" onclick="reservar(4)">4</button>
+        <div id="dist-ui" class="dist-tag" style="display:none;">MÓVIL A: <span id="v-dist">--</span>m</div>
+        <div class="card" style="display: flex; flex-direction: column; align-items: center;">
+            <div class="asientos-grid">
+                <button id="as1" class="btn-as" onclick="reservar(1)">1</button>
+                <button id="as2" class="btn-as" onclick="reservar(2)">2</button>
+                <button id="as3" class="btn-as" onclick="reservar(3)">3</button>
+                <button id="as4" class="btn-as" onclick="reservar(4)">4</button>
+            </div>
+            <div class="instruccion">Presione un asiento para confirmar viaje</div>
         </div>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
+    // Lista de paradas (Se mantiene igual)
     const paradas = [
         {n:'M. Cané y Marchena', c:[-34.561128, -58.770586]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -61,8 +109,8 @@
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // LÍNEA AZUL DE RECORRIDO
-    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 5, opacity: 0.6 }).addTo(map);
+    // Línea de recorrido azul
+    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 4, opacity: 0.6 }).addTo(map);
 
     let busM = L.marker(paradas[0].c, {
         icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] })
@@ -72,12 +120,11 @@
     navigator.geolocation.watchPosition(p => { miPos = [p.coords.latitude, p.coords.longitude]; }, null, {enableHighAccuracy:true});
 
     const sel = document.getElementById('sel-p');
-    sel.innerHTML = '<option value="">Seleccioná tu destino...</option>';
     paradas.forEach((p, i) => { let o = document.createElement('option'); o.value = i; o.text = p.n; sel.add(o); });
 
-    function marcarDestino() {
+    function marcar() {
         const p = paradas[sel.value];
-        if(p) { L.marker(p.c).addTo(map).bindPopup("Bajás aquí").openPopup(); map.flyTo(p.c, 16); }
+        if(p) { L.marker(p.c).addTo(map).bindPopup("Destino").openPopup(); map.flyTo(p.c, 16); }
     }
 
     async function reservar(n) {
@@ -91,7 +138,7 @@
     async function monitor() {
         const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
         if(data) act(data);
-        _s.channel('ch1').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => act(r.new)).subscribe();
+        _s.channel('c1').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => act(r.new)).subscribe();
     }
 
     function act(d) {
@@ -103,7 +150,7 @@
         if(miPos) {
             const dist = map.distance(busM.getLatLng(), miPos);
             document.getElementById('dist-ui').style.display = 'block';
-            document.getElementById('val-d').innerText = Math.round(dist);
+            document.getElementById('v-dist').innerText = Math.round(dist);
         }
     }
     monitor();
