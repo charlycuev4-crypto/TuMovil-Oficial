@@ -1,70 +1,86 @@
 <script>
-    // Configuración de Supabase
-    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
+    // 1. DECLARACIÓN GLOBAL DE VARIABLES
+    let _s, map, markerBus;
     let activo = false;
-    const PRECIO_ASIENTO = 1000;
     let markerPasajeroOrigen = null;
     let markerPasajeroDestino = null;
-    let paradasRuta = [];
+    const PRECIO_ASIENTO = 1000;
 
-    // 1. Inicializar Mapa con validación de contenedor
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    // 2. FUNCIÓN DE INICIO (Se ejecuta solo cuando el HTML está listo)
+    function inicializarApp() {
+        try {
+            // Inicializar Supabase
+            _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] });
-    const paxIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2813/2813004.png', iconSize: [35, 35] });
-    const destIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149060.png', iconSize: [35, 35] });
+            // Inicializar Mapa
+            map = L.map('map', { 
+                zoomControl: false, 
+                attributionControl: false 
+            }).setView([-34.561128, -58.770586], 15);
 
-    let markerBus = L.marker([-34.561128, -58.770586], { icon: busIcon }).addTo(map);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // 2. Cargar paradas de la base de datos
+            // Iconos
+            const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] });
+            markerBus = L.marker([-34.561128, -58.770586], { icon: busIcon }).addTo(map);
+
+            // Cargar datos iniciales
+            cargarRuta();
+            sincronizarRealTime();
+
+            // Quitar pantalla de carga
+            const splash = document.getElementById('splash');
+            if(splash) splash.style.display = 'none';
+
+            console.log("App Conductor iniciada correctamente");
+        } catch (error) {
+            console.error("Error crítico al iniciar:", error);
+            alert("Error al cargar el mapa. Revisa la conexión.");
+        }
+    }
+
+    // 3. CARGAR RUTA (PUNTOS AZULES)
     async function cargarRuta() {
         try {
-            const { data: paradas, error } = await _s.from('paradas').select('*').order('orden', { ascending: true });
-            if (error) throw error;
-            if(paradas && paradas.length > 0) {
-                paradasRuta = paradas.map(p => [p.latitud, p.longitud]);
-                L.polyline(paradasRuta, {color: '#00d4ff', weight: 4, opacity: 0.5}).addTo(map);
+            const { data: paradas } = await _s.from('paradas').select('*').order('orden', { ascending: true });
+            if(paradas) {
+                const puntos = paradas.map(p => [p.latitud, p.longitud]);
+                L.polyline(puntos, {color: '#00d4ff', weight: 4, opacity: 0.5}).addTo(map);
                 paradas.forEach(p => {
                     L.circleMarker([p.latitud, p.longitud], {
                         radius: 5, fillColor: '#007AFF', color: '#FFF', weight: 2, fillOpacity: 0.8
                     }).addTo(map);
                 });
             }
-        } catch (e) { console.error("Error en ruta:", e); }
+        } catch (e) { console.warn("No se pudo cargar la ruta"); }
     }
 
-    // 3. Sincronización Real-Time
+    // 4. SINCRONIZACIÓN Y ACTUALIZACIÓN DE INTERFAZ
     function sincronizarRealTime() {
+        // Carga inicial
         _s.from('estado_movil').select('*').eq('id', 1).single().then(({data}) => {
             if(data) actualizarInterfaz(data);
         });
 
+        // Escucha cambios
         _s.channel('cambios-chofer').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
             if (payload.new) actualizarInterfaz(payload.new);
         }).subscribe();
     }
 
-    // 4. Actualización Segura de Interfaz
     function actualizarInterfaz(data) {
         try {
-            // Calcular ocupación (evitar errores si el dato es nulo)
-            const asientosLibres = data.asientos_libres ?? 4;
-            const ocupados = Math.max(0, 4 - asientosLibres);
+            const ocupados = Math.max(0, 4 - (data.asientos_libres || 4));
             
-            // Actualizar textos superiores
-            const elPax = document.getElementById('v-pax');
-            const elDinero = document.getElementById('v-dinero');
-            if (elPax) elPax.innerText = ocupados;
-            if (elDinero) elDinero.innerText = ocupados * PRECIO_ASIENTO;
+            // Actualizar textos
+            if(document.getElementById('v-pax')) document.getElementById('v-pax').innerText = ocupados;
+            if(document.getElementById('v-dinero')) document.getElementById('v-dinero').innerText = ocupados * PRECIO_ASIENTO;
             
-            // Actualizar botones de asientos inferiores
+            // Actualizar botones de asientos
             for(let i=1; i<=4; i++) {
                 const btn = document.getElementById('b' + i);
                 if (btn) {
-                    // Si el bus se vació o no hay origen, resetear a azul
-                    if (asientosLibres === 4 || !data.pasa_lat_origen) {
+                    if (data.asientos_libres === 4 || !data.pasa_lat_origen) {
                         btn.className = 'btn-as';
                     } else {
                         btn.className = i <= ocupados ? 'btn-as ocupado' : 'btn-as';
@@ -72,56 +88,42 @@
                 }
             }
 
-            // Gestión de marcadores de Pasajeros en el Mapa
-            const tienePax = data.pasa_lat_origen && data.pasa_lng_origen && ocupados > 0;
-            
-            if (tienePax) {
-                // Dibujar/Mover Origen
-                if (markerPasajeroOrigen) {
-                    markerPasajeroOrigen.setLatLng([data.pasa_lat_origen, data.pasa_lng_origen]);
-                } else {
-                    markerPasajeroOrigen = L.marker([data.pasa_lat_origen, data.pasa_lng_origen], {icon: paxIcon}).addTo(map);
-                }
-                // Dibujar/Mover Destino
-                if (data.pasa_lat_destino && data.pasa_lng_destino) {
-                    if (markerPasajeroDestino) {
-                        markerPasajeroDestino.setLatLng([data.pasa_lat_destino, data.pasa_lng_destino]);
-                    } else {
-                        markerPasajeroDestino = L.marker([data.pasa_lat_destino, data.pasa_lng_destino], {icon: destIcon}).addTo(map);
-                    }
+            // Marcadores de Pasajero
+            if (data.pasa_lat_origen && ocupados > 0) {
+                const paxIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2813/2813004.png', iconSize: [35, 35] });
+                const destIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149060.png', iconSize: [35, 35] });
+
+                if (!markerPasajeroOrigen) markerPasajeroOrigen = L.marker([data.pasa_lat_origen, data.pasa_lng_origen], {icon: paxIcon}).addTo(map);
+                else markerPasajeroOrigen.setLatLng([data.pasa_lat_origen, data.pasa_lng_origen]);
+
+                if (data.pasa_lat_destino) {
+                    if (!markerPasajeroDestino) markerPasajeroDestino = L.marker([data.pasa_lat_destino, data.pasa_lng_destino], {icon: destIcon}).addTo(map);
+                    else markerPasajeroDestino.setLatLng([data.pasa_lat_destino, data.pasa_lng_destino]);
                 }
             } else {
-                // Si el viaje terminó, limpiar el mapa del chofer
                 if (markerPasajeroOrigen) { map.removeLayer(markerPasajeroOrigen); markerPasajeroOrigen = null; }
                 if (markerPasajeroDestino) { map.removeLayer(markerPasajeroDestino); markerPasajeroDestino = null; }
             }
-        } catch (err) { console.error("Error Interfaz:", err); }
+        } catch (err) { console.error("Error en interfaz:", err); }
     }
 
+    // 5. BOTONES DE ESTADO (INICIAR/FINALIZAR)
     async function setEstado(v) {
         activo = v;
-        const bOn = document.getElementById('btn-on');
-        const bOff = document.getElementById('btn-off');
-        if (bOn) bOn.className = v ? 'btn-control btn-start active' : 'btn-control btn-start';
-        if (bOff) bOff.className = v ? 'btn-control btn-end' : 'btn-control btn-end active';
+        document.getElementById('btn-on').className = v ? 'btn-control btn-start active' : 'btn-control btn-start';
+        document.getElementById('btn-off').className = v ? 'btn-control btn-end' : 'btn-control btn-end active';
         await _s.from('estado_movil').update({ en_servicio: v }).eq('id', 1);
     }
 
-    // Ubicación GPS
+    // 6. GPS
     navigator.geolocation.watchPosition(p => { 
-        if(!activo) return;
+        if(!activo || !markerBus) return;
         const pos = [p.coords.latitude, p.coords.longitude];
-        if (markerBus) markerBus.setLatLng(pos); 
+        markerBus.setLatLng(pos); 
         map.panTo(pos);
         _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1] }).eq('id', 1);
-    }, (e) => console.warn(e), { enableHighAccuracy: true });
+    }, null, { enableHighAccuracy: true });
 
-    window.onload = () => {
-        cargarRuta();
-        sincronizarRealTime();
-        setTimeout(() => { 
-            const s = document.getElementById('splash');
-            if(s) s.style.display = 'none'; 
-        }, 2000);
-    };
+    // EJECUTAR AL CARGAR
+    window.onload = inicializarApp;
 </script>
