@@ -3,22 +3,21 @@
     
     let activo = false;
     const PRECIO_ASIENTO = 1000;
-    
-    // Referencias globales para marcadores
     let markerPasajeroOrigen = null;
     let markerPasajeroDestino = null;
-    let markerBus = null;
     let paradasRuta = [];
 
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Iconos actualizados
+    // Iconos personalizados
     const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] });
-    const paxIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2813/2813004.png', iconSize: [35, 35] }); // Origen
-    const destIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149060.png', iconSize: [35, 35] }); // Destino
+    const paxIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2813/2813004.png', iconSize: [35, 35] });
+    const destIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149060.png', iconSize: [35, 35] });
 
-    // 1. CARGAR RUTA Y PUNTOS DE PARADA
+    let markerBus = L.marker([-34.561128, -58.770586], { icon: busIcon }).addTo(map);
+
+    // 1. CARGAR RUTA
     async function cargarRuta() {
         const { data: paradas } = await _s.from('paradas').select('*').order('orden', { ascending: true });
         if(paradas) {
@@ -33,25 +32,19 @@
         }
     }
 
-    // 2. SINCRONIZACIÓN EN TIEMPO REAL
+    // 2. SINCRONIZAR REALTIME
     function sincronizarRealTime() {
-        // Carga inicial
         _s.from('estado_movil').select('*').eq('id', 1).single().then(({data}) => {
-            if(data) {
-                actualizarInterfaz(data);
-                // Inicializar marcador del bus en la última posición conocida
-                if(!markerBus) markerBus = L.marker([data.latitud, data.longitud], { icon: busIcon }).addTo(map);
-            }
+            if(data) actualizarInterfaz(data);
         });
 
-        // Suscripción a cambios
         _s.channel('cambios-chofer').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
             actualizarInterfaz(payload.new);
         }).subscribe();
     }
 
     function actualizarInterfaz(data) {
-        // Actualizar visualización de asientos y dinero
+        // Actualizar UI de texto y botones
         const ocupados = 4 - data.asientos_libres;
         document.getElementById('v-pax').innerText = ocupados;
         document.getElementById('v-dinero').innerText = ocupados * PRECIO_ASIENTO;
@@ -61,63 +54,70 @@
             btn.className = i <= ocupados ? 'btn-as ocupado' : 'btn-as';
         }
 
-        // LÓGICA DE DESTINO Y ORIGEN (ESTO ES LO FUNDAMENTAL)
-        // Verificamos si hay coordenadas de destino activas
-        if (data.pasa_lat_destino && data.pasa_lng_destino) {
-            const posDest = [data.pasa_lat_destino, data.pasa_lng_destino];
+        // --- MEJORA: LÓGICA DE MARCADORES INDEPENDIENTES ---
+        
+        // Manejo del ORIGEN (Pasajero esperando)
+        if (data.pasa_lat_origen && data.pasa_lng_origen) {
             const posOri = [data.pasa_lat_origen, data.pasa_lng_origen];
-
-            // Marcador de Recogida (Origen)
             if (markerPasajeroOrigen) {
                 markerPasajeroOrigen.setLatLng(posOri);
             } else {
-                markerPasajeroOrigen = L.marker(posOri, {icon: paxIcon}).addTo(map).bindPopup("RECOGER AQUÍ");
+                markerPasajeroOrigen = L.marker(posOri, {icon: paxIcon}).addTo(map).bindPopup("RECOGER AQUÍ").openPopup();
             }
+        } else if (markerPasajeroOrigen) {
+            map.removeLayer(markerPasajeroOrigen);
+            markerPasajeroOrigen = null;
+        }
 
-            // Marcador de Destino
+        // Manejo del DESTINO (Hacia dónde va)
+        if (data.pasa_lat_destino && data.pasa_lng_destino) {
+            const posDest = [data.pasa_lat_destino, data.pasa_lng_destino];
             if (markerPasajeroDestino) {
                 markerPasajeroDestino.setLatLng(posDest);
             } else {
                 markerPasajeroDestino = L.marker(posDest, {icon: destIcon}).addTo(map).bindPopup("DESTINO FINAL");
             }
-        } else {
-            // SI LAS COORDENADAS SON NULL, LIMPIAMOS EL MAPA
-            if (markerPasajeroOrigen) { map.removeLayer(markerPasajeroOrigen); markerPasajeroOrigen = null; }
-            if (markerPasajeroDestino) { map.removeLayer(markerPasajeroDestino); markerPasajeroDestino = null; }
+        } else if (markerPasajeroDestino) {
+            map.removeLayer(markerPasajeroDestino);
+            markerPasajeroDestino = null;
         }
     }
 
+    // 3. ESTADO DEL CONDUCTOR (CON LIMPIEZA DE BASE DE DATOS)
     async function setEstado(v) {
         activo = v;
         document.getElementById('btn-on').className = v ? 'btn-control btn-start active' : 'btn-control btn-start';
         document.getElementById('btn-off').className = v ? 'btn-control btn-end' : 'btn-control btn-end active';
         
-        // Actualizar estado de servicio y resetear si se apaga (opcional)
-        await _s.from('estado_movil').update({ en_servicio: v }).eq('id', 1);
-        if(v) alert("Modo Conductor Activado - Compartiendo ubicación");
+        let updates = { en_servicio: v };
+
+        // Si el conductor finaliza, reseteamos la unidad en la DB para el próximo pasajero
+        if (!v) {
+            updates.asientos_libres = 4;
+            updates.pasa_lat_origen = null;
+            updates.pasa_lng_origen = null;
+            updates.pasa_lat_destino = null;
+            updates.pasa_lng_destino = null;
+        }
+
+        await _s.from('estado_movil').update(updates).eq('id', 1);
     }
 
-    // SEGUIMIENTO GPS DEL CONDUCTOR
     navigator.geolocation.watchPosition(p => { 
         if(!activo) return;
         const pos = [p.coords.latitude, p.coords.longitude];
-        
-        if(markerBus) markerBus.setLatLng(pos);
+        markerBus.setLatLng(pos); 
         map.panTo(pos);
-
-        // Actualizar ubicación en Supabase para que el pasajero la vea
-        _s.from('estado_movil').update({ 
-            latitud: pos[0], 
-            longitud: pos[1],
-            ultima_actualizacion: new Date().toISOString()
-        }).eq('id', 1);
-    }, err => console.error(err), { enableHighAccuracy: true, maximumAge: 0 });
+        _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1] }).eq('id', 1);
+    }, null, { enableHighAccuracy: true });
 
     window.onload = () => {
         cargarRuta();
         sincronizarRealTime();
-        setTimeout(() => { document.getElementById('splash').style.opacity = '0'; 
-            setTimeout(() => document.getElementById('splash').style.display='none', 500); 
+        setTimeout(() => { 
+            const splash = document.getElementById('splash');
+            splash.style.opacity = '0';
+            setTimeout(() => splash.style.display = 'none', 500);
         }, 2000);
     };
 </script>
