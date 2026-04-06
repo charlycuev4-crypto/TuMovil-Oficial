@@ -1,15 +1,83 @@
-<div class="ui-pasajero">
-    <div style="font-size: 11px; color: #00d4ff; font-weight: bold; margin-bottom: 5px;">📍 ¿DÓNDE BAJÁS?</div>
-    <select id="select-parada" onchange="seleccionarDestino()">
-        <option value="">Seleccioná tu parada...</option>
-        </select>
-    <button id="btn-confirmar" class="btn-confirmar" onclick="confirmarAsiento()" style="display:none; width:100%; margin-top:10px; background:#00ff88; color:#000; border:none; padding:12px; border-radius:10px; font-weight:bold;">
-        ✅ CONFIRMAR MI LUGAR
-    </button>
-</div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pasajero - Tu Móvil</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #000; height: 100vh; font-family: 'Arial', sans-serif; overflow: hidden; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+
+        /* PANEL SUPERIOR: MENÚ DE PARADAS (IGUAL AL VISOR DEL CHOFER) */
+        .overlay-top {
+            position: absolute; top: 10px; left: 10px; right: 10px;
+            z-index: 1000;
+        }
+        .visor-parada {
+            background: rgba(0, 0, 0, 0.9); border: 2px solid #00d4ff; border-radius: 15px;
+            padding: 12px; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .label-neon { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; display: block; }
+        select {
+            width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #444;
+            background: #222; color: #fff; font-size: 16px; outline: none;
+        }
+
+        /* PANEL INFERIOR: ASIENTOS (IGUAL AL DEL CHOFER) */
+        .overlay-bottom {
+            position: absolute; bottom: 25px; left: 0; right: 0;
+            display: flex; flex-direction: column; align-items: center; gap: 15px;
+            z-index: 1000;
+        }
+        .asientos-cont {
+            display: flex; gap: 12px; background: rgba(0, 0, 0, 0.85);
+            padding: 15px 20px; border-radius: 25px; border: 2px solid #00d4ff;
+        }
+        .btn-as {
+            width: 55px; height: 55px; border-radius: 12px; border: 2px solid #00d4ff;
+            background: transparent; color: #00d4ff; font-size: 22px; font-weight: bold;
+            cursor: pointer; transition: 0.3s;
+        }
+        /* Estilo para cuando el pasajero reserva o cuando tú marcas ocupado */
+        .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; box-shadow: 0 0 15px #ff3b30; }
+        
+        .distancia-tag {
+            background: #00d4ff; color: #000; padding: 5px 15px; border-radius: 10px;
+            font-weight: bold; font-size: 14px; margin-bottom: -5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="overlay-top">
+        <div class="visor-parada">
+            <span class="label-neon">📍 SELECCIONÁ TU DESTINO</span>
+            <select id="select-parada" onchange="irAParada()">
+                <option value="">¿Dónde bajás?</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="overlay-bottom">
+        <div id="tag-dist" class="distancia-tag" style="display:none;">EL MÓVIL ESTÁ A: <span id="val-dist">--</span>m</div>
+        <div class="asientos-cont">
+            <button id="b1" class="btn-as" onclick="reservar(0)">1</button>
+            <button id="b2" class="btn-as" onclick="reservar(1)">2</button>
+            <button id="b3" class="btn-as" onclick="reservar(2)">3</button>
+            <button id="b4" class="btn-as" onclick="reservar(3)">4</button>
+        </div>
+    </div>
 
 <script>
-    // 2. LISTA REAL DE PARADAS (Igual a la del chofer)
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+
+    // Mismas paradas que el conductor
     const paradas = [
         {n: 'M. Cané y Marchena', c: [-34.561128, -58.770586]}, {n: 'Cané y Los Aromos', c: [-34.562160, -58.771380]},
         {n: 'Los Aromos 11016', c: [-34.562494, -58.772133]}, {n: 'Los Aromos 10874', c: [-34.563541, -58.773244]},
@@ -26,23 +94,70 @@
         {n: 'Esquina Albatros', c: [-34.588930, -58.750543]}, {n: 'Cruce Castelar', c: [-34.586030, -58.747278]}
     ];
 
-    // 3. CARGAR LAS PARADAS EN EL MENÚ AUTOMÁTICAMENTE
-    const select = document.getElementById('select-parada');
-    paradas.forEach((p, index) => {
+    // Llenar menú
+    const sel = document.getElementById('select-parada');
+    paradas.forEach((p, i) => {
         let opt = document.createElement('option');
-        opt.value = index;
-        opt.innerText = p.n;
-        select.appendChild(opt);
+        opt.value = i; opt.innerText = p.n;
+        sel.appendChild(opt);
     });
 
-    function seleccionarDestino() {
-        const index = select.value;
-        if(index !== "") {
-            const p = paradas[index];
-            // Mover el mapa y marcar destino
-            if (destinoMarker) destinoMarker.setLatLng(p.c);
-            map.flyTo(p.c, 16);
-            document.getElementById('btn-confirmar').style.display = 'block';
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(paradas[0].c, 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    let markerBus = L.marker(paradas[0].c, {
+        icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] })
+    }).addTo(map);
+
+    let markerDestino = L.marker([0,0]).addTo(map);
+
+    // GPS del Pasajero
+    let miPos = [0,0];
+    navigator.geolocation.watchPosition(p => {
+        miPos = [p.coords.latitude, p.coords.longitude];
+    }, null, {enableHighAccuracy: true});
+
+    async function conectar() {
+        const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
+        if(data) act(data);
+
+        _s.channel('m').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, p => act(p.new)).subscribe();
+    }
+
+    function act(d) {
+        markerBus.setLatLng([d.latitud, d.longitud]);
+        const ocupados = 4 - d.asientos_libres;
+        
+        // Pintar asientos como el chofer
+        for(let i=1; i<=4; i++) {
+            document.getElementById('b'+i).className = 'btn-as ' + (i <= ocupados ? 'ocupado' : '');
+        }
+
+        // Calcular distancia
+        if(miPos[0] !== 0) {
+            const dist = map.distance(markerBus.getLatLng(), miPos);
+            document.getElementById('tag-dist').style.display = 'block';
+            document.getElementById('val-dist').innerText = Math.round(dist);
         }
     }
+
+    function irAParada() {
+        const p = paradas[sel.value];
+        if(p) {
+            markerDestino.setLatLng(p.c).bindPopup("Bajás aquí").openPopup();
+            map.flyTo(p.c, 16);
+        }
+    }
+
+    async function reservar(n) {
+        const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
+        if(data.asientos_libres > 0) {
+            await _s.from('estado_movil').update({ asientos_libres: data.asientos_libres - 1 }).eq('id', 1);
+            alert("¡Asiento Reservado!");
+        }
+    }
+
+    conectar();
 </script>
+</body>
+</html>
