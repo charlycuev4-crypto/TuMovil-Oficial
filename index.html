@@ -10,7 +10,6 @@
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #f0f0f0; height: 100vh; font-family: 'Arial', sans-serif; overflow: hidden; }
-
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
 
         .overlay-top {
@@ -23,7 +22,7 @@
             border: 2px solid #00d4ff; border-radius: 12px;
             padding: 8px; text-align: center; color: white;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            pointer-events: auto; transition: background 0.3s;
+            pointer-events: auto;
         }
         .visor-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; display: block; }
         .visor-num { font-size: 22px; font-weight: bold; }
@@ -40,38 +39,21 @@
         .btn-as {
             width: 52px; height: 52px; border-radius: 10px; border: 2px solid #00d4ff;
             background: transparent; color: #00d4ff; font-size: 20px; font-weight: bold;
-            transition: 0.2s;
         }
         .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; box-shadow: 0 0 10px #ff3b30; }
 
-        /* NUEVO PANEL DE CONTROL ALARGADO */
         .control-panel {
-            display: flex;
-            width: 280px;
-            height: 60px;
-            background: rgba(0, 0, 0, 0.9);
-            border-radius: 15px;
-            border: 2px solid #00d4ff;
-            overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            display: flex; width: 280px; height: 60px;
+            background: rgba(0, 0, 0, 0.9); border-radius: 15px;
+            border: 2px solid #00d4ff; overflow: hidden;
         }
-
         .btn-control {
-            flex: 1;
-            border: none;
-            font-weight: bold;
-            font-size: 14px;
-            cursor: pointer;
-            transition: 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-transform: uppercase;
+            flex: 1; border: none; font-weight: bold; font-size: 14px;
+            cursor: pointer; transition: 0.3s; display: flex;
+            align-items: center; justify-content: center; text-transform: uppercase;
         }
-
         .btn-start { background: transparent; color: #00ff88; }
         .btn-start.active { background: #00ff88; color: black; }
-
         .btn-end { background: transparent; color: #ff3b30; border-left: 1px solid #333; }
         .btn-end.active { background: #ff3b30; color: white; }
 
@@ -154,8 +136,7 @@
         setTimeout(() => { v.style.background = "rgba(0,0,0,0.85)"; }, 2000);
     }
 
-    // NUEVA FUNCIÓN DE ESTADO
-    function setEstado(v) {
+    async function setEstado(v) {
         activo = v;
         const btnOn = document.getElementById('btn-on');
         const btnOff = document.getElementById('btn-off');
@@ -166,16 +147,30 @@
         } else {
             btnOff.classList.add('active');
             btnOn.classList.remove('active');
+            // RESET DE ASIENTOS AL FINALIZAR RECORRIDO DE IDA
+            await _s.from('estado_movil').update({ asientos_libres: 4 }).eq('id', 1);
         }
     }
 
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    const rutaSantaBrigida = [[-34.561128, -58.770586], [-34.562160, -58.771380], [-34.562494, -58.772133], [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061], [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443], [-34.571956, -58.763201], [-34.577371, -58.755909], [-34.578528, -58.757064], [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842], [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804], [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542], [-34.588273, -58.751338], [-34.588771, -58.750804], [-34.588244, -58.749877], [-34.588930, -58.750543], [-34.586030, -58.747278]];
-    L.polyline(rutaSantaBrigida, {color: '#00d4ff', weight: 6, opacity: 0.7}).addTo(map);
+    // RUTA DE IDA: Miguel Cané -> Roca y Alvear (Sin retorno)
+    const rutaIda = [
+        [-34.561128, -58.770586], [-34.562160, -58.771380], [-34.562494, -58.772133], 
+        [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061], 
+        [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443], 
+        [-34.571956, -58.763201], [-34.577371, -58.755909], [-34.578528, -58.757064], 
+        [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842], 
+        [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804], 
+        [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542], 
+        [-34.588273, -58.751338], [-34.588771, -58.750804], [-34.588244, -58.749877], 
+        [-34.588930, -58.750543], [-34.586030, -58.747278]
+    ];
+
+    L.polyline(rutaIda, {color: '#00d4ff', weight: 6, opacity: 0.7}).addTo(map);
     
-    let marker = L.marker(rutaSantaBrigida[0], {
+    let marker = L.marker(rutaIda[0], {
         icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] })
     }).addTo(map);
 
