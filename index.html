@@ -3,22 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CONDUCTOR - MÓVIL EN VIVO</title>
+    <title>CONDUCTOR - MÓVIL</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
-        .overlay { position: absolute; z-index: 1000; width: 100%; display: flex; justify-content: center; padding: 10px; }
+        .overlay { position: absolute; z-index: 1000; width: 100%; display: flex; justify-content: center; }
         .top { top: 10px; }
-        .bottom { bottom: 20px; flex-direction: column; align-items: center; }
-        .card-conductor { background: rgba(0, 0, 0, 0.9); border: 2.5px solid #ff3b30; border-radius: 20px; padding: 15px; width: 95%; display: flex; justify-content: space-around; color: white; text-align: center; }
+        .bottom { bottom: 20px; }
+        .card-conductor { 
+            background: rgba(0, 0, 0, 0.9); 
+            border: 2px solid #ff3b30; 
+            border-radius: 15px; 
+            padding: 10px; 
+            width: 90%; 
+            display: flex; 
+            justify-content: space-around; 
+            color: white; 
+            text-align: center; 
+        }
         .stat-box { flex: 1; }
-        .stat-label { font-size: 11px; color: #aaa; text-transform: uppercase; display: block; }
-        .stat-value { font-size: 24px; font-weight: bold; color: #ff3b30; }
-        .btn-reset { background: #ff3b30; color: white; border: none; padding: 16px; border-radius: 14px; font-weight: bold; width: 95%; text-transform: uppercase; margin-top: 10px; box-shadow: 0 0 15px rgba(255,59,48,0.3); }
+        .stat-label { font-size: 10px; color: #aaa; text-transform: uppercase; }
+        .stat-value { font-size: 22px; font-weight: bold; display: block; color: #ff3b30; }
+        .btn-finalizar { 
+            background: #ff3b30; 
+            color: white; 
+            border: none; 
+            padding: 15px 30px; 
+            border-radius: 12px; 
+            font-weight: bold; 
+            width: 90vw; 
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -30,7 +48,7 @@
                 <span class="stat-label">Pasajeros</span>
                 <span id="txt-pax" class="stat-value">0</span>
             </div>
-            <div style="width: 2px; background: #333;"></div>
+            <div style="width: 1px; background: #444;"></div>
             <div class="stat-box">
                 <span class="stat-label">Recaudación</span>
                 <span id="txt-reca" class="stat-value" style="color: #28a745;">$0</span>
@@ -39,80 +57,57 @@
     </div>
 
     <div class="overlay bottom">
-        <button class="btn-reset" onclick="finalizarRecorrido()">Finalizar Viaje / Vaciar Móvil</button>
+        <button class="btn-finalizar" onclick="resetUnidad()">FINALIZAR VIAJE / VACIAR MÓVIL</button>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    // RUTA OFICIAL (25 paradas)
+    // Coordenadas de la ruta
     const ruta = [
-        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
-        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
-        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
-        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
-        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
-        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
-        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
-        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
-        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
-        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
-        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
-        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
-        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+        {c:[-34.561264, -58.770506]}, {c:[-34.562160, -58.771380]},
+        {c:[-34.562494, -58.772133]}, {c:[-34.563541, -58.773244]},
+        {c:[-34.564109, -58.773759]}, {c:[-34.565342, -58.772061]},
+        {c:[-34.567268, -58.769484]}, {c:[-34.569090, -58.767095]},
+        {c:[-34.571016, -58.764443]}, {c:[-34.571956, -58.763201]},
+        {c:[-34.577371, -58.755909]}, {c:[-34.578528, -58.757064]},
+        {c:[-34.579296, -58.755864]}, {c:[-34.580020, -58.755063]},
+        {c:[-34.580901, -58.753842]}, {c:[-34.581998, -58.752441]},
+        {c:[-34.583319, -58.750710]}, {c:[-34.584740, -58.748804]},
+        {c:[-34.585554, -58.749812]}, {c:[-34.586494, -58.750574]},
+        {c:[-34.588041, -58.751542]}, {c:[-34.588273, -58.751338]},
+        {c:[-34.588771, -58.750804]}, {c:[-34.588244, -58.749877]},
+        {c:[-34.586030, -58.747278]}
     ];
 
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(ruta[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Dibujar línea de la ruta en Rojo (Color Conductor)
-    L.polyline(ruta.map(p=>p.c), {color:'#ff3b30', weight:5, opacity:0.6}).addTo(map);
-    ruta.forEach(p => {
-        L.circleMarker(p.c, { radius: 4, color: '#ff3b30' }).addTo(map);
-    });
+    // Dibujar línea de ruta
+    L.polyline(ruta.map(p=>p.c), {color:'#ff3b30', weight:4}).addTo(map);
 
-    const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] });
-    const paxIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2813/2813004.png', iconSize: [30, 30] });
-    
+    const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] });
     let markerBus = L.marker(ruta[0].c, { icon: busIcon }).addTo(map);
-    let markerPasajerosEnEspera = null;
 
-    // --- GPS DEL CONDUCTOR (ENVÍO) ---
-    navigator.geolocation.watchPosition(p => {
-        const pos = [p.coords.latitude, p.coords.longitude];
-        markerBus.setLatLng(pos);
-        _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1] }).eq('id', 1).then();
-    }, null, {enableHighAccuracy:true});
+    // GPS: Actualizar posición en la base de datos
+    navigator.geolocation.watchPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        markerBus.setLatLng([lat, lng]);
+        _s.from('estado_movil').update({ latitud: lat, longitud: lng }).eq('id', 1).then();
+    }, null, { enableHighAccuracy: true });
 
-    // --- RECIBIR DATOS DE SUPABASE ---
-    _s.channel('conductor_realtime').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
-        const d = r.new;
-        const ocupados = 4 - d.asientos_libres;
-        
-        // Actualizar Interfaz Superior
+    // Escuchar cambios en pasajeros (Realtime)
+    _s.channel('pax_count').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, payload => {
+        const libres = payload.new.asientos_libres;
+        const ocupados = 4 - libres;
         document.getElementById('txt-pax').innerText = ocupados;
         document.getElementById('txt-reca').innerText = "$" + (ocupados * 1000);
-
-        // Mostrar ubicación del pasajero que reservó
-        if(d.pasa_lat_origen && d.pasa_lng_origen && ocupados > 0) {
-            if(!markerPasajerosEnEspera) {
-                markerPasajerosEnEspera = L.marker([d.pasa_lat_origen, d.pasa_lng_origen], {icon: paxIcon}).addTo(map).bindPopup("¡PASAJERO ESPERANDO!").openPopup();
-            } else {
-                markerPasajerosEnEspera.setLatLng([d.pasa_lat_origen, d.pasa_lng_origen]);
-            }
-        } else {
-            if(markerPasajerosEnEspera) { map.removeLayer(markerPasajerosEnEspera); markerPasajerosEnEspera = null; }
-        }
     }).subscribe();
 
-    async function finalizarRecorrido() {
-        if(confirm("¿Deseas vaciar la unidad y finalizar el viaje actual?")) {
-            await _s.from('estado_movil').update({ 
-                asientos_libres: 4, 
-                pasa_lat_origen: null, 
-                pasa_lng_origen: null 
-            }).eq('id', 1);
-            alert("Unidad lista para nuevo recorrido.");
+    async function resetUnidad() {
+        if(confirm("¿Vaciar asientos?")) {
+            await _s.from('estado_movil').update({ asientos_libres: 4 }).eq('id', 1);
         }
     }
 </script>
