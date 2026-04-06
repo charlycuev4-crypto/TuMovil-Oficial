@@ -3,36 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MÓVIL EN VIVO - CONDUCTOR</title>
+    <title>MÓVIL EN VIVO - PANEL CONDUCTOR</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
-        
-        /* Pantalla de Inicio (Splash) */
-        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.8s; }
-        .logo-m { width: 85px; height: 85px; border: 3px solid #00d4ff; border-radius: 20px; color: #00d4ff; font-size: 50px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px #00d4ff; margin-bottom: 15px; }
-        
+        body { 
+            margin: 0; padding: 0; background: #000; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            height: 100vh; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; overflow: hidden; 
+        }
+
+        /* Pantalla Splash */
+        #splash { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: #000; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; z-index: 9999; 
+            transition: opacity 0.8s; 
+        }
+        .logo-m { 
+            width: 85px; height: 85px; border: 3px solid #00d4ff; 
+            border-radius: 20px; color: #00d4ff; font-size: 50px; 
+            font-weight: bold; display: flex; align-items: center; 
+            justify-content: center; box-shadow: 0 0 25px rgba(0, 212, 255, 0.6); 
+            margin-bottom: 20px; 
+        }
+
         /* Contenedor Principal */
-        .panel-container { width: 90%; max-width: 400px; text-align: center; z-index: 10; }
-        .card-driver { background: rgba(17, 17, 17, 0.95); border: 2.5px solid #00d4ff; border-radius: 22px; padding: 25px; box-shadow: 0 0 20px rgba(0, 212, 255, 0.2); }
-        
-        h2 { color: white; margin: 0 0 20px 0; letter-spacing: 2px; font-size: 18px; }
+        .container { width: 90%; max-width: 400px; text-align: center; }
+        .title { color: white; letter-spacing: 3px; font-weight: 800; margin-bottom: 25px; font-size: 22px; }
 
-        /* Rejilla de Asientos Visual */
-        .asientos-grid { display: flex; gap: 12px; margin-bottom: 25px; justify-content: center; }
-        .as-visual { width: 60px; height: 60px; border-radius: 15px; border: 2.5px solid #333; background: transparent; color: #333; font-weight: bold; font-size: 20px; display: flex; align-items: center; justify-content: center; transition: 0.5s; }
-        
-        /* Estado de los asientos */
-        .as-libre { border-color: #00d4ff; color: #00d4ff; box-shadow: 0 0 10px rgba(0, 212, 255, 0.2); }
-        .as-ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; box-shadow: 0 0 15px rgba(255, 59, 48, 0.4); }
+        /* Card del Conductor (Como en tu imagen) */
+        .card-conductor { 
+            background: #0a0a0a; border: 2.5px solid #00d4ff; 
+            border-radius: 25px; padding: 30px 20px; 
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.15); 
+        }
 
-        /* Botón GPS */
-        .btn-gps { background: #00d4ff; color: #000; border: none; padding: 18px; border-radius: 15px; font-weight: bold; width: 100%; font-size: 16px; cursor: pointer; text-transform: uppercase; transition: 0.3s; margin-bottom: 15px; }
-        .btn-gps.active { background: #28a745; color: white; }
+        .label-asientos { color: #666; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
+        .count-asientos { color: #00d4ff; font-size: 65px; font-weight: 900; margin: 10px 0 20px 0; display: block; }
 
-        .status-text { color: #888; font-size: 12px; margin-top: 10px; }
-        .log-mini { color: #444; font-size: 10px; margin-top: 15px; border-top: 1px solid #222; padding-top: 10px; height: 40px; overflow: hidden; }
+        /* Botón de GPS */
+        .btn-gps { 
+            background: #00d4ff; color: #000; border: none; 
+            padding: 18px; border-radius: 15px; font-weight: 900; 
+            width: 100%; font-size: 16px; cursor: pointer; 
+            text-transform: uppercase; margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0, 212, 255, 0.3);
+        }
+        .btn-gps.active { background: #ff3b30; color: white; }
+
+        /* Estado */
+        .status-box { color: white; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .dot { width: 10px; height: 10px; background: #444; border-radius: 50%; }
+        .dot.live { background: #28a745; box-shadow: 0 0 8px #28a745; }
+        .status-txt-live { color: #28a745; font-weight: bold; }
+
+        /* Log de Actividad (Parte inferior de tu imagen) */
+        .log-container { 
+            margin-top: 20px; border-top: 1px solid #222; 
+            padding-top: 15px; height: 100px; overflow-y: auto; 
+            text-align: left; font-family: monospace; font-size: 11px; color: #444; 
+        }
     </style>
 </head>
 <body>
@@ -40,94 +72,97 @@
     <div id="splash">
         <div class="logo-m">M</div>
         <div style="color:white; font-weight:bold; letter-spacing: 2px;">MÓVIL EN VIVO</div>
-        <div style="color:#00d4ff; font-size: 12px; margin-top: 5px;">PANEL CONDUCTOR</div>
     </div>
 
-    <div class="panel-container">
-        <div class="logo-m" style="width: 60px; height: 60px; font-size: 35px; margin: 0 auto 20px;">M</div>
-        
-        <div class="card-driver">
-            <h2>ESTADO DE ASIENTOS</h2>
-            
-            <div class="asientos-grid" id="grid-asientos">
-                <div id="v-as1" class="as-visual">1</div>
-                <div id="v-as2" class="as-visual">2</div>
-                <div id="v-as3" class="as-visual">3</div>
-                <div id="v-as4" class="as-visual">4</div>
+    <div class="container">
+        <div class="logo-m" style="width:65px; height:65px; font-size:38px; margin: 0 auto 15px;">M</div>
+        <div class="title">PANEL CONDUCTOR</div>
+
+        <div class="card-conductor">
+            <span class="label-asientos">Asientos Disponibles</span>
+            <span class="count-asientos" id="num-as">4</span>
+
+            <button id="btn-main" class="btn-gps" onclick="toggleServicio()">🛰️ Iniciar Transmisión GPS</button>
+
+            <div class="status-box">
+                <div id="indicador" class="dot"></div>
+                <span>Estado: <span id="txt-estado">Desconectado</span></span>
             </div>
 
-            <button id="btn-gps" class="btn-gps" onclick="toggleGPS()">🛰️ Iniciar Transmisión GPS</button>
-            
-            <div class="status-text" id="status">Sistema: Listo para iniciar</div>
-            <div class="log-mini" id="log">Esperando conexión...</div>
+            <div class="log-container" id="log">
+                [Sistema] Esperando inicio de jornada...
+            </div>
         </div>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
+    let activo = false;
     let watchID = null;
-    let transmitiendo = false;
 
-    // 1. ESCUCHAR CAMBIOS EN TIEMPO REAL (Cuando el pasajero reserva)
-    _s.channel('cambios_panel').on('postgres_changes', {
+    // Actualización automática cuando el pasajero reserva
+    _s.channel('cambios_driver').on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'estado_movil'
     }, payload => {
-        actualizarAsientosVisuales(payload.new.asientos_libres);
+        document.getElementById('num-as').innerText = payload.new.asientos_libres;
+        addLog("Asientos actualizados: " + payload.new.asientos_libres);
     }).subscribe();
 
-    function actualizarAsientosVisuales(libres) {
-        const ocupados = 4 - libres;
-        for (let i = 1; i <= 4; i++) {
-            const el = document.getElementById('v-as' + i);
-            if (i <= ocupados) {
-                el.className = 'as-visual as-ocupado';
-            } else {
-                el.className = 'as-visual as-libre';
-            }
-        }
-        document.getElementById('log').innerText = "Actualización: " + libres + " asientos libres.";
-    }
+    async function toggleServicio() {
+        const btn = document.getElementById('btn-main');
+        const dot = document.getElementById('indicador');
+        const txt = document.getElementById('txt-estado');
 
-    // 2. FUNCIÓN GPS
-    async function toggleGPS() {
-        const btn = document.getElementById('btn-gps');
-        const status = document.getElementById('status');
-
-        if (!transmitiendo) {
+        if (!activo) {
+            // INICIAR
             if (navigator.geolocation) {
-                transmitiendo = true;
+                activo = true;
                 btn.innerText = "🛑 Detener Transmisión";
                 btn.classList.add('active');
-                status.innerText = "Estado: Transmitiendo en vivo";
-                status.style.color = "#28a745";
+                dot.classList.add('live');
+                txt.innerText = "Transmitiendo en vivo";
+                txt.className = "status-txt-live";
 
-                watchID = navigator.geolocation.watchPosition(async (p) => {
-                    await _s.from('estado_movil').update({ 
-                        latitud: p.coords.latitude, 
-                        longitud: p.coords.longitude 
+                watchID = navigator.geolocation.watchPosition(async (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    
+                    const { error } = await _s.from('estado_movil').update({ 
+                        latitud: lat, longitud: lon 
                     }).eq('id', 1);
+
+                    if(!error) addLog(`Ubicación enviada: ${lat.toFixed(5)}, ${lon.toFixed(5)}`);
                 }, null, { enableHighAccuracy: true });
             }
         } else {
-            transmitiendo = false;
+            // DETENER
+            activo = false;
             btn.innerText = "🛰️ Iniciar Transmisión GPS";
             btn.classList.remove('active');
-            status.innerText = "Estado: Detenido";
-            status.style.color = "#888";
+            dot.classList.remove('live');
+            txt.innerText = "Desconectado";
+            txt.className = "";
             navigator.geolocation.clearWatch(watchID);
+            addLog("Transmisión finalizada.");
         }
     }
 
-    // Carga inicial de datos
-    async function init() {
-        const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
-        if (data) actualizarAsientosVisuales(data.asientos_libres);
+    function addLog(msg) {
+        const log = document.getElementById('log');
+        const time = new Date().toLocaleTimeString();
+        log.innerHTML = `[${time}] ${msg}<br>` + log.innerHTML;
     }
 
-    init();
+    // Datos iniciales
+    async function cargaInicial() {
+        const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
+        if(data) document.getElementById('num-as').innerText = data.asientos_libres;
+    }
 
-    // Splash Screen
+    cargaInicial();
+
+    // Quitar Splash
     setTimeout(() => { 
         document.getElementById('splash').style.opacity = '0'; 
         setTimeout(() => document.getElementById('splash').style.display='none', 800); 
