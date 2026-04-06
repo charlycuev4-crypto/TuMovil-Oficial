@@ -12,53 +12,68 @@
         body { margin: 0; padding: 0; background: #000; font-family: 'Arial', sans-serif; height: 100vh; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
 
-        /* PANTALLA DE LOGO (PRESENTACIÓN) */
         #splash {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; display: flex; flex-direction: column;
             align-items: center; justify-content: center; z-index: 9999;
-            transition: opacity 1s;
+            transition: opacity 0.8s;
         }
         .logo-m {
-            width: 80px; height: 80px; border: 4px solid #00d4ff;
-            border-radius: 20px; color: #00d4ff; font-size: 50px;
+            width: 90px; height: 90px; border: 3px solid #00d4ff;
+            border-radius: 25px; color: #00d4ff; font-size: 55px;
             font-weight: bold; display: flex; align-items: center;
-            justify-content: center; box-shadow: 0 0 20px #00d4ff;
+            justify-content: center; box-shadow: 0 0 25px #00d4ff;
             margin-bottom: 20px;
         }
-        .text-m { color: white; font-size: 18px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; }
+        .text-m { color: white; font-size: 20px; font-weight: bold; letter-spacing: 2px; }
 
-        /* INTERFAZ DEL MAPA (Fondo Negro) */
         .overlay { position: absolute; z-index: 1000; width: 100%; display: flex; justify-content: center; padding: 10px; }
         .top { top: 10px; }
         .bottom { bottom: 20px; flex-direction: column; align-items: center; }
 
         .card { 
-            background: #000000; border: 2px solid #00d4ff; 
+            background: #000; border: 2px solid #00d4ff; 
             border-radius: 20px; padding: 15px; width: 95%;
-            box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+            text-align: center; box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
         }
 
-        .asientos-grid { display: flex; gap: 15px; margin-bottom: 10px; justify-content: center; }
+        select {
+            width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #333;
+            background: #1a1a1a; color: #fff; font-size: 16px;
+        }
+
+        .asientos-grid { display: flex; gap: 12px; margin-bottom: 10px; justify-content: center; }
         .btn-as { 
             width: 60px; height: 60px; border-radius: 15px; border: 2px solid #00d4ff; 
             background: transparent; color: #00d4ff; font-weight: bold; font-size: 22px; 
         }
         .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; }
-        .instruccion { color: #fff; font-size: 12px; font-weight: bold; text-align: center; }
+        
+        /* BOTÓN FINALIZAR VIAJE PASAJERO */
+        .btn-fin {
+            background: #ff3b30; color: white; border: none; padding: 10px;
+            border-radius: 10px; font-weight: bold; width: 100%;
+            margin-top: 10px; text-transform: uppercase; display: none;
+        }
+
+        .instruccion { color: #fff; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .dist-tag { background: #00d4ff; color: #000; padding: 5px 15px; border-radius: 10px; font-weight: bold; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-    <div id="splash">
-        <div class="logo-m">M</div>
-        <div class="text-m">MÓVIL EN VIVO</div>
-        <div style="color: #00d4ff; font-size: 10px; margin-top: 10px;">Conectando...</div>
-    </div>
-
+    <div id="splash"><div class="logo-m">M</div><div class="text-m">MÓVIL EN VIVO</div></div>
     <div id="map"></div>
 
+    <div class="overlay top">
+        <div class="card" style="background: #111;">
+            <span style="color:#00d4ff; font-size:11px; font-weight:bold; display:block; margin-bottom:5px;">📍 TU DESTINO</span>
+            <select id="sel-p" onchange="marcarDestino()"></select>
+        </div>
+    </div>
+
     <div class="overlay bottom">
+        <div id="ui-dist" class="dist-tag" style="display:none;">DISTANCIA: <span id="v-dist">0</span>m</div>
         <div class="card">
             <div class="asientos-grid">
                 <button id="as1" class="btn-as" onclick="reservar(1)">1</button>
@@ -66,63 +81,72 @@
                 <button id="as3" class="btn-as" onclick="reservar(3)">3</button>
                 <button id="as4" class="btn-as" onclick="reservar(4)">4</button>
             </div>
-            <div class="instruccion">PRESIONE UN ASIENTO PARA CONFIRMAR VIAJE</div>
+            <div id="txt-inst" class="instruccion">Presione un asiento para viajar</div>
+            <button id="btn-finalizar" class="btn-fin" onclick="finalizarMiViaje()">Finalizar mi viaje</button>
         </div>
     </div>
 
 <script>
-    // Tu conexión original
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    let miAsiento = null;
 
-    // Mapa y Ruta
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561, -58.770], 15);
+    const paradas = [{n:'M. Cané y Marchena', c:[-34.561128, -58.770586]}, {n:'Murillo 601', c:[-34.565342, -58.772061]}, {n:'Cruce Castelar', c:[-34.586030, -58.747278]}];
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    
-    // Línea azul de recorrido
-    const ruta = [[-34.561128, -58.770586], [-34.562160, -58.771380], [-34.564109, -58.773759], [-34.567268, -58.769484], [-34.586030, -58.747278]];
-    L.polyline(ruta, { color: '#00d4ff', weight: 4, opacity: 0.6 }).addTo(map);
 
-    // Icono del colectivo
-    const busIcon = L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png',
-        iconSize: [35, 35]
-    });
-    let markerBus = L.marker([-34.561, -58.770], { icon: busIcon }).addTo(map);
+    const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [35, 35] });
+    let markerBus = L.marker(paradas[0].c, { icon: busIcon }).addTo(map);
+    let miPos = null;
 
-    // Función de reserva original (Resta 1 sin bloqueos)
+    navigator.geolocation.watchPosition(p => { miPos = [p.coords.latitude, p.coords.longitude]; }, null, {enableHighAccuracy:true});
+
+    const sel = document.getElementById('sel-p');
+    paradas.forEach((p, i) => { let o = document.createElement('option'); o.value = i; o.text = p.n; sel.add(o); });
+
+    function marcarDestino() {
+        const p = paradas[sel.value];
+        map.flyTo(p.c, 16);
+        L.marker(p.c).addTo(map).bindPopup("Tu parada").openPopup();
+    }
+
     async function reservar(n) {
+        if (miAsiento !== null) return;
         if (navigator.vibrate) navigator.vibrate(80);
         
-        // Obtenemos los asientos actuales
         const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
-        
-        // Si hay lugar, restamos uno
         if(data && data.asientos_libres > 0) {
-            const nuevosLibres = data.asientos_libres - 1;
-            await _s.from('estado_movil').update({ asientos_libres: nuevosLibres }).eq('id', 1);
+            await _s.from('estado_movil').update({ asientos_libres: data.asientos_libres - 1 }).eq('id', 1);
+            miAsiento = n;
+            document.getElementById('btn-finalizar').style.display = 'block';
+            document.getElementById('txt-inst').innerText = "VIAJE EN CURSO - ASIENTO " + n;
         }
     }
 
-    // Conexión en tiempo real
-    _s.channel('cambios_p').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
-        // Mueve el colectivo
+    async function finalizarMiViaje() {
+        const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
+        if(data) {
+            await _s.from('estado_movil').update({ asientos_libres: data.asientos_libres + 1 }).eq('id', 1);
+            miAsiento = null;
+            document.getElementById('btn-finalizar').style.display = 'none';
+            document.getElementById('txt-inst').innerText = "Presione un asiento para viajar";
+            alert("Has finalizado tu viaje. ¡Gracias!");
+        }
+    }
+
+    _s.channel('cambios').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
         markerBus.setLatLng([r.new.latitud, r.new.longitud]);
-        
-        // Actualiza los botones (rojo si están ocupados)
+        if(miPos) {
+            const d = map.distance(markerBus.getLatLng(), miPos);
+            document.getElementById('ui-dist').style.display = 'block';
+            document.getElementById('v-dist').innerText = Math.round(d);
+        }
         const ocup = 4 - r.new.asientos_libres;
         for(let i=1; i<=4; i++) {
-            const btn = document.getElementById('as'+i);
-            if (i <= ocup) btn.classList.add('ocupado');
-            else btn.classList.remove('ocupado');
+            document.getElementById('as'+i).className = 'btn-as ' + (i <= ocup ? 'ocupado' : '');
         }
     }).subscribe();
 
-    // Ocultar pantalla de logo después de 2 segundos
-    setTimeout(() => {
-        document.getElementById('splash').style.opacity = '0';
-        setTimeout(() => document.getElementById('splash').style.display = 'none', 1000);
-    }, 2000);
-
+    setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display = 'none', 800); }, 2000);
 </script>
 </body>
 </html>
