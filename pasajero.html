@@ -1,4 +1,4 @@
-        <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -13,19 +13,19 @@
         .overlay { position: absolute; z-index: 1000; width: 100%; padding: 10px; box-sizing: border-box; }
         .top { top: 10px; }
         .bottom { bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-        .card { background: rgba(0,0,0,0.85); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; color: white; width: 90%; }
-        select { width: 100%; padding: 10px; border-radius: 8px; background: #222; color: #fff; border: 1px solid #444; font-size: 16px; }
+        .card { background: rgba(0,0,0,0.9); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; color: white; width: 95%; }
+        select { width: 100%; padding: 12px; border-radius: 8px; background: #222; color: #fff; border: 1px solid #444; font-size: 16px; }
         .asientos-grid { display: flex; gap: 10px; }
-        .btn-as { width: 50px; height: 50px; border-radius: 10px; border: 2px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 18px; }
-        .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; }
-        .tag-info { background: #00d4ff; color: #000; padding: 4px 12px; border-radius: 8px; font-weight: bold; font-size: 13px; }
+        .btn-as { width: 55px; height: 55px; border-radius: 12px; border: 2px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 18px; }
+        .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; box-shadow: 0 0 10px #ff3b30; }
+        .tag-info { background: #00d4ff; color: #000; padding: 5px 15px; border-radius: 10px; font-weight: bold; font-size: 14px; }
     </style>
 </head>
 <body>
     <div id="map"></div>
     <div class="overlay top">
         <div class="card">
-            <div style="font-size: 11px; color: #00d4ff; margin-bottom: 5px;">¿DÓNDE TE BAJÁS?</div>
+            <div style="font-size: 11px; color: #00d4ff; font-weight: bold; margin-bottom: 5px;">📍 ¿DÓNDE TE BAJÁS?</div>
             <select id="sel-p" onchange="marcarDestino()"><option value="">Cargando paradas...</option></select>
         </div>
     </div>
@@ -61,7 +61,7 @@
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // DIBUJAR LÍNEA DE RECORRIDO
+    // LÍNEA AZUL DE RECORRIDO
     L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 5, opacity: 0.6 }).addTo(map);
 
     let busM = L.marker(paradas[0].c, {
@@ -71,35 +71,34 @@
     let miPos = null;
     navigator.geolocation.watchPosition(p => { miPos = [p.coords.latitude, p.coords.longitude]; }, null, {enableHighAccuracy:true});
 
-    // Llenar selector
     const sel = document.getElementById('sel-p');
-    sel.innerHTML = '<option value="">Seleccioná parada...</option>';
+    sel.innerHTML = '<option value="">Seleccioná tu destino...</option>';
     paradas.forEach((p, i) => { let o = document.createElement('option'); o.value = i; o.text = p.n; sel.add(o); });
 
     function marcarDestino() {
         const p = paradas[sel.value];
-        if(p) { L.marker(p.c).addTo(map).bindPopup("Tu Destino").openPopup(); map.flyTo(p.c, 16); }
+        if(p) { L.marker(p.c).addTo(map).bindPopup("Bajás aquí").openPopup(); map.flyTo(p.c, 16); }
     }
 
     async function reservar(n) {
-        if (navigator.vibrate) navigator.vibrate(80); // VIBRA AL TOCAR
+        if (navigator.vibrate) navigator.vibrate(80);
         const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
         if(data && data.asientos_libres > 0) {
             await _s.from('estado_movil').update({ asientos_libres: data.asientos_libres - 1 }).eq('id', 1);
         }
     }
 
-    async function monitorear() {
+    async function monitor() {
         const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
-        if(data) actualizar(data);
-        _s.channel('cambios').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => actualizar(r.new)).subscribe();
+        if(data) act(data);
+        _s.channel('ch1').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => act(r.new)).subscribe();
     }
 
-    function actualizar(d) {
+    function act(d) {
         busM.setLatLng([d.latitud, d.longitud]);
-        const ocupados = 4 - d.asientos_libres;
+        const ocup = 4 - d.asientos_libres;
         for(let i=1; i<=4; i++) {
-            document.getElementById('as'+i).className = 'btn-as ' + (i <= ocupados ? 'ocupado' : '');
+            document.getElementById('as'+i).className = 'btn-as ' + (i <= ocup ? 'ocupado' : '');
         }
         if(miPos) {
             const dist = map.distance(busM.getLatLng(), miPos);
@@ -107,8 +106,7 @@
             document.getElementById('val-d').innerText = Math.round(dist);
         }
     }
-
-    monitorear();
+    monitor();
 </script>
 </body>
 </html>
