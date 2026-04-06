@@ -16,7 +16,7 @@
         .asientos-grid { display: flex; gap: 10px; justify-content: center; margin-bottom: 10px; }
         .btn-as { width: 55px; height: 55px; border-radius: 12px; border: 2px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 20px; }
         .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; }
-        .btn-reset { background: #ff3b30; color: white; border: none; padding: 12px; border-radius: 10px; font-weight: bold; width: 100%; margin-top: 5px; text-transform: uppercase; cursor: pointer; }
+        .btn-reset { background: #ff3b30; color: white; border: none; padding: 12px; border-radius: 10px; font-weight: bold; width: 100%; margin-top: 5px; text-transform: uppercase; }
         .label-chofer { color: #00d4ff; font-size: 10px; font-weight: bold; margin-bottom: 8px; display: block; }
     </style>
 </head>
@@ -24,7 +24,7 @@
     <div id="map"></div>
     <div class="overlay bottom">
         <div class="card">
-            <span class="label-chofer">CONTROL DE ASIENTOS</span>
+            <span class="label-chofer">CONTROL DE MÓVIL</span>
             <div class="asientos-grid">
                 <button id="as1" class="btn-as">1</button>
                 <button id="as2" class="btn-as">2</button>
@@ -38,22 +38,18 @@
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    // Tu ruta de 26 paradas
-    const paradas = [{n:'M. Cané', c:[-34.561128, -58.770586]}, {n:'Cruce Castelar', c:[-34.586030, -58.747278]}]; // (Carga las 26 paradas aquí)
-
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(paradas[0].c, 15);
+    // Mapa centrado en tu zona
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Imagen del colectivo (Icono que se mueve)
     const busIcon = L.icon({
         iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png',
-        iconSize: [40, 40],
-        iconAnchor: [20, 20]
+        iconSize: [40, 40], iconAnchor: [20, 20]
     });
 
-    let markerBus = L.marker(paradas[0].c, { icon: busIcon }).addTo(map);
+    let markerBus = L.marker([-34.561128, -58.770586], { icon: busIcon }).addTo(map);
 
-    // GPS del Chofer
+    // GPS: Actualiza ubicación en Supabase
     navigator.geolocation.watchPosition(p => {
         const lat = p.coords.latitude;
         const lon = p.coords.longitude;
@@ -62,21 +58,28 @@
         _s.from('estado_movil').update({ latitud: lat, longitud: lon }).eq('id', 1).then();
     }, null, { enableHighAccuracy: true });
 
-    // Botón de Limpieza
+    // Función para limpiar asientos
     async function finalizarViaje() {
-        if(confirm("¿Deseas resetear los asientos? Esto limpiará la app de todos los pasajeros.")) {
+        if(confirm("¿Deseas resetear los asientos para un nuevo viaje?")) {
             await _s.from('estado_movil').update({ asientos_libres: 4 }).eq('id', 1);
-            alert("Sistema Limpio");
+            alert("Sistema reseteado correctamente.");
         }
     }
 
-    // Monitor de asientos
-    _s.channel('cambios').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
-        const ocup = 4 - r.new.asientos_libres;
+    // Monitor en vivo para ver asientos ocupados
+    function actualizarBotones(libres) {
+        const ocup = 4 - libres;
         for(let i=1; i<=4; i++) {
             document.getElementById('as'+i).className = 'btn-as ' + (i <= ocup ? 'ocupado' : '');
         }
-    }).subscribe();
+    }
+
+    async function init() {
+        const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
+        if(data) actualizarBotones(data.asientos_libres);
+        _s.channel('cambios_c').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => actualizarBotones(r.new.asientos_libres)).subscribe();
+    }
+    init();
 </script>
 </body>
 </html>
