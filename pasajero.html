@@ -3,57 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CONDUCTOR</title>
+    <title>MÓVIL EN VIVO</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; overflow: hidden; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
-        .overlay { position: absolute; z-index: 1000; width: 100%; display: flex; flex-direction: column; align-items: center; bottom: 20px; }
-        .card { background: #000; border: 2.5px solid #00d4ff; border-radius: 20px; padding: 15px; width: 95%; text-align: center; }
-        .asientos-grid { display: flex; gap: 12px; justify-content: center; margin-bottom: 10px; }
-        .btn-as { width: 60px; height: 60px; border-radius: 15px; border: 2px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 22px; }
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.8s; }
+        .logo-m { width: 85px; height: 85px; border: 3px solid #00d4ff; border-radius: 20px; color: #00d4ff; font-size: 50px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px #00d4ff; margin-bottom: 15px; }
+        .overlay { position: absolute; z-index: 1000; width: 100%; display: flex; justify-content: center; padding: 10px; }
+        .top { top: 10px; }
+        .bottom { bottom: 20px; flex-direction: column; align-items: center; }
+        .card-destino { background: rgba(17, 17, 17, 0.95); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; width: 95%; box-shadow: 0 0 15px rgba(0, 212, 255, 0.3); }
+        select { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #222; color: #fff; font-size: 18px; outline: none; }
+        .card-asientos { background: #000; border: 2.5px solid #00d4ff; border-radius: 22px; padding: 18px; width: 95%; text-align: center; }
+        .asientos-grid { display: flex; gap: 12px; margin-bottom: 12px; justify-content: center; }
+        .btn-as { width: 65px; height: 65px; border-radius: 15px; border: 2.5px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 24px; }
         .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; }
-        .btn-reset { background: #ff3b30; color: white; border: none; padding: 14px; border-radius: 12px; width: 100%; font-weight: bold; text-transform: uppercase; }
+        .btn-finalizar { background: #ff3b30; color: white; border: none; padding: 14px; border-radius: 12px; font-weight: bold; width: 100%; margin-top: 10px; text-transform: uppercase; }
+        .dist-tag { background: #00d4ff; color: #000; padding: 6px 16px; border-radius: 12px; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
     </style>
 </head>
 <body>
+    <div id="splash"><div class="logo-m">M</div><div style="color:white; font-weight:bold;">MÓVIL EN VIVO</div></div>
     <div id="map"></div>
-    <div class="overlay">
-        <div class="card">
-            <div class="asientos-grid">
-                <button id="as1" class="btn-as">1</button>
-                <button id="as2" class="btn-as">2</button>
-                <button id="as3" class="btn-as">3</button>
-                <button id="as4" class="btn-as">4</button>
-            </div>
-            <button class="btn-reset" onclick="resetGlobal()">Resetear Todos los Asientos</button>
+    <div class="overlay top">
+        <div class="card-destino">
+            <span style="color:#00d4ff; font-size:11px; font-weight:bold; display:block; margin-bottom:5px;">📍 TU DESTINO</span>
+            <select id="sel-p" onchange="marcarDestino()"></select>
         </div>
     </div>
+    <div class="overlay bottom">
+        <div id="ui-dist" class="dist-tag" style="display:none;">EL MÓVIL ESTÁ A: <span id="v-dist">0</span>m</div>
+        <div class="card-asientos">
+            <div class="asientos-grid">
+                <button id="as1" class="btn-as" onclick="reservar(1)">1</button>
+                <button id="as2" class="btn-as" onclick="reservar(2)">2</button>
+                <button id="as3" class="btn-as" onclick="reservar(3)">3</button>
+                <button id="as4" class="btn-as" onclick="reservar(4)">4</button>
+            </div>
+            <button class="btn-finalizar" onclick="liberarAsiento()">Finalizar mi viaje</button>
+        </div>
+    </div>
+
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561264, -58.770506], 15);
+    
+    // TODAS TUS COORDENADAS REALES (DE MIGUEL CANÉ HASTA ABASTO Y ROCA)
+    const rutaCompleta = [
+        {n:'Miguel Cané (Inicio)', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
+        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
+        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
+        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
+        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
+        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
+        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
+        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
+        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
+        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
+        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
+        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
+        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+    ];
+
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(rutaCompleta[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] });
-    let markerBus = L.marker([-34.561264, -58.770506], { icon: busIcon }).addTo(map);
+    L.polyline(rutaCompleta.map(p=>p.c), {color:'#00d4ff', weight:5, opacity:0.7}).addTo(map);
 
-    navigator.geolocation.watchPosition(p => {
-        const lat = p.coords.latitude, lon = p.coords.longitude;
-        markerBus.setLatLng([lat, lon]);
-        _s.from('estado_movil').update({ latitud: lat, longitud: lon }).eq('id', 1).then();
-    }, null, { enableHighAccuracy: true });
+    const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [38, 38] });
+    let markerBus = L.marker(rutaCompleta[0].c, { icon: busIcon }).addTo(map);
+    let markerDest = null;
+    let miPos = null;
 
-    async function resetGlobal() {
-        await _s.from('estado_movil').update({ asientos_libres: 4 }).eq('id', 1);
+    // Cargar Selector solo con paradas principales
+    const sel = document.getElementById('sel-p');
+    rutaCompleta.forEach((p,i)=>{ 
+        if(!p.n.includes('Giro')) {
+            let o=document.createElement('option'); o.value=i; o.text=p.n; sel.add(o);
+        }
+    });
+
+    navigator.geolocation.watchPosition(p => { miPos = [p.coords.latitude, p.coords.longitude]; }, null, {enableHighAccuracy:true});
+
+    function marcarDestino() {
+        const p = rutaCompleta[sel.value];
+        if(markerDest) map.removeLayer(markerDest);
+        markerDest = L.marker(p.c).addTo(map).bindPopup(p.n).openPopup();
+        map.flyTo(p.c, 16);
     }
 
-    _s.channel('cambios_c').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
+    async function reservar(n) {
+        if (navigator.vibrate) navigator.vibrate(80);
+        const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
+        if(data && data.asientos_libres > 0) {
+            await _s.from('estado_movil').update({ asientos_libres: data.asientos_libres - 1 }).eq('id', 1);
+        }
+    }
+
+    async function liberarAsiento() {
+        const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
+        if(data && data.asientos_libres < 4) {
+            await _s.from('estado_movil').update({ asientos_libres: data.asientos_libres + 1 }).eq('id', 1);
+        }
+    }
+
+    _s.channel('cambios').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
+        markerBus.setLatLng([r.new.latitud, r.new.longitud]);
+        if(miPos) {
+            const d = map.distance(markerBus.getLatLng(), miPos);
+            document.getElementById('ui-dist').style.display = 'block';
+            document.getElementById('v-dist').innerText = Math.round(d);
+        }
         const ocup = 4 - r.new.asientos_libres;
         for(let i=1; i<=4; i++) {
             document.getElementById('as'+i).className = 'btn-as ' + (i <= ocup ? 'ocupado' : '');
         }
     }).subscribe();
+
+    setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display='none', 800); }, 2500);
 </script>
 </body>
 </html>
