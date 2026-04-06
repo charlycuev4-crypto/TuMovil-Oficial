@@ -1,12 +1,16 @@
 <script>
+    // 1. Inicialización de Supabase
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
+    // 2. Variables de Estado
     let misAsientosLocal = [];
     let ultimoMontoPagado = 0; 
     let viajeConfirmado = false; 
     const PRECIO_ASIENTO = 1000;
     let miPos = null;
+    let markerDest = null;
 
+    // 3. Ruta de Paradas
     const rutaCompleta = [
         {n:'Miguel Cané (Inicio)', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -23,21 +27,24 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
+    // 4. Inicialización del Mapa
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(rutaCompleta[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     L.polyline(rutaCompleta.map(p=>p.c), {color:'#00d4ff', weight:5, opacity:0.7}).addTo(map);
+    
     const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [38, 38] });
     let markerBus = L.marker(rutaCompleta[0].c, { icon: busIcon }).addTo(map);
-    let markerDest = null;
 
+    // 5. Llenar Select de Destinos
     const sel = document.getElementById('sel-p');
-    rutaCompleta.forEach((p,i)=>{ let o=document.createElement('option'); o.value=i; o.text=p.n; sel.add(o); });
+    rutaCompleta.forEach((p,i)=>{ 
+        let o=document.createElement('option'); 
+        o.value=i; 
+        o.text=p.n; 
+        sel.add(o); 
+    });
 
-    // GPS del Pasajero
-    navigator.geolocation.watchPosition(p => { 
-        miPos = [p.coords.latitude, p.coords.longitude]; 
-    }, null, {enableHighAccuracy:true});
-
+    // 6. Funciones de Lógica
     function marcarDestino() {
         const p = rutaCompleta[sel.value];
         if(markerDest) map.removeLayer(markerDest);
@@ -45,10 +52,15 @@
         map.flyTo(p.c, 16);
     }
 
+    navigator.geolocation.watchPosition(p => { 
+        miPos = [p.coords.latitude, p.coords.longitude]; 
+    }, null, {enableHighAccuracy:true});
+
     function toggleSeleccion(n) {
         if (viajeConfirmado) return;
         const btn = document.getElementById('as' + n);
         if (btn.classList.contains('ocupado')) return;
+        
         if (misAsientosLocal.includes(n)) {
             misAsientosLocal = misAsientosLocal.filter(id => id !== n);
             btn.classList.remove('seleccionado-local');
@@ -62,23 +74,22 @@
     function actualizarUI() {
         const totalActual = misAsientosLocal.length * PRECIO_ASIENTO;
         const visorMonto = document.getElementById('monto');
-        
+        const btnConf = document.getElementById('btn-confirmar');
+        const btnFin = document.getElementById('btn-finalizar');
+
         if (viajeConfirmado) {
             visorMonto.innerText = `$${ultimoMontoPagado}`;
-            document.getElementById('btn-confirmar').style.display = 'none';
-            document.getElementById('btn-finalizar').style.display = 'block';
+            btnConf.style.display = 'none';
+            btnFin.style.display = 'block';
         } else {
             visorMonto.innerText = totalActual > 0 ? `$${totalActual}` : "$0";
-            document.getElementById('btn-confirmar').style.display = misAsientosLocal.length > 0 ? 'block' : 'none';
-            document.getElementById('btn-finalizar').style.display = 'none';
+            btnConf.style.display = misAsientosLocal.length > 0 ? 'block' : 'none';
+            btnFin.style.display = 'none';
         }
     }
 
     async function confirmarReserva() {
-        if (misAsientosLocal.length === 0 || !miPos) {
-            alert("Selecciona asientos y activa tu GPS");
-            return;
-        }
+        if (misAsientosLocal.length === 0 || !miPos) return;
         
         const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
         const dest = rutaCompleta[sel.value].c;
@@ -86,7 +97,7 @@
         if(data && data.asientos_libres >= misAsientosLocal.length) {
             ultimoMontoPagado = misAsientosLocal.length * PRECIO_ASIENTO; 
             
-            const { error } = await _s.from('estado_movil').update({ 
+            await _s.from('estado_movil').update({ 
                 asientos_libres: data.asientos_libres - misAsientosLocal.length,
                 pasa_lat_origen: miPos[0], 
                 pasa_lng_origen: miPos[1],
@@ -94,24 +105,15 @@
                 pasa_lng_destino: dest[1]
             }).eq('id', 1);
 
-            if(!error) {
-                viajeConfirmado = true;
-                misAsientosLocal = []; 
-                actualizarUI();
-                alert("¡Reserva confirmada! El conductor ya tiene tu destino.");
-            }
-        } else {
-            alert("No hay suficientes asientos disponibles.");
+            viajeConfirmado = true;
+            misAsientosLocal = []; 
+            actualizarUI();
         }
     }
 
     async function liberarAsiento() {
-        // Obtenemos el estado actual para devolver los asientos correctos
-        const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
-        
-        // RESET TOTAL: Limpiamos coordenadas y liberamos asientos
-        // Calculamos cuántos asientos liberar (puedes poner 4 directo si es un solo pasajero)
-        const { error } = await _s.from('estado_movil').update({ 
+        // RESET TOTAL AL FINALIZAR
+        await _s.from('estado_movil').update({ 
             asientos_libres: 4, 
             pasa_lat_origen: null, 
             pasa_lng_origen: null,
@@ -119,40 +121,41 @@
             pasa_lng_destino: null
         }).eq('id', 1);
 
-        if (!error) {
-            viajeConfirmado = false; 
-            ultimoMontoPagado = 0;
-            document.querySelectorAll('.btn-as').forEach(b => b.classList.remove('seleccionado-local'));
-            actualizarUI();
-            alert("Viaje finalizado. ¡Gracias!");
-            location.reload(); // Limpiamos la app
-        }
+        viajeConfirmado = false; 
+        ultimoMontoPagado = 0;
+        document.querySelectorAll('.btn-as').forEach(b => b.classList.remove('seleccionado-local'));
+        actualizarUI();
+        location.reload(); 
     }
 
-    // Escucha de cambios del Conductor y otros Pasajeros
+    // 7. Canal de Tiempo Real
     _s.channel('cambios').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
-        const d_movil = r.new;
-        
-        // Mover el bus del conductor en el mapa
-        markerBus.setLatLng([d_movil.latitud, d_movil.longitud]);
-        
-        // Calcular distancia al bus
-        if(miPos) {
-            const dist = map.distance(markerBus.getLatLng(), miPos);
-            document.getElementById('ui-dist').style.display = 'block';
-            document.getElementById('v-dist').innerText = Math.round(dist);
+        if (r.new.latitud && r.new.longitud) {
+            markerBus.setLatLng([r.new.latitud, r.new.longitud]);
+            if(miPos) {
+                const d = map.distance(markerBus.getLatLng(), miPos);
+                const uiDist = document.getElementById('ui-dist');
+                if (uiDist) {
+                    uiDist.style.display = 'block';
+                    document.getElementById('v-dist').innerText = Math.round(d);
+                }
+            }
         }
 
-        // Actualizar visual de asientos ocupados (Rojos)
-        const ocupados = 4 - d_movil.asientos_libres;
+        const ocupados = 4 - r.new.asientos_libres;
         for(let i=1; i<=4; i++) {
             const btn = document.getElementById('as'+i);
-            if (i <= ocupados) btn.classList.add('ocupado');
-            else btn.classList.remove('ocupado');
+            if (btn) {
+                if (i <= ocupados) btn.classList.add('ocupado');
+                else btn.classList.remove('ocupado');
+            }
         }
     }).subscribe();
 
     window.onload = () => {
-        setTimeout(() => { document.getElementById('splash').style.display='none'; }, 2000);
+        setTimeout(() => { 
+            const splash = document.getElementById('splash');
+            if(splash) splash.style.display='none'; 
+        }, 2000);
     };
 </script>
