@@ -1,3 +1,66 @@
+        <!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MÓVIL EN VIVO - PASAJERO</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.8s; }
+        .logo-m { width: 85px; height: 85px; border: 3px solid #00d4ff; border-radius: 20px; color: #00d4ff; font-size: 50px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px #00d4ff; margin-bottom: 15px; }
+        .overlay { position: absolute; z-index: 1000; width: 100%; display: flex; justify-content: center; padding: 10px; }
+        .top { top: 10px; }
+        .bottom { bottom: 20px; flex-direction: column; align-items: center; }
+        .card-destino { background: rgba(17, 17, 17, 0.95); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; width: 95%; box-shadow: 0 0 15px rgba(0, 212, 255, 0.3); }
+        select { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #222; color: #fff; font-size: 18px; outline: none; }
+        .card-asientos { background: rgba(0, 0, 0, 0.9); border: 2.5px solid #00d4ff; border-radius: 22px; padding: 20px; width: 95%; text-align: center; }
+        .price-display { background: rgba(0, 212, 255, 0.1); border-radius: 12px; padding: 10px; margin-bottom: 15px; border: 1px solid rgba(0, 212, 255, 0.2); }
+        .price-label { color: #aaa; font-size: 12px; text-transform: uppercase; font-weight: bold; display: block; }
+        .price-value { color: #00d4ff; font-size: 28px; font-weight: 800; }
+        .asientos-grid { display: flex; gap: 12px; margin-bottom: 15px; justify-content: center; }
+        .btn-as { width: 65px; height: 65px; border-radius: 15px; border: 2.5px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 24px; transition: 0.3s; }
+        .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; opacity: 0.6; }
+        .seleccionado-local { background: #00d4ff !important; color: #000 !important; box-shadow: 0 0 15px #00d4ff; }
+        .btn-action { color: white; border: none; padding: 16px; border-radius: 14px; font-weight: bold; width: 100%; text-transform: uppercase; }
+        .btn-confirmar { background: #28a745; display: none; }
+        .btn-finalizar { background: #ff3b30; }
+        .dist-tag { background: #00d4ff; color: #000; padding: 6px 16px; border-radius: 12px; font-weight: bold; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div id="splash"><div class="logo-m">M</div><div style="color:white; font-weight:bold;">MÓVIL EN VIVO</div></div>
+    <div id="map"></div>
+    
+    <div class="overlay top">
+        <div class="card-destino">
+            <span style="color:#00d4ff; font-size:11px; font-weight:bold; display:block; margin-bottom:5px;">📍 TU DESTINO</span>
+            <select id="sel-p" onchange="marcarDestino()"></select>
+        </div>
+    </div>
+
+    <div class="overlay bottom">
+        <div id="ui-dist" class="dist-tag" style="display:none;">EL MÓVIL ESTÁ A: <span id="v-dist">0</span>m</div>
+        <div class="card-asientos">
+            <div class="price-display">
+                <span class="price-label">Importe a pagar</span>
+                <span class="price-value" id="monto">$0</span>
+            </div>
+            <div class="asientos-grid" id="grid-asientos">
+                <button id="as1" class="btn-as" onclick="toggleSeleccion(1)">1</button>
+                <button id="as2" class="btn-as" onclick="toggleSeleccion(2)">2</button>
+                <button id="as3" class="btn-as" onclick="toggleSeleccion(3)">3</button>
+                <button id="as4" class="btn-as" onclick="toggleSeleccion(4)">4</button>
+            </div>
+            <button id="btn-confirmar" class="btn-action btn-confirmar" onclick="confirmarReserva()">Confirmar Reserva</button>
+            <button id="btn-finalizar" class="btn-action btn-finalizar" onclick="liberarAsiento()">Finalizar mi viaje</button>
+        </div>
+    </div>
+
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
@@ -31,7 +94,7 @@
     let markerDest = null;
 
     const sel = document.getElementById('sel-p');
-    rutaCompleta.forEach((p,i)=>{ if(!p.n.includes('Giro')) { let o=document.createElement('option'); o.value=i; o.text=p.n; sel.add(o); } });
+    rutaCompleta.forEach((p,i)=>{ let o=document.createElement('option'); o.value=i; o.text=p.n; sel.add(o); });
 
     navigator.geolocation.watchPosition(p => { miPos = [p.coords.latitude, p.coords.longitude]; }, null, {enableHighAccuracy:true});
 
@@ -59,60 +122,41 @@
     function actualizarUI() {
         const totalActual = misAsientosLocal.length * PRECIO_ASIENTO;
         const visorMonto = document.getElementById('monto');
-        const grid = document.getElementById('grid-asientos');
-        if (totalActual > 0) { visorMonto.innerText = `$${totalActual}`; visorMonto.style.color = "#00d4ff"; } 
-        else { visorMonto.innerText = ultimoMontoPagado > 0 ? `$${ultimoMontoPagado}` : "$0"; visorMonto.style.color = ultimoMontoPagado > 0 ? "#28a745" : "#00d4ff"; }
-        grid.style.opacity = viajeConfirmado ? "0.5" : "1";
-        grid.style.pointerEvents = viajeConfirmado ? "none" : "auto";
+        if (totalActual > 0) { visorMonto.innerText = `$${totalActual}`; } 
+        else { visorMonto.innerText = ultimoMontoPagado > 0 ? `$${ultimoMontoPagado}` : "$0"; }
         const btnConf = document.getElementById('btn-confirmar');
         const btnFin = document.getElementById('btn-finalizar');
         if (misAsientosLocal.length > 0) { btnConf.style.display = 'block'; btnFin.style.display = 'none'; } 
         else { btnConf.style.display = 'none'; btnFin.style.display = 'block'; }
     }
 
-    // --- AQUÍ LA ACTUALIZACIÓN CLAVE PARA EL DESTINO ---
     async function confirmarReserva() {
-        if (misAsientosLocal.length === 0) return;
-        if (!miPos) { alert("Esperando señal de GPS..."); return; }
-
+        if (misAsientosLocal.length === 0 || !miPos) return;
         const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
-        const cant = misAsientosLocal.length;
-        const destinoInfo = rutaCompleta[sel.value]; // Obtenemos las coordenadas de la parada elegida
-
-        if(data && data.asientos_libres >= cant) {
-            ultimoMontoPagado = cant * PRECIO_ASIENTO; 
-            
-            // Actualizamos asientos Y enviamos ubicación de recogida y destino al conductor
+        const dest = rutaCompleta[sel.value].c;
+        if(data && data.asientos_libres >= misAsientosLocal.length) {
+            ultimoMontoPagado = misAsientosLocal.length * PRECIO_ASIENTO; 
             await _s.from('estado_movil').update({ 
-                asientos_libres: data.asientos_libres - cant,
-                pasa_lat_origen: miPos[0],
-                pasa_lng_origen: miPos[1],
-                pasa_lat_destino: destinoInfo.c[0],
-                pasa_lng_destino: destinoInfo.c[1]
+                asientos_libres: data.asientos_libres - misAsientosLocal.length,
+                pasa_lat_origen: miPos[0], pasa_lng_origen: miPos[1],
+                pasa_lat_destino: dest[0], pasa_lng_destino: dest[1]
             }).eq('id', 1);
-            
-            alert(`¡Reserva confirmada! El conductor ya puede ver tu ubicación y destino.`);
             viajeConfirmado = true;
             misAsientosLocal = []; 
             actualizarUI();
-        } else { alert("No hay asientos suficientes."); }
+            alert("Reserva enviada al conductor.");
+        }
     }
 
     async function liberarAsiento() {
-        // Al finalizar, limpiamos las coordenadas para que desaparezcan del mapa del conductor
         await _s.from('estado_movil').update({ 
-            asientos_libres: 4,
-            pasa_lat_origen: null, 
-            pasa_lng_origen: null,
-            pasa_lat_destino: null,
-            pasa_lng_destino: null
+            asientos_libres: 4, 
+            pasa_lat_origen: null, pasa_lng_origen: null,
+            pasa_lat_destino: null, pasa_lng_destino: null
         }).eq('id', 1);
-        
-        misAsientosLocal = [];
-        ultimoMontoPagado = 0;
         viajeConfirmado = false; 
-        for(let i=1; i<=4; i++) { document.getElementById('as'+i).classList.remove('seleccionado-local'); }
-        alert("Viaje finalizado.");
+        ultimoMontoPagado = 0;
+        document.querySelectorAll('.btn-as').forEach(b => b.classList.remove('seleccionado-local'));
         actualizarUI();
     }
 
@@ -123,17 +167,15 @@
             document.getElementById('ui-dist').style.display = 'block';
             document.getElementById('v-dist').innerText = Math.round(d);
         }
-        const ocupadosDB = 4 - r.new.asientos_libres;
+        const ocupados = 4 - r.new.asientos_libres;
         for(let i=1; i<=4; i++) {
             const btn = document.getElementById('as'+i);
-            if (i <= ocupadosDB) { btn.className = 'btn-as ocupado'; misAsientosLocal = misAsientosLocal.filter(id => id !== i); } 
-            else { btn.className = 'btn-as' + (misAsientosLocal.includes(i) ? ' seleccionado-local' : ''); }
+            if (i <= ocupados) btn.classList.add('ocupado');
+            else btn.classList.remove('ocupado');
         }
-        actualizarUI();
     }).subscribe();
 
-    setTimeout(() => { 
-        document.getElementById('splash').style.opacity = '0'; 
-        setTimeout(() => document.getElementById('splash').style.display='none', 800); 
-    }, 2500);
+    setTimeout(() => { document.getElementById('splash').style.display='none'; }, 2000);
 </script>
+</body>
+</html>
