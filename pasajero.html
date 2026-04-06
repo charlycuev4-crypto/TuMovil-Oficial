@@ -3,25 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pasajero - Reserva</title>
+    <title>Pasajero - MÓVIL EN VIVO</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; overflow: hidden; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #000; font-family: 'Arial', sans-serif; height: 100vh; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
-        .overlay { position: absolute; z-index: 1000; width: 100%; display: flex; flex-direction: column; align-items: center; padding: 10px; }
-        .bottom { bottom: 20px; }
-        .card { background: #000; border: 2px solid #00d4ff; border-radius: 20px; padding: 15px; width: 95%; box-shadow: 0 0 15px rgba(0,212,255,0.4); text-align: center; color: white; }
-        .asientos-grid { display: flex; gap: 10px; justify-content: center; margin-bottom: 8px; }
-        .btn-as { width: 55px; height: 55px; border-radius: 12px; border: 2px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 20px; }
+
+        /* PANTALLA DE LOGO (PRESENTACIÓN) */
+        #splash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999;
+            transition: opacity 1s;
+        }
+        .logo-m {
+            width: 80px; height: 80px; border: 4px solid #00d4ff;
+            border-radius: 20px; color: #00d4ff; font-size: 50px;
+            font-weight: bold; display: flex; align-items: center;
+            justify-content: center; box-shadow: 0 0 20px #00d4ff;
+            margin-bottom: 20px;
+        }
+        .text-m { color: white; font-size: 18px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; }
+
+        /* INTERFAZ DEL MAPA (Fondo Negro) */
+        .overlay { position: absolute; z-index: 1000; width: 100%; display: flex; justify-content: center; padding: 10px; }
+        .top { top: 10px; }
+        .bottom { bottom: 20px; flex-direction: column; align-items: center; }
+
+        .card { 
+            background: #000000; border: 2px solid #00d4ff; 
+            border-radius: 20px; padding: 15px; width: 95%;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+        }
+
+        .asientos-grid { display: flex; gap: 15px; margin-bottom: 10px; justify-content: center; }
+        .btn-as { 
+            width: 60px; height: 60px; border-radius: 15px; border: 2px solid #00d4ff; 
+            background: transparent; color: #00d4ff; font-weight: bold; font-size: 22px; 
+        }
         .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; }
-        .desactivado { opacity: 0.4; pointer-events: none; filter: grayscale(1); }
-        .instruccion { font-size: 12px; font-weight: bold; margin-top: 5px; text-transform: uppercase; }
+        .instruccion { color: #fff; font-size: 12px; font-weight: bold; text-align: center; }
     </style>
 </head>
 <body>
+
+    <div id="splash">
+        <div class="logo-m">M</div>
+        <div class="text-m">MÓVIL EN VIVO</div>
+        <div style="color: #00d4ff; font-size: 10px; margin-top: 10px;">Conectando...</div>
+    </div>
+
     <div id="map"></div>
+
     <div class="overlay bottom">
         <div class="card">
             <div class="asientos-grid">
@@ -30,56 +66,49 @@
                 <button id="as3" class="btn-as" onclick="reservar(3)">3</button>
                 <button id="as4" class="btn-as" onclick="reservar(4)">4</button>
             </div>
-            <div class="instruccion">Presione un asiento para confirmar viaje</div>
+            <div class="instruccion">PRESIONE UN ASIENTO PARA CONFIRMAR VIAJE</div>
         </div>
     </div>
 
 <script>
+    // Tu conexión original
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    let yaReservo = false;
 
+    // Mapa y Ruta
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561, -58.770], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
+    // Línea azul de recorrido
+    const ruta = [[-34.561128, -58.770586], [-34.562160, -58.771380], [-34.564109, -58.773759], [-34.567268, -58.769484], [-34.586030, -58.747278]];
+    L.polyline(ruta, { color: '#00d4ff', weight: 4, opacity: 0.6 }).addTo(map);
 
+    // Icono del colectivo
     const busIcon = L.icon({
         iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png',
         iconSize: [35, 35]
     });
     let markerBus = L.marker([-34.561, -58.770], { icon: busIcon }).addTo(map);
 
+    // Función de reserva original (Resta 1 sin bloqueos)
     async function reservar(n) {
-        if (yaReservo) return;
         if (navigator.vibrate) navigator.vibrate(80);
-
-        // RPC es la función segura que creamos en Supabase
-        const { error } = await _s.rpc('reservar_asiento_seguro', { row_id: 1 });
-
-        if (!error) {
-            yaReservo = true;
-            bloquearInterfaz();
-            alert("¡Asiento " + n + " reservado! Buen viaje.");
+        
+        // Obtenemos los asientos actuales
+        const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
+        
+        // Si hay lugar, restamos uno
+        if(data && data.asientos_libres > 0) {
+            const nuevosLibres = data.asientos_libres - 1;
+            await _s.from('estado_movil').update({ asientos_libres: nuevosLibres }).eq('id', 1);
         }
     }
 
-    function bloquearInterfaz() {
-        for(let i=1; i<=4; i++) document.getElementById('as'+i).classList.add('desactivado');
-        document.querySelector('.instruccion').innerText = "TENÉS UNA RESERVA ACTIVA";
-        document.querySelector('.instruccion').style.color = "#00ff88";
-    }
-
-    function desbloquearInterfaz() {
-        yaReservo = false;
-        for(let i=1; i<=4; i++) document.getElementById('as'+i).classList.remove('desactivado');
-        document.querySelector('.instruccion').innerText = "Presione un asiento para confirmar viaje";
-        document.querySelector('.instruccion').style.color = "#fff";
-    }
-
+    // Conexión en tiempo real
     _s.channel('cambios_p').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
+        // Mueve el colectivo
         markerBus.setLatLng([r.new.latitud, r.new.longitud]);
         
-        // Si el chofer resetea a 4, liberamos al pasajero
-        if (r.new.asientos_libres === 4) desbloquearInterfaz();
-
+        // Actualiza los botones (rojo si están ocupados)
         const ocup = 4 - r.new.asientos_libres;
         for(let i=1; i<=4; i++) {
             const btn = document.getElementById('as'+i);
@@ -87,6 +116,13 @@
             else btn.classList.remove('ocupado');
         }
     }).subscribe();
+
+    // Ocultar pantalla de logo después de 2 segundos
+    setTimeout(() => {
+        document.getElementById('splash').style.opacity = '0';
+        setTimeout(() => document.getElementById('splash').style.display = 'none', 1000);
+    }, 2000);
+
 </script>
 </body>
 </html>
