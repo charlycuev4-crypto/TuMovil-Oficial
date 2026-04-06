@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+
+    <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -8,7 +9,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        /* Mantenemos tus estilos originales */
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
@@ -23,11 +23,11 @@
         .price-display { background: rgba(0, 212, 255, 0.1); border-radius: 12px; padding: 10px; margin-bottom: 15px; border: 1px solid rgba(0, 212, 255, 0.2); }
         .price-label { color: #aaa; font-size: 12px; text-transform: uppercase; font-weight: bold; display: block; }
         .price-value { color: #00d4ff; font-size: 28px; font-weight: 800; transition: color 0.3s; }
-        .asientos-grid { display: flex; gap: 12px; margin-bottom: 15px; justify-content: center; transition: opacity 0.3s; }
+        .asientos-grid { display: flex; gap: 12px; margin-bottom: 15px; justify-content: center; }
         .btn-as { width: 65px; height: 65px; border-radius: 15px; border: 2.5px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 24px; transition: 0.3s; }
         .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; opacity: 0.6; }
         .seleccionado-local { background: #00d4ff !important; color: #000 !important; box-shadow: 0 0 15px #00d4ff; }
-        .btn-action { color: white; border: none; padding: 16px; border-radius: 14px; font-weight: bold; width: 100%; text-transform: uppercase; }
+        .btn-action { color: white; border: none; padding: 16px; border-radius: 14px; font-weight: bold; width: 100%; text-transform: uppercase; cursor: pointer; }
         .btn-confirmar { background: #28a745; display: none; }
         .btn-finalizar { background: #ff3b30; display: none; }
         .dist-tag { background: #00d4ff; color: #000; padding: 6px 16px; border-radius: 12px; font-weight: bold; margin-bottom: 10px; }
@@ -69,57 +69,45 @@
     let viajeConfirmado = false; 
     const PRECIO_ASIENTO = 1000;
     let miPos = null;
-
-    // RUTA ACTUALIZADA CON TUS COORDENADAS SQL (PUNTOS DE GIRO INCLUIDOS)
-    const rutaCompleta = [
-        {n:'M. Cané y Marchena', c:[-34.561128, -58.770586]},
-        {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
-        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]},
-        {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
-        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]},
-        {n:'Murillo 601', c:[-34.565342, -58.772061]},
-        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]},
-        {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
-        {n:'A. Prado 2555', c:[-34.571016, -58.764443]},
-        {n:'Prado y Payró', c:[-34.571956, -58.763201]},
-        {n:'Prado 1744 (Giro)', c:[-34.577371, -58.755909]},
-        {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
-        {n:'Caveri y Azara', c:[-34.579296, -58.755864]},
-        {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
-        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]},
-        {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
-        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]},
-        {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
-        {n:'Libertador y Aero', c:[-34.585554, -58.749812]},
-        {n:'Libertador 7300', c:[-34.586494, -58.750574]},
-        {n:'Libertador 7200', c:[-34.588041, -58.751542]},
-        {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
-        {n:'Maza y Albatros', c:[-34.588771, -58.750804]},
-        {n:'Maternidad', c:[-34.588244, -58.749877]},
-        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
-    ];
-
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(rutaCompleta[0].c, 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    L.polyline(rutaCompleta.map(p=>p.c), {color:'#00d4ff', weight:5, opacity:0.7}).addTo(map);
-    const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [38, 38] });
-    let markerBus = L.marker(rutaCompleta[0].c, { icon: busIcon }).addTo(map);
+    let rutaCompleta = [];
     let markerDest = null;
 
-    const sel = document.getElementById('sel-p');
-    rutaCompleta.forEach((p,i)=>{
-        let o=document.createElement('option'); 
-        o.value=i; 
-        o.text=p.n; 
-        sel.add(o); 
-    });
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561128, -58.770586], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
+    const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [38, 38] });
+    let markerBus = L.marker([-34.561128, -58.770586], { icon: busIcon }).addTo(map);
+
+    // 1. CARGAR PARADAS DINÁMICAMENTE (PUNTOS AZULES)
+    async function cargarParadas() {
+        const { data: paradas } = await _s.from('paradas').select('*').order('orden', { ascending: true });
+        if(paradas) {
+            rutaCompleta = paradas.map(p => ({ n: p.nombre, c: [p.latitud, p.longitud] }));
+            
+            // Dibujar la línea de ruta
+            L.polyline(rutaCompleta.map(p => p.c), {color: '#00d4ff', weight: 5, opacity: 0.6}).addTo(map);
+            
+            // Dibujar los círculos azules (Dots)
+            rutaCompleta.forEach(p => {
+                L.circleMarker(p.c, {
+                    radius: 5, fillColor: '#007AFF', color: '#FFF', weight: 2, fillOpacity: 0.8
+                }).addTo(map);
+
+                // Llenar el selector de destinos
+                let o = document.createElement('option');
+                o.value = rutaCompleta.indexOf(p);
+                o.text = p.n;
+                document.getElementById('sel-p').add(o);
+            });
+        }
+    }
 
     navigator.geolocation.watchPosition(p => { 
         miPos = [p.coords.latitude, p.coords.longitude]; 
     }, null, {enableHighAccuracy:true});
 
     function marcarDestino() {
-        const p = rutaCompleta[sel.value];
+        const p = rutaCompleta[document.getElementById('sel-p').value];
         if(markerDest) map.removeLayer(markerDest);
         markerDest = L.marker(p.c).addTo(map).bindPopup(p.n).openPopup();
         map.flyTo(p.c, 16);
@@ -129,7 +117,6 @@
         if (viajeConfirmado) return;
         const btn = document.getElementById('as' + n);
         if (btn.classList.contains('ocupado')) return;
-
         if (misAsientosLocal.includes(n)) {
             misAsientosLocal = misAsientosLocal.filter(id => id !== n);
             btn.classList.remove('seleccionado-local');
@@ -143,7 +130,6 @@
     function actualizarUI() {
         const total = misAsientosLocal.length * PRECIO_ASIENTO;
         document.getElementById('monto').innerText = total > 0 ? `$${total}` : (viajeConfirmado ? `$${PRECIO_ASIENTO}` : "$0");
-        
         document.getElementById('btn-confirmar').style.display = (misAsientosLocal.length > 0 && !viajeConfirmado) ? 'block' : 'none';
         document.getElementById('btn-finalizar').style.display = viajeConfirmado ? 'block' : 'none';
         document.getElementById('grid-asientos').style.opacity = viajeConfirmado ? "0.5" : "1";
@@ -151,13 +137,12 @@
 
     async function confirmarReserva() {
         if (!miPos) { alert("Esperando señal de GPS..."); return; }
-        
-        const destino = rutaCompleta[sel.value];
+        const destino = rutaCompleta[document.getElementById('sel-p').value];
         const { data: movil } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
         const cant = misAsientosLocal.length;
 
         if(movil && movil.asientos_libres >= cant) {
-            // ENVIAMOS ORIGEN Y DESTINO AL CONDUCTOR
+            // ENVIAMOS TODO AL CONDUCTOR: ASIENTOS + ORIGEN REAL + DESTINO ELEGIDO
             await _s.from('estado_movil').update({ 
                 asientos_libres: movil.asientos_libres - cant,
                 pasa_lat_origen: miPos[0],
@@ -174,18 +159,13 @@
     }
 
     async function liberarAsiento() {
-        // Al finalizar, limpiamos los datos del pasajero en la DB
         await _s.from('estado_movil').update({ 
             asientos_libres: 4,
-            pasa_lat_origen: null,
-            pasa_lng_origen: null,
-            pasa_lat_destino: null,
-            pasa_lng_destino: null
+            pasa_lat_origen: null, pasa_lng_origen: null,
+            pasa_lat_destino: null, pasa_lng_destino: null
         }).eq('id', 1);
-        
         viajeConfirmado = false;
-        alert("Viaje finalizado.");
-        location.reload(); // Recargamos para limpiar todo
+        location.reload();
     }
 
     _s.channel('cambios').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
@@ -195,19 +175,20 @@
             document.getElementById('ui-dist').style.display = 'block';
             document.getElementById('v-dist').innerText = Math.round(d);
         }
-
         const ocupadosDB = 4 - r.new.asientos_libres;
         for(let i=1; i<=4; i++) {
             const btn = document.getElementById('as'+i);
-            if (i <= ocupadosDB) btn.className = 'btn-as ocupado';
-            else btn.className = 'btn-as' + (misAsientosLocal.includes(i) ? ' seleccionado-local' : '');
+            btn.className = i <= ocupadosDB ? 'btn-as ocupado' : 'btn-as' + (misAsientosLocal.includes(i) ? ' seleccionado-local' : '');
         }
     }).subscribe();
 
-    setTimeout(() => { 
-        document.getElementById('splash').style.opacity = '0'; 
-        setTimeout(() => document.getElementById('splash').style.display='none', 800); 
-    }, 2500);
+    window.onload = () => {
+        cargarParadas();
+        setTimeout(() => { 
+            document.getElementById('splash').style.opacity = '0'; 
+            setTimeout(() => document.getElementById('splash').style.display='none', 800); 
+        }, 2000);
+    };
 </script>
 </body>
 </html>
