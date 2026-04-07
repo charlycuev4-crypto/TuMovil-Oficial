@@ -8,31 +8,30 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; font-family: Arial, sans-serif; background-color: #f4f4f9; }
+        body { margin: 0; font-family: sans-serif; background: #f0f2f5; }
         #map { height: 60vh; width: 100%; }
         
-        .panel-reserva {
-            position: fixed; bottom: 0; width: 100%; background: white;
-            padding: 15px; border-radius: 20px 20px 0 0;
-            box-shadow: 0 -3px 10px rgba(0,0,0,0.15); z-index: 1000;
-            box-sizing: border-box;
+        .ui-reserva { 
+            position: fixed; bottom: 0; width: 100%; background: white; 
+            padding: 20px; border-radius: 20px 20px 0 0; box-shadow: 0 -5px 15px rgba(0,0,0,0.1);
+            z-index: 1000; box-sizing: border-box;
         }
 
-        .select-destino {
-            width: 100%; padding: 12px; border: 2px solid #00d4ff;
+        .select-parada { 
+            width: 100%; padding: 12px; border: 2px solid #00d4ff; 
             border-radius: 10px; font-size: 16px; margin-bottom: 15px;
         }
 
-        .contenedor-asientos { display: flex; justify-content: space-around; margin-bottom: 15px; }
-        .asiento {
+        .fila-asientos { display: flex; justify-content: space-around; margin-bottom: 15px; }
+        .asiento { 
             width: 60px; height: 60px; border: 2px solid #00d4ff; border-radius: 12px;
             display: flex; align-items: center; justify-content: center;
-            font-weight: bold; color: #00d4ff; font-size: 22px; cursor: pointer;
+            font-weight: bold; color: #00d4ff; font-size: 20px;
         }
-        .asiento.seleccionado { background-color: #ff4444; border-color: #ff4444; color: white; }
+        .asiento.ocupado { background: #ff4444; border-color: #ff4444; color: white; }
 
         .btn-confirmar {
-            width: 100%; padding: 15px; background-color: #28a745; color: white;
+            width: 100%; padding: 15px; background: #28a745; color: white;
             border: none; border-radius: 12px; font-weight: bold; font-size: 18px;
         }
     </style>
@@ -41,8 +40,8 @@
 
 <div id="map"></div>
 
-<div class="panel-reserva">
-    <select id="destino" class="select-destino">
+<div class="ui-reserva">
+    <select id="destino" class="select-parada">
         <option value="">¿DÓNDE TE BAJÁS?</option>
         <option value="Miguel Cané">Miguel Cané</option>
         <option value="Cané y Los Aromos">Cané y Los Aromos</option>
@@ -71,61 +70,40 @@
         <option value="Abasto y Roca">Abasto y Roca</option>
     </select>
 
-    <div class="contenedor-asientos">
-        <div class="asiento" onclick="toggleAsiento(this, 1)">1</div>
-        <div class="asiento" onclick="toggleAsiento(this, 2)">2</div>
-        <div class="asiento" onclick="toggleAsiento(this, 3)">3</div>
-        <div class="asiento" onclick="toggleAsiento(this, 4)">4</div>
+    <div class="fila-asientos">
+        <div class="asiento" onclick="marcar(this)">1</div>
+        <div class="asiento" onclick="marcar(this)">2</div>
+        <div class="asiento" onclick="marcar(this)">3</div>
+        <div class="asiento" onclick="marcar(this)">4</div>
     </div>
 
-    <button class="btn-confirmar" onclick="reservarViaje()">CONFIRMAR RESERVA</button>
+    <button class="btn-confirmar" onclick="enviar()">CONFIRMAR RESERVA</button>
 </div>
 
 <script>
-    // Configuración de Supabase
-    const supabaseClient = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // Mapa centrado en la ruta
     const map = L.map('map').setView([-34.5612, -58.7705], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    let asientosSeleccionados = 0;
-
-    function toggleAsiento(elemento, numero) {
-        elemento.classList.toggle('seleccionado');
-        asientosSeleccionados = document.querySelectorAll('.asiento.seleccionado').length;
+    function marcar(el) {
+        el.classList.toggle('ocupado');
     }
 
-    async function reservarViaje() {
-        const destinoSeleccionado = document.getElementById('destino').value;
+    async function enviar() {
+        const dest = document.getElementById('destino').value;
+        const cant = document.querySelectorAll('.asiento.ocupado').length;
 
-        if (!destinoSeleccionado) {
-            alert("Por favor, selecciona tu parada de destino.");
-            return;
-        }
+        if(!dest || cant === 0) return alert("Elige destino y asientos");
 
-        if (asientosSeleccionados === 0) {
-            alert("Por favor, selecciona al menos un asiento.");
-            return;
-        }
+        const { error } = await _s.from('estado_movil').update({
+            asientos_libres: 4 - cant,
+            pasajero_destino: dest
+        }).eq('id', 1);
 
-        // Enviamos los datos a la tabla 'estado_movil' con la estructura original
-        const { error } = await supabaseClient
-            .from('estado_movil')
-            .update({ 
-                asientos_libres: 4 - asientosSeleccionados,
-                pasajero_destino: destinoSeleccionado 
-            })
-            .eq('id', 1);
-
-        if (!error) {
-            alert("¡Reserva confirmada con éxito!");
-        } else {
-            console.error(error);
-            alert("Error al conectar con el servidor.");
-        }
+        if(!error) alert("¡Reserva confirmada!");
+        else alert("Error de conexión");
     }
 </script>
-
 </body>
 </html>
