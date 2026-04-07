@@ -1,4 +1,4 @@
-function <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -67,10 +67,9 @@ function <!DOCTYPE html>
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    // --- ESTADO DE LA APLICACIÓN ---
     let misAsientosLocal = [];
     let ultimoMontoPagado = 0; 
-    let viajeConfirmado = false; // Bloqueo de seguridad
+    let viajeConfirmado = false; 
     const PRECIO_ASIENTO = 1000;
     let miPos = null;
 
@@ -110,11 +109,7 @@ function <!DOCTYPE html>
     }
 
     function toggleSeleccion(n) {
-        if (viajeConfirmado) {
-            alert("Ya tienes una reserva activa. Finaliza el viaje para elegir nuevos asientos.");
-            return;
-        }
-
+        if (viajeConfirmado) return;
         const btn = document.getElementById('as' + n);
         if (btn.classList.contains('ocupado')) return;
 
@@ -125,7 +120,6 @@ function <!DOCTYPE html>
             misAsientosLocal.push(n);
             btn.classList.add('seleccionado-local');
         }
-        if (navigator.vibrate) navigator.vibrate(50);
         actualizarUI();
     }
 
@@ -134,29 +128,17 @@ function <!DOCTYPE html>
         const visorMonto = document.getElementById('monto');
         const grid = document.getElementById('grid-asientos');
         
-        // Manejo del precio y colores
-        if (totalActual > 0) {
-            visorMonto.innerText = `$${totalActual}`;
-            visorMonto.style.color = "#00d4ff"; 
-        } else {
-            visorMonto.innerText = ultimoMontoPagado > 0 ? `$${ultimoMontoPagado}` : "$0";
-            visorMonto.style.color = ultimoMontoPagado > 0 ? "#28a745" : "#00d4ff"; 
-        }
+        visorMonto.innerText = totalActual > 0 ? `$${totalActual}` : (ultimoMontoPagado > 0 ? `$${ultimoMontoPagado}` : "$0");
+        visorMonto.style.color = (totalActual > 0 || ultimoMontoPagado > 0) ? (ultimoMontoPagado > 0 ? "#28a745" : "#00d4ff") : "#00d4ff";
 
-        // Bloqueo visual de la rejilla de asientos
         grid.style.opacity = viajeConfirmado ? "0.5" : "1";
         grid.style.pointerEvents = viajeConfirmado ? "none" : "auto";
         
         const btnConf = document.getElementById('btn-confirmar');
         const btnFin = document.getElementById('btn-finalizar');
 
-        if (misAsientosLocal.length > 0) { 
-            btnConf.style.display = 'block'; 
-            btnFin.style.display = 'none'; 
-        } else { 
-            btnConf.style.display = 'none'; 
-            btnFin.style.display = 'block'; 
-        }
+        if (misAsientosLocal.length > 0) { btnConf.style.display = 'block'; btnFin.style.display = 'none'; }
+        else { btnConf.style.display = 'none'; btnFin.style.display = 'block'; }
     }
 
     async function confirmarReserva() {
@@ -166,34 +148,39 @@ function <!DOCTYPE html>
         const cant = misAsientosLocal.length;
 
         if(data && data.asientos_libres >= cant) {
-            ultimoMontoPagado = cant * PRECIO_ASIENTO; 
-            await _s.from('estado_movil').update({ asientos_libres: data.asientos_libres - cant }).eq('id', 1);
+            // DATOS NUEVOS PARA EL CONDUCTOR
+            const idDestino = document.getElementById('sel-p').value;
+            const latP = miPos ? miPos[0] : null;
+            const lonP = miPos ? miPos[1] : null;
+
+            await _s.from('estado_movil').update({ 
+                asientos_libres: data.asientos_libres - cant,
+                pasajero_lat: latP,
+                pasajero_lon: lonP,
+                pasajero_destino: idDestino
+            }).eq('id', 1);
             
-            alert(`¡Reserva confirmada por $${ultimoMontoPagado}!`);
-            
-            viajeConfirmado = true; // Activamos el bloqueo
+            ultimoMontoPagado = cant * PRECIO_ASIENTO;
+            viajeConfirmado = true;
             misAsientosLocal = []; 
+            alert("¡Reserva confirmada!");
             actualizarUI();
-        } else { 
-            alert("No hay asientos suficientes disponibles."); 
-        }
+        } else { alert("No hay asientos disponibles."); }
     }
 
     async function liberarAsiento() {
-        // Al finalizar, reseteamos la base de datos a 4 libres
-        await _s.from('estado_movil').update({ asientos_libres: 4 }).eq('id', 1);
+        // Limpiamos todo en la DB
+        await _s.from('estado_movil').update({ 
+            asientos_libres: 4,
+            pasajero_lat: null, 
+            pasajero_lon: null, 
+            pasajero_destino: null 
+        }).eq('id', 1);
         
-        // Reset de variables de estado
         misAsientosLocal = [];
         ultimoMontoPagado = 0;
         viajeConfirmado = false; 
-
-        // Limpiar estilos locales de selección
-        for(let i=1; i<=4; i++) {
-            document.getElementById('as'+i).classList.remove('seleccionado-local');
-        }
-
-        alert("Viaje finalizado. Gracias por usar MÓVIL EN VIVO.");
+        for(let i=1; i<=4; i++) document.getElementById('as'+i).classList.remove('seleccionado-local');
         actualizarUI();
     }
 
@@ -204,18 +191,12 @@ function <!DOCTYPE html>
             document.getElementById('ui-dist').style.display = 'block';
             document.getElementById('v-dist').innerText = Math.round(d);
         }
-
-        const ocupadosDB = 4 - r.new.asientos_libres;
+        const libres = r.new.asientos_libres;
+        const ocupadosDB = 4 - libres;
         for(let i=1; i<=4; i++) {
             const btn = document.getElementById('as'+i);
-            if (i <= ocupadosDB) {
-                btn.className = 'btn-as ocupado';
-                // Si el asiento se ocupó en DB, lo quitamos de la selección local por si acaso
-                misAsientosLocal = misAsientosLocal.filter(id => id !== i);
-            } else {
-                // Mantenemos el estilo si el usuario lo tiene seleccionado (pero no confirmado aún)
-                btn.className = 'btn-as' + (misAsientosLocal.includes(i) ? ' seleccionado-local' : '');
-            }
+            if (i <= ocupadosDB) btn.className = 'btn-as ocupado';
+            else btn.className = 'btn-as' + (misAsientosLocal.includes(i) ? ' seleccionado-local' : '');
         }
         actualizarUI();
     }).subscribe();
