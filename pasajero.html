@@ -10,29 +10,44 @@
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
-        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.8s; }
+        
+        /* Splash Screen */
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.5s; }
         .logo-m { width: 85px; height: 85px; border: 3px solid #00d4ff; border-radius: 20px; color: #00d4ff; font-size: 50px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px #00d4ff; margin-bottom: 15px; }
+        
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        
+        /* Interfaz Superior */
         .top-ui { position: absolute; top: 10px; width: 100%; padding: 0 15px; z-index: 1000; }
-        .dest-card { background: rgba(25, 25, 25, 0.95); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; }
-        select { width: 100%; background: transparent; color: white; border: none; font-size: 16px; outline: none; }
-        .bottom-panel { position: absolute; bottom: 15px; width: 92%; left: 4%; background: rgba(15, 15, 15, 0.95); border: 2px solid #00d4ff; border-radius: 25px; padding: 15px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
+        .dest-card { background: rgba(25, 25, 25, 0.95); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        select { width: 100%; background: transparent; color: white; border: none; font-size: 16px; outline: none; appearance: none; }
+        
+        /* Panel Inferior */
+        .bottom-panel { position: absolute; bottom: 15px; width: 92%; left: 4%; background: rgba(15, 15, 15, 0.95); border: 2px solid #00d4ff; border-radius: 25px; padding: 15px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 -4px 20px rgba(0,0,0,0.8); }
+        
         #resumen-viaje { background: rgba(76, 217, 100, 0.15); border: 1px dashed #4cd964; border-radius: 12px; padding: 8px; text-align: center; display: none; }
         .resaltado { color: #4cd964; font-weight: 800; font-size: 18px; }
+        
         .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .btn-as { aspect-ratio: 1; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-size: 18px; font-weight: bold; transition: 0.2s; }
         .btn-as.selected { background: #4cd964 !important; color: #000 !important; border-color: #4cd964 !important; }
+        
         .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #333; color: #666; pointer-events: none; }
-        .btn-confirm.ready { background: #00d4ff !important; color: black !important; pointer-events: auto !important; cursor: pointer !important; }
+        .btn-confirm.ready { background: #00d4ff !important; color: black !important; pointer-events: auto !important; }
+        
         .btn-cancel { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #ff3b30; color: white; display: none; }
     </style>
 </head>
 <body>
-    <div id="splash"><div class="logo-m">M</div><div style="letter-spacing: 3px; font-size: 12px;">TUMOVIL SANTA BRIGIDA</div></div>
+
+    <div id="splash">
+        <div class="logo-m">M</div>
+        <div style="letter-spacing: 3px; font-size: 12px; color: #00d4ff;">TUMOVIL SANTA BRIGIDA</div>
+    </div>
     
     <div class="top-ui">
         <div class="dest-card">
-            <span style="font-size: 10px; color: #00d4ff;">📍 SELECCIONA DESTINO</span>
+            <span style="font-size: 10px; color: #00d4ff;">📍 DESTINO SELECCIONADO</span>
             <select id="select-destino" onchange="validarFormulario()">
                 <option value="" disabled selected>--- ¿A DÓNDE VAS? ---</option>
             </select>
@@ -42,13 +57,17 @@
     <div id="map"></div>
 
     <div class="bottom-panel">
-        <div id="resumen-viaje"><p style="margin:0; font-size:13px;">Asientos: <span class="resaltado" id="cant-resumen">0</span> | Total: <span class="resaltado" id="precio-resumen">$0</span></p></div>
+        <div id="resumen-viaje">
+            <p style="margin:0; font-size:13px;">ASIENTOS: <span class="resaltado" id="cant-resumen">0</span> | TOTAL: <span class="resaltado" id="precio-resumen">$0</span></p>
+        </div>
+        
         <div class="asientos-grid" id="grid-asientos">
             <button class="btn-as" id="b1" onclick="toggleAsiento(1)">1</button>
             <button class="btn-as" id="b2" onclick="toggleAsiento(2)">2</button>
             <button class="btn-as" id="b3" onclick="toggleAsiento(3)">3</button>
             <button class="btn-as" id="b4" onclick="toggleAsiento(4)">4</button>
         </div>
+        
         <button id="btn-accion" class="btn-confirm" onclick="confirmarReserva()">Confirmar Reserva</button>
         <button id="btn-finalizar" class="btn-cancel" onclick="finalizarViaje()">Finalizar Mi Viaje</button>
     </div>
@@ -61,10 +80,4 @@
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
         {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
         {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
-        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
-        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
-        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
-        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
-        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
-        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
-        {n:'Lib
+        {n:'A. Prado 2555
