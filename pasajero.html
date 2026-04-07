@@ -1,4 +1,4 @@
-            <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -24,15 +24,14 @@
         .price-label { color: #aaa; font-size: 12px; text-transform: uppercase; font-weight: bold; display: block; }
         .price-value { color: #00d4ff; font-size: 28px; font-weight: 800; transition: 0.3s; }
 
-        .asientos-grid { display: flex; gap: 12px; margin-bottom: 15px; justify-content: center; transition: opacity 0.3s; opacity: 0.2; pointer-events: none; }
-        .grid-activo { opacity: 1 !important; pointer-events: auto !important; }
-
+        .asientos-grid { display: flex; gap: 12px; margin-bottom: 15px; justify-content: center; }
         .btn-as { width: 65px; height: 65px; border-radius: 15px; border: 2.5px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 24px; transition: 0.3s; }
         .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; opacity: 0.6; }
         .seleccionado-local { background: #00d4ff !important; color: #000 !important; box-shadow: 0 0 15px #00d4ff; }
         
         .btn-action { color: white; border: none; padding: 16px; border-radius: 14px; font-weight: bold; width: 100%; text-transform: uppercase; cursor: pointer; }
-        .btn-confirmar { background: #28a745; display: none; }
+        .btn-confirmar { background: #555; } /* Color gris cuando no está listo */
+        .ready { background: #28a745 !important; } /* Color verde cuando ya puede confirmar */
         .btn-finalizar { background: #ff3b30; display: none; }
         .dist-tag { background: #00d4ff; color: #000; padding: 6px 16px; border-radius: 12px; font-weight: bold; margin-bottom: 10px; }
     </style>
@@ -43,9 +42,9 @@
     
     <div class="overlay top">
         <div class="card-destino">
-            <span style="color:#00d4ff; font-size:11px; font-weight:bold; display:block; margin-bottom:5px;">📍 PASO 1: TU DESTINO</span>
+            <span style="color:#00d4ff; font-size:11px; font-weight:bold; display:block; margin-bottom:5px;">📍 1. TU DESTINO</span>
             <select id="sel-p" onchange="marcarDestino()">
-                <option value="">-- SELECCIONAR --</option>
+                <option value="">-- ELIGE DÓNDE BAJAS --</option>
             </select>
         </div>
     </div>
@@ -54,7 +53,7 @@
         <div id="ui-dist" class="dist-tag" style="display:none;">DISTANCIA: <span id="v-dist">0</span>m</div>
         <div class="card-asientos">
             <div class="price-display">
-                <span class="price-label" id="label-monto">Selecciona destino</span>
+                <span class="price-label" id="label-monto">2. ELIGE TUS ASIENTOS</span>
                 <span class="price-value" id="monto">$0</span>
             </div>
             <div class="asientos-grid" id="grid-asientos">
@@ -63,7 +62,7 @@
                 <button id="as3" class="btn-as" onclick="toggleSeleccion(3)">3</button>
                 <button id="as4" class="btn-as" onclick="toggleSeleccion(4)">4</button>
             </div>
-            <button id="btn-confirmar" class="btn-action btn-confirmar" onclick="confirmarReserva()">Confirmar Reserva</button>
+            <button id="btn-confirmar" class="btn-action btn-confirmar" onclick="verificarYConfirmar()">Confirmar Reserva</button>
             <button id="btn-finalizar" class="btn-action btn-finalizar" onclick="liberarAsiento()">Finalizar Viaje</button>
         </div>
     </div>
@@ -74,6 +73,7 @@
     let misAsientosLocal = [];
     let viajeConfirmado = false; 
     let miPos = null;
+    let asientosOcupadosGlobal = 0;
 
     const rutaCompleta = [
         {n:'Miguel Cané (Inicio)', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
@@ -103,17 +103,14 @@
 
     navigator.geolocation.watchPosition(p => { miPos = [p.coords.latitude, p.coords.longitude]; }, null, {enableHighAccuracy:true});
 
-    // FUNCIÓN DE ARRANQUE: Sincroniza con la base de datos al abrir la app
     async function init() {
         const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
-        if (data.pasajero_destino) {
+        if (data && data.pasajero_destino) {
             viajeConfirmado = true;
             const index = rutaCompleta.findIndex(r => r.n === data.pasajero_destino);
-            if(index !== -1) {
-                sel.value = index;
-                marcarDestino();
-            }
-            actualizarUI(4 - data.asientos_libres);
+            if(index !== -1) { sel.value = index; marcarDestino(); }
+            asientosOcupadosGlobal = 4 - data.asientos_libres;
+            actualizarUI();
         }
     }
 
@@ -124,8 +121,7 @@
             if(markerDest) map.removeLayer(markerDest);
             markerDest = L.marker(p.c).addTo(map).bindPopup(p.n).openPopup();
             map.flyTo(p.c, 16);
-            if(!viajeConfirmado) document.getElementById('grid-asientos').classList.add('grid-activo');
-            document.getElementById('label-monto').innerText = viajeConfirmado ? "VIAJE ACTUAL" : "ELIGE ASIENTO";
+            actualizarUI();
         }
     }
 
@@ -143,13 +139,10 @@
         actualizarUI();
     }
 
-    function actualizarUI(ocupadosDB = null) {
-        const cant = ocupadosDB !== null ? ocupadosDB : misAsientosLocal.length;
-        const total = cant * 1000;
-        const visor = document.getElementById('monto');
-        
-        visor.innerText = `$${total}`;
-        visor.style.color = viajeConfirmado ? "#28a745" : "#00d4ff";
+    function actualizarUI() {
+        const cant = viajeConfirmado ? asientosOcupadosGlobal : misAsientosLocal.length;
+        document.getElementById('monto').innerText = `$${cant * 1000}`;
+        document.getElementById('monto').style.color = viajeConfirmado ? "#28a745" : "#00d4ff";
 
         const btnConf = document.getElementById('btn-confirmar');
         const btnFin = document.getElementById('btn-finalizar');
@@ -157,28 +150,56 @@
         if (viajeConfirmado) {
             btnConf.style.display = 'none';
             btnFin.style.display = 'block';
-            document.getElementById('grid-asientos').classList.remove('grid-activo');
         } else {
-            btnConf.style.display = misAsientosLocal.length > 0 ? 'block' : 'none';
             btnFin.style.display = 'none';
+            // Cambia el color del botón si ya está todo listo
+            if(sel.value !== "" && misAsientosLocal.length > 0) {
+                btnConf.classList.add('ready');
+            } else {
+                btnConf.classList.remove('ready');
+            }
+        }
+        
+        for(let i=1; i<=4; i++) {
+            const btn = document.getElementById('as'+i);
+            if (i <= asientosOcupadosGlobal && !misAsientosLocal.includes(i)) btn.className = 'btn-as ocupado';
+            else if (misAsientosLocal.includes(i)) btn.className = 'btn-as seleccionado-local';
+            else btn.className = 'btn-as';
         }
     }
 
+    // NUEVA FUNCIÓN DE VERIFICACIÓN
+    async function verificarYConfirmar() {
+        // 1. Verificar ubicación
+        if(sel.value === "") {
+            alert("Por favor, selecciona primero tu ubicación de destino arriba.");
+            return;
+        }
+        // 2. Verificar asientos
+        if(misAsientosLocal.length === 0) {
+            alert("Debes elegir al menos un asiento para viajar.");
+            return;
+        }
+        // 3. Si todo está bien, confirmar
+        confirmarReserva();
+    }
+
     async function confirmarReserva() {
-        if (misAsientosLocal.length === 0) return;
         const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
         if(data.asientos_libres >= misAsientosLocal.length) {
-            await _s.from('estado_movil').update({ 
+            const { error } = await _s.from('estado_movil').update({ 
                 asientos_libres: data.asientos_libres - misAsientosLocal.length,
                 pasajero_lat: miPos ? miPos[0] : null,
                 pasajero_lon: miPos ? miPos[1] : null,
                 pasajero_destino: rutaCompleta[sel.value].n
             }).eq('id', 1);
             
-            viajeConfirmado = true;
-            misAsientosLocal = []; 
-            alert("¡Reserva confirmada!");
-            location.reload(); // Recargamos para limpiar y sincronizar
+            if(!error) {
+                viajeConfirmado = true;
+                misAsientosLocal = [];
+                actualizarUI();
+                alert("¡Buen viaje! Reserva confirmada.");
+            }
         }
     }
 
@@ -186,7 +207,7 @@
         await _s.from('estado_movil').update({ 
             asientos_libres: 4, pasajero_lat: null, pasajero_lon: null, pasajero_destino: null 
         }).eq('id', 1);
-        location.reload();
+        window.location.reload();
     }
 
     _s.channel('cambios').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
@@ -196,16 +217,9 @@
             document.getElementById('ui-dist').style.display = 'block';
             document.getElementById('v-dist').innerText = Math.round(d);
         }
-        const ocupados = 4 - r.new.asientos_libres;
-        for(let i=1; i<=4; i++) {
-            const btn = document.getElementById('as'+i);
-            btn.className = (i <= ocupados) ? 'btn-as ocupado' : 'btn-as';
-        }
-        if(!viajeConfirmado && r.new.pasajero_destino) {
-             // Si el conductor limpió los datos, nosotros también
-             viajeConfirmado = false;
-             actualizarUI();
-        }
+        asientosOcupadosGlobal = 4 - r.new.asientos_libres;
+        if (!r.new.pasajero_destino) { viajeConfirmado = false; }
+        actualizarUI();
     }).subscribe();
 
     init();
