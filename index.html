@@ -3,89 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PANEL DEL CONDUCTOR - TuMovil</title>
+    <title>CONDUCTOR - TuMovil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
-        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.8s; }
-        .logo-m { width: 85px; height: 85px; border: 3px solid #00d4ff; border-radius: 20px; color: #00d4ff; font-size: 50px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px #00d4ff; margin-bottom: 15px; }
+        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
-        .header-stats { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-around; z-index: 1000; padding: 0 10px; }
-        .stat-card { background: rgba(20, 20, 20, 0.9); border: 2px solid #00d4ff; border-radius: 12px; padding: 10px; width: 45%; text-align: center; }
-        .stat-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; }
-        .stat-value { font-size: 22px; font-weight: 800; display: block; }
-        .controls { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
-        .btn-main { width: 90%; padding: 18px; border-radius: 15px; border: none; font-weight: bold; font-size: 16px; text-transform: uppercase; background: #ff3b30; color: white; }
-        .asientos-indicator { background: rgba(0,0,0,0.8); border: 2px solid #00d4ff; border-radius: 15px; padding: 10px; margin-bottom: 10px; display: flex; gap: 8px; }
-        .mini-as { width: 35px; height: 35px; border: 2px solid #00d4ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; }
-        .mini-as.busy { background: #ff3b30; border-color: #ff3b30; box-shadow: 0 0 10px #ff3b30; }
+        .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
+        .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
+        .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #00d4ff; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
+        .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
+        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 15px; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
+        .asientos-pills { display: flex; gap: 8px; margin-bottom: 12px; pointer-events: auto; }
+        .pill { width: 35px; height: 35px; border: 2px solid #00d4ff; border-radius: 8px; color: #00d4ff; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.8); }
+        .pill.active { background: #ff3b30; border-color: #ff3b30; color: white; }
     </style>
 </head>
 <body>
-    <div id="splash"><div class="logo-m">M</div><b>PANEL CONTROLADOR</b></div>
-    <div class="header-stats">
-        <div class="stat-card"><span class="stat-label">Recaudación</span><span class="stat-value" id="v-recaudacion">$0</span></div>
-        <div class="stat-card"><span class="stat-label">Pasajeros</span><span class="stat-value" id="v-pax">0</span></div>
-    </div>
+
     <div id="map"></div>
-    <div class="controls">
-        <div class="asientos-indicator" id="indicador-asientos">
-            <div id="ma1" class="mini-as">1</div><div id="ma2" class="mini-as">2</div>
-            <div id="ma3" class="mini-as">3</div><div id="ma4" class="mini-as">4</div>
-        </div>
-        <button class="btn-main" onclick="vaciarUnidad()">Finalizar Viaje / Vaciar</button>
+
+    <div class="ui-overlay top-stats">
+        <div class="stat-box"><small>RECAUDACIÓN</small><div id="txt-plata" style="font-size:22px; font-weight:800;">$0</div></div>
+        <div class="stat-box"><small>PASAJEROS</small><div id="txt-pax" style="font-size:22px; font-weight:800;">0</div></div>
     </div>
+
+    <div class="ui-overlay bottom-ui">
+        <div class="asientos-pills">
+            <div id="pill1" class="pill">1</div><div id="pill2" class="pill">2</div>
+            <div id="pill3" class="pill">3</div><div id="pill4" class="pill">4</div>
+        </div>
+        <button class="btn-vaciar" onclick="vaciarTodo()">FINALIZAR VIAJE / VACIAR</button>
+    </div>
+
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    const rutaOficial = [{n:'Inicio', c:[-34.561264,-58.770506]},{n:'Fin', c:[-34.586030,-58.747278]}]; // Simplificada para prueba
+    // 1. TU RUTA ORIGINAL (Asegura que el trazo se vea)
+    const paradas = [
+        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
+        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
+        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
+        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
+        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
+        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
+        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
+        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
+        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
+        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
+        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
+        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
+        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+    ];
 
-    const map = L.map('map', { zoomControl: false }).setView([-34.561264,-58.770506], 15);
+    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
+    // DIBUJAR LA LÍNEA DEL RECORRIDO
+    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.6 }).addTo(map);
 
-    let marcadoresPasajeros = [];
-    let ultimaActGps = 0;
+    let markersPax = [];
+    let markersDest = [];
 
-    async function dibujarPasajeros() {
-        marcadoresPasajeros.forEach(m => map.removeLayer(m));
-        marcadoresPasajeros = [];
-        for(let i=1; i<=4; i++) document.getElementById('ma'+i).className = 'mini-as';
+    // 2. FUNCIÓN PARA DIBUJAR (Sin errores de "fantasmas")
+    async function actualizarMapa() {
+        // Limpiar todo antes de redibujar
+        markersPax.forEach(m => map.removeLayer(m));
+        markersDest.forEach(m => map.removeLayer(m));
+        markersPax = []; markersDest = [];
+        for(let i=1; i<=4; i++) document.getElementById('pill'+i).className = 'pill';
 
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
 
         if (reservas) {
-            document.getElementById('v-pax').innerText = reservas.length;
-            document.getElementById('v-recaudacion').innerText = '$' + (reservas.length * 1000);
+            document.getElementById('txt-pax').innerText = reservas.length;
+            document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
+
             reservas.forEach(res => {
-                const elAsiento = document.getElementById('ma' + res.asiento_num);
-                if(elAsiento) elAsiento.className = 'mini-as busy';
-                const pM = L.marker([res.pasajero_lat, res.pasajero_lon]).addTo(map);
-                marcadoresPasajeros.push(pM);
+                // Marcar asiento ocupado
+                document.getElementById('pill' + res.asiento_num).className = 'pill active';
+                
+                // Dibujar Pasajero
+                const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: 'red', radius: 8 }).addTo(map);
+                markersPax.push(pM);
+
+                // Dibujar su Destino
+                if(paradas[res.destino_idx]) {
+                    const dM = L.marker(paradas[res.destino_idx].c).addTo(map)
+                        .bindTooltip("Destino Asiento " + res.asiento_num, {permanent: true, direction: 'top'});
+                    markersDest.push(dM);
+                }
             });
         }
     }
 
+    // 3. GPS CONDUCTOR (Actualiza tu posición para que el pasajero te vea)
     navigator.geolocation.watchPosition(async p => {
-        const ahora = Date.now();
-        if(ahora - ultimaActGps > 4000) {
-            await _s.from('estado_movil').update({latitud: p.coords.latitude, longitud: p.coords.longitude}).eq('id', 1);
-            ultimaActGps = ahora;
-        }
+        await _s.from('estado_movil').update({
+            latitud: p.coords.latitude,
+            longitud: p.coords.longitude
+        }).eq('id', 1);
     }, null, { enableHighAccuracy: true });
 
-    async function vaciarUnidad() {
-        if(!confirm("¿Vaciar unidad?")) return;
+    // 4. ESCUCHA TIEMPO REAL (Para no tener que refrescar)
+    _s.channel('cambios_total').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, actualizarMapa).subscribe();
+
+    async function vaciarTodo() {
+        if(!confirm("¿Finalizar todos los viajes?")) return;
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso');
-        dibujarPasajeros();
+        actualizarMapa();
     }
 
-    _s.channel('cambios').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, dibujarPasajeros).subscribe();
-    dibujarPasajeros();
-
-    setTimeout(() => { document.getElementById('splash').style.display='none'; }, 2000);
+    actualizarMapa(); // Carga inicial
 </script>
 </body>
 </html>
