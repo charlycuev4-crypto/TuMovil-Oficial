@@ -3,76 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Panel Pasajero</title>
+    <title>Pasajero</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; font-family: sans-serif; background: #f0f2f5; }
-        #map { height: 50vh; width: 100%; }
-        .ui { position: fixed; bottom: 0; width: 100%; background: white; padding: 20px; border-radius: 20px 20px 0 0; box-shadow: 0 -4px 10px rgba(0,0,0,0.1); box-sizing: border-box; z-index: 1000; }
-        select { width: 100%; padding: 12px; border: 2px solid #007bff; border-radius: 8px; font-size: 16px; margin-bottom: 15px; }
-        .grid { display: flex; justify-content: space-between; margin-bottom: 15px; }
-        .btn-asiento { width: 22%; height: 50px; border: 2px solid #007bff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #007bff; }
-        .btn-asiento.activo { background: #dc3545; border-color: #dc3545; color: white; }
-        .btn-confirmar { width: 100%; padding: 15px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 18px; }
+        body { margin: 0; font-family: Arial, sans-serif; background-color: #f4f4f9; }
+        #map { height: 60vh; width: 100%; }
+        
+        .panel-reserva {
+            position: fixed; bottom: 0; width: 100%; background: white;
+            padding: 15px; border-radius: 20px 20px 0 0;
+            box-shadow: 0 -3px 10px rgba(0,0,0,0.15); z-index: 1000;
+            box-sizing: border-box;
+        }
+
+        .select-destino {
+            width: 100%; padding: 12px; border: 2px solid #00d4ff;
+            border-radius: 10px; font-size: 16px; margin-bottom: 15px;
+        }
+
+        .contenedor-asientos { display: flex; justify-content: space-around; margin-bottom: 15px; }
+        .asiento {
+            width: 60px; height: 60px; border: 2px solid #00d4ff; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; color: #00d4ff; font-size: 22px; cursor: pointer;
+        }
+        .asiento.seleccionado { background-color: #ff4444; border-color: #ff4444; color: white; }
+
+        .btn-confirmar {
+            width: 100%; padding: 15px; background-color: #28a745; color: white;
+            border: none; border-radius: 12px; font-weight: bold; font-size: 18px;
+        }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div class="ui">
-        <select id="destino">
-            <option value="">-- ¿A dónde vas? --</option>
-        </select>
-        <div class="grid">
-            <div id="a1" class="btn-asiento" onclick="tocar(1)">1</div>
-            <div id="a2" class="btn-asiento" onclick="tocar(2)">2</div>
-            <div id="a3" class="btn-asiento" onclick="tocar(3)">3</div>
-            <div id="a4" class="btn-asiento" onclick="tocar(4)">4</div>
-        </div>
-        <button class="btn-confirmar" onclick="enviar()">CONFIRMAR VIAJE</button>
+
+<div id="map"></div>
+
+<div class="panel-reserva">
+    <select id="destino" class="select-destino">
+        <option value="">¿DÓNDE TE BAJÁS?</option>
+        <option value="Miguel Cané">Miguel Cané</option>
+        <option value="Cané y Los Aromos">Cané y Los Aromos</option>
+        <option value="Los Aromos 11016">Los Aromos 11016</option>
+        <option value="Los Aromos 10874">Los Aromos 10874</option>
+        <option value="Los Aromos y Murillo">Los Aromos y Murillo</option>
+        <option value="Murillo 601">Murillo 601</option>
+        <option value="Murillo y Güiraldes">Murillo y Güiraldes</option>
+        <option value="Murillo y Watt">Murillo y Watt</option>
+        <option value="A. Prado 2555">A. Prado 2555</option>
+        <option value="Prado y Payró">Prado y Payró</option>
+        <option value="Prado 1744">Prado 1744</option>
+        <option value="Boulevard Caveri">Boulevard Caveri</option>
+        <option value="Caveri y Azara">Caveri y Azara</option>
+        <option value="Caveri y Vedia">Caveri y Vedia</option>
+        <option value="Caveri y Tablada">Caveri y Tablada</option>
+        <option value="Caveri y Echeverría">Caveri y Echeverría</option>
+        <option value="Caveri y Gálvez">Caveri y Gálvez</option>
+        <option value="Caveri (Final)">Caveri (Final)</option>
+        <option value="Libertador y Aero">Libertador y Aero</option>
+        <option value="Libertador 7300">Libertador 7300</option>
+        <option value="Libertador 7200">Libertador 7200</option>
+        <option value="Libertador y Maza">Libertador y Maza</option>
+        <option value="Maza y Albatros">Maza y Albatros</option>
+        <option value="Maternidad">Maternidad</option>
+        <option value="Abasto y Roca">Abasto y Roca</option>
+    </select>
+
+    <div class="contenedor-asientos">
+        <div class="asiento" onclick="toggleAsiento(this, 1)">1</div>
+        <div class="asiento" onclick="toggleAsiento(this, 2)">2</div>
+        <div class="asiento" onclick="toggleAsiento(this, 3)">3</div>
+        <div class="asiento" onclick="toggleAsiento(this, 4)">4</div>
     </div>
 
+    <button class="btn-confirmar" onclick="reservarViaje()">CONFIRMAR RESERVA</button>
+</div>
+
 <script>
-    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    const paradas = [
-        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
-        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
-        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
-        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
-        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
-        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
-        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
-        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
-        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
-        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
-        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
-        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
-        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
-    ];
+    // Configuración de Supabase
+    const supabaseClient = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    const sel = document.getElementById('destino');
-    paradas.forEach(p => sel.innerHTML += `<option value="${p.n}">${p.n}</option>`);
-
-    const map = L.map('map').setView(paradas[0].c, 14);
+    // Mapa centrado en la ruta
+    const map = L.map('map').setView([-34.5612, -58.7705], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    paradas.forEach(p => L.circleMarker(p.c, {radius: 6, color: '#007bff'}).addTo(map));
 
-    function tocar(n) { document.getElementById('a'+n).classList.toggle('activo'); }
+    let asientosSeleccionados = 0;
 
-    async function enviar() {
-        const dest = document.getElementById('destino').value;
-        const cant = document.querySelectorAll('.btn-asiento.activo').length;
-        if(!dest || cant === 0) return alert("Completa destino y asientos");
+    function toggleAsiento(elemento, numero) {
+        elemento.classList.toggle('seleccionado');
+        asientosSeleccionados = document.querySelectorAll('.asiento.seleccionado').length;
+    }
 
-        const { error } = await _s.from('estado_movil').update({
-            asientos_libres: 4 - cant,
-            pasajero_destino: dest 
-        }).eq('id', 1);
+    async function reservarViaje() {
+        const destinoSeleccionado = document.getElementById('destino').value;
 
-        if(!error) alert("¡Reserva confirmada!");
-        else alert("Error de red. Intenta de nuevo.");
+        if (!destinoSeleccionado) {
+            alert("Por favor, selecciona tu parada de destino.");
+            return;
+        }
+
+        if (asientosSeleccionados === 0) {
+            alert("Por favor, selecciona al menos un asiento.");
+            return;
+        }
+
+        // Enviamos los datos a la tabla 'estado_movil' con la estructura original
+        const { error } = await supabaseClient
+            .from('estado_movil')
+            .update({ 
+                asientos_libres: 4 - asientosSeleccionados,
+                pasajero_destino: destinoSeleccionado 
+            })
+            .eq('id', 1);
+
+        if (!error) {
+            alert("¡Reserva confirmada con éxito!");
+        } else {
+            console.error(error);
+            alert("Error al conectar con el servidor.");
+        }
     }
 </script>
+
 </body>
 </html>
