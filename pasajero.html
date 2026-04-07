@@ -25,13 +25,11 @@
         .btn-as { aspect-ratio: 1; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-size: 18px; font-weight: bold; }
         .btn-as.selected { background: #4cd964 !important; color: #000 !important; border-color: #4cd964 !important; }
 
-        /* ESTADO DESACTIVADO */
         .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #333; color: #666; pointer-events: none; transition: 0.3s; }
-        
-        /* ESTADO ACTIVADO - Usamos !important para asegurar que el click funcione */
-        .btn-confirm.ready { background: #00d4ff !important; color: black !important; pointer-events: auto !important; cursor: pointer !important; box-shadow: 0 0 15px rgba(0, 212, 255, 0.5); }
+        .btn-confirm.ready { background: #00d4ff !important; color: black !important; pointer-events: auto !important; cursor: pointer !important; }
         
         .btn-cancel { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #ff3b30; color: white; display: none; }
+        .distancia-tag { background: #00d4ff; color: black; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; margin: 0 auto; margin-top: -30px; z-index: 1001; position: relative; text-align: center; width: fit-content; }
     </style>
 </head>
 <body>
@@ -51,6 +49,7 @@
     </div>
 
     <div id="map"></div>
+    <div class="distancia-tag" id="tag-distancia">ESPERANDO GPS...</div>
 
     <div class="bottom-panel">
         <div id="resumen-viaje">
@@ -92,6 +91,10 @@
 
     const map = L.map('map', { zoomControl: false }).setView(rutaOficial[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
+    // REINSTALACIÓN DE LA RUTA CELESTE
+    L.polyline(rutaOficial.map(p=>p.c), {color:'#00d4ff', weight:5, opacity:0.4}).addTo(map);
+
     const markerMovil = L.marker(rutaOficial[0].c, { icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', iconSize: [35, 35] }) }).addTo(map);
     let miMarcador = L.circleMarker([0,0], { radius: 8, color: '#fff', fillColor: '#007aff', fillOpacity: 1 }).addTo(map);
     const markerDestino = L.marker([0,0]).addTo(map);
@@ -105,7 +108,12 @@
     }, null, { enableHighAccuracy: true });
 
     _s.channel('movil').on('postgres_changes',{event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
-        markerMovil.setLatLng([payload.new.latitud, payload.new.longitud]);
+        const pos = [payload.new.latitud, payload.new.longitud];
+        markerMovil.setLatLng(pos);
+        if(miLat) {
+            const dist = map.distance([miLat, miLon], pos);
+            document.getElementById('tag-distancia').innerText = `MÓVIL A: ${Math.round(dist)}m`;
+        }
     }).subscribe();
 
     function toggleAsiento(n) {
@@ -131,12 +139,9 @@
     function validarFormulario() {
         const destIdx = document.getElementById('select-destino').value;
         const btn = document.getElementById('btn-accion');
-        
         if (destIdx !== "") {
             markerDestino.setLatLng(rutaOficial[destIdx].c).setOpacity(1);
         }
-
-        // CORRECCIÓN CLAVE: Aseguramos que se active el puntero y el click
         if(asientosElegidos.length > 0 && destIdx !== "") {
             btn.classList.add('ready');
         } else {
@@ -145,13 +150,16 @@
     }
 
     async function confirmarReserva() {
-        console.log("Intentando confirmar..."); // Para debug
         const destIdx = document.getElementById('select-destino').value;
-        const { data, error } = await _s.from('reservas_activas').insert([{
-            asiento_num: asientosElegidos.join(','),
+        
+        // CORRECCIÓN PARA MULTIPLE ASIENTO: Creamos una fila por cada asiento
+        const reservas = asientosElegidos.map(num => ({
+            asiento_num: num, // Ahora mandamos el número solo, sin comas
             pasajero_lat: miLat, pasajero_lon: miLon,
             destino_idx: parseInt(destIdx), estado: 'en_curso'
-        }]).select();
+        }));
+
+        const { data, error } = await _s.from('reservas_activas').insert(reservas).select();
 
         if(!error) {
             idReservaActual = data[0].id;
@@ -159,6 +167,7 @@
             document.getElementById('btn-finalizar').style.display = 'block';
             document.getElementById('grid-asientos').style.pointerEvents = 'none';
             document.getElementById('select-destino').disabled = true;
+            alert("Reserva confirmada");
         } else {
             alert("Error al reservar: " + error.message);
         }
@@ -166,15 +175,16 @@
 
     async function finalizarViaje() {
         if(!confirm("¿Finalizar viaje?")) return;
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', idReservaActual);
+        // Finalizamos todas las reservas asociadas a este viaje (podes usar el destino_idx como referencia si es necesario)
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('pasajero_lat', miLat);
         location.reload();
     }
 
     async function recuperarSesion() {
-        const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').limit(1);
+        const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').limit(5);
         if (data && data.length > 0) {
             idReservaActual = data[0].id;
-            asientosElegidos = String(data[0].asiento_num).split(',').map(Number);
+            asientosElegidos = data.map(r => r.asiento_num);
             document.getElementById('btn-accion').style.display = 'none';
             document.getElementById('btn-finalizar').style.display = 'block';
             document.getElementById('grid-asientos').style.pointerEvents = 'none';
