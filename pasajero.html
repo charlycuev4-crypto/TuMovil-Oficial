@@ -30,8 +30,7 @@
         .seleccionado-local { background: #00d4ff !important; color: #000 !important; box-shadow: 0 0 15px #00d4ff; }
         
         .btn-action { color: white; border: none; padding: 16px; border-radius: 14px; font-weight: bold; width: 100%; text-transform: uppercase; cursor: pointer; }
-        .btn-confirmar { background: #555; } /* Color gris cuando no está listo */
-        .ready { background: #28a745 !important; } /* Color verde cuando ya puede confirmar */
+        .btn-confirmar { background: #28a745; } /* Siempre verde y brillante */
         .btn-finalizar { background: #ff3b30; display: none; }
         .dist-tag { background: #00d4ff; color: #000; padding: 6px 16px; border-radius: 12px; font-weight: bold; margin-bottom: 10px; }
     </style>
@@ -42,9 +41,9 @@
     
     <div class="overlay top">
         <div class="card-destino">
-            <span style="color:#00d4ff; font-size:11px; font-weight:bold; display:block; margin-bottom:5px;">📍 1. TU DESTINO</span>
+            <span style="color:#00d4ff; font-size:11px; font-weight:bold; display:block; margin-bottom:5px;">📍 TU DESTINO</span>
             <select id="sel-p" onchange="marcarDestino()">
-                <option value="">-- ELIGE DÓNDE BAJAS --</option>
+                <option value="">-- SELECCIONAR DESTINO --</option>
             </select>
         </div>
     </div>
@@ -53,7 +52,7 @@
         <div id="ui-dist" class="dist-tag" style="display:none;">DISTANCIA: <span id="v-dist">0</span>m</div>
         <div class="card-asientos">
             <div class="price-display">
-                <span class="price-label" id="label-monto">2. ELIGE TUS ASIENTOS</span>
+                <span class="price-label">Importe a pagar</span>
                 <span class="price-value" id="monto">$0</span>
             </div>
             <div class="asientos-grid" id="grid-asientos">
@@ -110,8 +109,8 @@
             const index = rutaCompleta.findIndex(r => r.n === data.pasajero_destino);
             if(index !== -1) { sel.value = index; marcarDestino(); }
             asientosOcupadosGlobal = 4 - data.asientos_libres;
-            actualizarUI();
         }
+        actualizarUI();
     }
 
     function marcarDestino() {
@@ -121,7 +120,6 @@
             if(markerDest) map.removeLayer(markerDest);
             markerDest = L.marker(p.c).addTo(map).bindPopup(p.n).openPopup();
             map.flyTo(p.c, 16);
-            actualizarUI();
         }
     }
 
@@ -131,10 +129,8 @@
         if (btn.classList.contains('ocupado')) return;
         if (misAsientosLocal.includes(n)) {
             misAsientosLocal = misAsientosLocal.filter(id => id !== n);
-            btn.classList.remove('seleccionado-local');
         } else {
             misAsientosLocal.push(n);
-            btn.classList.add('seleccionado-local');
         }
         actualizarUI();
     }
@@ -144,21 +140,8 @@
         document.getElementById('monto').innerText = `$${cant * 1000}`;
         document.getElementById('monto').style.color = viajeConfirmado ? "#28a745" : "#00d4ff";
 
-        const btnConf = document.getElementById('btn-confirmar');
-        const btnFin = document.getElementById('btn-finalizar');
-
-        if (viajeConfirmado) {
-            btnConf.style.display = 'none';
-            btnFin.style.display = 'block';
-        } else {
-            btnFin.style.display = 'none';
-            // Cambia el color del botón si ya está todo listo
-            if(sel.value !== "" && misAsientosLocal.length > 0) {
-                btnConf.classList.add('ready');
-            } else {
-                btnConf.classList.remove('ready');
-            }
-        }
+        document.getElementById('btn-confirmar').style.display = viajeConfirmado ? 'none' : 'block';
+        document.getElementById('btn-finalizar').style.display = viajeConfirmado ? 'block' : 'none';
         
         for(let i=1; i<=4; i++) {
             const btn = document.getElementById('as'+i);
@@ -168,19 +151,9 @@
         }
     }
 
-    // NUEVA FUNCIÓN DE VERIFICACIÓN
-    async function verificarYConfirmar() {
-        // 1. Verificar ubicación
-        if(sel.value === "") {
-            alert("Por favor, selecciona primero tu ubicación de destino arriba.");
-            return;
-        }
-        // 2. Verificar asientos
-        if(misAsientosLocal.length === 0) {
-            alert("Debes elegir al menos un asiento para viajar.");
-            return;
-        }
-        // 3. Si todo está bien, confirmar
+    function verificarYConfirmar() {
+        if(sel.value === "") { alert("Por favor, selecciona tu destino primero."); return; }
+        if(misAsientosLocal.length === 0) { alert("Elige al menos un asiento."); return; }
         confirmarReserva();
     }
 
@@ -196,9 +169,10 @@
             
             if(!error) {
                 viajeConfirmado = true;
+                asientosOcupadosGlobal = 4 - (data.asientos_libres - misAsientosLocal.length);
                 misAsientosLocal = [];
                 actualizarUI();
-                alert("¡Buen viaje! Reserva confirmada.");
+                alert("Reserva confirmada.");
             }
         }
     }
@@ -223,7 +197,10 @@
     }).subscribe();
 
     init();
-    setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display='none', 800); }, 2000);
+    setTimeout(() => { 
+        document.getElementById('splash').style.opacity = '0'; 
+        setTimeout(() => document.getElementById('splash').style.display='none', 800); 
+    }, 2000);
 </script>
 </body>
 </html>
