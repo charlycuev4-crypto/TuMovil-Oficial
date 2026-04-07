@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PASAJERO ROBUSTO - TuMovil</title>
+    <title>PASAJERO FIX - TuMovil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -22,7 +22,6 @@
         .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .btn-as { aspect-ratio: 1; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-size: 18px; font-weight: bold; }
         .btn-as.selected { background: #4cd964 !important; color: #000 !important; border-color: #4cd964 !important; }
-        .btn-as.busy { border-color: #ff3b30 !important; color: #ff3b30 !important; opacity: 0.5; pointer-events: none; }
         .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #333; color: #666; pointer-events: none; transition: 0.3s; }
         .btn-confirm.ready { background: #00d4ff !important; color: black !important; pointer-events: auto !important; cursor: pointer !important; }
         .btn-cancel { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #ff3b30; color: white; display: none; }
@@ -31,9 +30,9 @@
 </head>
 <body>
     <div id="splash"><div class="logo-m">M</div><div style="letter-spacing: 3px; font-size: 12px;">TUMOVIL SANTA BRIGIDA</div></div>
-    <div class="top-ui"><div class="dest-card"><span style="font-size: 10px; color: #00d4ff;">📍 DESTINO</span><select id="select-destino" onchange="validarFormulario()"><option value="" disabled selected>--- ¿A DÓNDE VAS? ---</option></select></div></div>
+    <div class="top-ui"><div class="dest-card"><span style="font-size: 10px; color: #00d4ff;">📍 SELECCIONA TU DESTINO</span><select id="select-destino" onchange="validarFormulario()"><option value="" disabled selected>--- ¿A DÓNDE VAS? ---</option></select></div></div>
     <div id="map"></div>
-    <div class="distancia-tag" id="tag-distancia">ESPERANDO GPS...</div>
+    <div class="distancia-tag" id="tag-distancia">BUSCANDO GPS...</div>
     <div class="bottom-panel">
         <div id="resumen-viaje"><p style="margin:0; font-size:13px;">Reservando: <span class="resaltado" id="cant-resumen">0</span> | Total: <span class="resaltado" id="precio-resumen">$0</span></p></div>
         <div class="asientos-grid" id="grid-asientos">
@@ -48,10 +47,6 @@
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
-    // GENERAR UN ID UNICO DE SESION (Para evitar viajes fantasmas)
-    if(!localStorage.getItem('sesion_id')) localStorage.setItem('sesion_id', 'p-' + Math.random().toString(36).substr(2, 9));
-    const miSesionId = localStorage.getItem('sesion_id');
 
     const rutaOficial = [
         {n:'Miguel Cané (Inicio)', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
@@ -97,11 +92,6 @@
         }
     }).subscribe();
 
-    // ESCUCHAR ASIENTOS OCUPADOS POR OTROS (Opcional pero recomendado)
-    _s.channel('asientos').on('postgres_changes', {event:'*', schema:'public', table:'reservas_activas'}, () => {
-        recuperarSesion();
-    }).subscribe();
-
     function toggleAsiento(n) {
         const idx = asientosElegidos.indexOf(n);
         if (idx > -1) {
@@ -125,7 +115,7 @@
     function validarFormulario() {
         const destIdx = document.getElementById('select-destino').value;
         const btn = document.getElementById('btn-accion');
-        if (destIdx !== "") { markerDestino.setLatLng(rutaOficial[destIdx].c).setOpacity(1); }
+        if (destIdx !== "") markerDestino.setLatLng(rutaOficial[destIdx].c).setOpacity(1);
         if(asientosElegidos.length > 0 && destIdx !== "") btn.classList.add('ready');
         else btn.classList.remove('ready');
     }
@@ -134,74 +124,77 @@
         if(!miLat) return alert("Esperando GPS...");
         const destIdx = document.getElementById('select-destino').value;
         
-        // Cada fila ahora incluye el miSesionId
+        // SOLUCIÓN AL ERROR DE INTEGER: Enviamos un array de objetos (uno por asiento)
         const reservas = asientosElegidos.map(num => ({
             asiento_num: num, 
             pasajero_lat: miLat, pasajero_lon: miLon,
             destino_idx: parseInt(destIdx), 
-            estado: 'en_curso',
-            // NOTA: Si no tienes esta columna en Supabase, ignórala o agrégala como texto
-            // Por ahora usaremos la latitud como identificador si no quieres tocar la base.
+            estado: 'en_curso'
         }));
 
         const { error } = await _s.from('reservas_activas').insert(reservas);
 
         if(!error) {
             alert("Reserva confirmada");
-            localStorage.setItem('viaje_activo', 'true');
-            location.reload();
+            localStorage.setItem('viaje_en_curso', 'true');
+            location.reload(); 
         } else {
-            alert("Error: " + error.message);
+            alert("Error al reservar: " + error.message);
         }
     }
 
     async function finalizarViaje() {
         if(!confirm("¿Finalizar viaje?")) return;
 
-        // Limpieza profunda usando el estado de sesión
+        // Limpieza robusta: finaliza todo lo que esté en curso cerca de tu posición
         const { error } = await _s.from('reservas_activas')
             .update({ estado: 'finalizado' })
             .eq('estado', 'en_curso')
-            .gte('pasajero_lat', miLat - 0.005)
-            .lte('pasajero_lat', miLat + 0.005);
+            .gte('pasajero_lat', miLat - 0.001)
+            .lte('pasajero_lat', miLat + 0.001);
 
         if(!error) {
-            localStorage.removeItem('viaje_activo');
+            localStorage.removeItem('viaje_en_curso');
             alert("Viaje Finalizado");
             location.reload();
+        } else {
+            alert("Error al finalizar: " + error.message);
         }
     }
 
     async function recuperarSesion() {
-        const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
-        if (!data) return;
-
-        // 1. Marcar asientos ocupados por OTROS (en rojo)
-        for(let i=1; i<=4; i++) document.getElementById('b'+i).classList.remove('busy');
+        if (!localStorage.getItem('viaje_en_curso')) return;
         
-        const misReservas = data.filter(r => Math.abs(r.pasajero_lat - miLat) < 0.002);
-        const reservasAjenas = data.filter(r => Math.abs(r.pasajero_lat - miLat) >= 0.002);
-
-        reservasAjenas.forEach(r => {
-            const btn = document.getElementById('b' + r.asiento_num);
-            if(btn) btn.classList.add('busy');
-        });
-
-        // 2. Recuperar MIS asientos
-        if(misReservas.length > 0 && localStorage.getItem('viaje_activo')) {
-            asientosElegidos = misReservas.map(r => r.asiento_num);
-            document.getElementById('btn-accion').style.display = 'none';
-            document.getElementById('btn-finalizar').style.display = 'block';
-            document.getElementById('grid-asientos').style.pointerEvents = 'none';
-            document.getElementById('select-destino').disabled = true;
-            actualizarResumen();
-            asientosElegidos.forEach(n => document.getElementById('b'+n).classList.add('selected'));
-            if(misReservas[0].destino_idx !== null) markerDestino.setLatLng(rutaOficial[misReservas[0].destino_idx].c).setOpacity(1);
+        const { data } = await _s.from('reservas_activas')
+            .select('*')
+            .eq('estado', 'en_curso');
+        
+        if (data && data.length > 0) {
+            // Buscamos las reservas que coincidan con nuestra ubicación aproximada
+            const misReservas = data.filter(r => Math.abs(r.pasajero_lat - miLat) < 0.005);
+            
+            if(misReservas.length > 0) {
+                asientosElegidos = misReservas.map(r => r.asiento_num);
+                document.getElementById('btn-accion').style.display = 'none';
+                document.getElementById('btn-finalizar').style.display = 'block';
+                document.getElementById('grid-asientos').style.pointerEvents = 'none';
+                document.getElementById('select-destino').disabled = true;
+                actualizarResumen();
+                asientosElegidos.forEach(n => document.getElementById('b'+n).classList.add('selected'));
+                if(misReservas[0].destino_idx !== null) {
+                    markerDestino.setLatLng(rutaOficial[misReservas[0].destino_idx].c).setOpacity(1);
+                    document.getElementById('select-destino').value = misReservas[0].destino_idx;
+                }
+            }
         }
     }
 
     setTimeout(recuperarSesion, 1500);
-    setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display = 'none', 800); }, 2500);
+
+    setTimeout(() => { 
+        document.getElementById('splash').style.opacity = '0'; 
+        setTimeout(() => document.getElementById('splash').style.display = 'none', 800); 
+    }, 2500);
 </script>
 </body>
 </html>
