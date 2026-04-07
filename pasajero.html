@@ -9,56 +9,33 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; font-family: sans-serif; background: #f0f2f5; }
-        #map { height: 55vh; width: 100%; }
-        
-        .contenedor-controles { 
-            position: fixed; bottom: 0; width: 100%; background: white; 
-            padding: 20px; border-radius: 20px 20px 0 0; box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
-            z-index: 1000; box-sizing: border-box;
-        }
-
-        .select-destino { 
-            width: 100%; padding: 12px; border: 2px solid #007bff; 
-            border-radius: 8px; font-size: 16px; margin-bottom: 15px; background: white;
-        }
-
-        .fila-asientos { display: flex; justify-content: space-between; margin-bottom: 15px; }
-        .btn-asiento { 
-            width: 22%; height: 50px; border: 2px solid #007bff; border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: bold; color: #007bff; cursor: pointer;
-        }
+        #map { height: 50vh; width: 100%; }
+        .ui { position: fixed; bottom: 0; width: 100%; background: white; padding: 20px; border-radius: 20px 20px 0 0; box-shadow: 0 -4px 10px rgba(0,0,0,0.1); box-sizing: border-box; z-index: 1000; }
+        select { width: 100%; padding: 12px; border: 2px solid #007bff; border-radius: 8px; font-size: 16px; margin-bottom: 15px; }
+        .grid { display: flex; justify-content: space-between; margin-bottom: 15px; }
+        .btn-asiento { width: 22%; height: 50px; border: 2px solid #007bff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #007bff; }
         .btn-asiento.activo { background: #dc3545; border-color: #dc3545; color: white; }
-
-        .btn-enviar {
-            width: 100%; padding: 15px; background: #28a745; color: white;
-            border: none; border-radius: 8px; font-weight: bold; font-size: 18px;
-        }
+        .btn-confirmar { width: 100%; padding: 15px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 18px; }
     </style>
 </head>
 <body>
-
-<div id="map"></div>
-
-<div class="contenedor-controles">
-    <select id="parada-destino" class="select-destino">
-        <option value="">-- ¿A dónde vas? --</option>
-    </select>
-
-    <div class="fila-asientos">
-        <div id="sit-1" class="btn-asiento" onclick="tocarAsiento(1)">1</div>
-        <div id="sit-2" class="btn-asiento" onclick="tocarAsiento(2)">2</div>
-        <div id="sit-3" class="btn-asiento" onclick="tocarAsiento(3)">3</div>
-        <div id="sit-4" class="btn-asiento" onclick="tocarAsiento(4)">4</div>
+    <div id="map"></div>
+    <div class="ui">
+        <select id="destino">
+            <option value="">-- ¿A dónde vas? --</option>
+        </select>
+        <div class="grid">
+            <div id="a1" class="btn-asiento" onclick="tocar(1)">1</div>
+            <div id="a2" class="btn-asiento" onclick="tocar(2)">2</div>
+            <div id="a3" class="btn-asiento" onclick="tocar(3)">3</div>
+            <div id="a4" class="btn-asiento" onclick="tocar(4)">4</div>
+        </div>
+        <button class="btn-confirmar" onclick="enviar()">CONFIRMAR VIAJE</button>
     </div>
-
-    <button class="btn-enviar" onclick="enviarDatos()">CONFIRMAR VIAJE</button>
-</div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-
-    const paradasRuta = [
+    const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
         {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
@@ -74,37 +51,27 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    const menu = document.getElementById('parada-destino');
-    paradasRuta.forEach(p => menu.innerHTML += `<option value="${p.n}">${p.n}</option>`);
+    const sel = document.getElementById('destino');
+    paradas.forEach(p => sel.innerHTML += `<option value="${p.n}">${p.n}</option>`);
 
-    const map = L.map('map').setView(paradasRuta[0].c, 14);
+    const map = L.map('map').setView(paradas[0].c, 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    paradas.forEach(p => L.circleMarker(p.c, {radius: 6, color: '#007bff'}).addTo(map));
 
-    paradasRuta.forEach(p => {
-        L.circleMarker(p.c, {radius: 6, color: '#007bff', fillOpacity: 0.8}).addTo(map);
-    });
+    function tocar(n) { document.getElementById('a'+n).classList.toggle('activo'); }
 
-    function tocarAsiento(n) {
-        document.getElementById('sit-'+n).classList.toggle('activo');
-    }
-
-    async function enviarDatos() {
-        const destinoFinal = document.getElementById('parada-destino').value;
-        const ocupados = document.querySelectorAll('.btn-asiento.activo').length;
-
-        if(!destinoFinal) return alert("Por favor, selecciona tu destino");
-        if(ocupados === 0) return alert("Selecciona al menos un asiento");
+    async function enviar() {
+        const dest = document.getElementById('destino').value;
+        const cant = document.querySelectorAll('.btn-asiento.activo').length;
+        if(!dest || cant === 0) return alert("Completa destino y asientos");
 
         const { error } = await _s.from('estado_movil').update({
-            asientos_libres: 4 - ocupados,
-            pasajero_destino: destinoFinal
+            asientos_libres: 4 - cant,
+            pasajero_destino: dest 
         }).eq('id', 1);
 
-        if(!error) {
-            alert("¡Viaje confirmado! El conductor ya puede verte.");
-        } else {
-            alert("Error al conectar. Reintenta.");
-        }
+        if(!error) alert("¡Reserva confirmada!");
+        else alert("Error de red. Intenta de nuevo.");
     }
 </script>
 </body>
