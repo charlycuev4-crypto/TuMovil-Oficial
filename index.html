@@ -10,47 +10,65 @@
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
+        
+        /* PANTALLA DE PRESENTACIÓN RECUPERADA */
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.8s; }
+        .logo-m { width: 85px; height: 85px; border: 3px solid #00d4ff; border-radius: 20px; color: #00d4ff; font-size: 50px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px #00d4ff; margin-bottom: 15px; }
+        .splash-text { color: white; font-weight: bold; letter-spacing: 2px; }
+
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         
         .overlay-top {
-            position: absolute; top: 10px; left: 10px; right: 10px;
+            position: absolute; top: 15px; left: 10px; right: 10px;
             display: grid; grid-template-columns: 1fr 1fr; gap: 10px; z-index: 1000;
         }
         .visor {
-            background: rgba(0, 0, 0, 0.9); border: 2px solid #00d4ff; border-radius: 12px;
-            padding: 8px; text-align: center; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            background: rgba(17, 17, 17, 0.9); border: 2px solid #00d4ff; border-radius: 15px;
+            padding: 10px; text-align: center; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.6);
         }
-        .visor-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; display: block; }
-        .visor-num { font-size: 22px; font-weight: bold; }
+        .visor-label { font-size: 11px; color: #00d4ff; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 2px; }
+        .visor-num { font-size: 24px; font-weight: 800; }
 
         .overlay-bottom {
             position: absolute; bottom: 25px; left: 0; right: 0;
-            display: flex; flex-direction: column; align-items: center; gap: 12px; z-index: 1000;
+            display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 1000;
         }
+        
+        /* MENÚ DE ASIENTOS DINÁMICO */
         .asientos-cont {
-            display: flex; gap: 10px; background: rgba(0, 0, 0, 0.9);
-            padding: 12px 15px; border-radius: 20px; border: 1px solid #00d4ff;
+            display: flex; gap: 12px; background: rgba(0, 0, 0, 0.85);
+            padding: 15px 20px; border-radius: 25px; border: 1px solid rgba(0, 212, 255, 0.3);
+            backdrop-filter: blur(5px);
         }
         .btn-as {
-            width: 55px; height: 55px; border-radius: 12px; border: 2.5px solid #00d4ff;
-            background: transparent; color: #00d4ff; font-size: 22px; font-weight: bold;
+            width: 50px; height: 50px; border-radius: 12px; border: 2px solid #00d4ff;
+            background: transparent; color: #00d4ff; font-size: 20px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
         }
-        .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; box-shadow: 0 0 15px #ff3b30; }
+        .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; box-shadow: 0 0 15px rgba(255, 59, 48, 0.5); }
 
+        /* BOTÓN DE FINALIZAR VIAJE */
         .btn-reset {
-            background: #ff3b30; color: white; border: none; padding: 15px;
-            border-radius: 12px; font-weight: bold; width: 90%; text-transform: uppercase;
+            background: linear-gradient(135deg, #ff3b30, #a51d16); color: white; border: none; 
+            padding: 18px; border-radius: 15px; font-weight: 900; width: 90%; 
+            text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 5px 15px rgba(255, 59, 48, 0.3);
         }
     </style>
 </head>
 <body>
+
+    <div id="splash">
+        <div class="logo-m">M</div>
+        <div class="splash-text">MÓVIL EN VIVO</div>
+        <div style="color: #00d4ff; font-size: 10px; margin-top: 10px;">PANEL CONDUCTOR</div>
+    </div>
 
     <div id="map"></div>
 
     <div class="overlay-top">
         <div class="visor">
             <span class="visor-label">RECAUDACIÓN</span>
-            <div class="visor-num">$ <span id="v-dinero">0</span></div>
+            <div class="visor-num">$<span id="v-dinero">0</span></div>
         </div>
         <div class="visor">
             <span class="visor-label">PASAJEROS</span>
@@ -59,11 +77,11 @@
     </div>
 
     <div class="overlay-bottom">
-        <div class="asientos-cont">
-            <div id="b1" class="btn-as" style="display:flex; align-items:center; justify-content:center;">1</div>
-            <div id="b2" class="btn-as" style="display:flex; align-items:center; justify-content:center;">2</div>
-            <div id="b3" class="btn-as" style="display:flex; align-items:center; justify-content:center;">3</div>
-            <div id="b4" class="btn-as" style="display:flex; align-items:center; justify-content:center;">4</div>
+        <div class="asientos-cont" id="menu-asientos">
+            <div id="b1" class="btn-as">1</div>
+            <div id="b2" class="btn-as">2</div>
+            <div id="b3" class="btn-as">3</div>
+            <div id="b4" class="btn-as">4</div>
         </div>
         <button class="btn-reset" onclick="finalizarViaje()">Finalizar Viaje / Vaciar</button>
     </div>
@@ -71,6 +89,7 @@
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
+    // Lista de paradas (Asegúrate de que sean las 26 si agregaste una)
     const rutaOficial = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -97,8 +116,8 @@
     });
 
     const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] });
-    const paxIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png', iconSize: [35, 35] }); // Icono de persona
-    const destIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', iconSize: [30, 30] }); // Icono de pin
+    const paxIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png', iconSize: [35, 35] });
+    const destIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', iconSize: [30, 30] });
 
     let markerBus = L.marker(rutaOficial[0].c, { icon: busIcon }).addTo(map);
     let markerPax = null;
@@ -111,8 +130,7 @@
     }, null, {enableHighAccuracy: true});
 
     function actualizarUI(data) {
-        const libres = data.asientos_libres;
-        const ocupados = 4 - libres;
+        const ocupados = 4 - data.asientos_libres;
         document.getElementById('v-pax').innerText = ocupados;
         document.getElementById('v-dinero').innerText = ocupados * 1000;
         
@@ -122,16 +140,15 @@
             else btn.classList.remove('ocupado');
         }
 
-        // Lógica para Personita (Pasajero) y Destino
+        // Mostrar Pasajero y Destino
         if (ocupados > 0 && data.pasajero_lat && data.pasajero_lon) {
             const posPax = [data.pasajero_lat, data.pasajero_lon];
-            if (!markerPax) markerPax = L.marker(posPax, { icon: paxIcon }).addTo(map).bindPopup("Pasajero");
+            if (!markerPax) markerPax = L.marker(posPax, { icon: paxIcon }).addTo(map);
             else markerPax.setLatLng(posPax);
 
-            const destIdx = data.pasajero_destino; // Suponiendo que guardas el índice
-            if (destIdx !== null && rutaOficial[destIdx]) {
-                const posDest = rutaOficial[destIdx].c;
-                if (!markerDest) markerDest = L.marker(posDest, { icon: destIcon }).addTo(map).bindPopup("Baja en: " + rutaOficial[destIdx].n);
+            if (data.pasajero_destino !== null && rutaOficial[data.pasajero_destino]) {
+                const posDest = rutaOficial[data.pasajero_destino].c;
+                if (!markerDest) markerDest = L.marker(posDest, { icon: destIcon }).addTo(map).bindPopup("Baja aquí");
                 else markerDest.setLatLng(posDest);
             }
         } else {
@@ -145,7 +162,7 @@
     }).subscribe();
 
     async function finalizarViaje() {
-        if(confirm("¿Vaciar unidad?")) {
+        if(confirm("¿Deseas vaciar la unidad y finalizar el viaje actual?")) {
             await _s.from('estado_movil').update({ 
                 asientos_libres: 4, 
                 pasajero_lat: null, 
@@ -155,9 +172,16 @@
         }
     }
 
+    // Carga Inicial
     _s.from('estado_movil').select('*').eq('id', 1).single().then(r => {
         if(r.data) actualizarUI(r.data);
     });
+
+    // Control del Splash Screen
+    setTimeout(() => { 
+        document.getElementById('splash').style.opacity = '0'; 
+        setTimeout(() => document.getElementById('splash').style.display='none', 800); 
+    }, 2500);
 </script>
 </body>
 </html>
