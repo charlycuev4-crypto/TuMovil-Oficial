@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+        <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -37,7 +37,7 @@
         .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #4cd964; color: black; }
         .btn-cancel { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #ff3b30; color: white; display: none; }
         
-        .distancia-tag { background: #00d4ff; color: black; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; margin: 0 auto; margin-top: -30px; z-index: 1001; position: relative; }
+        .distancia-tag { background: #00d4ff; color: black; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; margin: 0 auto; margin-top: -30px; z-index: 1001; position: relative; text-align: center; width: fit-content; }
     </style>
 </head>
 <body>
@@ -57,7 +57,7 @@
 
     <div id="map"></div>
 
-    <div class="distancia-tag" id="tag-distancia">EL MÓVIL ESTÁ A: --</div>
+    <div class="distancia-tag" id="tag-distancia">ESPERANDO GPS...</div>
 
     <div class="bottom-panel">
         <div class="price-box" id="caja-pago">
@@ -95,40 +95,56 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    // Llenar select
+    // Llenar select de destinos
     const sel = document.getElementById('select-destino');
-    rutaOficial.forEach((p,i) => { let opt = new Image().src; sel.innerHTML += `<option value="${i}">${p.n}</option>`; });
+    rutaOficial.forEach((p,i) => { 
+        sel.innerHTML += `<option value="${i}">${p.n}</option>`; 
+    });
 
     const map = L.map('map', { zoomControl: false }).setView(rutaOficial[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     L.polyline(rutaOficial.map(p=>p.c), {color:'#00d4ff', weight:5, opacity:0.4}).addTo(map);
 
-    const movilIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', iconSize: [35, 35] });
+    const movilIcon = L.icon({ 
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', 
+        iconSize: [35, 35] 
+    });
     const markerMovil = L.marker(rutaOficial[0].c, { icon: movilIcon }).addTo(map);
     const markerDestino = L.marker(rutaOficial[0].c).addTo(map);
+    
+    // Marcador para el Pasajero (Punto Azul)
+    let miMarcador = L.circleMarker([0,0], { radius: 8, color: '#fff', fillColor: '#007aff', fillOpacity: 1 }).addTo(map);
 
     let miLat, miLon, asientoElegido = null, idReservaActual = null, ultimaActGps = 0;
 
-    // GPS Pasajero (Optimizado para no pesar en la red)
+    // GPS Pasajero en tiempo real
     navigator.geolocation.watchPosition(async p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
-        const ahora = Date.now();
+        miMarcador.setLatLng([miLat, miLon]);
+        
+        // La primera vez, centramos el mapa en el pasajero
+        if(ultimaActGps === 0) map.setView([miLat, miLon], 15);
 
-        // Si hay viaje activo, actualizar ubicación del pasajero cada 6 segundos
+        const ahora = Date.now();
         if(idReservaActual && (ahora - ultimaActGps > 6000)) {
             await _s.from('reservas_activas').update({ pasajero_lat: miLat, pasajero_lon: miLon }).eq('id', idReservaActual);
             ultimaActGps = ahora;
+        } else if (ultimaActGps === 0) {
+            ultimaActGps = 1; // Ya recibimos la primera señal
         }
-    }, null, { enableHighAccuracy: true });
+    }, (err) => {
+        document.getElementById('tag-distancia').innerText = "ERROR: ACTIVA TU GPS";
+    }, { enableHighAccuracy: true });
 
-    // Seguir al Conductor en tiempo real
-    _s.channel('movil').on('postgres_changes',{event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
+    // Seguir al Conductor (Sincronización Total)
+    _s.channel('movil')
+    .on('postgres_changes',{event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
         const d = payload.new;
         const pos = [d.latitud, d.longitud];
         markerMovil.setLatLng(pos);
         if(miLat) {
             const dist = map.distance([miLat, miLon], pos);
-            document.getElementById('tag-distancia').innerText = `EL MÓVIL ESTÁ A: ${Math.round(dist)}m`;
+            document.getElementById('tag-distancia').innerText = `MÓVIL A: ${Math.round(dist)}m`;
         }
     }).subscribe();
 
@@ -140,7 +156,9 @@
     }
 
     async function confirmarReserva() {
-        if(!asientoElegido) return alert("Elige un asiento");
+        if(!asientoElegido) return alert("Por favor, elige un asiento");
+        if(!miLat) return alert("Esperando tu ubicación GPS...");
+        
         const destIdx = document.getElementById('select-destino').value;
 
         const { data, error } = await _s.from('reservas_activas').insert([{
@@ -156,25 +174,21 @@
             document.getElementById('btn-accion').style.display = 'none';
             document.getElementById('btn-finalizar').style.display = 'block';
             document.getElementById('grid-asientos').style.pointerEvents = 'none';
-            alert("Viaje Iniciado");
+            alert("¡Reserva confirmada! El conductor ya puede verte.");
         }
     }
 
     async function finalizarViaje() {
         if(!confirm("¿Llegaste a tu destino?")) return;
-        
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', idReservaActual);
-        alert("¡Gracias por viajar!");
         location.reload();
     }
 
     function actualizarDestinoEnMapa() {
         const idx = document.getElementById('select-destino').value;
-        markerDestino.setLatLng(rutaOficial[idx].c).bindPopup("Tu Destino: " + rutaOficial[idx].n).openPopup();
-        map.flyTo(rutaOficial[idx].c, 16);
+        markerDestino.setLatLng(rutaOficial[idx].c).bindPopup("Bajarás en: " + rutaOficial[idx].n).openPopup();
     }
 
-    // Quitar Splash
     setTimeout(() => { 
         document.getElementById('splash').style.opacity = '0';
         setTimeout(() => document.getElementById('splash').style.display = 'none', 800);
