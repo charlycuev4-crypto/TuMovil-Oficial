@@ -22,15 +22,15 @@
         
         .price-display { background: rgba(0, 212, 255, 0.1); border-radius: 12px; padding: 10px; margin-bottom: 15px; border: 1px solid rgba(0, 212, 255, 0.2); }
         .price-label { color: #aaa; font-size: 12px; text-transform: uppercase; font-weight: bold; display: block; }
-        .price-value { color: #00d4ff; font-size: 28px; font-weight: 800; }
+        .price-value { color: #00d4ff; font-size: 28px; font-weight: 800; transition: color 0.3s; }
 
-        .asientos-grid { display: flex; gap: 12px; margin-bottom: 15px; justify-content: center; }
+        .asientos-grid { display: flex; gap: 12px; margin-bottom: 15px; justify-content: center; transition: opacity 0.3s; }
         .btn-as { width: 65px; height: 65px; border-radius: 15px; border: 2.5px solid #00d4ff; background: transparent; color: #00d4ff; font-weight: bold; font-size: 24px; transition: 0.3s; }
         .ocupado { background: #ff3b30 !important; border-color: #ff3b30 !important; color: white !important; opacity: 0.6; }
         .seleccionado-local { background: #00d4ff !important; color: #000 !important; box-shadow: 0 0 15px #00d4ff; }
         
-        .btn-action { color: white; border: none; padding: 16px; border-radius: 14px; font-weight: bold; width: 100%; text-transform: uppercase; cursor: pointer; }
-        .btn-confirmar { background: #28a745; }
+        .btn-action { color: white; border: none; padding: 16px; border-radius: 14px; font-weight: bold; width: 100%; text-transform: uppercase; }
+        .btn-confirmar { background: #28a745; display: none; }
         .btn-finalizar { background: #ff3b30; }
         .dist-tag { background: #00d4ff; color: #000; padding: 6px 16px; border-radius: 12px; font-weight: bold; margin-bottom: 10px; }
     </style>
@@ -60,7 +60,7 @@
                 <button id="as4" class="btn-as" onclick="toggleSeleccion(4)">4</button>
             </div>
             <button id="btn-confirmar" class="btn-action btn-confirmar" onclick="confirmarReserva()">Confirmar Reserva</button>
-            <button id="btn-finalizar" class="btn-action btn-finalizar" style="display:none;" onclick="liberarAsiento()">Finalizar mi viaje</button>
+            <button id="btn-finalizar" class="btn-action btn-finalizar" onclick="liberarAsiento()">Finalizar mi viaje</button>
         </div>
     </div>
 
@@ -68,7 +68,9 @@
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
     let misAsientosLocal = [];
+    let ultimoMontoPagado = 0; 
     let viajeConfirmado = false; 
+    const PRECIO_ASIENTO = 1000;
     let miPos = null;
 
     const rutaCompleta = [
@@ -95,7 +97,7 @@
     let markerDest = null;
 
     const sel = document.getElementById('sel-p');
-    rutaCompleta.forEach((p,i)=>{ let o=document.createElement('option'); o.value=i; o.text=p.n; sel.add(o); });
+    rutaCompleta.forEach((p,i)=>{ if(!p.n.includes('Giro')) { let o=document.createElement('option'); o.value=i; o.text=p.n; sel.add(o); } });
 
     navigator.geolocation.watchPosition(p => { miPos = [p.coords.latitude, p.coords.longitude]; }, null, {enableHighAccuracy:true});
 
@@ -110,6 +112,7 @@
         if (viajeConfirmado) return;
         const btn = document.getElementById('as' + n);
         if (btn.classList.contains('ocupado')) return;
+
         if (misAsientosLocal.includes(n)) {
             misAsientosLocal = misAsientosLocal.filter(id => id !== n);
             btn.classList.remove('seleccionado-local');
@@ -117,4 +120,91 @@
             misAsientosLocal.push(n);
             btn.classList.add('seleccionado-local');
         }
-        document
+        actualizarUI();
+    }
+
+    function actualizarUI() {
+        const totalActual = misAsientosLocal.length * PRECIO_ASIENTO;
+        const visorMonto = document.getElementById('monto');
+        const grid = document.getElementById('grid-asientos');
+        
+        visorMonto.innerText = totalActual > 0 ? `$${totalActual}` : (ultimoMontoPagado > 0 ? `$${ultimoMontoPagado}` : "$0");
+        visorMonto.style.color = (totalActual > 0 || ultimoMontoPagado > 0) ? (ultimoMontoPagado > 0 ? "#28a745" : "#00d4ff") : "#00d4ff";
+
+        grid.style.opacity = viajeConfirmado ? "0.5" : "1";
+        grid.style.pointerEvents = viajeConfirmado ? "none" : "auto";
+        
+        const btnConf = document.getElementById('btn-confirmar');
+        const btnFin = document.getElementById('btn-finalizar');
+
+        if (misAsientosLocal.length > 0) { btnConf.style.display = 'block'; btnFin.style.display = 'none'; }
+        else { btnConf.style.display = 'none'; btnFin.style.display = 'block'; }
+    }
+
+    async function confirmarReserva() {
+        if (misAsientosLocal.length === 0) return;
+
+        const { data } = await _s.from('estado_movil').select('asientos_libres').eq('id', 1).single();
+        const cant = misAsientosLocal.length;
+
+        if(data && data.asientos_libres >= cant) {
+            // DATOS NUEVOS PARA EL CONDUCTOR
+            const idDestino = document.getElementById('sel-p').value;
+            const latP = miPos ? miPos[0] : null;
+            const lonP = miPos ? miPos[1] : null;
+
+            await _s.from('estado_movil').update({ 
+                asientos_libres: data.asientos_libres - cant,
+                pasajero_lat: latP,
+                pasajero_lon: lonP,
+                pasajero_destino: idDestino
+            }).eq('id', 1);
+            
+            ultimoMontoPagado = cant * PRECIO_ASIENTO;
+            viajeConfirmado = true;
+            misAsientosLocal = []; 
+            alert("¡Reserva confirmada!");
+            actualizarUI();
+        } else { alert("No hay asientos disponibles."); }
+    }
+
+    async function liberarAsiento() {
+        // Limpiamos todo en la DB
+        await _s.from('estado_movil').update({ 
+            asientos_libres: 4,
+            pasajero_lat: null, 
+            pasajero_lon: null, 
+            pasajero_destino: null 
+        }).eq('id', 1);
+        
+        misAsientosLocal = [];
+        ultimoMontoPagado = 0;
+        viajeConfirmado = false; 
+        for(let i=1; i<=4; i++) document.getElementById('as'+i).classList.remove('seleccionado-local');
+        actualizarUI();
+    }
+
+    _s.channel('cambios').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
+        markerBus.setLatLng([r.new.latitud, r.new.longitud]);
+        if(miPos) {
+            const d = map.distance(markerBus.getLatLng(), miPos);
+            document.getElementById('ui-dist').style.display = 'block';
+            document.getElementById('v-dist').innerText = Math.round(d);
+        }
+        const libres = r.new.asientos_libres;
+        const ocupadosDB = 4 - libres;
+        for(let i=1; i<=4; i++) {
+            const btn = document.getElementById('as'+i);
+            if (i <= ocupadosDB) btn.className = 'btn-as ocupado';
+            else btn.className = 'btn-as' + (misAsientosLocal.includes(i) ? ' seleccionado-local' : '');
+        }
+        actualizarUI();
+    }).subscribe();
+
+    setTimeout(() => { 
+        document.getElementById('splash').style.opacity = '0'; 
+        setTimeout(() => document.getElementById('splash').style.display='none', 800); 
+    }, 2500);
+</script>
+</body>
+</html>
