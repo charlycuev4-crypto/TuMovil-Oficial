@@ -3,19 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PASAJERO FIX - TuMovil</title>
+    <title>PASAJERO - TuMovil Santa Brígida</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
+        
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.8s; }
         .logo-m { width: 85px; height: 85px; border: 3px solid #00d4ff; border-radius: 20px; color: #00d4ff; font-size: 50px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px #00d4ff; margin-bottom: 15px; }
+
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        
         .top-ui { position: absolute; top: 10px; width: 100%; padding: 0 15px; z-index: 1000; }
         .dest-card { background: rgba(25, 25, 25, 0.95); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; }
         select { width: 100%; background: transparent; color: white; border: none; font-size: 16px; outline: none; }
+
         .bottom-panel { position: absolute; bottom: 15px; width: 92%; left: 4%; background: rgba(15, 15, 15, 0.95); border: 2px solid #00d4ff; border-radius: 25px; padding: 15px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
         
         #resumen-viaje { background: rgba(76, 217, 100, 0.15); border: 1px dashed #4cd964; border-radius: 12px; padding: 8px; text-align: center; display: none; }
@@ -41,7 +45,7 @@
 
     <div class="top-ui">
         <div class="dest-card">
-            <span style="font-size: 10px; color: #00d4ff;">📍 DESTINO</span>
+            <span style="font-size: 10px; color: #00d4ff;">📍 SELECCIONA TU DESTINO</span>
             <select id="select-destino" onchange="validarFormulario()">
                 <option value="" disabled selected>--- ¿A DÓNDE VAS? ---</option>
             </select>
@@ -49,7 +53,7 @@
     </div>
 
     <div id="map"></div>
-    <div class="distancia-tag" id="tag-distancia">ESPERANDO GPS...</div>
+    <div class="distancia-tag" id="tag-distancia">BUSCANDO GPS...</div>
 
     <div class="bottom-panel">
         <div id="resumen-viaje">
@@ -91,8 +95,6 @@
 
     const map = L.map('map', { zoomControl: false }).setView(rutaOficial[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    
-    // REINSTALACIÓN DE LA RUTA CELESTE
     L.polyline(rutaOficial.map(p=>p.c), {color:'#00d4ff', weight:5, opacity:0.4}).addTo(map);
 
     const markerMovil = L.marker(rutaOficial[0].c, { icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', iconSize: [35, 35] }) }).addTo(map);
@@ -100,7 +102,7 @@
     const markerDestino = L.marker([0,0]).addTo(map);
     markerDestino.setOpacity(0);
 
-    let miLat, miLon, asientosElegidos = [], idReservaActual = null;
+    let miLat, miLon, asientosElegidos = [];
 
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
@@ -150,53 +152,73 @@
     }
 
     async function confirmarReserva() {
+        if(!miLat) return alert("Esperando señal GPS...");
         const destIdx = document.getElementById('select-destino').value;
         
-        // CORRECCIÓN PARA MULTIPLE ASIENTO: Creamos una fila por cada asiento
         const reservas = asientosElegidos.map(num => ({
-            asiento_num: num, // Ahora mandamos el número solo, sin comas
+            asiento_num: num, 
             pasajero_lat: miLat, pasajero_lon: miLon,
             destino_idx: parseInt(destIdx), estado: 'en_curso'
         }));
 
-        const { data, error } = await _s.from('reservas_activas').insert(reservas).select();
+        const { error } = await _s.from('reservas_activas').insert(reservas);
 
         if(!error) {
-            idReservaActual = data[0].id;
-            document.getElementById('btn-accion').style.display = 'none';
-            document.getElementById('btn-finalizar').style.display = 'block';
-            document.getElementById('grid-asientos').style.pointerEvents = 'none';
-            document.getElementById('select-destino').disabled = true;
             alert("Reserva confirmada");
+            location.reload(); // Recargamos para que recuperarSesion bloquee la UI
         } else {
-            alert("Error al reservar: " + error.message);
+            alert("Error: " + error.message);
         }
     }
 
     async function finalizarViaje() {
-        if(!confirm("¿Finalizar viaje?")) return;
-        // Finalizamos todas las reservas asociadas a este viaje (podes usar el destino_idx como referencia si es necesario)
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('pasajero_lat', miLat);
-        location.reload();
-    }
+        if(!confirm("¿Finalizar viaje y liberar asientos?")) return;
 
-    async function recuperarSesion() {
-        const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').limit(5);
-        if (data && data.length > 0) {
-            idReservaActual = data[0].id;
-            asientosElegidos = data.map(r => r.asiento_num);
-            document.getElementById('btn-accion').style.display = 'none';
-            document.getElementById('btn-finalizar').style.display = 'block';
-            document.getElementById('grid-asientos').style.pointerEvents = 'none';
-            document.getElementById('select-destino').disabled = true;
-            actualizarResumen();
-            asientosElegidos.forEach(n => document.getElementById('b'+n).classList.add('selected'));
-            if(data[0].destino_idx !== null) markerDestino.setLatLng(rutaOficial[data[0].destino_idx].c).setOpacity(1);
+        // Limpiamos TODAS las reservas activas de este pasajero (basado en su latitud aproximada)
+        const { error } = await _s.from('reservas_activas')
+            .update({ estado: 'finalizado' })
+            .eq('estado', 'en_curso')
+            .gte('pasajero_lat', miLat - 0.001) // Margen pequeño para asegurar que encuentre sus registros
+            .lte('pasajero_lat', miLat + 0.001);
+
+        if(!error) {
+            alert("Viaje Finalizado");
+            location.reload();
+        } else {
+            alert("Error al finalizar: " + error.message);
         }
     }
 
-    recuperarSesion();
-    setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display = 'none', 800); }, 2500);
+    async function recuperarSesion() {
+        const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
+        
+        if (data && data.length > 0) {
+            // Filtramos las que pertenecen a este dispositivo (basado en latitud cercana)
+            // Esto es necesario para que el pasajero no vea los asientos de OTRO pasajero
+            const misReservas = data.filter(r => Math.abs(r.pasajero_lat - miLat) < 0.005);
+            
+            if(misReservas.length > 0) {
+                asientosElegidos = misReservas.map(r => r.asiento_num);
+                document.getElementById('btn-accion').style.display = 'none';
+                document.getElementById('btn-finalizar').style.display = 'block';
+                document.getElementById('grid-asientos').style.pointerEvents = 'none';
+                document.getElementById('select-destino').disabled = true;
+                actualizarResumen();
+                asientosElegidos.forEach(n => document.getElementById('b'+n).classList.add('selected'));
+                if(misReservas[0].destino_idx !== null) {
+                    markerDestino.setLatLng(rutaOficial[misReservas[0].destino_idx].c).setOpacity(1);
+                }
+            }
+        }
+    }
+
+    // Esperar un segundo al GPS antes de recuperar sesión para filtrar bien
+    setTimeout(recuperarSesion, 1500);
+
+    setTimeout(() => { 
+        document.getElementById('splash').style.opacity = '0'; 
+        setTimeout(() => document.getElementById('splash').style.display = 'none', 800); 
+    }, 2500);
 </script>
 </body>
 </html>
