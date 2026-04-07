@@ -3,40 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PASAJERO SEGURIDAD - TuMovil</title>
+    <title>PASAJERO FIX - TuMovil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
-        
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.8s; }
-        .logo-m { width: 85px; height: 85px; border: 3px solid #00d4ff; border-radius: 20px; color: #00d4ff; font-size: 50px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px #00d4ff; margin-bottom: 15px; animation: pulse 1.5s infinite; }
-        
+        .logo-m { width: 85px; height: 85px; border: 3px solid #00d4ff; border-radius: 20px; color: #00d4ff; font-size: 50px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px #00d4ff; margin-bottom: 15px; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
-        
         .top-ui { position: absolute; top: 10px; width: 100%; padding: 0 15px; z-index: 1000; }
-        .dest-card { background: rgba(25, 25, 25, 0.95); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .dest-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; display: block; }
+        .dest-card { background: rgba(25, 25, 25, 0.95); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; }
         select { width: 100%; background: transparent; color: white; border: none; font-size: 16px; outline: none; }
-
         .bottom-panel { position: absolute; bottom: 15px; width: 92%; left: 4%; background: rgba(15, 15, 15, 0.95); border: 2px solid #00d4ff; border-radius: 25px; padding: 15px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
         
-        /* TÍTULO GRANDE DE ADVERTENCIA */
         #resumen-viaje { background: rgba(76, 217, 100, 0.15); border: 1px dashed #4cd964; border-radius: 12px; padding: 8px; text-align: center; display: none; }
-        .texto-resumen { font-size: 14px; color: #fff; margin: 0; }
         .resaltado { color: #4cd964; font-weight: 800; font-size: 18px; }
 
         .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .btn-as { aspect-ratio: 1; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-size: 18px; font-weight: bold; }
         .btn-as.selected { background: #4cd964 !important; color: #000 !important; border-color: #4cd964 !important; }
 
-        .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #333; color: #666; pointer-events: none; }
-        .btn-confirm.ready { background: #00d4ff; color: black; pointer-events: auto; }
+        /* ESTADO DESACTIVADO */
+        .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #333; color: #666; pointer-events: none; transition: 0.3s; }
+        
+        /* ESTADO ACTIVADO - Usamos !important para asegurar que el click funcione */
+        .btn-confirm.ready { background: #00d4ff !important; color: black !important; pointer-events: auto !important; cursor: pointer !important; box-shadow: 0 0 15px rgba(0, 212, 255, 0.5); }
         
         .btn-cancel { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #ff3b30; color: white; display: none; }
-        .distancia-tag { background: #00d4ff; color: black; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; margin: 0 auto; margin-top: -30px; z-index: 1001; position: relative; text-align: center; width: fit-content; }
     </style>
 </head>
 <body>
@@ -48,7 +43,7 @@
 
     <div class="top-ui">
         <div class="dest-card">
-            <span class="dest-label">📍 Selecciona tu Destino</span>
+            <span style="font-size: 10px; color: #00d4ff;">📍 DESTINO</span>
             <select id="select-destino" onchange="validarFormulario()">
                 <option value="" disabled selected>--- ¿A DÓNDE VAS? ---</option>
             </select>
@@ -56,15 +51,10 @@
     </div>
 
     <div id="map"></div>
-    <div class="distancia-tag" id="tag-distancia">Buscando conductor...</div>
 
     <div class="bottom-panel">
-        
         <div id="resumen-viaje">
-            <p class="texto-resumen">
-                Reservando: <span class="resaltado" id="cant-resumen">0</span> asientos<br>
-                Total a pagar: <span class="resaltado" id="precio-resumen">$0</span>
-            </p>
+            <p style="margin:0; font-size:13px;">Reservando: <span class="resaltado" id="cant-resumen">0</span> | Total: <span class="resaltado" id="precio-resumen">$0</span></p>
         </div>
 
         <div class="asientos-grid" id="grid-asientos">
@@ -127,23 +117,15 @@
             asientosElegidos.push(n);
             document.getElementById('b'+n).classList.add('selected');
         }
-        
         actualizarResumen();
         validarFormulario();
     }
 
     function actualizarResumen() {
         const divResumen = document.getElementById('resumen-viaje');
-        const cantResumen = document.getElementById('cant-resumen');
-        const precioResumen = document.getElementById('precio-resumen');
-        
-        if (asientosElegidos.length > 0) {
-            divResumen.style.display = 'block';
-            cantResumen.innerText = asientosElegidos.length;
-            precioResumen.innerText = '$' + (asientosElegidos.length * 1000);
-        } else {
-            divResumen.style.display = 'none';
-        }
+        document.getElementById('cant-resumen').innerText = asientosElegidos.length;
+        document.getElementById('precio-resumen').innerText = '$' + (asientosElegidos.length * 1000);
+        divResumen.style.display = asientosElegidos.length > 0 ? 'block' : 'none';
     }
 
     function validarFormulario() {
@@ -153,28 +135,17 @@
         if (destIdx !== "") {
             markerDestino.setLatLng(rutaOficial[destIdx].c).setOpacity(1);
         }
-        if(asientosElegidos.length > 0 && destIdx !== "") {
-            btn.className = "btn-confirm ready";
-        } else {
-            btn.className = "btn-confirm";
-        }
-    }
 
-    async function recuperarSesion() {
-        const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').limit(1);
-        if (data && data.length > 0) {
-            idReservaActual = data[0].id;
-            asientosElegidos = String(data[0].asiento_num).split(',').map(Number);
-            document.getElementById('btn-accion').style.display = 'none';
-            document.getElementById('btn-finalizar').style.display = 'block';
-            document.getElementById('grid-asientos').style.pointerEvents = 'none';
-            actualizarResumen();
-            asientosElegidos.forEach(n => document.getElementById('b'+n).classList.add('selected'));
-            if(data[0].destino_idx !== null) markerDestino.setLatLng(rutaOficial[data[0].destino_idx].c).setOpacity(1);
+        // CORRECCIÓN CLAVE: Aseguramos que se active el puntero y el click
+        if(asientosElegidos.length > 0 && destIdx !== "") {
+            btn.classList.add('ready');
+        } else {
+            btn.classList.remove('ready');
         }
     }
 
     async function confirmarReserva() {
+        console.log("Intentando confirmar..."); // Para debug
         const destIdx = document.getElementById('select-destino').value;
         const { data, error } = await _s.from('reservas_activas').insert([{
             asiento_num: asientosElegidos.join(','),
@@ -187,6 +158,9 @@
             document.getElementById('btn-accion').style.display = 'none';
             document.getElementById('btn-finalizar').style.display = 'block';
             document.getElementById('grid-asientos').style.pointerEvents = 'none';
+            document.getElementById('select-destino').disabled = true;
+        } else {
+            alert("Error al reservar: " + error.message);
         }
     }
 
@@ -194,6 +168,21 @@
         if(!confirm("¿Finalizar viaje?")) return;
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', idReservaActual);
         location.reload();
+    }
+
+    async function recuperarSesion() {
+        const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').limit(1);
+        if (data && data.length > 0) {
+            idReservaActual = data[0].id;
+            asientosElegidos = String(data[0].asiento_num).split(',').map(Number);
+            document.getElementById('btn-accion').style.display = 'none';
+            document.getElementById('btn-finalizar').style.display = 'block';
+            document.getElementById('grid-asientos').style.pointerEvents = 'none';
+            document.getElementById('select-destino').disabled = true;
+            actualizarResumen();
+            asientosElegidos.forEach(n => document.getElementById('b'+n).classList.add('selected'));
+            if(data[0].destino_idx !== null) markerDestino.setLatLng(rutaOficial[data[0].destino_idx].c).setOpacity(1);
+        }
     }
 
     recuperarSesion();
