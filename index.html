@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PANEL DEL CONDUCTOR - MÓVIL</title>
+    <title>PASAJERO - TuMovil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -11,51 +11,69 @@
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
         
-        /* Splash Screen Estilo Pasajero */
+        /* Splash Screen */
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.8s; }
-        .logo-m { width: 85px; height: 85px; border: 3px solid #00d4ff; border-radius: 20px; color: #00d4ff; font-size: 50px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px #00d4ff; margin-bottom: 15px; }
-        
+        .logo-m { width: 85px; height: 85px; border: 3px solid #00d4ff; border-radius: 20px; color: #00d4ff; font-size: 50px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px #00d4ff; margin-bottom: 15px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
+
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         
-        .header-stats { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-around; z-index: 1000; padding: 0 10px; }
-        .stat-card { background: rgba(20, 20, 20, 0.9); border: 2px solid #00d4ff; border-radius: 12px; padding: 10px; width: 45%; text-align: center; box-shadow: 0 4px 15px rgba(0,212,255,0.2); }
-        .stat-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; }
-        .stat-value { font-size: 22px; font-weight: 800; display: block; }
+        /* Controles Superiores */
+        .top-ui { position: absolute; top: 10px; width: 100%; padding: 0 15px; z-index: 1000; }
+        .dest-card { background: rgba(25, 25, 25, 0.95); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .dest-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; display: block; }
+        select { width: 100%; background: transparent; color: white; border: none; font-size: 16px; outline: none; }
+
+        /* Panel Inferior */
+        .bottom-panel { position: absolute; bottom: 15px; width: 92%; left: 4%; background: rgba(15, 15, 15, 0.95); border: 2px solid #00d4ff; border-radius: 25px; padding: 15px; z-index: 1000; display: flex; flex-direction: column; gap: 12px; }
+        .price-box { background: rgba(0,212,255,0.1); border-radius: 15px; padding: 10px; text-align: center; border: 1px solid rgba(0,212,255,0.3); }
+        .price-val { font-size: 28px; font-weight: 800; color: #4cd964; display: block; }
         
-        .controls { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
-        .btn-main { width: 90%; padding: 18px; border-radius: 15px; border: none; font-weight: bold; font-size: 16px; text-transform: uppercase; background: #ff3b30; color: white; box-shadow: 0 4px 15px rgba(255,59,48,0.3); }
-        .asientos-indicator { background: rgba(0,0,0,0.8); border: 2px solid #00d4ff; border-radius: 15px; padding: 10px; margin-bottom: 10px; display: flex; gap: 8px; }
-        .mini-as { width: 35px; height: 35px; border: 2px solid #00d4ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; transition: 0.3s; }
-        .mini-as.busy { background: #ff3b30; border-color: #ff3b30; box-shadow: 0 0 10px #ff3b30; }
+        .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .btn-as { aspect-ratio: 1; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-size: 18px; font-weight: bold; transition: 0.2s; }
+        .btn-as.selected { background: #00d4ff; color: #000; }
+        .btn-as.busy { border-color: #555; color: #555; opacity: 0.5; pointer-events: none; }
+
+        .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #4cd964; color: black; }
+        .btn-cancel { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #ff3b30; color: white; display: none; }
+        
+        .distancia-tag { background: #00d4ff; color: black; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; margin: 0 auto; margin-top: -30px; z-index: 1001; position: relative; }
     </style>
 </head>
 <body>
+
     <div id="splash">
         <div class="logo-m">M</div>
-        <div style="color:white; font-weight:bold; letter-spacing: 2px;">PANEL CONTROLADOR</div>
+        <div style="letter-spacing: 3px; font-size: 12px;">TUMOVIL SANTA BRIGIDA</div>
     </div>
 
-    <div class="header-stats">
-        <div class="stat-card">
-            <span class="stat-label">Recaudación</span>
-            <span class="stat-value" id="v-recaudacion">$0</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-label">Pasajeros</span>
-            <span class="stat-value" id="v-pax">0</span>
+    <div class="top-ui">
+        <div class="dest-card">
+            <span class="dest-label">📍 Tu Destino</span>
+            <select id="select-destino" onchange="actualizarDestinoEnMapa()">
+                </select>
         </div>
     </div>
 
     <div id="map"></div>
 
-    <div class="controls">
-        <div class="asientos-indicator" id="indicador-asientos">
-            <div id="ma1" class="mini-as">1</div>
-            <div id="ma2" class="mini-as">2</div>
-            <div id="ma3" class="mini-as">3</div>
-            <div id="ma4" class="mini-as">4</div>
+    <div class="distancia-tag" id="tag-distancia">EL MÓVIL ESTÁ A: --</div>
+
+    <div class="bottom-panel">
+        <div class="price-box" id="caja-pago">
+            <span style="font-size: 10px; text-transform: uppercase; color: #aaa;">Importe a Pagar</span>
+            <span class="price-val" id="v-total">$0</span>
         </div>
-        <button class="btn-main" onclick="vaciarUnidad()">Finalizar Viaje / Vaciar</button>
+
+        <div class="asientos-grid" id="grid-asientos">
+            <button class="btn-as" id="b1" onclick="seleccionarAsiento(1)">1</button>
+            <button class="btn-as" id="b2" onclick="seleccionarAsiento(2)">2</button>
+            <button class="btn-as" id="b3" onclick="seleccionarAsiento(3)">3</button>
+            <button class="btn-as" id="b4" onclick="seleccionarAsiento(4)">4</button>
+        </div>
+
+        <button id="btn-accion" class="btn-confirm" onclick="confirmarReserva()">Confirmar Reserva</button>
+        <button id="btn-finalizar" class="btn-cancel" onclick="finalizarViaje()">Finalizar Mi Viaje</button>
     </div>
 
 <script>
@@ -77,86 +95,91 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
+    // Llenar select
+    const sel = document.getElementById('select-destino');
+    rutaOficial.forEach((p,i) => { let opt = new Image().src; sel.innerHTML += `<option value="${i}">${p.n}</option>`; });
+
     const map = L.map('map', { zoomControl: false }).setView(rutaOficial[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    L.polyline(rutaOficial.map(p=>p.c), {color:'#00d4ff', weight:6, opacity:0.5}).addTo(map);
+    L.polyline(rutaOficial.map(p=>p.c), {color:'#00d4ff', weight:5, opacity:0.4}).addTo(map);
 
-    const paxIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/1077/1077114.png', iconSize: [30, 30] });
-    const destIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2776/2776067.png', iconSize: [30, 30] });
-    
-    let marcadoresPasajeros = [];
-    let marcadoresDestinos = [];
+    const movilIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', iconSize: [35, 35] });
+    const markerMovil = L.marker(rutaOficial[0].c, { icon: movilIcon }).addTo(map);
+    const markerDestino = L.marker(rutaOficial[0].c).addTo(map);
 
-    async function dibujarPasajeros() {
-        // Limpiar mapa antes de redibujar para evitar duplicados
-        marcadoresPasajeros.forEach(m => map.removeLayer(m));
-        marcadoresDestinos.forEach(m => map.removeLayer(m));
-        marcadoresPasajeros = []; marcadoresDestinos = [];
-        
-        for(let i=1; i<=4; i++) document.getElementById('ma'+i).className = 'mini-as';
+    let miLat, miLon, asientoElegido = null, idReservaActual = null, ultimaActGps = 0;
 
-        const { data: reservas, error } = await _s
-            .from('reservas_activas')
-            .select('*')
-            .eq('estado', 'en_curso');
-
-        if (error) { console.error("Error al traer reservas:", error); return; }
-
-        document.getElementById('v-pax').innerText = reservas.length;
-        document.getElementById('v-recaudacion').innerText = '$' + (reservas.length * 1000);
-
-        reservas.forEach(res => {
-            // Marcar asiento físico
-            const elAsiento = document.getElementById('ma' + res.asiento_num);
-            if(elAsiento) elAsiento.className = 'mini-as busy';
-
-            // Dibujar Pasajero
-            if(res.pasajero_lat && res.pasajero_lon) {
-                const pM = L.marker([res.pasajero_lat, res.pasajero_lon], { icon: paxIcon })
-                            .addTo(map).bindPopup("Sube Asiento " + res.asiento_num);
-                marcadoresPasajeros.push(pM);
-            }
-
-            // Dibujar Destino
-            if(res.destino_idx !== null && rutaOficial[res.destino_idx]) {
-                const dM = L.marker(rutaOficial[res.destino_idx].c, { icon: destIcon })
-                            .addTo(map).bindPopup("Baja Asiento " + res.asiento_num);
-                marcadoresDestinos.push(dM);
-            }
-        });
-    }
-
+    // GPS Pasajero (Optimizado para no pesar en la red)
     navigator.geolocation.watchPosition(async p => {
-        const coords = { latitud: p.coords.latitude, longitud: p.coords.longitude, ultima_actualizacion: new Date().toISOString() };
-        await _s.from('estado_movil').update(coords).eq('id', 1);
+        miLat = p.coords.latitude; miLon = p.coords.longitude;
+        const ahora = Date.now();
+
+        // Si hay viaje activo, actualizar ubicación del pasajero cada 6 segundos
+        if(idReservaActual && (ahora - ultimaActGps > 6000)) {
+            await _s.from('reservas_activas').update({ pasajero_lat: miLat, pasajero_lon: miLon }).eq('id', idReservaActual);
+            ultimaActGps = ahora;
+        }
     }, null, { enableHighAccuracy: true });
 
-    async function vaciarUnidad() {
-        if(!confirm("¿Deseas finalizar todos los viajes y vaciar la unidad?")) return;
-        
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso');
-        await _s.from('estado_movil').update({ asientos_libres: 4 }).eq('id', 1);
-        
-        dibujarPasajeros();
-        alert("Unidad vacía y lista.");
+    // Seguir al Conductor en tiempo real
+    _s.channel('movil').on('postgres_changes',{event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
+        const d = payload.new;
+        const pos = [d.latitud, d.longitud];
+        markerMovil.setLatLng(pos);
+        if(miLat) {
+            const dist = map.distance([miLat, miLon], pos);
+            document.getElementById('tag-distancia').innerText = `EL MÓVIL ESTÁ A: ${Math.round(dist)}m`;
+        }
+    }).subscribe();
+
+    function seleccionarAsiento(n) {
+        asientoElegido = n;
+        for(let i=1; i<=4; i++) document.getElementById('b'+i).className = 'btn-as';
+        document.getElementById('b'+n).className = 'btn-as selected';
+        document.getElementById('v-total').innerText = '$1000';
     }
 
-    // SUSCRIPCIÓN ULTRARÁPIDA
-    _s.channel('db_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, (payload) => {
-          console.log("Cambio detectado en reservas:", payload);
-          dibujarPasajeros(); // Redibuja instantáneamente
-      })
-      .subscribe();
+    async function confirmarReserva() {
+        if(!asientoElegido) return alert("Elige un asiento");
+        const destIdx = document.getElementById('select-destino').value;
 
-    // Carga inicial
-    dibujarPasajeros();
+        const { data, error } = await _s.from('reservas_activas').insert([{
+            asiento_num: asientoElegido,
+            pasajero_lat: miLat,
+            pasajero_lon: miLon,
+            destino_idx: destIdx,
+            estado: 'en_curso'
+        }]).select();
 
-    // Manejo del Splash
+        if(!error && data.length > 0) {
+            idReservaActual = data[0].id;
+            document.getElementById('btn-accion').style.display = 'none';
+            document.getElementById('btn-finalizar').style.display = 'block';
+            document.getElementById('grid-asientos').style.pointerEvents = 'none';
+            alert("Viaje Iniciado");
+        }
+    }
+
+    async function finalizarViaje() {
+        if(!confirm("¿Llegaste a tu destino?")) return;
+        
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', idReservaActual);
+        alert("¡Gracias por viajar!");
+        location.reload();
+    }
+
+    function actualizarDestinoEnMapa() {
+        const idx = document.getElementById('select-destino').value;
+        markerDestino.setLatLng(rutaOficial[idx].c).bindPopup("Tu Destino: " + rutaOficial[idx].n).openPopup();
+        map.flyTo(rutaOficial[idx].c, 16);
+    }
+
+    // Quitar Splash
     setTimeout(() => { 
-        document.getElementById('splash').style.opacity = '0'; 
-        setTimeout(() => document.getElementById('splash').style.display='none', 800); 
+        document.getElementById('splash').style.opacity = '0';
+        setTimeout(() => document.getElementById('splash').style.display = 'none', 800);
     }, 2500);
+
 </script>
 </body>
 </html>
