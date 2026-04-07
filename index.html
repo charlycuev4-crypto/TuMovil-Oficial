@@ -71,7 +71,6 @@
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // --- LAS 25 PARADAS OFICIALES ---
     const rutaOficial = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -88,11 +87,9 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    // Inicializar Mapa
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(rutaOficial[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Dibujar Ruta y Paradas (Puntos Celestes como en el Pasajero)
     const pts = rutaOficial.map(p => p.c);
     L.polyline(pts, {color: '#00d4ff', weight: 5, opacity: 0.6}).addTo(map);
     rutaOficial.forEach(p => {
@@ -100,40 +97,66 @@
     });
 
     const busIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448333.png', iconSize: [40, 40] });
-    let markerBus = L.marker(rutaOficial[0].c, { icon: busIcon }).addTo(map);
+    const paxIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/1946/1946429.png', iconSize: [35, 35] }); // Icono de persona
+    const destIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', iconSize: [30, 30] }); // Icono de pin
 
-    // GPS Conductor
+    let markerBus = L.marker(rutaOficial[0].c, { icon: busIcon }).addTo(map);
+    let markerPax = null;
+    let markerDest = null;
+
     navigator.geolocation.watchPosition(p => {
         const pos = [p.coords.latitude, p.coords.longitude];
         markerBus.setLatLng(pos);
         _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1] }).eq('id', 1).then();
     }, null, {enableHighAccuracy: true});
 
-    // Sincronización Realtime
-    function actualizarUI(libres) {
+    function actualizarUI(data) {
+        const libres = data.asientos_libres;
         const ocupados = 4 - libres;
         document.getElementById('v-pax').innerText = ocupados;
         document.getElementById('v-dinero').innerText = ocupados * 1000;
+        
         for(let i=1; i<=4; i++) {
             const btn = document.getElementById('b'+i);
             if(i <= ocupados) btn.classList.add('ocupado');
             else btn.classList.remove('ocupado');
         }
+
+        // Lógica para Personita (Pasajero) y Destino
+        if (ocupados > 0 && data.pasajero_lat && data.pasajero_lon) {
+            const posPax = [data.pasajero_lat, data.pasajero_lon];
+            if (!markerPax) markerPax = L.marker(posPax, { icon: paxIcon }).addTo(map).bindPopup("Pasajero");
+            else markerPax.setLatLng(posPax);
+
+            const destIdx = data.pasajero_destino; // Suponiendo que guardas el índice
+            if (destIdx !== null && rutaOficial[destIdx]) {
+                const posDest = rutaOficial[destIdx].c;
+                if (!markerDest) markerDest = L.marker(posDest, { icon: destIcon }).addTo(map).bindPopup("Baja en: " + rutaOficial[destIdx].n);
+                else markerDest.setLatLng(posDest);
+            }
+        } else {
+            if (markerPax) { map.removeLayer(markerPax); markerPax = null; }
+            if (markerDest) { map.removeLayer(markerDest); markerDest = null; }
+        }
     }
 
     _s.channel('c1').on('postgres_changes', {event:'UPDATE', schema:'public', table:'estado_movil'}, r => {
-        actualizarUI(r.new.asientos_libres);
+        actualizarUI(r.new);
     }).subscribe();
 
     async function finalizarViaje() {
         if(confirm("¿Vaciar unidad?")) {
-            await _s.from('estado_movil').update({ asientos_libres: 4 }).eq('id', 1);
+            await _s.from('estado_movil').update({ 
+                asientos_libres: 4, 
+                pasajero_lat: null, 
+                pasajero_lon: null, 
+                pasajero_destino: null 
+            }).eq('id', 1);
         }
     }
 
-    // Carga Inicial
-    _s.from('estado_movil').select('asientos_libres').eq('id', 1).single().then(r => {
-        if(r.data) actualizarUI(r.data.asientos_libres);
+    _s.from('estado_movil').select('*').eq('id', 1).single().then(r => {
+        if(r.data) actualizarUI(r.data);
     });
 </script>
 </body>
