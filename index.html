@@ -8,20 +8,33 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
+        
+        /* Splash Screen Estilo Pasajero */
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.8s; }
+        .logo-m { width: 85px; height: 85px; border: 3px solid #00d4ff; border-radius: 20px; color: #00d4ff; font-size: 50px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px #00d4ff; margin-bottom: 15px; }
+        
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        
         .header-stats { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-around; z-index: 1000; padding: 0 10px; }
         .stat-card { background: rgba(20, 20, 20, 0.9); border: 2px solid #00d4ff; border-radius: 12px; padding: 10px; width: 45%; text-align: center; box-shadow: 0 4px 15px rgba(0,212,255,0.2); }
         .stat-label { font-size: 10px; color: #00d4ff; font-weight: bold; text-transform: uppercase; }
         .stat-value { font-size: 22px; font-weight: 800; display: block; }
+        
         .controls { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
         .btn-main { width: 90%; padding: 18px; border-radius: 15px; border: none; font-weight: bold; font-size: 16px; text-transform: uppercase; background: #ff3b30; color: white; box-shadow: 0 4px 15px rgba(255,59,48,0.3); }
         .asientos-indicator { background: rgba(0,0,0,0.8); border: 2px solid #00d4ff; border-radius: 15px; padding: 10px; margin-bottom: 10px; display: flex; gap: 8px; }
-        .mini-as { width: 35px; height: 35px; border: 2px solid #00d4ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; }
-        .mini-as.busy { background: #ff3b30; border-color: #ff3b30; }
+        .mini-as { width: 35px; height: 35px; border: 2px solid #00d4ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; transition: 0.3s; }
+        .mini-as.busy { background: #ff3b30; border-color: #ff3b30; box-shadow: 0 0 10px #ff3b30; }
     </style>
 </head>
 <body>
+    <div id="splash">
+        <div class="logo-m">M</div>
+        <div style="color:white; font-weight:bold; letter-spacing: 2px;">PANEL CONTROLADOR</div>
+    </div>
+
     <div class="header-stats">
         <div class="stat-card">
             <span class="stat-label">Recaudación</span>
@@ -75,67 +88,75 @@
     let marcadoresDestinos = [];
 
     async function dibujarPasajeros() {
-        // Limpiar mapa
+        // Limpiar mapa antes de redibujar para evitar duplicados
         marcadoresPasajeros.forEach(m => map.removeLayer(m));
         marcadoresDestinos.forEach(m => map.removeLayer(m));
         marcadoresPasajeros = []; marcadoresDestinos = [];
         
-        // Reset indicadores visuales
         for(let i=1; i<=4; i++) document.getElementById('ma'+i).className = 'mini-as';
 
-        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
+        const { data: reservas, error } = await _s
+            .from('reservas_activas')
+            .select('*')
+            .eq('estado', 'en_curso');
 
-        if (reservas) {
-            document.getElementById('v-pax').innerText = reservas.length;
-            document.getElementById('v-recaudacion').innerText = '$' + (reservas.length * 1000);
+        if (error) { console.error("Error al traer reservas:", error); return; }
 
-            reservas.forEach(res => {
-                // Marcar asiento como ocupado en el panel
-                document.getElementById('ma' + res.asiento_num).className = 'mini-as busy';
+        document.getElementById('v-pax').innerText = reservas.length;
+        document.getElementById('v-recaudacion').innerText = '$' + (reservas.length * 1000);
 
-                // Dibujar Pasajero
+        reservas.forEach(res => {
+            // Marcar asiento físico
+            const elAsiento = document.getElementById('ma' + res.asiento_num);
+            if(elAsiento) elAsiento.className = 'mini-as busy';
+
+            // Dibujar Pasajero
+            if(res.pasajero_lat && res.pasajero_lon) {
                 const pM = L.marker([res.pasajero_lat, res.pasajero_lon], { icon: paxIcon })
                             .addTo(map).bindPopup("Sube Asiento " + res.asiento_num);
                 marcadoresPasajeros.push(pM);
+            }
 
-                // Dibujar Destino
-                if(rutaOficial[res.destino_idx]) {
-                    const dM = L.marker(rutaOficial[res.destino_idx].c, { icon: destIcon })
-                                .addTo(map).bindPopup("Baja Asiento " + res.asiento_num);
-                    marcadoresDestinos.push(dM);
-                }
-            });
-        }
+            // Dibujar Destino
+            if(res.destino_idx !== null && rutaOficial[res.destino_idx]) {
+                const dM = L.marker(rutaOficial[res.destino_idx].c, { icon: destIcon })
+                            .addTo(map).bindPopup("Baja Asiento " + res.asiento_num);
+                marcadoresDestinos.push(dM);
+            }
+        });
     }
 
-    // GPS DEL CONDUCTOR
     navigator.geolocation.watchPosition(async p => {
-        const coords = { latitud: p.coords.latitude, longitud: p.coords.longitude };
+        const coords = { latitud: p.coords.latitude, longitud: p.coords.longitude, ultima_actualizacion: new Date().toISOString() };
         await _s.from('estado_movil').update(coords).eq('id', 1);
-        // Opcional: centrar mapa en el chofer
     }, null, { enableHighAccuracy: true });
 
     async function vaciarUnidad() {
         if(!confirm("¿Deseas finalizar todos los viajes y vaciar la unidad?")) return;
         
-        // 1. Finalizar todas las reservas en curso
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso');
-        
-        // 2. Resetear contador de asientos
         await _s.from('estado_movil').update({ asientos_libres: 4 }).eq('id', 1);
         
         dibujarPasajeros();
         alert("Unidad vacía y lista.");
     }
 
-    // Escuchar cambios en tiempo real
-    _s.channel('cambios_driver')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => {
-          dibujarPasajeros();
+    // SUSCRIPCIÓN ULTRARÁPIDA
+    _s.channel('db_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, (payload) => {
+          console.log("Cambio detectado en reservas:", payload);
+          dibujarPasajeros(); // Redibuja instantáneamente
       })
       .subscribe();
 
+    // Carga inicial
     dibujarPasajeros();
+
+    // Manejo del Splash
+    setTimeout(() => { 
+        document.getElementById('splash').style.opacity = '0'; 
+        setTimeout(() => document.getElementById('splash').style.display='none', 800); 
+    }, 2500);
 </script>
 </body>
 </html>
