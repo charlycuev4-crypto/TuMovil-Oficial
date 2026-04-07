@@ -32,7 +32,7 @@
     
     <div class="top-ui">
         <div class="dest-card">
-            <span style="font-size: 10px; color: #00d4ff;">📍 DESTINO</span>
+            <span style="font-size: 10px; color: #00d4ff;">📍 SELECCIONA DESTINO</span>
             <select id="select-destino" onchange="validarFormulario()">
                 <option value="" disabled selected>--- ¿A DÓNDE VAS? ---</option>
             </select>
@@ -42,7 +42,7 @@
     <div id="map"></div>
 
     <div class="bottom-panel">
-        <div id="resumen-viaje"><p style="margin:0; font-size:13px;">Reservando: <span class="resaltado" id="cant-resumen">0</span> | Total: <span class="resaltado" id="precio-resumen">$0</span></p></div>
+        <div id="resumen-viaje"><p style="margin:0; font-size:13px;">Asientos: <span class="resaltado" id="cant-resumen">0</span> | Total: <span class="resaltado" id="precio-resumen">$0</span></p></div>
         <div class="asientos-grid" id="grid-asientos">
             <button class="btn-as" id="b1" onclick="toggleAsiento(1)">1</button>
             <button class="btn-as" id="b2" onclick="toggleAsiento(2)">2</button>
@@ -54,7 +54,6 @@
     </div>
 
 <script>
-    // Configuración Supabase
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
     const rutaOficial = [
@@ -73,11 +72,9 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    // Cargar destinos
     const sel = document.getElementById('select-destino');
     rutaOficial.forEach((p,i) => { sel.innerHTML += `<option value="${i}">${p.n}</option>`; });
 
-    // Mapa
     const map = L.map('map', { zoomControl: false }).setView(rutaOficial[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     const markerDestino = L.marker([0,0]).addTo(map);
@@ -85,7 +82,6 @@
 
     let miLat, miLon, asientosElegidos = [];
 
-    // GPS
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
     }, null, { enableHighAccuracy: true });
@@ -113,17 +109,94 @@
     function validarFormulario() {
         const destIdx = document.getElementById('select-destino').value;
         const btn = document.getElementById('btn-accion');
-        if (destIdx !== "") {
-            markerDestino.setLatLng(rutaOficial[destIdx].c).setOpacity(1);
-            map.flyTo(rutaOficial[destIdx].c, 16);
-        }
+        if (destIdx !== "") markerDestino.setLatLng(rutaOficial[destIdx].c).setOpacity(1);
         if(asientosElegidos.length > 0 && destIdx !== "") btn.classList.add('ready');
         else btn.classList.remove('ready');
     }
 
     async function confirmarReserva() {
-        if(!miLat) return alert("Esperando señal de GPS...");
+        if(!miLat) return alert("Esperando GPS...");
         const destIdx = document.getElementById('select-destino').value;
+        const btnAccion = document.getElementById('btn-accion');
         
-        // CORRECCIÓN INTEGER: Insertamos una fila por cada asiento
-        const nuevasReservas = asientosElegidos.map(num =>
+        btnAccion.disabled = true;
+        btnAccion.innerText = "RESERVANDO...";
+
+        const reservas = asientosElegidos.map(num => ({
+            asiento_num: num, 
+            pasajero_lat: miLat, pasajero_lon: miLon,
+            destino_idx: parseInt(destIdx), 
+            estado: 'en_curso'
+        }));
+
+        const { error } = await _s.from('reservas_activas').insert(reservas);
+
+        if(!error) {
+            localStorage.setItem('viaje_en_curso', 'true');
+            // CAMBIO DE INTERFAZ EN VIVO (SIN PANTALLA NEGRA)
+            btnAccion.style.display = 'none';
+            document.getElementById('btn-finalizar').style.display = 'block';
+            document.getElementById('grid-asientos').style.pointerEvents = 'none';
+            document.getElementById('select-destino').disabled = true;
+            alert("¡Buen viaje! Reserva confirmada.");
+        } else {
+            alert("Error: " + error.message);
+            btnAccion.disabled = false;
+            btnAccion.innerText = "CONFIRMAR RESERVA";
+        }
+    }
+
+    async function finalizarViaje() {
+        if(!confirm("¿Deseas finalizar el viaje actual?")) return;
+
+        const { error } = await _s.from('reservas_activas')
+            .update({ estado: 'finalizado' })
+            .eq('estado', 'en_curso')
+            .gte('pasajero_lat', miLat - 0.005)
+            .lte('pasajero_lat', miLat + 0.005);
+
+        if(!error) {
+            localStorage.removeItem('viaje_en_curso');
+            // LIMPIEZA MANUAL (EVITA QUE QUEDEN MARCADOS)
+            asientosElegidos = [];
+            document.querySelectorAll('.btn-as').forEach(b => b.classList.remove('selected'));
+            document.getElementById('btn-accion').style.display = 'block';
+            document.getElementById('btn-accion').disabled = false;
+            document.getElementById('btn-accion').innerText = "CONFIRMAR RESERVA";
+            document.getElementById('btn-finalizar').style.display = 'none';
+            document.getElementById('grid-asientos').style.pointerEvents = 'auto';
+            document.getElementById('select-destino').disabled = false;
+            document.getElementById('select-destino').value = "";
+            document.getElementById('resumen-viaje').style.display = 'none';
+            markerDestino.setOpacity(0);
+            validarFormulario();
+            alert("Viaje finalizado. ¡Gracias!");
+        }
+    }
+
+    // Recupera la sesión si el pasajero cerró la app sin finalizar
+    async function recuperarSesion() {
+        if (!localStorage.getItem('viaje_en_curso')) return;
+        const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
+        if (data) {
+            const misAsientos = data.filter(r => Math.abs(r.pasajero_lat - miLat) < 0.005);
+            if(misAsientos.length > 0) {
+                asientosElegidos = misAsientos.map(r => r.asiento_num);
+                document.getElementById('btn-accion').style.display = 'none';
+                document.getElementById('btn-finalizar').style.display = 'block';
+                document.getElementById('grid-asientos').style.pointerEvents = 'none';
+                document.getElementById('select-destino').disabled = true;
+                actualizarResumen();
+                asientosElegidos.forEach(n => document.getElementById('b'+n).classList.add('selected'));
+            }
+        }
+    }
+
+    setTimeout(() => {
+        recuperarSesion();
+        document.getElementById('splash').style.opacity = '0';
+        setTimeout(() => document.getElementById('splash').style.display = 'none', 800);
+    }, 2500);
+</script>
+</body>
+</html>
