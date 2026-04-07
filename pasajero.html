@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PASAJERO FINAL - TuMovil</title>
+    <title>PASAJERO - TuMovil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -29,7 +29,7 @@
         
         .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .btn-as { aspect-ratio: 1; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-size: 18px; font-weight: bold; transition: 0.2s; cursor: pointer; }
-        .btn-as.selected { background: #00d4ff; color: #000; }
+        .btn-as.selected { background: #00d4ff !important; color: #000 !important; }
 
         .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; text-transform: uppercase; background: #333; color: #666; pointer-events: none; transition: 0.3s; }
         .btn-confirm.ready { background: #4cd964; color: black; pointer-events: auto; box-shadow: 0 0 15px rgba(76, 217, 100, 0.4); cursor: pointer; }
@@ -94,7 +94,6 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    // Llenar select de destinos
     const sel = document.getElementById('select-destino');
     rutaOficial.forEach((p,i) => { sel.innerHTML += `<option value="${i}">${p.n}</option>`; });
 
@@ -105,20 +104,16 @@
     const movilIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', iconSize: [35, 35] });
     const markerMovil = L.marker(rutaOficial[0].c, { icon: movilIcon }).addTo(map);
     let miMarcador = L.circleMarker([0,0], { radius: 8, color: '#fff', fillColor: '#007aff', fillOpacity: 1 }).addTo(map);
-    
-    // Marcador de Destino (empezamos oculto)
     const markerDestino = L.marker([0,0]).addTo(map);
     markerDestino.setOpacity(0);
 
     let miLat, miLon, asientoElegido = null, idReservaActual = null;
 
-    // GPS Pasajero
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
         miMarcador.setLatLng([miLat, miLon]);
     }, null, { enableHighAccuracy: true });
 
-    // Escuchar al Móvil (Conductor)
     _s.channel('movil').on('postgres_changes',{event:'UPDATE', schema:'public', table:'estado_movil'}, payload => {
         const d = payload.new;
         markerMovil.setLatLng([d.latitud, d.longitud]);
@@ -130,8 +125,8 @@
 
     function seleccionarAsiento(n) {
         asientoElegido = n;
-        for(let i=1; i<=4; i++) document.getElementById('b'+i).className = 'btn-as';
-        document.getElementById('b'+n).className = 'btn-as selected';
+        for(let i=1; i<=4; i++) document.getElementById('b'+i).classList.remove('selected');
+        document.getElementById('b'+n).classList.add('selected');
         document.getElementById('v-total').innerText = '$1000';
         validarFormulario();
     }
@@ -139,13 +134,10 @@
     function validarFormulario() {
         const destIdx = document.getElementById('select-destino').value;
         const btn = document.getElementById('btn-accion');
-
         if (destIdx !== "") {
             const pos = rutaOficial[destIdx].c;
             markerDestino.setLatLng(pos).setOpacity(1).bindPopup("Tu destino: " + rutaOficial[destIdx].n).openPopup();
-            map.flyTo(pos, 15);
         }
-
         if(asientoElegido && destIdx !== "") {
             btn.className = "btn-confirm ready";
         } else {
@@ -158,12 +150,18 @@
         if (data && data.length > 0) {
             idReservaActual = data[0].id;
             const dIdx = data[0].destino_idx;
+            const nAsiento = data[0].asiento_num;
             
             document.getElementById('btn-accion').style.display = 'none';
             document.getElementById('btn-finalizar').style.display = 'block';
             document.getElementById('grid-asientos').style.pointerEvents = 'none';
             document.getElementById('v-total').innerText = '$1000';
             
+            // CORRECCIÓN: Volver a pintar el asiento seleccionado
+            if(nAsiento) {
+                document.getElementById('b'+nAsiento).classList.add('selected');
+            }
+
             if(dIdx !== null) {
                 markerDestino.setLatLng(rutaOficial[dIdx].c).setOpacity(1).bindPopup("Viaje actual a: " + rutaOficial[dIdx].n).openPopup();
             }
@@ -185,7 +183,6 @@
             document.getElementById('btn-accion').style.display = 'none';
             document.getElementById('btn-finalizar').style.display = 'block';
             document.getElementById('grid-asientos').style.pointerEvents = 'none';
-            alert("¡Viaje iniciado!");
         }
     }
 
@@ -196,10 +193,7 @@
     }
 
     recuperarSesion();
-    setTimeout(() => { 
-        document.getElementById('splash').style.opacity = '0'; 
-        setTimeout(() => document.getElementById('splash').style.display = 'none', 800); 
-    }, 2500);
+    setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.display = 'none', 800); }, 2500);
 </script>
 </body>
 </html>
