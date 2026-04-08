@@ -2,84 +2,136 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONDUCTOR - TuMovil Oficial</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CONDUCTOR PRO - TuMovil</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: white; overflow: hidden; }
-        #map { height: 70vh; width: 100%; }
-        .panel-conductor { height: 30vh; padding: 10px; background: #1e1e1e; border-top: 4px solid #ffd700; box-sizing: border-box; }
-        .stats { display: flex; justify-content: space-around; margin-bottom: 10px; }
-        .stat-box { background: #2a2a2a; padding: 8px; border-radius: 10px; text-align: center; width: 45%; border: 1px solid #333; }
-        .stat-box h3 { margin: 0; font-size: 12px; color: #ffd700; text-transform: uppercase; }
-        .stat-box p { margin: 5px 0 0; font-size: 22px; font-weight: bold; }
-        .btn-finalizar { width: 100%; padding: 15px; background: #ff4444; color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(255,68,68,0.3); }
-        .taxi-icon { font-size: 25px; text-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
+        .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
+        .stat-box { background: rgba(0,0,0,0.9); border: 2px solid #00d4ff; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; box-shadow: 0 0 15px rgba(0,212,255,0.3); }
+        .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
+        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 15px; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
+        .asientos-pills { display: flex; gap: 8px; margin-bottom: 12px; pointer-events: auto; }
+        .pill { width: 35px; height: 35px; border: 2px solid #00d4ff; border-radius: 8px; color: #00d4ff; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.8); }
+        .pill.active { background: #ff3b30; border-color: #ff3b30; color: white; box-shadow: 0 0 10px #ff3b30; }
+        
+        /* Icono del Auto Amarillo */
+        .taxi-icon { font-size: 28px; text-shadow: 0 0 10px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
+
+        #gps-feedback { position: absolute; top: 85px; left: 50%; transform: translateX(-50%); background: rgba(0,212,255,0.2); border: 1px solid #00d4ff; padding: 4px 12px; border-radius: 20px; color: #00d4ff; font-size: 11px; z-index: 1001; }
     </style>
 </head>
 <body>
 
-<div id="map"></div>
+    <div id="gps-feedback">SINCRONIZANDO GPS...</div>
+    <div id="map"></div>
 
-<div class="panel-conductor">
-    <div class="stats">
-        <div class="stat-box">
-            <h3>Recaudación</h3>
-            <p id="recaudacion">$0</p>
-        </div>
-        <div class="stat-box">
-            <h3>Asientos</h3>
-            <p id="cant-pasajeros">0 / 4</p>
-        </div>
+    <div class="ui-overlay top-stats">
+        <div class="stat-box"><small>RECAUDACIÓN</small><div id="txt-plata" style="font-size:22px; font-weight:800; color:#4cd964;">$0</div></div>
+        <div class="stat-box"><small>PASAJEROS</small><div id="txt-pax" style="font-size:22px; font-weight:800;">0</div></div>
     </div>
-    <button class="btn-finalizar" onclick="if(confirm('¿Vaciar asientos y terminar viaje?')) location.reload();">
-        FINALIZAR RECORRIDO
-    </button>
-</div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <div class="ui-overlay bottom-ui">
+        <div class="asientos-pills">
+            <div id="pill1" class="pill">1</div><div id="pill2" class="pill">2</div>
+            <div id="pill3" class="pill">3</div><div id="pill4" class="pill">4</div>
+        </div>
+        <button class="btn-vaciar" onclick="vaciarTodo()">FINALIZAR VIAJE / VACIAR</button>
+    </div>
+
 <script>
-    // Configuración inicial del mapa
-    const map = L.map('map').setView([-34.566, -58.742], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // 📍 LAS 23 PARADAS (Asegurate de que estas sean tus coordenadas exactas)
-    const paradasCoords = [
-        [-34.56942, -58.73781], [-34.56900, -58.73850], [-34.56850, -58.73950],
-        [-34.56800, -58.74050], [-34.56750, -58.74150], [-34.56700, -58.74250],
-        [-34.56650, -58.74350], [-34.56600, -58.74450], [-34.56550, -58.74550],
-        [-34.56500, -58.74650], [-34.56450, -58.74750], [-34.56400, -58.74850],
-        [-34.56350, -58.74950], [-34.56300, -58.75050], [-34.56250, -58.75150],
-        [-34.56200, -58.75250], [-34.56150, -58.75350], [-34.56100, -58.75450],
-        [-34.56050, -58.75550], [-34.56000, -58.75650], [-34.55950, -58.75750],
-        [-34.55900, -58.75850], [-34.55850, -58.75950]
+    const paradas = [
+        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
+        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
+        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
+        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
+        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
+        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
+        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
+        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
+        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
+        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
+        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
+        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
+        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    // Trazar la línea roja (Ruta Completa)
-    const rutaRoja = L.polyline(paradasCoords, {
-        color: '#ff0000',
-        weight: 5,
-        opacity: 0.8,
-        lineCap: 'round'
-    }).addTo(map);
+    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
+    // RUTA CELESTE
+    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.6 }).addTo(map);
 
-    // Dibujar los puntitos de cada parada
-    paradasCoords.forEach((coord, i) => {
-        L.circleMarker(coord, {
-            radius: 4,
-            fillColor: "white",
-            color: "red",
-            weight: 2,
-            fillOpacity: 1
-        }).addTo(map);
-    });
+    // NUEVO ICONO DEL CONDUCTOR (Taxi Amarillo 🚕)
+    const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
+    const marcadorConductor = L.marker(paradas[0].c, { icon: iconTaxi }).addTo(map);
 
-    // Marcador del Taxi (Tu posición)
-    const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [12, 12] });
-    L.marker(paradasCoords[0], {icon: iconTaxi}).addTo(map);
+    let markersPax = [];
+    let markersDest = [];
 
-    // Ajustar vista para ver todo el recorrido
-    map.fitBounds(rutaRoja.getBounds());
+    async function actualizarMapa() {
+        markersPax.forEach(m => map.removeLayer(m));
+        markersDest.forEach(m => map.removeLayer(m));
+        markersPax = []; markersDest = [];
+        for(let i=1; i<=4; i++) {
+            const p = document.getElementById('pill'+i);
+            if(p) p.className = 'pill';
+        }
+
+        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
+
+        if (reservas) {
+            document.getElementById('txt-pax').innerText = reservas.length;
+            document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
+
+            reservas.forEach(res => {
+                const p = document.getElementById('pill' + res.asiento_num);
+                if(p) p.className = 'pill active';
+                
+                const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: 'red', radius: 9, fillOpacity: 0.8 }).addTo(map);
+                markersPax.push(pM);
+
+                if(paradas[res.destino_idx]) {
+                    const dM = L.marker(paradas[res.destino_idx].c).addTo(map)
+                        .bindTooltip("Baja As. " + res.asiento_num, {permanent: true, direction: 'top'});
+                    markersDest.push(dM);
+                }
+            });
+        }
+    }
+
+    navigator.geolocation.watchPosition(async p => {
+        const myLat = p.coords.latitude;
+        const myLon = p.coords.longitude;
+        
+        marcadorConductor.setLatLng([myLat, myLon]);
+        map.panTo([myLat, myLon]);
+        
+        document.getElementById('gps-feedback').innerText = "GPS: CONECTADO EN VIVO";
+        document.getElementById('gps-feedback').style.background = "rgba(76, 217, 100, 0.2)";
+
+        await _s.from('estado_movil').update({ latitud: myLat, longitud: myLon }).eq('id', 1);
+    }, (err) => {
+        document.getElementById('gps-feedback').innerText = "ERROR GPS: REVISA PERMISOS";
+        document.getElementById('gps-feedback').style.background = "rgba(255, 59, 48, 0.2)";
+    }, { enableHighAccuracy: true });
+
+    _s.channel('cambios_total').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, actualizarMapa).subscribe();
+    setInterval(actualizarMapa, 10000);
+
+    async function vaciarTodo() {
+        if(!confirm("¿Finalizar el recorrido actual?")) return;
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso');
+        actualizarMapa();
+    }
+
+    actualizarMapa();
 </script>
 </body>
 </html>
