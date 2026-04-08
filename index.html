@@ -9,49 +9,45 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
+        
+        /* Splash Screen Style */
+        #splash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; transition: opacity 0.8s ease-out;
+        }
+        .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
+        .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
+        .splash-sub { color: #00d4ff; font-size: 14px; letter-spacing: 2px; opacity: 0.8; }
+        .loader { width: 40px; height: 40px; border: 3px solid rgba(255,215,0,0.2); border-top: 3px solid #FFD700; border-radius: 50%; margin-top: 30px; animation: spin 1s linear infinite; }
+        
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+        /* App Styles */
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
         .stat-box { background: rgba(0,0,0,0.9); border: 2px solid #00d4ff; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; box-shadow: 0 0 15px rgba(0,212,255,0.3); }
         .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
         .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 15px; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
-        
-        /* Contenedor de asientos */
         .asientos-pills { display: flex; gap: 8px; margin-bottom: 12px; pointer-events: auto; flex-wrap: wrap; justify-content: center; }
-        
-        /* Estilo de las Pills (Asientos) */
-        .pill { 
-            min-width: 40px; 
-            height: 40px; 
-            border: 2px solid #00d4ff; 
-            border-radius: 10px; 
-            color: #00d4ff; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-weight: bold; 
-            background: rgba(0,0,0,0.8); 
-            transition: all 0.3s ease;
-            font-size: 14px;
-            padding: 0 8px;
-        }
-        .pill.active { 
-            background: #ff3b30; 
-            border-color: #ff3b30; 
-            color: white; 
-            box-shadow: 0 0 15px #ff3b30; 
-            min-width: 60px;
-        }
-        
-        .taxi-icon { font-size: 28px; text-shadow: 0 0 10px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
+        .pill { min-width: 40px; height: 40px; border: 2px solid #00d4ff; border-radius: 10px; color: #00d4ff; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.8); transition: all 0.3s ease; font-size: 14px; padding: 0 8px; }
+        .pill.active { background: #ff3b30; border-color: #ff3b30; color: white; box-shadow: 0 0 15px #ff3b30; min-width: 60px; }
+        .taxi-icon { font-size: 28px; display: flex; align-items: center; justify-content: center; }
         #gps-feedback { position: absolute; top: 85px; left: 50%; transform: translateX(-50%); background: rgba(0,212,255,0.2); border: 1px solid #00d4ff; padding: 4px 12px; border-radius: 20px; color: #00d4ff; font-size: 11px; z-index: 1001; white-space: nowrap; }
-
-        /* Tooltips del mapa */
-        .leaflet-tooltip { background: #ff3b30; color: white; border: none; font-weight: bold; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        .leaflet-tooltip { background: #ff3b30; color: white; border: none; font-weight: bold; border-radius: 5px; }
         .dest-tooltip { background: #00d4ff !important; color: black !important; }
     </style>
 </head>
 <body>
+
+    <div id="splash">
+        <div class="splash-logo">🚕</div>
+        <h1 class="splash-title">TU MÓVIL</h1>
+        <p class="splash-sub">CONDUCTOR - ACCESO PRO</p>
+        <div class="loader"></div>
+    </div>
 
     <div id="gps-feedback">SINCRONIZANDO GPS...</div>
     <div id="map"></div>
@@ -101,19 +97,13 @@
     let markersDest = [];
 
     async function actualizarMapa() {
-        // Limpiamos todo antes de redibujar
         markersPax.forEach(m => map.removeLayer(m));
         markersDest.forEach(m => map.removeLayer(m));
         markersPax = []; markersDest = [];
         
-        // Resetear visual de las pills (asientos)
         for(let i=1; i<=4; i++) {
             const p = document.getElementById('pill'+i);
-            if(p) {
-                p.className = 'pill';
-                p.innerText = i;
-                p.style.minWidth = '40px';
-            }
+            if(p) { p.className = 'pill'; p.innerText = i; }
         }
 
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
@@ -123,71 +113,40 @@
             document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
 
             reservas.forEach(res => {
-                // 1. Reflejar nombre en el asiento (pill)
                 const pill = document.getElementById('pill' + res.asiento_num);
-                if(pill) {
-                    pill.className = 'pill active';
-                    pill.innerText = res.nombre_pasajero || res.asiento_num;
-                }
+                if(pill) { pill.className = 'pill active'; pill.innerText = res.nombre_pasajero || res.asiento_num; }
                 
-                // 2. Marcador de origen (donde está el pasajero) con nombre
-                const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { 
-                    color: 'red', 
-                    radius: 10, 
-                    fillOpacity: 0.9 
-                }).addTo(map).bindTooltip(res.nombre_pasajero || "Pasajero", {
-                    permanent: true, 
-                    direction: 'top', 
-                    offset: [0, -10]
-                });
+                const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: 'red', radius: 10, fillOpacity: 0.9 }).addTo(map)
+                    .bindTooltip(res.nombre_pasajero || "Pax", { permanent: true, direction: 'top', offset: [0, -10] });
                 markersPax.push(pM);
 
-                // 3. Marcador de destino con nombre y asiento
                 if(paradas[res.destino_idx]) {
                     const dM = L.marker(paradas[res.destino_idx].c).addTo(map)
-                        .bindTooltip(`Baja: ${res.nombre_pasajero || 'As.' + res.asiento_num}`, {
-                            permanent: true, 
-                            direction: 'bottom', 
-                            className: 'dest-tooltip'
-                        });
+                        .bindTooltip(`Baja: ${res.nombre_pasajero}`, { permanent: true, direction: 'bottom', className: 'dest-tooltip' });
                     markersDest.push(dM);
                 }
             });
         }
+        // Ocultar Splash al cargar los datos
+        const spl = document.getElementById('splash');
+        if(spl) { spl.style.opacity = '0'; setTimeout(() => spl.style.display = 'none', 800); }
     }
 
-    // GPS del Conductor
     navigator.geolocation.watchPosition(async p => {
-        const myLat = p.coords.latitude;
-        const myLon = p.coords.longitude;
-        marcadorConductor.setLatLng([myLat, myLon]);
-        map.panTo([myLat, myLon]);
-        
+        const myLat = p.coords.latitude; const myLon = p.coords.longitude;
+        marcadorConductor.setLatLng([myLat, myLon]); map.panTo([myLat, myLon]);
         document.getElementById('gps-feedback').innerText = "GPS: CONECTADO EN VIVO";
         document.getElementById('gps-feedback').style.background = "rgba(76, 217, 100, 0.4)";
-
         await _s.from('estado_movil').update({ latitud: myLat, longitud: myLon }).eq('id', 1);
-    }, (err) => {
-        document.getElementById('gps-feedback').innerText = "ERROR GPS: REVISA PERMISOS";
-        document.getElementById('gps-feedback').style.background = "rgba(255, 59, 48, 0.4)";
-    }, { enableHighAccuracy: true });
+    }, null, { enableHighAccuracy: true });
 
-    // Escuchar cambios en tiempo real
-    _s.channel('cambios_total').on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'reservas_activas' 
-    }, actualizarMapa).subscribe();
-
-    setInterval(actualizarMapa, 8000); // Refresco de seguridad cada 8 seg
+    _s.channel('cambios').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, actualizarMapa).subscribe();
+    setInterval(actualizarMapa, 8000);
 
     async function vaciarTodo() {
-        if(!confirm("¿Finalizar el recorrido y vaciar todos los asientos?")) return;
-        const { error } = await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso');
-        if(!error) {
-            actualizarMapa();
-            alert("Recorrido finalizado. Asientos libres.");
-        }
+        if(!confirm("¿Vaciar asientos?")) return;
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso');
+        actualizarMapa();
     }
 
     actualizarMapa();
