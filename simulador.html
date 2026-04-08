@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SIMULADOR - TuMovil</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        
+        /* Interfaz de Usuario */
+        .ui-overlay { position: absolute; width: 90%; left: 5%; z-index: 1000; }
+        .top-card { top: 15px; background: rgba(15, 15, 15, 0.9); border: 2px solid #00d4ff; border-radius: 15px; padding: 10px; text-align: center; }
+        .bottom-card { bottom: 20px; background: rgba(15, 15, 15, 0.95); border: 2px solid #00d4ff; border-radius: 20px; padding: 15px; }
+
+        .btn-as { width: 60px; height: 60px; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-size: 18px; font-weight: bold; margin: 5px; }
+        .btn-as.selected { background: #4cd964 !important; color: black !important; border-color: #4cd964 !important; }
+        
+        .btn-main { width: 100%; padding: 15px; border-radius: 15px; border: none; font-weight: bold; font-size: 16px; margin-top: 10px; cursor: pointer; transition: 0.3s; }
+        .btn-ready { background: #00d4ff; color: black; }
+        .btn-disabled { background: #333; color: #666; pointer-events: none; }
+        
+        #mensaje-demo { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #4cd964; color: black; padding: 20px; border-radius: 20px; font-weight: bold; text-align: center; z-index: 2000; display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="mensaje-demo">¡LLEGAMOS!<br>Así de fácil viajarás con nosotros.</div>
+
+    <div class="ui-overlay top-card">
+        <div style="font-size: 12px; color: #00d4ff; font-weight: bold; margin-bottom: 5px;">MODO SIMULADOR</div>
+        <select id="sel-dest" style="width:100%; background:transparent; color:white; border:none; outline:none; text-align:center; font-size:16px;" onchange="check()">
+            <option value="" disabled selected>--- ELIGE TU DESTINO ---</option>
+        </select>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="ui-overlay bottom-card">
+        <div id="resumen" style="text-align:center; color:#4cd964; font-weight:bold; margin-bottom:10px;">Elige tus asientos ($1000 c/u)</div>
+        <div style="display:flex; justify-content:center;">
+            <button class="btn-as" id="a1" onclick="sel(1)">1</button>
+            <button class="btn-as" id="a2" onclick="sel(2)">2</button>
+            <button class="btn-as" id="a3" onclick="sel(3)">3</button>
+            <button class="btn-as" id="a4" onclick="sel(4)">4</button>
+        </div>
+        <button id="btn-demo" class="btn-main btn-disabled" onclick="iniciarSimulacion()">CONFIRMAR SIMULACIÓN</button>
+    </div>
+
+<script>
+    const rutaOficial = [
+        {n:'Miguel Cané (Inicio)', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
+        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]},
+        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'A. Prado 2555', c:[-34.571016, -58.764443]},
+        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
+        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Tablada', c:[-34.580901, -58.753842]},
+        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]}
+    ];
+
+    const s = document.getElementById('sel-dest');
+    rutaOficial.forEach((p,i) => { if(i>0) s.innerHTML += `<option value="${i}">${p.n}</option>`; });
+
+    const map = L.map('map', { zoomControl: false }).setView(rutaOficial[0].c, 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // Icono del autito
+    const carIcon = L.divIcon({ html: '🚕', className: 'car-emoji', iconSize: [30, 30], iconAnchor: [15, 15] });
+    const carMarker = L.marker(rutaOficial[0].c, { icon: carIcon }).addTo(map);
+
+    let elegidos = [];
+
+    function sel(n) {
+        const i = elegidos.indexOf(n);
+        if(i > -1) { elegidos.splice(i,1); document.getElementById('a'+n).classList.remove('selected'); }
+        else { elegidos.push(n); document.getElementById('a'+n).classList.add('selected'); }
+        check();
+    }
+
+    function check() {
+        const btn = document.getElementById('btn-demo');
+        const d = document.getElementById('sel-dest').value;
+        if(elegidos.length > 0 && d !== "") {
+            btn.className = "btn-main btn-ready"; btn.disabled = false;
+            document.getElementById('resumen').innerText = `Total: $${elegidos.length * 1000}`;
+        }
+    }
+
+    function iniciarSimulacion() {
+        const destIdx = parseInt(document.getElementById('sel-dest').value);
+        const puntosViaje = rutaOficial.slice(0, destIdx + 1);
+        let currentStep = 0;
+
+        document.getElementById('btn-demo').innerText = "🚕 EN CAMINO...";
+        document.querySelector('.bottom-card').style.opacity = "0.5";
+        document.querySelector('.bottom-card').style.pointerEvents = "none";
+
+        function mover() {
+            if (currentStep < puntosViaje.length) {
+                carMarker.setLatLng(puntosViaje[currentStep].c);
+                map.panTo(puntosViaje[currentStep].c);
+                currentStep++;
+                setTimeout(mover, 800); // Velocidad del autito
+            } else {
+                document.getElementById('mensaje-demo').style.display = "block";
+                setTimeout(() => location.reload(), 4000);
+            }
+        }
+        mover();
+    }
+</script>
+<style>.car-emoji { font-size: 30px; text-shadow: 0 0 10px white; }</style>
+</body>
+</html>
