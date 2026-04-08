@@ -21,10 +21,10 @@
         .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .btn-as { aspect-ratio: 1; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-size: 18px; font-weight: bold; }
         .btn-as.selected { background: #4cd964 !important; color: #000 !important; border-color: #4cd964 !important; }
-        .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; background: #333; color: #666; pointer-events: none; transition: 0.3s; }
+        .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; background: #333; color: #666; pointer-events: none; }
         .btn-confirm.ready { background: #00d4ff !important; color: black !important; pointer-events: auto !important; }
         .btn-cancel { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; background: #ff3b30; color: white; display: none; }
-        .taxi-icon { font-size: 28px; text-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .taxi-icon { font-size: 28px; }
         .user-icon { font-size: 22px; }
     </style>
 </head>
@@ -77,6 +77,11 @@
     const map = L.map('map', { zoomControl: false }).setView(rutaOficial[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+    // --- AQUÍ ESTÁ EL ARREGLO: DIBUJAR LA RUTA Y PARADAS ---
+    const lineaRuta = L.polyline(rutaOficial.map(p => p.c), {color: '#00d4ff', weight: 4, opacity: 0.6, dashArray: '5, 10'}).addTo(map);
+    rutaOficial.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d4ff', fillColor: '#000', fillOpacity: 1 }).addTo(map));
+    // -------------------------------------------------------
+
     const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
     const iconUser = L.divIcon({ html: '👤', className: 'user-icon', iconAnchor: [12, 12] });
     let mTaxi = L.marker([0,0], { icon: iconTaxi }).addTo(map);
@@ -85,14 +90,12 @@
 
     let miLat, miLon, asientosElegidos = [];
 
-    // SEGUIR AL TAXI AMARILLO EN VIVO
     async function tickConductor() {
         const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
         if (data) mTaxi.setLatLng([data.latitud, data.longitud]);
     }
     setInterval(tickConductor, 5000);
 
-    // SEGUIR AL PASAJERO (👤)
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
         mYo.setLatLng([miLat, miLon]);
@@ -147,10 +150,7 @@
         if(!error) {
             localStorage.setItem('viaje_en_curso', 'true');
             localStorage.setItem('mi_nombre', n);
-            document.getElementById('btn-accion').style.display = 'none';
-            document.getElementById('btn-finalizar').style.display = 'block';
-            alert("¡Reserva confirmada!");
-            location.reload(); // Recarga para activar el modo bloqueo
+            location.reload();
         } else {
             alert("Error al conectar");
             btn.disabled = false;
@@ -166,12 +166,10 @@
         }
     }
 
-    // FUNCIÓN PARA RECUPERAR EL VIAJE SI SE CIERRA LA APP
     async function recuperarEstado() {
         if(localStorage.getItem('viaje_en_curso')) {
             const nom = localStorage.getItem('mi_nombre');
             const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('nombre_pasajero', nom);
-            
             if(data && data.length > 0) {
                 document.getElementById('nombre-pax').value = nom;
                 document.getElementById('nombre-pax').disabled = true;
@@ -179,19 +177,13 @@
                 document.getElementById('select-destino').disabled = true;
                 document.getElementById('btn-accion').style.display = 'none';
                 document.getElementById('btn-finalizar').style.display = 'block';
-                
-                data.forEach(r => {
-                    document.getElementById('b' + r.asiento_num).classList.add('selected');
-                });
                 asientosElegidos = data.map(r => r.asiento_num);
+                asientosElegidos.forEach(n => document.getElementById('b' + n).classList.add('selected'));
                 actualizarResumen();
-            } else {
-                localStorage.clear();
-            }
+            } else { localStorage.clear(); }
         }
     }
-
-    setTimeout(recuperarEstado, 1500);
+    setTimeout(recuperarEstado, 1000);
     tickConductor();
 </script>
 </body>
