@@ -77,10 +77,9 @@
     const map = L.map('map', { zoomControl: false }).setView(rutaOficial[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // --- AQUÍ ESTÁ EL ARREGLO: DIBUJAR LA RUTA Y PARADAS ---
-    const lineaRuta = L.polyline(rutaOficial.map(p => p.c), {color: '#00d4ff', weight: 4, opacity: 0.6, dashArray: '5, 10'}).addTo(map);
+    // Dibujar Ruta y Paradas
+    L.polyline(rutaOficial.map(p => p.c), {color: '#00d4ff', weight: 4, opacity: 0.6, dashArray: '5, 10'}).addTo(map);
     rutaOficial.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d4ff', fillColor: '#000', fillOpacity: 1 }).addTo(map));
-    // -------------------------------------------------------
 
     const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
     const iconUser = L.divIcon({ html: '👤', className: 'user-icon', iconAnchor: [12, 12] });
@@ -125,7 +124,7 @@
         const d = document.getElementById('select-destino').value;
         const n = document.getElementById('nombre-pax').value.trim();
         const b = document.getElementById('btn-accion');
-        if (d !== "") mDest.setLatLng(rutaOficial[d].c).setOpacity(1);
+        if (d !== "" && rutaOficial[d]) mDest.setLatLng(rutaOficial[d].c).setOpacity(1);
         if(asientosElegidos.length > 0 && d !== "" && n !== "") b.classList.add('ready');
         else b.classList.remove('ready');
     }
@@ -166,24 +165,35 @@
         }
     }
 
+    // RECUPERAR ESTADO COMPLETO (Nombre, Asientos y Destino en el Mapa)
     async function recuperarEstado() {
         if(localStorage.getItem('viaje_en_curso')) {
             const nom = localStorage.getItem('mi_nombre');
             const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('nombre_pasajero', nom);
+            
             if(data && data.length > 0) {
                 document.getElementById('nombre-pax').value = nom;
                 document.getElementById('nombre-pax').disabled = true;
-                document.getElementById('select-destino').value = data[0].destino_idx;
+                
+                const dIdx = data[0].destino_idx;
+                document.getElementById('select-destino').value = dIdx;
                 document.getElementById('select-destino').disabled = true;
+
+                // Dibujar el destino guardado en el mapa
+                if(rutaOficial[dIdx]) {
+                    mDest.setLatLng(rutaOficial[dIdx].c).setOpacity(1);
+                }
+
                 document.getElementById('btn-accion').style.display = 'none';
                 document.getElementById('btn-finalizar').style.display = 'block';
+                
                 asientosElegidos = data.map(r => r.asiento_num);
                 asientosElegidos.forEach(n => document.getElementById('b' + n).classList.add('selected'));
                 actualizarResumen();
             } else { localStorage.clear(); }
         }
     }
-    setTimeout(recuperarEstado, 1000);
+    setTimeout(recuperarEstado, 1200);
     tickConductor();
 </script>
 </body>
