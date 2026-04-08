@@ -70,8 +70,8 @@
     const map = L.map('map', { zoomControl: false }).setView(rutaOficial[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // DIBUJAR LÍNEA DE RECORRIDO
-    const linea = L.polyline(rutaOficial.map(p => p.c), {color: '#00d4ff', weight: 4, opacity: 0.6, dashArray: '5, 10'}).addTo(map);
+    // DIBUJAR LÍNEA DE RECORRIDO Y PARADAS
+    L.polyline(rutaOficial.map(p => p.c), {color: '#00d4ff', weight: 4, opacity: 0.6, dashArray: '5, 10'}).addTo(map);
     rutaOficial.forEach(p => L.circleMarker(p.c, { radius: 3, color: '#00d4ff' }).addTo(map));
 
     const markerDestino = L.marker([0,0]).addTo(map);
@@ -93,7 +93,7 @@
             document.getElementById('b'+n).classList.add('selected');
         }
         actualizarResumen();
-        validarFormulario();
+        validarFormulario(); // El botón se resetea aquí
     }
 
     function actualizarResumen() {
@@ -105,18 +105,29 @@
     function validarFormulario() {
         const d = document.getElementById('select-destino').value;
         const b = document.getElementById('btn-accion');
+        
         if (d !== "") markerDestino.setLatLng(rutaOficial[d].c).setOpacity(1);
-        if(asientosElegidos.length > 0 && d !== "") b.classList.add('ready');
-        else b.classList.remove('ready');
+
+        // RESET DEL BOTÓN: Siempre forzamos el texto original al validar
+        b.innerText = "CONFIRMAR RESERVA"; 
+        
+        if(asientosElegidos.length > 0 && d !== "") {
+            b.classList.add('ready');
+            b.disabled = false;
+        } else {
+            b.classList.remove('ready');
+            b.disabled = true;
+        }
     }
 
     async function confirmarReserva() {
         if(!miLat) return alert("Esperando GPS...");
         const d = document.getElementById('select-destino').value;
         const btn = document.getElementById('btn-accion');
-        btn.disabled = true; btn.innerText = "PROCESANDO...";
+        
+        btn.disabled = true; 
+        btn.innerText = "PROCESANDO..."; // Cambio temporal
 
-        // FORZAMOS EL FORMATO NÚMERO (INTEGER) PARA SUPABASE
         const reservas = asientosElegidos.map(num => ({
             asiento_num: parseInt(num), 
             pasajero_lat: parseFloat(miLat), 
@@ -136,7 +147,7 @@
             alert("¡Buen viaje! Reserva confirmada.");
         } else {
             alert("Error: " + error.message);
-            btn.disabled = false; btn.innerText = "CONFIRMAR RESERVA";
+            validarFormulario(); // Si hay error, el botón vuelve a la normalidad
         }
     }
 
@@ -145,8 +156,7 @@
         const { error } = await _s.from('reservas_activas')
             .update({ estado: 'finalizado' })
             .eq('estado', 'en_curso')
-            .gte('pasajero_lat', miLat - 0.005)
-            .lte('pasajero_lat', miLat + 0.005);
+            .gte('pasajero_lat', miLat - 0.005).lte('pasajero_lat', miLat + 0.005);
 
         if(!error) {
             localStorage.removeItem('viaje_en_curso');
@@ -160,6 +170,7 @@
             document.getElementById('select-destino').value = "";
             actualizarResumen();
             markerDestino.setOpacity(0);
+            validarFormulario();
             alert("Viaje finalizado.");
         }
     }
@@ -167,7 +178,7 @@
     async function recuperarSesion() {
         if (!localStorage.getItem('viaje_en_curso')) return;
         const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
-        if (data) {
+        if (data && data.length > 0) {
             const mis = data.filter(r => Math.abs(r.pasajero_lat - miLat) < 0.005);
             if(mis.length > 0) {
                 asientosElegidos = mis.map(r => r.asiento_num);
@@ -181,7 +192,6 @@
         }
     }
 
-    // ELIMINAMOS EL BLOQUEO DEL SPLASH: Se va sí o sí después de cargar
     setTimeout(async () => {
         await recuperarSesion();
         const sp = document.getElementById('splash');
