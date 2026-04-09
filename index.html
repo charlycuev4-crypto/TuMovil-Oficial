@@ -3,153 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Panel Chofer PRO - TuMovil</title>
+    <title>TuMovil Chofer - Oficial</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --gold: #FFD700; --dark: #050505; --card: #121212; --blue: #00d4ff; --red: #ff3b30; --green: #4cd964; }
+        :root { --gold: #FFD700; --dark: #050505; --card: #121212; --blue: #00d4ff; --green: #4cd964; }
         body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        header { background: #111; padding: 12px; border-bottom: 2px solid var(--gold); display: flex; justify-content: space-between; align-items: center; px: 15px; }
+        header { background: #111; padding: 12px; border-bottom: 2px solid var(--gold); display: flex; justify-content: space-between; align-items: center; padding: 0 15px; height: 60px; }
         header h1 { margin: 0; font-size: 14px; color: var(--gold); text-transform: uppercase; }
         
-        /* Switch de Ubicación */
+        /* Switch Online/Offline */
         .switch-container { display: flex; align-items: center; gap: 8px; }
-        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 20px; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--green); }
-        input:checked + .slider:before { transform: translateX(20px); }
+        input:checked + .slider:before { transform: translateX(22px); }
 
         #map { flex: 1; width: 100%; position: relative; }
+        
+        /* Botón flotante para paradas */
+        .btn-map-float { position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; color: black; border: 2px solid var(--gold); padding: 8px 12px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+
         .controls { background: var(--card); padding: 15px; display: flex; flex-direction: column; gap: 8px; border-top: 2px solid var(--gold); }
 
         .ganancias-container { display: flex; gap: 8px; }
         .box { flex: 1; background: #1a1a1a; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #333; }
-        .box span { display: block; font-size: 9px; color: #888; text-transform: uppercase; }
+        .box span { display: block; font-size: 9px; color: #888; text-transform: uppercase; margin-bottom: 4px; }
         .box strong { font-size: 18px; color: var(--blue); }
 
-        .btn { padding: 16px; border: none; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; text-transform: uppercase; }
-        .btn-liberar { background: var(--gold); color: black; }
-        .btn-sentido { background: #222; color: white; border: 1px solid #444; }
+        .btn-main { background: var(--gold); color: black; padding: 18px; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; text-transform: uppercase; }
         
-        .status-bar { display: flex; justify-content: space-between; font-size: 11px; color: var(--gold); padding: 0 5px; }
-        .offline-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; display: none; justify-content: center; align-items: center; text-align: center; }
+        .status-info { display: flex; justify-content: space-between; font-size: 11px; color: var(--gold); padding: 0 5px; }
+        .offline-msg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; justify-content: center; align-items: center; text-align: center; display: none; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>TuMovil Chofer</h1>
+    <h1>TUMOVIL CHOFER</h1>
     <div class="switch-container">
-        <span id="status-text" style="font-size: 10px; color: #888;">OFFLINE</span>
+        <span id="txt-status" style="font-size: 11px;">OFFLINE</span>
         <label class="switch">
-            <input type="checkbox" id="gps-switch" onchange="toggleUbicacion()">
+            <input type="checkbox" id="gps-switch" onchange="toggleServicio()">
             <span class="slider"></span>
         </label>
     </div>
 </header>
 
 <div id="map">
-    <div id="overlay" class="offline-overlay">
+    <button class="btn-map-float" onclick="togglePuntos()">📍 Mostrar/Ocultar Paradas</button>
+    <div id="overlay-offline" class="offline-msg">
         <div>
-            <h2 style="color: var(--red);">MODO OFFLINE</h2>
-            <p>Tu ubicación no es visible para pasajeros.</p>
+            <h2 style="color: white;">MODO DESCONECTADO</h2>
+            <p style="color: var(--gold);">Los pasajeros no pueden verte en el mapa.</p>
         </div>
     </div>
 </div>
 
 <div class="controls">
     <div class="ganancias-container">
-        <div class="box"><span>Viajes</span><strong id="viajes-hoy">0</strong></div>
-        <div class="box"><span>Caja</span><strong id="caja-hoy">$0</strong></div>
-        <div class="box"><span>Asientos</span><strong id="pax-count" style="color: var(--gold);">0/4</strong></div>
+        <div class="box"><span>Viajes</span><strong id="viajes-num">0</strong></div>
+        <div class="box"><span>Caja</span><strong id="caja-num">$0</strong></div>
+        <div class="box"><span>Asientos</span><strong id="pax-num" style="color: var(--gold);">0/4</strong></div>
     </div>
-    <div class="status-bar">
-        <span id="chofer-tag">MÓVIL 1</span>
-        <span id="sentido-tag">SENTIDO: IDA</span>
+    
+    <div class="status-info">
+        <span id="id-movil">MÓVIL 1</span>
+        <span id="sentido-movil">SENTIDO: IDA</span>
     </div>
-    <button class="btn btn-liberar" onclick="liberarAsiento()">🪑 Liberar 1 Asiento</button>
-    <button id="btn-cambio" class="btn btn-sentido" onclick="cambiarSentido()">🔄 Iniciar Regreso</button>
+    
+    <button class="btn-main" onclick="liberarAsiento()">🪑 LIBERAR 1 ASIENTO</button>
 </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    let nombreChofer = "Móvil 1"; 
-    let map, carMarker, watchID;
-    let isOnline = false;
+    let map, carMarker, paradasLayer;
+    let paradasVisibles = true;
+    let watchID = null;
 
-    // Icono Taxi
-    const carIcon = L.divIcon({ html: '<div style="font-size: 24px;">🚕</div>', className: 'car-icon', iconSize: [30, 30], iconAnchor: [15, 15] });
+    const coordsParadas = [[-34.561128, -58.770586], [-34.562160, -58.771380], [-34.562494, -58.772133], [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061], [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443], [-34.571956, -58.763201], [-34.577371, -58.755909], [-34.578528, -58.757064], [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842], [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804], [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542], [-34.588273, -58.751338], [-34.588771, -58.750804], [-34.588244, -58.749877], [-34.588930, -58.750543], [-34.586030, -58.747278]];
 
     function initMap() {
+        // MODO DÍA: Usamos OpenStreetMap estándar
         map = L.map('map', { zoomControl: false }).setView([-34.572, -58.751], 14);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-        carMarker = L.marker([-34.572, -58.751], { icon: carIcon }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        paradasLayer = L.layerGroup().addTo(map);
+        coordsParadas.forEach(pos => {
+            L.circleMarker(pos, { radius: 6, fillColor: "gold", color: "#000", weight: 2, fillOpacity: 1 }).addTo(paradasLayer);
+        });
+
+        const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconSize: [30, 30], iconAnchor: [15, 15] });
+        carMarker = L.marker([-34.572, -58.751], { icon: iconTaxi }).addTo(map);
     }
 
-    // FUNCIÓN PARA APAGAR/ENCENDER UBICACIÓN
-    async function toggleUbicacion() {
-        isOnline = document.getElementById('gps-switch').checked;
-        document.getElementById('status-text').innerText = isOnline ? "ONLINE" : "OFFLINE";
-        document.getElementById('status-text').style.color = isOnline ? "var(--green)" : "#888";
-        document.getElementById('overlay').style.display = isOnline ? "none" : "flex";
+    function togglePuntos() {
+        if (paradasVisibles) map.removeLayer(paradasLayer);
+        else paradasLayer.addTo(map);
+        paradasVisibles = !paradasVisibles;
+    }
 
-        if (isOnline) {
-            // Activar GPS
-            watchID = navigator.geolocation.watchPosition(async (pos) => {
-                const { latitude, longitude } = pos.coords;
+    async function toggleServicio() {
+        const online = document.getElementById('gps-switch').checked;
+        document.getElementById('txt-status').innerText = online ? "ONLINE" : "OFFLINE";
+        document.getElementById('txt-status').style.color = online ? "var(--green)" : "#888";
+        document.getElementById('overlay-offline').style.display = online ? "none" : "flex";
+
+        if (online) {
+            watchID = navigator.geolocation.watchPosition(async (p) => {
+                const { latitude, longitude } = p.coords;
                 carMarker.setLatLng([latitude, longitude]);
                 map.panTo([latitude, longitude]);
-                
-                // Actualizar Supabase
-                await _s.from('conductores').update({ 
-                    lat: latitude, 
-                    lon: longitude,
-                    online: true 
-                }).eq('nombre', nombreChofer);
+                await _s.from('conductores').update({ lat: latitude, lon: longitude, online: true }).eq('nombre', 'Móvil 1');
             }, null, { enableHighAccuracy: true });
         } else {
-            // Apagar GPS
             navigator.geolocation.clearWatch(watchID);
-            await _s.from('conductores').update({ online: false }).eq('nombre', nombreChofer);
+            await _s.from('conductores').update({ online: false }).eq('nombre', 'Móvil 1');
         }
     }
 
-    async function actualizar() {
-        const { data } = await _s.from('conductores').select('*').eq('nombre', nombreChofer).single();
+    async function actualizarDatos() {
+        const { data } = await _s.from('conductores').select('*').eq('nombre', 'Móvil 1').single();
         if (data) {
-            document.getElementById('pax-count').innerText = `${data.pasajeros_actuales}/4`;
-            document.getElementById('viajes-hoy').innerText = data.viajes_realizados || 0;
-            document.getElementById('caja-hoy').innerText = "$" + ((data.viajes_realizados || 0) * 1000);
-            document.getElementById('sentido-tag').innerText = "SENTIDO: " + data.sentido.toUpperCase();
+            document.getElementById('pax-num').innerText = `${data.pasajeros_actuales}/4`;
+            document.getElementById('viajes-num').innerText = data.viajes_realizados || 0;
+            document.getElementById('caja-num').innerText = "$" + ((data.viajes_realizados || 0) * 1000);
+            document.getElementById('sentido-movil').innerText = "SENTIDO: " + data.sentido.toUpperCase();
         }
     }
 
     async function liberarAsiento() {
-        const { data } = await _s.from('conductores').select('*').eq('nombre', nombreChofer).single();
+        const { data } = await _s.from('conductores').select('*').eq('nombre', 'Móvil 1').single();
         if (data.pasajeros_actuales > 0) {
             await _s.from('conductores').update({ 
                 pasajeros_actuales: data.pasajeros_actuales - 1,
                 viajes_realizados: (data.viajes_realizados || 0) + 1 
-            }).eq('nombre', nombreChofer);
-        }
-    }
-
-    async function cambiarSentido() {
-        const { data } = await _s.from('conductores').select('sentido').eq('nombre', nombreChofer).single();
-        const nuevo = data.sentido === "ida" ? "vuelta" : "ida";
-        if (confirm("¿Cambiar sentido? Se vaciarán asientos.")) {
-            await _s.from('conductores').update({ sentido: nuevo, pasajeros_actuales: 0 }).eq('nombre', nombreChofer);
+            }).eq('nombre', 'Móvil 1');
         }
     }
 
     initMap();
-    actualizar();
-    _s.channel('cambios-pro').on('postgres_changes', { event: '*', table: 'conductores' }, () => actualizar()).subscribe();
+    actualizarDatos();
+    _s.channel('cambios').on('postgres_changes', { event: '*', table: 'conductores' }, () => actualizarDatos()).subscribe();
 </script>
 
 </body>
