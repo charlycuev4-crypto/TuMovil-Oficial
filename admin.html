@@ -3,159 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comando Central - TuMovil Premium</title>
+    <title>Admin - TuMovil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root {
-            --gold: #FFD700;
-            --cyan: #00d4ff;
-            --dark: #050505;
-            --card: #121212;
-            --success: #4cd964;
-            --danger: #ff3b30;
-        }
-
-        /* Pantalla de Bloqueo */
-        #lock-screen {
-            position: fixed; top:0; left:0; width: 100%; height: 100%;
-            background: var(--dark); z-index: 9999;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-        }
-
-        .lock-card {
-            background: var(--card); padding: 40px; border-radius: 20px;
-            border: 2px solid var(--gold); text-align: center;
-            box-shadow: 0 0 30px rgba(255, 215, 0, 0.2);
-        }
-
-        body {
-            margin: 0; padding: 0;
-            background-color: var(--dark); color: white;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            display: none; /* Se oculta hasta que pongas la clave */
-            flex-direction: column; height: 100vh; overflow: hidden;
-        }
-
-        header {
-            background: linear-gradient(90deg, #111, #1a1a1a);
-            padding: 15px 25px; display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 2px solid var(--gold); z-index: 1001;
-        }
-
-        .brand h1 { margin: 0; font-size: 22px; font-weight: 900; color: var(--gold); letter-spacing: 2px; }
-        main { display: flex; flex: 1; overflow: hidden; }
-        #map { flex: 1; height: 100%; }
-
-        #controls {
-            width: 380px; background: var(--card);
-            display: flex; flex-direction: column; z-index: 1000;
-        }
-
-        .widget { background: #1a1a1a; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #333; margin: 10px; }
-        .widget strong { font-size: 22px; color: var(--cyan); }
-
-        .admin-form { padding: 20px; border-top: 2px solid var(--gold); background: #0a0a0a; }
-        .admin-form input { width: 100%; padding: 12px; margin-bottom: 10px; background: #1a1a1a; border: 1px solid #333; color: white; border-radius: 8px; box-sizing: border-box; }
-        .btn-save { width: 100%; background: var(--gold); color: black; border: none; padding: 14px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        body { background: #050505; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-box { background: #121212; padding: 30px; border-radius: 15px; border: 2px solid #FFD700; text-align: center; }
+        input { padding: 12px; border-radius: 8px; border: 1px solid #333; background: #000; color: white; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+        button { background: #FFD700; color: black; border: none; padding: 12px 25px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; }
+        #panel-real { display: none; width: 100%; height: 100vh; flex-direction: column; }
     </style>
 </head>
-<body id="admin-body">
+<body>
 
-<div id="lock-screen">
-    <div class="lock-card">
-        <div style="font-size: 50px; margin-bottom: 20px;">🔒</div>
-        <h2 style="color: var(--gold); margin-bottom: 20px;">ACCESO RESTRINGIDO</h2>
-        <input type="password" id="admin-pass" placeholder="PIN de Seguridad" style="padding: 15px; border-radius: 10px; border: 1px solid var(--gold); background: #000; color: white; text-align: center; font-size: 18px; width: 200px;">
-        <br><br>
-        <button onclick="verificarAcceso()" style="background: var(--gold); border: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; cursor: pointer;">ENTRAR AL SISTEMA</button>
+    <div id="login-screen" class="login-box">
+        <h2 style="color: #FFD700;">ACCESO SEGURO</h2>
+        <input type="password" id="pass-input" placeholder="Introduce el PIN">
+        <button onclick="entrar()">ENTRAR</button>
     </div>
-</div>
 
-<header>
-    <div class="brand"><h1>TU MÓVIL <small style="font-size: 10px;">ADMIN</small></h1></div>
-    <div id="status-text" style="font-weight: bold; color: var(--success);">SISTEMA ACTIVO</div>
-</header>
-
-<main>
-    <div id="map"></div>
-    <aside id="controls">
-        <div style="display: flex;">
-            <div class="widget" style="flex:1;"><span>VIAJES HOY</span><br><strong id="total-trips">0</strong></div>
-            <div class="widget" style="flex:1;"><span>CAJA TOTAL</span><br><strong id="total-money">$0</strong></div>
+    <div id="panel-real">
+        <div style="background: #111; padding: 20px; border-bottom: 2px solid #FFD700; text-align: center;">
+            <h1 style="color: #FFD700; margin: 0;">PANEL ACTIVO</h1>
         </div>
-        <div id="active-list" style="flex:1; overflow-y: auto; padding: 15px;">
-            <h3 style="font-size: 12px; color: var(--gold);">VIAJES EN CURSO</h3>
+        <div style="padding: 20px; text-align: center;">
+            <p>Bienvenido al cerebro de Santa Brígida.</p>
+            <button onclick="location.reload()" style="background: #333; color: white; width: auto;">Cerrar Sesión</button>
         </div>
-        <div class="admin-form">
-            <h2 style="font-size: 13px; color: var(--gold); margin-bottom: 10px;">REGISTRAR NUEVO CHOFER</h2>
-            <input type="text" id="driver-name" placeholder="Nombre">
-            <input type="text" id="driver-patente" placeholder="Patente">
-            <input type="text" id="driver-model" placeholder="Vehículo">
-            <button class="btn-save" onclick="registrarChofer()">GUARDAR EN CEREBRO CENTRAL</button>
-        </div>
-    </aside>
-</main>
+    </div>
 
-<script>
-    // CAMBIA ESTA CLAVE POR LA QUE TÚ QUIERAS
-    const CLAVE_MAESTRA = "1234"; 
+    <script>
+        const PIN_CORRECTO = "1234"; // <--- CAMBIA TU CLAVE AQUÍ
 
-    function verificarAcceso() {
-        const pass = document.getElementById('admin-pass').value;
-        if(pass === CLAVE_MAESTRA) {
-            document.getElementById('lock-screen').style.display = 'none';
-            document.getElementById('admin-body').style.display = 'flex';
-            iniciarSistema();
-        } else {
-            alert("❌ PIN Incorrecto. Acceso denegado.");
+        function entrar() {
+            const pass = document.getElementById('pass-input').value;
+            if(pass === PIN_CORRECTO) {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('panel-real').style.display = 'flex';
+                alert("Acceso concedido");
+            } else {
+                alert("PIN incorrecto");
+            }
         }
-    }
-
-    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-
-    const map = L.map('map', { zoomControl: false }).setView([-34.57, -58.75], 14);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-
-    async function iniciarSistema() {
-        updateDashboard();
-        _s.channel('realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, updateDashboard).subscribe();
-        setInterval(updateDashboard, 20000);
-    }
-
-    async function updateDashboard() {
-        const { data: viajes } = await _s.from('reservas_activas').select('*');
-        if (viajes) {
-            const finalizados = viajes.filter(v => v.estado === 'finalizado');
-            document.getElementById('total-money').innerText = '$' + (finalizados.length * 1000);
-            document.getElementById('total-trips').innerText = finalizados.length;
-            
-            const list = document.getElementById('active-list');
-            list.innerHTML = '<h3 style="font-size: 12px; color: var(--gold);">VIAJES EN CURSO</h3>';
-            viajes.filter(v => v.estado === 'en_curso').forEach(v => {
-                list.innerHTML += `<div style="background:#222; padding:10px; border-radius:8px; margin-bottom:5px; border-left:3px solid var(--cyan)">
-                    <strong>${v.nombre_pasajero}</strong><br><small>Asiento ${v.asiento_num}</small>
-                </div>`;
-            });
-        }
-    }
-
-    async function registrarChofer() {
-        const nombre = document.getElementById('driver-name').value;
-        const patente = document.getElementById('driver-patente').value;
-        const modelo = document.getElementById('driver-model').value;
-        if (!nombre || !patente) return alert("Nombre y Patente obligatorios");
-
-        const { error } = await _s.from('conductores').insert([{ nombre, patente, modelo_auto: modelo }]);
-        if (error) alert("Error: " + error.message);
-        else {
-            alert("✅ Chofer guardado en Santa Brígida.");
-            document.getElementById('driver-name').value = "";
-            document.getElementById('driver-patente').value = "";
-            document.getElementById('driver-model').value = "";
-        }
-    }
-</script>
+    </script>
 </body>
 </html>
