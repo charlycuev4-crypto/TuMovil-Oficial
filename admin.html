@@ -26,7 +26,6 @@
             height: 100vh; overflow: hidden;
         }
 
-        /* Header Estilo Dashboard */
         header {
             background: linear-gradient(90deg, #111, #1a1a1a);
             padding: 15px 25px;
@@ -49,14 +48,11 @@
         .dot.online { background: var(--success); box-shadow: 0 0 10px var(--success); }
         .dot.offline { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
 
-        /* Contenedor Principal */
         main { display: flex; flex: 1; overflow: hidden; }
 
-        /* Mapa */
         #map-container { flex: 1; position: relative; border-right: 1px solid #222; }
         #map { width: 100%; height: 100%; }
 
-        /* Panel de Control Lateral */
         #controls {
             width: 380px; background: var(--card);
             display: flex; flex-direction: column;
@@ -64,7 +60,6 @@
             z-index: 1000;
         }
 
-        /* Widgets de Resumen */
         .dashboard-grid {
             display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 20px;
             background: rgba(255,255,255,0.02);
@@ -76,7 +71,6 @@
         .widget span { display: block; font-size: 11px; opacity: 0.6; margin-bottom: 5px; text-transform: uppercase; }
         .widget strong { font-size: 22px; color: var(--cyan); }
 
-        /* Listado de Viajes */
         .list-section { flex: 1; overflow-y: auto; padding: 0 20px 20px; }
         .list-section h2 { font-size: 14px; opacity: 0.7; margin: 20px 0 10px; letter-spacing: 1px; text-transform: uppercase; }
         
@@ -101,13 +95,29 @@
         }
         .btn-cancel-admin:hover { background: var(--danger); color: white; }
 
-        /* Tooltip del Mapa */
+        /* Estilos para el Formulario de Choferes */
+        .admin-form {
+            padding: 20px;
+            border-top: 2px solid var(--gold);
+            background: #0a0a0a;
+        }
+        .admin-form input {
+            width: 100%; padding: 10px; margin-bottom: 10px;
+            background: #1a1a1a; border: 1px solid #333;
+            color: white; border-radius: 5px; box-sizing: border-box;
+        }
+        .btn-save-driver {
+            width: 100%; background: var(--gold); color: black;
+            border: none; padding: 12px; border-radius: 5px;
+            font-weight: bold; cursor: pointer; text-transform: uppercase;
+        }
+        .btn-save-driver:hover { background: #e6c200; }
+
         .leaflet-tooltip-own {
             background: rgba(0,0,0,0.8); border: 1px solid var(--gold);
             color: white; border-radius: 5px; font-weight: bold; padding: 5px 10px;
         }
 
-        /* Scrollbar Personalizado */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #111; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
@@ -150,16 +160,22 @@
             <h2>Historial del Turno</h2>
             <div id="history-list"></div>
         </div>
+
+        <div class="admin-form">
+            <h2 style="font-size: 14px; margin-top: 0; color: var(--gold);">REGISTRAR CHOFER</h2>
+            <input type="text" id="driver-name" placeholder="Nombre completo">
+            <input type="text" id="driver-patente" placeholder="Patente (Ej: ABC 123)">
+            <input type="text" id="driver-model" placeholder="Vehículo (Ej: Fiat Cronos)">
+            <button class="btn-save-driver" onclick="registrarChofer()">Guardar Chofer</button>
+        </div>
     </aside>
 </main>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // Nombres cortos para las paradas (referencia)
     const paradasRef = ["Cané", "Los Aromos", "Aromos 11k", "Aromos 10k", "Murillo", "Murillo 601", "Güiraldes", "Watt", "Prado 2555", "Payró", "Prado 1744", "Caveri", "Azara", "Vedia", "Tablada", "Echeverría", "Gálvez", "Caveri Final", "Aero", "Lib. 7300", "Lib. 7200", "Maza", "Albatros", "Maternidad", "Abasto"];
 
-    // Mapa Estilo Admin Dark
     const map = L.map('map', { zoomControl: false }).setView([-34.57, -58.75], 14);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
@@ -172,7 +188,6 @@
     let markersPax = [];
 
     async function updateDashboard() {
-        // 1. Estado del Conductor
         const { data: movil } = await _s.from('estado_movil').select('*').eq('id', 1).single();
         const dot = document.getElementById('status-dot');
         const txt = document.getElementById('status-text');
@@ -187,7 +202,6 @@
             mTaxis.setOpacity(0);
         }
 
-        // 2. Cargar Viajes del día
         const { data: viajes } = await _s.from('reservas_activas').select('*');
         
         if (viajes) {
@@ -205,7 +219,6 @@
             markersPax.forEach(m => map.removeLayer(m));
             markersPax = [];
 
-            // Ordenamos: los más nuevos arriba
             viajes.sort((a,b) => b.id - a.id).forEach(v => {
                 const card = document.createElement('div');
                 card.className = `trip-card ${v.estado}`;
@@ -222,7 +235,6 @@
 
                 if (v.estado === 'en_curso') {
                     activeCont.appendChild(card);
-                    // Marcador en el mapa para el pasajero esperando/viajando
                     const mP = L.circleMarker([v.pasajero_lat, v.pasajero_lon], {
                         color: '#FFD700', fillColor: '#00d4ff', fillOpacity: 0.8, radius: 8, weight: 2
                     }).addTo(map).bindTooltip(v.nombre_pasajero, { className: 'leaflet-tooltip-own', permanent: false });
@@ -240,11 +252,34 @@
         updateDashboard();
     }
 
-    // Escuchar cambios en tiempo real
+    // NUEVA FUNCIÓN: Guardar chofer en la base de datos
+    async function registrarChofer() {
+        const nombre = document.getElementById('driver-name').value;
+        const patente = document.getElementById('driver-patente').value;
+        const modelo = document.getElementById('driver-model').value;
+
+        if (!nombre || !patente) {
+            alert("Por favor completa al menos el nombre y la patente.");
+            return;
+        }
+
+        const { error } = await _s.from('conductores').insert([
+            { nombre: nombre, patente: patente, modelo_auto: modelo }
+        ]);
+
+        if (error) {
+            alert("Error: " + error.message);
+        } else {
+            alert("¡Chofer registrado exitosamente!");
+            document.getElementById('driver-name').value = "";
+            document.getElementById('driver-patente').value = "";
+            document.getElementById('driver-model').value = "";
+        }
+    }
+
     _s.channel('admin_realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, updateDashboard).subscribe();
     _s.channel('admin_gps_realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'estado_movil' }, updateDashboard).subscribe();
 
-    // Refresco de seguridad cada 20 seg
     setInterval(updateDashboard, 20000);
     updateDashboard();
 
