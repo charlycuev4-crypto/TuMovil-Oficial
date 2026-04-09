@@ -8,24 +8,16 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
+        /* MANTENEMOS TUS ESTILOS EXACTAMENTE IGUALES */
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
-        
-        /* Splash Screen Style */
-        #splash {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 9999; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; transition: opacity 0.8s ease-out;
-        }
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; }
         .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
         .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
         .splash-sub { color: #00d4ff; font-size: 14px; letter-spacing: 2px; opacity: 0.8; }
         .loader { width: 40px; height: 40px; border: 3px solid rgba(255,215,0,0.2); border-top: 3px solid #FFD700; border-radius: 50%; margin-top: 30px; animation: spin 1s linear infinite; }
-        
         @keyframes spin { 100% { transform: rotate(360deg); } }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-
-        /* App Styles */
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         .top-ui { position: absolute; top: 10px; width: 100%; padding: 0 15px; z-index: 1000; }
         .dest-card { background: rgba(25, 25, 25, 0.95); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
@@ -56,7 +48,7 @@
     <div class="top-ui">
         <div class="dest-card">
             <input type="text" id="nombre-pax" placeholder="TU NOMBRE (Ej: Carlos)" oninput="validarFormulario()">
-            <select id="select-destino" onchange="validarFormulario()">
+            <select id="select-destino" onchange="actualizarTrayecto()">
                 <option value="" disabled selected>--- ¿A DÓNDE VAS? ---</option>
             </select>
         </div>
@@ -110,26 +102,59 @@
     let mYo = L.marker([0,0], { icon: iconUser }).addTo(map);
     const mDest = L.marker([0,0]).addTo(map); mDest.setOpacity(0);
 
-    let miLat, miLon, asientosElegidos = [];
+    let miLat, miLon, asientosElegidos = [], indexOrigen = 0;
 
-    // LÓGICA DE DESCONEXIÓN: Si el conductor marca 0,0 el taxi desaparece
-    async function tickConductor() {
-        const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
-        if (data) {
-            if (data.latitud !== 0 && data.longitud !== 0) {
-                mTaxi.setLatLng([data.latitud, data.longitud]);
-                mTaxi.setOpacity(1);
+    // --- NUEVA LÓGICA DE BÚSQUEDA INTELIGENTE ---
+    async function monitorearMovil() {
+        // Buscamos el móvil que esté en servicio
+        const { data: conductor } = await _s.from('estado_movil').select('*').eq('en_servicio', true).eq('id', 1).single();
+        
+        if (conductor && conductor.latitud !== 0) {
+            const d = document.getElementById('select-destino').value;
+            
+            // 1. Verificamos sentido
+            const miSentidoIda = parseInt(d) > indexOrigen;
+            const sentidoCorrecto = (conductor.hacia_adelante === miSentidoIda);
+
+            // 2. Verificamos disponibilidad de Relevo
+            let tieneLugar = false;
+            if (miSentidoIda) {
+                if (conductor.disponible_desde <= indexOrigen) tieneLugar = true;
             } else {
-                mTaxi.setOpacity(0);
+                if (conductor.disponible_desde >= indexOrigen) tieneLugar = true;
             }
+
+            // Mostramos el taxi solo si cumple con las reglas
+            if (sentidoCorrecto && tieneLugar) {
+                mTaxi.setLatLng([conductor.latitud, conductor.longitud]).setOpacity(1);
+            } else {
+                mTaxi.setOpacity(0.3); // Aparece fantasmita si no te sirve
+            }
+        } else {
+            mTaxi.setOpacity(0);
         }
     }
-    setInterval(tickConductor, 5000);
+    setInterval(monitorearMovil, 4000);
 
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
         mYo.setLatLng([miLat, miLon]);
+        
+        // Calculamos cuál es la parada más cercana al pasajero (su Origen)
+        let minDest = 999;
+        rutaOficial.forEach((parada, i) => {
+            let d = Math.hypot(parada.c[0]-miLat, parada.c[1]-miLon);
+            if(d < minDest) { minDest = d; indexOrigen = i; }
+        });
     }, null, { enableHighAccuracy: true });
+
+    function actualizarTrayecto() {
+        const d = document.getElementById('select-destino').value;
+        if (d !== "" && rutaOficial[d]) {
+            mDest.setLatLng(rutaOficial[d].c).setOpacity(1);
+            validarFormulario();
+        }
+    }
 
     function toggleAsiento(n) {
         if(localStorage.getItem('viaje_en_curso')) return;
@@ -153,7 +178,6 @@
     function validarFormulario() {
         const d = document.getElementById('select-destino').value;
         const n = document.getElementById('nombre-pax').value.trim();
-        if (d !== "" && rutaOficial[d]) mDest.setLatLng(rutaOficial[d].c).setOpacity(1);
         if(asientosElegidos.length > 0 && d !== "" && n !== "") document.getElementById('btn-accion').classList.add('ready');
         else document.getElementById('btn-accion').classList.remove('ready');
     }
@@ -161,18 +185,32 @@
     async function confirmarReserva() {
         const n = document.getElementById('nombre-pax').value.trim();
         const d = document.getElementById('select-destino').value;
+        
         const reservas = asientosElegidos.map(num => ({
-            asiento_num: num, pasajero_lat: miLat, pasajero_lon: miLon,
-            destino_idx: d, nombre_pasajero: n, estado: 'en_curso'
+            asiento_num: num, 
+            pasajero_lat: miLat, 
+            pasajero_lon: miLon,
+            destino_idx: d, 
+            nombre_pasajero: n, 
+            estado: 'en_curso',
+            id_movil: 1 // Aseguramos que se vincule al móvil 1
         }));
+
         const { error } = await _s.from('reservas_activas').insert(reservas);
-        if(!error) { localStorage.setItem('viaje_en_curso', 'true'); localStorage.setItem('mi_nombre', n); location.reload(); }
+        if(!error) { 
+            localStorage.setItem('viaje_en_curso', 'true'); 
+            localStorage.setItem('mi_nombre', n); 
+            location.reload(); 
+        }
     }
 
     async function finalizarViaje() {
         if(!confirm("¿Ya bajaste?")) return;
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('nombre_pasajero', localStorage.getItem('mi_nombre'));
-        localStorage.clear(); location.reload();
+        await _s.from('reservas_activas').update({ estado: 'finalizado' })
+            .eq('estado', 'en_curso')
+            .eq('nombre_pasajero', localStorage.getItem('mi_nombre'));
+        localStorage.clear(); 
+        location.reload();
     }
 
     async function recuperarEstado() {
@@ -180,10 +218,14 @@
             const nom = localStorage.getItem('mi_nombre');
             const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('nombre_pasajero', nom);
             if(data && data.length > 0) {
-                document.getElementById('nombre-pax').value = nom; document.getElementById('nombre-pax').disabled = true;
-                const dIdx = data[0].destino_idx; document.getElementById('select-destino').value = dIdx; document.getElementById('select-destino').disabled = true;
+                document.getElementById('nombre-pax').value = nom; 
+                document.getElementById('nombre-pax').disabled = true;
+                const dIdx = data[0].destino_idx; 
+                document.getElementById('select-destino').value = dIdx; 
+                document.getElementById('select-destino').disabled = true;
                 if(rutaOficial[dIdx]) mDest.setLatLng(rutaOficial[dIdx].c).setOpacity(1);
-                document.getElementById('btn-accion').style.display = 'none'; document.getElementById('btn-finalizar').style.display = 'block';
+                document.getElementById('btn-accion').style.display = 'none'; 
+                document.getElementById('btn-finalizar').style.display = 'block';
                 asientosElegidos = data.map(r => r.asiento_num);
                 asientosElegidos.forEach(n => document.getElementById('b' + n).classList.add('selected'));
                 actualizarResumen();
@@ -193,7 +235,6 @@
         if(spl) { spl.style.opacity = '0'; setTimeout(() => spl.style.display = 'none', 800); }
     }
     setTimeout(recuperarEstado, 1200);
-    tickConductor();
 </script>
 </body>
 </html>
