@@ -49,7 +49,6 @@
         .dot.offline { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
 
         main { display: flex; flex: 1; overflow: hidden; }
-
         #map-container { flex: 1; position: relative; border-right: 1px solid #222; }
         #map { width: 100%; height: 100%; }
 
@@ -62,7 +61,6 @@
 
         .dashboard-grid {
             display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 20px;
-            background: rgba(255,255,255,0.02);
         }
         .widget {
             background: #1a1a1a; padding: 15px; border-radius: 12px;
@@ -77,50 +75,24 @@
         .trip-card {
             background: #1a1a1a; border-radius: 10px; padding: 12px;
             margin-bottom: 10px; border-left: 4px solid var(--cyan);
-            position: relative; transition: all 0.3s;
         }
-        .trip-card:hover { transform: scale(1.02); background: #222; }
-        .trip-card.finalizado { border-left-color: #444; opacity: 0.6; }
         
-        .trip-info { display: flex; justify-content: space-between; align-items: flex-start; }
-        .pax-name { font-weight: bold; color: white; font-size: 15px; }
-        .asiento-badge { font-size: 10px; background: var(--cyan); color: black; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-        
-        .trip-details { font-size: 12px; color: #aaa; margin-top: 5px; }
-        .btn-cancel-admin {
-            margin-top: 10px; width: 100%; background: rgba(255,59,48,0.1);
-            border: 1px solid var(--danger); color: var(--danger);
-            padding: 8px; border-radius: 8px; font-size: 11px; cursor: pointer;
-            font-weight: bold; transition: 0.2s;
-        }
-        .btn-cancel-admin:hover { background: var(--danger); color: white; }
-
-        /* Estilos para el Formulario de Choferes */
         .admin-form {
-            padding: 20px;
-            border-top: 2px solid var(--gold);
-            background: #0a0a0a;
+            padding: 20px; border-top: 2px solid var(--gold); background: #0a0a0a;
         }
         .admin-form input {
             width: 100%; padding: 10px; margin-bottom: 10px;
-            background: #1a1a1a; border: 1px solid #333;
-            color: white; border-radius: 5px; box-sizing: border-box;
+            background: #1a1a1a; border: 1px solid #333; color: white; border-radius: 5px;
         }
-        .btn-save-driver {
-            width: 100%; background: var(--gold); color: black;
-            border: none; padding: 12px; border-radius: 5px;
-            font-weight: bold; cursor: pointer; text-transform: uppercase;
+        .btn-save {
+            width: 100%; background: var(--gold); color: black; border: none;
+            padding: 12px; border-radius: 5px; font-weight: bold; cursor: pointer;
         }
-        .btn-save-driver:hover { background: #e6c200; }
 
         .leaflet-tooltip-own {
             background: rgba(0,0,0,0.8); border: 1px solid var(--gold);
             color: white; border-radius: 5px; font-weight: bold; padding: 5px 10px;
         }
-
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #111; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -156,8 +128,7 @@
         <div class="list-section">
             <h2>Pasajeros en Viaje</h2>
             <div id="active-list"></div>
-
-            <h2>Historial del Turno</h2>
+            <h2>Historial</h2>
             <div id="history-list"></div>
         </div>
 
@@ -166,12 +137,13 @@
             <input type="text" id="driver-name" placeholder="Nombre completo">
             <input type="text" id="driver-patente" placeholder="Patente (Ej: ABC 123)">
             <input type="text" id="driver-model" placeholder="Vehículo (Ej: Fiat Cronos)">
-            <button class="btn-save-driver" onclick="registrarChofer()">Guardar Chofer</button>
+            <button class="btn-save" onclick="registrarChofer()">Guardar Chofer</button>
         </div>
     </aside>
 </main>
 
 <script>
+    // CONEXIÓN CONFIGURADA PARA TU MÓVIL SANTA BRÍGIDA
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
     const paradasRef = ["Cané", "Los Aromos", "Aromos 11k", "Aromos 10k", "Murillo", "Murillo 601", "Güiraldes", "Watt", "Prado 2555", "Payró", "Prado 1744", "Caveri", "Azara", "Vedia", "Tablada", "Echeverría", "Gálvez", "Caveri Final", "Aero", "Lib. 7300", "Lib. 7200", "Maza", "Albatros", "Maternidad", "Abasto"];
@@ -203,11 +175,9 @@
         }
 
         const { data: viajes } = await _s.from('reservas_activas').select('*');
-        
         if (viajes) {
             const activos = viajes.filter(v => v.estado === 'en_curso');
             const finalizados = viajes.filter(v => v.estado === 'finalizado');
-
             document.getElementById('total-money').innerText = '$' + (finalizados.length * 1000);
             document.getElementById('total-trips').innerText = finalizados.length;
 
@@ -222,22 +192,11 @@
             viajes.sort((a,b) => b.id - a.id).forEach(v => {
                 const card = document.createElement('div');
                 card.className = `trip-card ${v.estado}`;
-                const destinoTxt = paradasRef[v.destino_idx] || "Destino";
-
-                card.innerHTML = `
-                    <div class="trip-info">
-                        <span class="pax-name">${v.nombre_pasajero}</span>
-                        <span class="asiento-badge">ASIENTO ${v.asiento_num}</span>
-                    </div>
-                    <div class="trip-details">Destino: ${destinoTxt}</div>
-                    ${v.estado === 'en_curso' ? `<button class="btn-cancel-admin" onclick="forzarFinalizar(${v.id})">LIBERAR ASIENTO (ADMIN)</button>` : ''}
-                `;
+                card.innerHTML = `<strong>${v.nombre_pasajero}</strong> - Asiento: ${v.asiento_num}<br><small>Destino: ${paradasRef[v.destino_idx] || 'Destino'}</small>`;
 
                 if (v.estado === 'en_curso') {
                     activeCont.appendChild(card);
-                    const mP = L.circleMarker([v.pasajero_lat, v.pasajero_lon], {
-                        color: '#FFD700', fillColor: '#00d4ff', fillOpacity: 0.8, radius: 8, weight: 2
-                    }).addTo(map).bindTooltip(v.nombre_pasajero, { className: 'leaflet-tooltip-own', permanent: false });
+                    const mP = L.circleMarker([v.pasajero_lat, v.pasajero_lon], { color: '#FFD700', radius: 8 }).addTo(map);
                     markersPax.push(mP);
                 } else {
                     historyCont.appendChild(card);
@@ -246,31 +205,19 @@
         }
     }
 
-    async function forzarFinalizar(id) {
-        if(!confirm("¿Deseas finalizar este viaje manualmente? Esto liberará el asiento.")) return;
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', id);
-        updateDashboard();
-    }
-
-    // NUEVA FUNCIÓN: Guardar chofer en la base de datos
     async function registrarChofer() {
         const nombre = document.getElementById('driver-name').value;
         const patente = document.getElementById('driver-patente').value;
         const modelo = document.getElementById('driver-model').value;
 
-        if (!nombre || !patente) {
-            alert("Por favor completa al menos el nombre y la patente.");
-            return;
-        }
+        if (!nombre || !patente) return alert("Completa nombre y patente.");
 
-        const { error } = await _s.from('conductores').insert([
-            { nombre: nombre, patente: patente, modelo_auto: modelo }
-        ]);
+        const { error } = await _s.from('conductores').insert([{ nombre, patente, modelo_auto: modelo }]);
 
         if (error) {
             alert("Error: " + error.message);
         } else {
-            alert("¡Chofer registrado exitosamente!");
+            alert("✅ Chofer registrado en Santa Brígida!");
             document.getElementById('driver-name').value = "";
             document.getElementById('driver-patente').value = "";
             document.getElementById('driver-model').value = "";
@@ -280,9 +227,8 @@
     _s.channel('admin_realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, updateDashboard).subscribe();
     _s.channel('admin_gps_realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'estado_movil' }, updateDashboard).subscribe();
 
-    setInterval(updateDashboard, 20000);
     updateDashboard();
-
+    setInterval(updateDashboard, 20000);
 </script>
 </body>
 </html>
