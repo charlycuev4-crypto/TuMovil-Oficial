@@ -11,7 +11,7 @@
         :root { --gold: #FFD700; --cyan: #00d4ff; --dark: #050505; --card: #121212; }
         body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
         #lock-screen { position: fixed; inset: 0; background: var(--dark); z-index: 9999; display: flex; justify-content: center; align-items: center; }
-        .lock-box { background: var(--card); padding: 30px; border: 2px solid var(--gold); border-radius: 15px; text-align: center; width: 85%; max-width: 320px; }
+        .lock-box { background: var(--card); padding: 30px; border: 2px solid var(--gold); border-radius: 15px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 0 20px rgba(255, 215, 0, 0.2); }
         #main-panel { display: none; flex-direction: column; flex: 1; height: 100vh; }
         header { background: #111; padding: 15px; border-bottom: 2px solid var(--gold); text-align: center; }
         header h1 { margin: 0; font-size: 18px; color: var(--gold); letter-spacing: 2px; }
@@ -29,7 +29,7 @@
     <div id="lock-screen">
         <div class="lock-box">
             <h2 style="color: var(--gold); margin-bottom: 20px;">ACCESO SEGURO</h2>
-            <input type="password" id="pin-input" placeholder="PIN de Seguridad" style="width:100%; padding:12px; margin-bottom:15px; text-align:center; background:#000; color:white; border:1px solid var(--gold); border-radius:8px;">
+            <input type="password" id="pin-input" placeholder="Ingresa tu clave" style="width:100%; padding:12px; margin-bottom:15px; text-align:center; background:#000; color:white; border:1px solid var(--gold); border-radius:8px;">
             <button class="btn" onclick="validar()">ENTRAR AL CEREBRO</button>
         </div>
     </div>
@@ -45,13 +45,15 @@
             <div class="admin-form">
                 <input type="text" id="d-name" placeholder="Nombre del Chofer">
                 <input type="text" id="d-pat" placeholder="Patente">
-                <button class="btn" onclick="guardarChofer()">REGISTRAR CHOFER</button>
+                <button class="btn" onclick="guardarChofer()">REGISTRAR CHOFER EN SANTA BRÍGIDA</button>
             </div>
         </div>
     </div>
 
     <script>
-        const PIN_SECRET = "1234"; // <--- CAMBIALA AQUÍ POR LA TUYA
+        // CLAVE ACTUALIZADA: Yeshua77moira
+        const PIN_SECRET = "Yeshua77moira"; 
+        
         const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
         function validar() {
@@ -60,7 +62,7 @@
                 document.getElementById('main-panel').style.display = 'flex';
                 setTimeout(initMap, 100);
                 update();
-            } else { alert("PIN Incorrecto"); }
+            } else { alert("❌ Clave incorrecta"); }
         }
 
         let map;
@@ -85,7 +87,7 @@
             if(!n || !p) return alert("Faltan datos");
             const { error } = await _s.from('conductores').insert([{ nombre: n, patente: p }]);
             if(error) alert("Error: " + error.message);
-            else { alert("✅ Chofer guardado!"); update(); }
+            else { alert("✅ ¡Chofer guardado correctamente!"); update(); }
         }
     </script>
 </body>
