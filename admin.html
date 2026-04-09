@@ -3,46 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - TuMovil</title>
+    <title>Comando Central - TuMovil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { background: #050505; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .login-box { background: #121212; padding: 30px; border-radius: 15px; border: 2px solid #FFD700; text-align: center; }
-        input { padding: 12px; border-radius: 8px; border: 1px solid #333; background: #000; color: white; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
-        button { background: #FFD700; color: black; border: none; padding: 12px 25px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; }
-        #panel-real { display: none; width: 100%; height: 100vh; flex-direction: column; }
+        :root { --gold: #FFD700; --cyan: #00d4ff; --dark: #050505; --card: #121212; }
+        body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
+        #lock-screen { position: fixed; inset: 0; background: var(--dark); z-index: 9999; display: flex; justify-content: center; align-items: center; }
+        .lock-box { background: var(--card); padding: 30px; border: 2px solid var(--gold); border-radius: 15px; text-align: center; width: 85%; max-width: 320px; }
+        #main-panel { display: none; flex-direction: column; flex: 1; height: 100vh; }
+        header { background: #111; padding: 15px; border-bottom: 2px solid var(--gold); text-align: center; }
+        header h1 { margin: 0; font-size: 18px; color: var(--gold); letter-spacing: 2px; }
+        #map { flex: 1; width: 100%; min-height: 300px; }
+        .dashboard { background: var(--card); padding: 15px; border-top: 2px solid var(--gold); }
+        .stats { display: flex; gap: 10px; margin-bottom: 15px; }
+        .stat-card { flex: 1; background: #1a1a1a; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #333; }
+        .stat-card strong { display: block; font-size: 20px; color: var(--cyan); }
+        .admin-form input { width: 100%; padding: 12px; margin-bottom: 8px; background: #000; border: 1px solid #333; color: white; border-radius: 5px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; background: var(--gold); color: black; }
     </style>
 </head>
 <body>
 
-    <div id="login-screen" class="login-box">
-        <h2 style="color: #FFD700;">ACCESO SEGURO</h2>
-        <input type="password" id="pass-input" placeholder="Introduce el PIN">
-        <button onclick="entrar()">ENTRAR</button>
+    <div id="lock-screen">
+        <div class="lock-box">
+            <h2 style="color: var(--gold); margin-bottom: 20px;">ACCESO SEGURO</h2>
+            <input type="password" id="pin-input" placeholder="PIN de Seguridad" style="width:100%; padding:12px; margin-bottom:15px; text-align:center; background:#000; color:white; border:1px solid var(--gold); border-radius:8px;">
+            <button class="btn" onclick="validar()">ENTRAR AL CEREBRO</button>
+        </div>
     </div>
 
-    <div id="panel-real">
-        <div style="background: #111; padding: 20px; border-bottom: 2px solid #FFD700; text-align: center;">
-            <h1 style="color: #FFD700; margin: 0;">PANEL ACTIVO</h1>
-        </div>
-        <div style="padding: 20px; text-align: center;">
-            <p>Bienvenido al cerebro de Santa Brígida.</p>
-            <button onclick="location.reload()" style="background: #333; color: white; width: auto;">Cerrar Sesión</button>
+    <div id="main-panel">
+        <header><h1>TU MÓVIL ADMIN</h1></header>
+        <div id="map"></div>
+        <div class="dashboard">
+            <div class="stats">
+                <div class="stat-card"><span>VIAJES</span><strong id="count">0</strong></div>
+                <div class="stat-card"><span>CAJA</span><strong id="money">$0</strong></div>
+            </div>
+            <div class="admin-form">
+                <input type="text" id="d-name" placeholder="Nombre del Chofer">
+                <input type="text" id="d-pat" placeholder="Patente">
+                <button class="btn" onclick="guardarChofer()">REGISTRAR CHOFER</button>
+            </div>
         </div>
     </div>
 
     <script>
-        const PIN_CORRECTO = "1234"; // <--- CAMBIA TU CLAVE AQUÍ
+        const PIN_SECRET = "1234"; // <--- CAMBIALA AQUÍ POR LA TUYA
+        const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-        function entrar() {
-            const pass = document.getElementById('pass-input').value;
-            if(pass === PIN_CORRECTO) {
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('panel-real').style.display = 'flex';
-                alert("Acceso concedido");
-            } else {
-                alert("PIN incorrecto");
+        function validar() {
+            if(document.getElementById('pin-input').value === PIN_SECRET) {
+                document.getElementById('lock-screen').style.display = 'none';
+                document.getElementById('main-panel').style.display = 'flex';
+                setTimeout(initMap, 100);
+                update();
+            } else { alert("PIN Incorrecto"); }
+        }
+
+        let map;
+        function initMap() {
+            if (map) return;
+            map = L.map('map', { zoomControl: false }).setView([-34.572, -58.751], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+        }
+
+        async function update() {
+            const { data } = await _s.from('reservas_activas').select('*');
+            if(data) {
+                const fin = data.filter(v => v.estado === 'finalizado');
+                document.getElementById('count').innerText = fin.length;
+                document.getElementById('money').innerText = '$' + (fin.length * 1000);
             }
+        }
+
+        async function guardarChofer() {
+            const n = document.getElementById('d-name').value;
+            const p = document.getElementById('d-pat').value;
+            if(!n || !p) return alert("Faltan datos");
+            const { error } = await _s.from('conductores').insert([{ nombre: n, patente: p }]);
+            if(error) alert("Error: " + error.message);
+            else { alert("✅ Chofer guardado!"); update(); }
         }
     </script>
 </body>
