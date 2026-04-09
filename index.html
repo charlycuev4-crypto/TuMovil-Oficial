@@ -1,1 +1,124 @@
 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TuMovil - CONTROL CONDUCTOR</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        
+        .admin-panel { 
+            position: absolute; top: 10px; left: 10px; z-index: 1000; 
+            background: rgba(0,0,0,0.85); border: 2px solid #FFD700; 
+            padding: 15px; border-radius: 15px; width: 220px;
+        }
+        .status-on { color: #4cd964; font-weight: bold; }
+        .pax-count { font-size: 24px; color: #FFD700; display: block; margin-top: 5px; }
+        .btn-clear { 
+            width: 100%; margin-top: 10px; padding: 10px; 
+            background: #ff3b30; color: white; border: none; 
+            border-radius: 8px; font-weight: bold; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="admin-panel">
+        <div style="font-size: 12px; opacity: 0.8;">MÓVIL 1 - <span class="status-on">EN LÍNEA</span></div>
+        <span id="pax-label" class="pax-count">0 Pasajeros</span>
+        <button class="btn-clear" onclick="limpiarTodasLasReservas()">Limpiar Viajes</button>
+    </div>
+
+    <div id="map"></div>
+
+<script>
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+
+    // Mismo recorrido que el pasajero
+    const rutaOficial = [
+        {n:'Miguel Cané', c:[-34.561128, -58.770586]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
+        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
+        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
+        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
+        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
+        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
+        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
+        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
+        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
+        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
+        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
+        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
+        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+    ];
+
+    const map = L.map('map', { zoomControl: false }).setView([-34.577, -58.755], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // Dibujar Ruta Oficial (Línea amarilla para el conductor)
+    L.polyline(rutaOficial.map(p => p.c), { color: '#FFD700', weight: 5, opacity: 0.5 }).addTo(map);
+
+    let markerConductor = L.marker([0,0], { 
+        icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconSize: [30, 30] }) 
+    }).addTo(map);
+
+    let marcadoresPasajeros = {}; // Para guardar y borrar iconos de pasajeros
+
+    // 1. ACTUALIZAR UBICACIÓN DEL CONDUCTOR
+    navigator.geolocation.watchPosition(async p => {
+        const { latitude: lat, longitude: lon } = p.coords;
+        markerConductor.setLatLng([lat, lon]);
+        
+        // Enviamos a la tabla 'estado_movil'
+        await _s.from('estado_movil').update({ latitud: lat, longitud: lon }).eq('id', 1);
+    }, null, { enableHighAccuracy: true });
+
+    // 2. BUSCAR PASAJEROS EN TIEMPO REAL
+    async function tickPasajeros() {
+        const { data: reservas, error } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
+        
+        if (error) return;
+
+        // Actualizar contador en el panel
+        document.getElementById('pax-label').innerText = `${reservas.length} Pasajeros`;
+
+        // Limpiar marcadores viejos que ya no están en la lista
+        const idsNuevos = reservas.map(r => r.id);
+        Object.keys(marcadoresPasajeros).forEach(id => {
+            if (!idsNuevos.includes(parseInt(id))) {
+                map.removeLayer(marcadoresPasajeros[id]);
+                delete marcadoresPasajeros[id];
+            }
+        });
+
+        // Dibujar o actualizar pasajeros
+        reservas.forEach(r => {
+            if (!marcadoresPasajeros[r.id]) {
+                // Si no existe el marcador, lo creamos
+                const m = L.marker([r.lat_pax, r.lon_pax], {
+                    icon: L.divIcon({ 
+                        html: `<div style="background:#4cd964; border:2px solid black; border-radius:50%; width:20px; height:20px; text-align:center; font-size:12px; color:black; font-weight:bold;">${r.asiento_num}</div>`, 
+                        className: '' 
+                    })
+                }).addTo(map).bindPopup(`Pasajero: ${r.nombre_pasajero}<br>Destino: ${rutaOficial[r.destino_idx]?.n || 'Desconocido'}`);
+                
+                marcadoresPasajeros[r.id] = m;
+            }
+        });
+    }
+
+    setInterval(tickPasajeros, 4000); // Revisa pasajeros cada 4 segundos
+
+    async function limpiarTodasLasReservas() {
+        if (!confirm("¿Borrar todos los viajes actuales?")) return;
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso');
+        alert("Caja limpia para nuevos viajes.");
+    }
+
+</script>
+</body>
+</html>
