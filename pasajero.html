@@ -8,109 +8,87 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; background: #000; font-family: sans-serif; color: white; }
-        #map { height: 50vh; width: 100%; }
-        
-        .pax-card { background: #111; border: 2px solid #FFD700; margin: 10px; padding: 10px; border-radius: 10px; text-align: center; }
-        .pax-name { color: #FFD700; font-weight: bold; font-size: 20px; }
-
-        .radar-flota { display: flex; justify-content: space-around; padding: 10px; background: #222; font-size: 12px; }
-        .movil-info { padding: 5px; border-radius: 5px; }
-
-        .btn-as { width: 60px; height: 60px; margin: 5px; border: 2px solid #4cd964; background: transparent; color: #4cd964; border-radius: 10px; font-weight: bold; }
+        body { margin: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
+        #map { height: 50vh; width: 100%; border-bottom: 2px solid #FFD700; }
+        .pax-card { background: #111; border: 2px solid #FFD700; margin: 10px; padding: 10px; border-radius: 12px; text-align: center; }
+        .radar-flota { display: flex; justify-content: space-around; background: #222; padding: 8px; font-size: 14px; font-weight: bold; }
+        .btn-as { width: 65px; height: 65px; margin: 5px; border: 3px solid #4cd964; background: transparent; color: #4cd964; border-radius: 15px; font-size: 22px; font-weight: bold; }
         .btn-as.selected { background: #4cd964; color: black; }
-        
-        .btn-confirm { width: 90%; margin: 10px 5%; padding: 20px; background: #4cd964; border: none; border-radius: 15px; font-weight: bold; font-size: 18px; }
+        .btn-confirm { width: 90%; margin: 15px 5%; padding: 20px; background: #4cd964; border: none; border-radius: 20px; font-weight: 900; font-size: 20px; box-shadow: 0 5px 15px rgba(76,217,100,0.4); }
+        select { width: 90%; padding: 15px; background: #333; color: white; border: 1px solid #FFD700; border-radius: 10px; font-size: 16px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="pax-card">
-        <div class="pax-name">CARLOS</div>
-    </div>
-
-    <div class="radar-flota" id="radar-flota">
-        <span>Móvil 1: --</span> <span>Móvil 2: --</span> <span>Móvil 3: --</span>
-    </div>
-
+    <div class="pax-card"><b style="color:#FFD700; font-size:24px;">CARLOS</b></div>
+    <div class="radar-flota" id="radar">Cargando flota...</div>
     <div id="map"></div>
 
-    <div style="text-align: center; padding: 10px;">
-        <select id="select-destino" style="width: 90%; padding: 10px; border-radius: 8px;">
-            <option value="" disabled selected>SELECCIONÁ TU DESTINO</option>
+    <div style="text-align: center;">
+        <select id="select-destino" onchange="marcarDestino(this.value)">
+            <option value="" disabled selected>¿A DÓNDE VAS?</option>
         </select>
         
-        <div style="margin-top: 15px;">
+        <div style="margin-top: 10px;">
             <button class="btn-as" id="as-1" onclick="toggleAsiento(1)">1</button>
             <button class="btn-as" id="as-2" onclick="toggleAsiento(2)">2</button>
             <button class="btn-as" id="as-3" onclick="toggleAsiento(3)">3</button>
             <button class="btn-as" id="as-4" onclick="toggleAsiento(4)">4</button>
         </div>
-
         <button class="btn-confirm" id="btn-confirmar" onclick="confirmarViaje()">CONFIRMAR VIAJE ($0)</button>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    // Configuración de Paradas (Línea con borde negro)
-    const paradas = [{n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Roca y Abasto', c:[-34.586030, -58.747278]} /* ... agregar todas ... */];
-    let map = L.map('map', {zoomControl: false}).setView(paradas[0].c, 14);
+    // TODAS LAS 25 PARADAS INTEGRADAS
+    const paradas = [
+        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]}, {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]}, {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]}, {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]}, {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]}, {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]}, {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]}, {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]}, {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]}, {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]}, {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]}, {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]}, {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+    ];
+
+    let map = L.map('map', {zoomControl: false}).setView(paradas[10].c, 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+    // DIBUJAR RUTA Y PARADAS
+    L.polyline(paradas.map(p => p.c), {color: '#00d4ff', weight: 5, opacity: 0.6}).addTo(map);
     paradas.forEach((p, i) => {
-        L.circleMarker(p.c, { radius: 8, color: '#000', weight: 3, fillColor: '#00d4ff', fillOpacity: 1 }).addTo(map);
+        L.circleMarker(p.c, { radius: 8, color: '#000', weight: 3, fillColor: '#fff', fillOpacity: 1 }).addTo(map).bindPopup(p.n);
         document.getElementById('select-destino').innerHTML += `<option value="${i}">${p.n}</option>`;
     });
 
-    let asientosElegidos = [];
-    let conteoFlota = {1:0, 2:0, 3:0};
-
-    // REPASO INTELIGENTE: Mira cuántos asientos tiene cada móvil
-    async function actualizarRadar() {
-        const { data } = await _s.from('reservas_activas').select('id_movil').eq('estado', 'en_curso');
-        conteoFlota = {1:0, 2:0, 3:0};
-        data?.forEach(r => { if(conteoFlota[r.id_movil] !== undefined) conteoFlota[r.id_movil]++; });
-
-        document.getElementById('radar-flota').innerHTML = `
-            <span style="color:${conteoFlota[1]>=4?'red':'#4cd964'}">M1: ${conteoFlota[1]}/4</span>
-            <span style="color:${conteoFlota[2]>=4?'red':'#4cd964'}">M2: ${conteoFlota[2]}/4</span>
-            <span style="color:${conteoFlota[3]>=4?'red':'#4cd964'}">M3: ${conteoFlota[3]}/4</span>
-        `;
+    let markerDestino;
+    function marcarDestino(idx) {
+        if(markerDestino) map.removeLayer(markerDestino);
+        markerDestino = L.marker(paradas[idx].c).addTo(map).bindPopup("Tu destino: " + paradas[idx].n).openPopup();
+        map.panTo(paradas[idx].c);
     }
-    setInterval(actualizarRadar, 3000);
 
+    let asientos = [];
     function toggleAsiento(n) {
-        const idx = asientosElegidos.indexOf(n);
-        if(idx > -1) asientosElegidos.splice(idx, 1);
-        else asientosElegidos.push(n);
-        
-        document.querySelectorAll('.btn-as').forEach(b => b.classList.remove('selected'));
-        asientosElegidos.forEach(as => document.getElementById('as-'+as).classList.add('selected'));
-        document.getElementById('btn-confirmar').innerText = `CONFIRMAR VIAJE ($${asientosElegidos.length * 1000})`;
+        const i = asientos.indexOf(n);
+        if(i > -1) {
+            asientos.splice(i, 1);
+            document.getElementById('as-'+n).classList.remove('selected');
+        } else {
+            asientos.push(n);
+            document.getElementById('as-'+n).classList.add('selected');
+        }
+        document.getElementById('btn-confirmar').innerText = `CONFIRMAR ${asientos.length} VIAJES ($${asientos.length * 1000})`;
     }
 
     async function confirmarViaje() {
         const dest = document.getElementById('select-destino').value;
-        if(dest === "" || asientosElegidos.length === 0) return alert("Elegí destino y asientos");
+        if(!dest || asientos.length === 0) return alert("Falta destino o asientos");
+        
+        const { data: ocupacion } = await _s.from('reservas_activas').select('id_movil').eq('estado', 'en_curso');
+        let conteo = {1:0, 2:0, 3:0};
+        ocupacion.forEach(r => conteo[r.id_movil]++);
+        
+        let idAsignado = conteo[1] < 4 ? 1 : (conteo[2] < 4 ? 2 : 3);
+        const registros = asientos.map(a => ({ asiento_num: a, nombre_pasajero: "Carlos", destino_idx: parseInt(dest), id_movil: idAsignado, estado: 'en_curso' }));
 
-        // LÓGICA DE DISTRIBUCIÓN AUTOMÁTICA
-        let idAsignado = 0;
-        if(conteoFlota[1] < 4) idAsignado = 1;
-        else if(conteoFlota[2] < 4) idAsignado = 2;
-        else if(conteoFlota[3] < 4) idAsignado = 3;
-        else return alert("Todos los móviles están llenos.");
-
-        const reservas = asientosElegidos.map(as => ({
-            asiento_num: as, nombre_pasajero: "Carlos", destino_idx: parseInt(dest),
-            id_movil: idAsignado, estado: 'en_curso'
-        }));
-
-        const { error } = await _s.from('reservas_activas').insert(reservas);
-        if(!error) {
-            alert(`Confirmado con Móvil ${idAsignado}`);
-            location.reload();
-        }
+        const { error } = await _s.from('reservas_activas').insert(registros);
+        if(!error) { alert("¡Viaje Confirmado con Móvil " + idAsignado + "!"); location.reload(); }
     }
 </script>
 </body>
