@@ -8,27 +8,37 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        /* Mantenemos tus estilos originales que están geniales */
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
-        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; }
+        
+        #splash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; transition: opacity 0.8s ease-out;
+        }
         .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
         .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
         .loader { width: 40px; height: 40px; border: 3px solid rgba(255,215,0,0.2); border-top: 3px solid #FFD700; border-radius: 50%; margin-top: 30px; animation: spin 1s linear infinite; }
+        
         @keyframes spin { 100% { transform: rotate(360deg); } }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         .top-ui { position: absolute; top: 10px; width: 100%; padding: 0 15px; z-index: 1000; }
         .dest-card { background: rgba(0, 0, 0, 0.9); border: 2px solid #FFD700; border-radius: 15px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+        
         input#nombre-pax { width: 100%; background: rgba(255,255,255,0.05); color: #FFD700; border: 1px solid #FFD700; border-radius: 8px; padding: 10px; font-weight: bold; font-size: 16px; outline: none; }
         select { width: 100%; background: #000; color: white; border: none; font-size: 16px; padding: 10px 0; border-top: 1px solid #333; }
+
         .bottom-panel { position: absolute; bottom: 15px; width: 92%; left: 4%; background: rgba(0, 0, 0, 0.9); border: 2px solid #FFD700; border-radius: 25px; padding: 15px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
         #resumen-viaje { background: rgba(255, 215, 0, 0.1); border: 1px dashed #FFD700; border-radius: 12px; padding: 8px; text-align: center; display: none; }
         .resaltado { color: #FFD700; font-weight: 800; font-size: 18px; }
+        
         .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .btn-as { aspect-ratio: 1; border: 2px solid #FFD700; border-radius: 12px; background: transparent; color: #FFD700; font-size: 18px; font-weight: bold; }
         .btn-as.selected { background: #FFD700 !important; color: #000 !important; }
         .btn-as.busy { border-color: #333; color: #333; pointer-events: none; opacity: 0.5; }
+
         .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 16px; background: #333; color: #666; pointer-events: none; }
         .btn-confirm.ready { background: #4cd964 !important; color: black !important; pointer-events: auto !important; }
         .btn-cancel { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 16px; background: #ff3b30; color: white; display: none; }
@@ -93,7 +103,6 @@
     L.polyline(rutaOficial.map(p => p.c), {color: '#00d4ff', weight: 4, opacity: 0.5}).addTo(map);
     rutaOficial.forEach(p => L.circleMarker(p.c, { radius: 6, color: '#000', weight:2, fillColor: '#FFF', fillOpacity: 1 }).addTo(map));
 
-    // ICONOS PARA LA FLOTA
     const iconTaxi1 = L.divIcon({ html: '<div style="background:#FFD700; border-radius:50%; padding:5px; border:2px solid black;">🚖1</div>', className: 'taxi-icon', iconAnchor: [15, 15] });
     const iconTaxi2 = L.divIcon({ html: '<div style="background:#ffffff; border-radius:50%; padding:5px; border:2px solid black;">🚖2</div>', className: 'taxi-icon', iconAnchor: [15, 15] });
     const iconUser = L.divIcon({ html: '👤', className: 'user-icon', iconAnchor: [12, 12] });
@@ -118,11 +127,7 @@
 
     async function refrescarAsientos() {
         if(localStorage.getItem('viaje_en_curso')) return;
-        // Solo mostramos como "ocupados" los asientos que están ocupados en AMBOS móviles 
-        // para que el pasajero sepa que el sistema está trabajando.
         const { data } = await _s.from('reservas_activas').select('asiento_num').eq('estado', 'en_curso');
-        // Aquí podrías filtrar por móvil si quisieras ser más específico, 
-        // pero para simplificar, si el asiento está tomado en el móvil 1, se bloquea.
         const ocupados = data?.map(d => d.asiento_num) || [];
         for(let i=1; i<=4; i++) {
             const btn = document.getElementById('b'+i);
@@ -157,45 +162,40 @@
     function validarFormulario() {
         const d = document.getElementById('select-destino').value;
         const n = document.getElementById('nombre-pax').value.trim();
-        if (d !== "" && rutaOficial[d]) mDest.setLatLng(rutaOficial[d].c).setOpacity(1);
+        if (d !== "" && rutaOficial[d]) {
+            mDest.setLatLng(rutaOficial[d].c).setOpacity(1);
+        }
         if(asientosElegidos.length > 0 && d !== "" && n !== "") document.getElementById('btn-accion').classList.add('ready');
         else document.getElementById('btn-accion').classList.remove('ready');
     }
 
-    // --- LA NUEVA LÓGICA INTELIGENTE ---
     async function confirmarReserva() {
         const n = document.getElementById('nombre-pax').value.trim();
         const d = document.getElementById('select-destino').value;
 
-        // 1. Preguntamos quién tiene lugar
         const { data: coches } = await _s.from('estado_movil').select('*').order('id', {ascending: true});
         
-        let movilIdAsignado = 1; // Por defecto el 1
+        let movilIdAsignado = 1;
         if(coches[0].asientos_libres < asientosElegidos.length) {
             if(coches[1] && coches[1].asientos_libres >= asientosElegidos.length) {
                 movilIdAsignado = 2;
                 alert("Móvil 1 lleno. Asignado al Móvil 2");
             } else {
-                alert("No hay asientos disponibles en ningún móvil.");
+                alert("No hay asientos disponibles.");
                 return;
             }
         }
 
         const reservas = asientosElegidos.map(num => ({
-            asiento_num: num, 
-            id_movil: movilIdAsignado, // Guardamos el ID del móvil
-            pasajero_lat: miLat, 
-            pasajero_lon: miLon,
-            destino_idx: d, 
-            nombre_pasajero: n, 
-            estado: 'en_curso'
+            asiento_num: num, id_movil: movilIdAsignado,
+            pasajero_lat: miLat, pasajero_lon: miLon,
+            destino_idx: d, nombre_pasajero: n, estado: 'en_curso'
         }));
 
         const { error } = await _s.from('reservas_activas').insert(reservas);
         if(!error) { 
             localStorage.setItem('viaje_en_curso', 'true'); 
             localStorage.setItem('mi_nombre', n); 
-            localStorage.setItem('mi_movil_id', movilIdAsignado);
             location.reload(); 
         }
     }
@@ -210,10 +210,23 @@
         if(localStorage.getItem('viaje_en_curso')) {
             const nom = localStorage.getItem('mi_nombre');
             const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('nombre_pasajero', nom);
+            
             if(data && data.length > 0) {
-                document.getElementById('nombre-pax').value = nom; document.getElementById('nombre-pax').disabled = true;
-                const dIdx = data[0].destino_idx; document.getElementById('select-destino').value = dIdx; document.getElementById('select-destino').disabled = true;
-                document.getElementById('btn-accion').style.display = 'none'; document.getElementById('btn-finalizar').style.display = 'block';
+                document.getElementById('nombre-pax').value = nom; 
+                document.getElementById('nombre-pax').disabled = true;
+                
+                const dIdx = data[0].destino_idx; 
+                document.getElementById('select-destino').value = dIdx; 
+                document.getElementById('select-destino').disabled = true;
+
+                // CORRECCIÓN: Volver a dibujar el destino en el mapa
+                if (rutaOficial[dIdx]) {
+                    mDest.setLatLng(rutaOficial[dIdx].c).setOpacity(1);
+                }
+
+                document.getElementById('btn-accion').style.display = 'none'; 
+                document.getElementById('btn-finalizar').style.display = 'block';
+                
                 asientosElegidos = data.map(r => r.asiento_num);
                 asientosElegidos.forEach(n => document.getElementById('b' + n).classList.add('selected'));
                 actualizarResumen();
@@ -228,7 +241,6 @@
     recuperarEstado();
     refrescarAsientos();
 
-    // SEGUIMIENTO DE TODA LA FLOTA EN EL MAPA
     setInterval(async () => {
         const { data: coches } = await _s.from('estado_movil').select('*');
         if (coches) {
