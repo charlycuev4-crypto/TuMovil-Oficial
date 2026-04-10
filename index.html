@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CONDUCTOR PRO - TuMovil</title>
+    <title>CONDUCTOR 01 - TuMovil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
         
+        /* Splash Screen */
         #splash {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 9999; display: flex; flex-direction: column;
@@ -21,9 +22,11 @@
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
+        /* Mapa y UI */
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         
+        /* Estadísticas Superiores */
         .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
         .stat-box { 
             background: rgba(0,0,0,0.85); 
@@ -32,6 +35,7 @@
             text-align: center; color: white; pointer-events: auto; 
         }
         
+        /* Panel de Conexión */
         .connection-panel {
             position: absolute; top: 95px; left: 50%; transform: translateX(-50%);
             z-index: 1001; display: flex; align-items: center; gap: 12px;
@@ -52,6 +56,7 @@
         input:checked + .slider:before { transform: translateX(24px); }
         #status-label { color: white; font-size: 11px; font-weight: bold; width: 85px; text-align: center; }
 
+        /* UI Inferior */
         .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
         .btn-vaciar { 
             background: #ff3b30; color: white; border: none; padding: 15px 40px; 
@@ -74,7 +79,7 @@
 
     <div id="splash">
         <div class="splash-logo">🚕</div>
-        <h1 id="titulo-unidad" class="splash-title">COCHE 01</h1>
+        <h1 class="splash-title">COCHE 01</h1>
         <div class="loader"></div>
     </div>
 
@@ -100,17 +105,15 @@
             <div id="pill3" class="pill">3</div>
             <div id="pill4" class="pill">4</div>
         </div>
-        <button id="btn-vaciar-text" class="btn-vaciar" onclick="vaciarTodo()">🏁 FINALIZAR VIAJE / VACIAR</button>
+        <button class="btn-vaciar" onclick="vaciarTodo()">🏁 FINALIZAR / VACIAR COCHE 01</button>
     </div>
 
 <script>
-    // --- 1. CONFIGURACIÓN DEL COCHE (CAMBIAR AQUÍ) ---
-    const MI_ID_MOVIL = 1; // Pon 1 o 2 según el archivo
-    document.getElementById('titulo-unidad').innerText = "COCHE 0" + MI_ID_MOVIL;
-    document.getElementById('btn-vaciar-text').innerText = "🏁 FINALIZAR / VACIAR COCHE 0" + MI_ID_MOVIL;
-
+    // --- 1. CONFIGURACIÓN ---
+    const MI_ID_MOVIL = 1; 
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
+    // --- RUTA ---
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -127,9 +130,9 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
+    // --- INICIALIZAR MAPA ---
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
     L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.5 }).addTo(map);
     paradas.forEach(p => {
         L.circleMarker(p.c, { radius: 6, color: '#000', weight: 3, fillColor: '#FFF', fillOpacity: 1 }).addTo(map);
@@ -143,14 +146,27 @@
     let watchId = null;
     let estaOnline = false;
 
+    // --- FUNCIONES ---
     async function gestionarConexion() {
         estaOnline = document.getElementById('online-toggle').checked;
         const label = document.getElementById('status-label');
+        
         if (estaOnline) {
-            label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
+            label.innerText = "EN LÍNEA";
+            label.style.color = "#4cd964";
+            
+            // FILA DE ESPERA: Registra llegada
+            const ahora = new Date().toISOString();
+            await _s.from('estado_movil').update({ 
+                ultima_conexion: ahora,
+                latitud: paradas[0].c[0],
+                longitud: paradas[0].c[1]
+            }).eq('id', MI_ID_MOVIL);
+            
             iniciarGPS();
         } else {
-            label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
+            label.innerText = "FUERA DE LÍNEA";
+            label.style.color = "white";
             if (watchId) navigator.geolocation.clearWatch(watchId);
             await _s.from('estado_movil').update({ latitud: 0, longitud: 0 }).eq('id', MI_ID_MOVIL);
         }
@@ -168,7 +184,7 @@
     }
 
     async function actualizarDatos() {
-        // Filtrar solo las reservas que correspondan a ESTE móvil y que estén en curso
+        // Solo trae reservas de este Coche (ID 1)
         const { data: reservas } = await _s.from('reservas_activas')
             .select('*')
             .eq('estado', 'en_curso')
@@ -208,7 +224,7 @@
     }
 
     async function vaciarTodo() {
-        if(!confirm("¿Finalizar el viaje y vaciar la cabina del COCHE 0" + MI_ID_MOVIL + "?")) return;
+        if(!confirm("¿Finalizar el viaje y vaciar el Coche 01?")) return;
         await _s.from('reservas_activas')
             .update({ estado: 'finalizado' })
             .eq('estado', 'en_curso')
@@ -216,18 +232,14 @@
         actualizarDatos();
     }
 
-    // --- CORRECCIÓN CLAVE: SUSCRIPCIÓN TOTAL EN TIEMPO REAL ---
-    const canalViajes = _s.channel('cambios_reales')
-        .on('postgres_changes', 
-            { event: '*', schema: 'public', table: 'reservas_activas' }, 
-            (payload) => {
-                console.log("Cambio en base de datos detectado:", payload);
-                actualizarDatos(); // Se dispara ante cualquier INSERT, UPDATE o DELETE
-            }
-        )
-        .subscribe();
+    // --- TIEMPO REAL: Escucha global de cambios ---
+    _s.channel('cambios_coche1')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, (p) => {
+          console.log("Cambio detectado:", p);
+          actualizarDatos();
+      })
+      .subscribe();
     
-    // Carga inicial
     actualizarDatos();
 </script>
 </body>
