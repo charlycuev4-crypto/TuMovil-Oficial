@@ -3,117 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Panel Conductor Pro</title>
+    <title>Panel Móvil 1 - TuMovil</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
-        * { box-sizing: border-box; }
-        body { 
-            margin: 0; 
-            background: #000; 
-            color: white; 
-            font-family: 'Segoe UI', Roboto, sans-serif;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
+        body { margin: 0; background: #000; color: white; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* CABECERA (Espejo de image_11.png) */
+        .cabecera-container { display: flex; justify-content: space-around; padding: 10px; background: #000; border-bottom: 2px solid #333; }
+        .indicador-negro { background: #1a1a1a; border-radius: 8px; text-align: center; flex: 1; margin: 0 5px; padding: 10px; border: 1px solid #333; }
+        .ind-titulo { color: #888; font-size: 10px; text-transform: uppercase; }
+        .ind-valor-grande { font-size: 24px; font-weight: bold; display: block; }
+        .ind-valor-chico { color: #4cd964; font-size: 18px; font-weight: bold; }
 
-        /* Bloque superior con números grandes */
-        .header-stats {
-            display: flex;
-            justify-content: space-around;
-            padding: 15px 5px;
-            background: #000;
-            border-bottom: 2px solid #FFD700;
-        }
-        .stat-box { text-align: center; flex: 1; }
-        .stat-label { color: #FFD700; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
-        .stat-value { font-size: 28px; font-weight: 800; display: block; margin-top: 5px; }
+        /* INTERRUPTOR (Espejo de image_11.png) */
+        .switch-container { text-align: center; padding: 10px; background: #000; }
+        .toggle-line { width: 50px; height: 26px; border-radius: 13px; background: #333; position: relative; display: inline-block; cursor: pointer; transition: 0.3s; vertical-align: middle; }
+        .toggle-circle { width: 20px; height: 20px; border-radius: 50%; background: #555; position: absolute; top: 3px; left: 3px; transition: 0.3s; }
+        .active .toggle-line { background: #4cd964; }
+        .active .toggle-circle { transform: translateX(24px); background: #fff; }
 
-        /* Botones táctiles grandes */
-        .mando-container {
-            display: flex;
-            gap: 10px;
-            padding: 12px;
-            background: #111;
-        }
-        .btn-principal {
-            height: 60px; /* Altura cómoda para el dedo */
-            border-radius: 12px;
-            border: none;
-            font-size: 16px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-        .btn-online { background: #4cd964; color: #000; flex: 2; }
-        .btn-sentido { background: #222; color: #FFD700; border: 2px solid #FFD700; flex: 1; }
+        /* MAPA (Corazón del GPS) */
+        #map { flex-grow: 1; width: 100%; background: #111; }
 
-        /* El Mapa */
-        #map { 
-            flex-grow: 1; /* Ocupa todo el espacio disponible */
-            width: 100%;
-            background: #111;
-        }
-
-        /* Monitor de asientos optimizado */
-        .cabina-container {
-            padding: 15px;
-            background: #000;
-            border-top: 1px solid #333;
-        }
-        .grid-asientos {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-        }
-        .asiento-card {
-            background: #111;
-            border: 2px solid #333;
-            border-radius: 10px;
-            padding: 12px 5px;
-            text-align: center;
-        }
-        .asiento-card.ocupado {
-            border-color: #4cd964;
-            background: rgba(76, 217, 100, 0.15);
-        }
-        .asiento-num { font-size: 10px; color: #888; margin-bottom: 4px; }
-        .asiento-precio { font-size: 16px; font-weight: bold; color: #4cd964; }
+        /* MONITOR ASIENTOS (Espejo de image_11.png) */
+        .asientos-container { padding: 15px; background: #000; border-top: 2px solid #333; }
+        .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .as-cuadro { aspect-ratio: 1; border: 2px solid #333; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #555; background: #111; }
+        .as-cuadro.ocupado { border-color: #4cd964; color: #4cd964; background: rgba(76, 217, 100, 0.1); }
     </style>
 </head>
 <body>
 
-    <div class="header-stats">
-        <div class="stat-box">
-            <span class="stat-label">Recaudación</span>
-            <span id="total-dinero" class="stat-value">$0</span>
+    <div class="cabecera-container">
+        <div class="indicador-negro">
+            <span class="ind-titulo">HOY</span>
+            <span id="txt-recaudacion" class="ind-valor-chico">$0</span>
         </div>
-        <div class="stat-box" style="border-left: 1px solid #333;">
-            <span class="stat-label">Pasajeros</span>
-            <span id="total-pax" class="stat-value">0</span>
+        <div class="indicador-negro">
+            <span class="ind-titulo">PASAJEROS</span>
+            <span id="txt-pax" class="ind-valor-grande">0</span>
         </div>
     </div>
 
-    <div class="mando-container">
-        <button id="btn-status" class="btn-principal btn-online" onclick="toggleLinea()">MÓVIL EN LÍNEA</button>
-        <button id="btn-sentido" class="btn-principal btn-sentido" onclick="cambiarSentido()">IDA</button>
+    <div class="switch-container">
+        <span style="font-size: 11px; margin-right: 10px; vertical-align: middle; color: #888;">FUERA DE LÍNEA</span>
+        <div id="btn-servicio" class="toggle-line" onclick="toggleLinea()">
+            <div class="toggle-circle"></div>
+        </div>
+        <span style="font-size: 11px; margin-left: 10px; vertical-align: middle; color: #888;">EN LÍNEA</span>
     </div>
 
     <div id="map"></div>
 
-    <div class="cabina-container">
-        <div style="color: #FFD700; font-size: 12px; margin-bottom: 10px; font-weight: bold;">CABINA DE PASAJEROS</div>
-        <div id="grid-asientos" class="grid-asientos">
-            </div>
+    <div class="asientos-container">
+        <div class="asientos-grid">
+            <div id="m-as-1" class="as-cuadro">1</div>
+            <div id="m-as-2" class="as-cuadro">2</div>
+            <div id="m-as-3" class="as-cuadro">3</div>
+            <div id="m-as-4" class="as-cuadro">4</div>
+        </div>
     </div>
 
-    <script>
-        // ... (Aquí va la lógica de Supabase y Leaflet que ya tenemos) ...
-        // Asegúrate de incluir el L.tileLayer para que no se vea negro
-        // Y el filtro de coordenadas para evitar triángulos
-    </script>
+<script>
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    
+    // Configuración Inicial
+    const idMovil = 1;
+    let enLinea = true;
+    let markersContorno = {};
+
+    // 1. INICIALIZAR EL MAPA VISUAL (Chau negro)
+    let map = L.map('map', {zoomControl: false}).setView([-34.577, -58.756], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // Ícono del Taxi
+    let markerTaxi = L.marker([-34.577, -58.756], {
+        icon: L.divIcon({ html: '<div style="font-size:30px;">🚕</div>', className: '' })
+    }).addTo(map);
+
+    // 2. ACTIVAR GPS REAL
+    navigator.geolocation.watchPosition(async p => {
+        if (!enLinea) return; // Si está OFF, no mandamos ubicación
+        
+        const pos = [p.coords.latitude, p.coords.longitude];
+        markerTaxi.setLatLng(pos);
+        map.panTo(pos); // El mapa sigue al chofer
+
+        // Actualizar Supabase (Cerebro Inteligente)
+        await _s.from('estado_movil').update({ 
+            latitud: pos[0], longitud: pos[1], en_servicio: true 
+        }).eq('id', idMovil);
+
+    }, null, {enableHighAccuracy: true});
+
+
+    // 3. LÓGICA INTELIGENTE DE CONTORNO (Solicitudes cerca)
+    async function escucharContorno() {
+        if (!enLinea) return;
+
+        // Limpiar íconos anteriores del contorno
+        Object.values(markersContorno).forEach(m => map.removeLayer(m));
+        markersContorno = {};
+
+        // Buscamos pasajeros sin móvil asignado cerca
+        const { data: solicitudes } = await _s.from('reservas_activas')
+            .select('*').is('id_movil', null).eq('estado', 'esperando');
+
+        solicitudes?.forEach(pax => {
+            if(pax.lat_recogida && pax.lon_recogida) {
+                // Aparece una personita 👤 en el mapa
+                markersContorno[pax.id] = L.marker([pax.lat_recogida, pax.lon_recogida], {
+                    icon: L.divIcon({html:'👤', className:'', iconSize:[25,25]})
+                }).addTo(map).bindPopup("¡Pasajero Cerca! " + pax.nombre_pasajero);
+            }
+        });
+    }
+
+    // 4. ACTUALIZAR CABINA Y TARIFAS (Sincronización Inteligente)
+    async function refrescarPanel() {
+        const { data: paxAboard } = await _s.from('reservas_activas')
+            .select('*').eq('id_movil', idMovil).eq('estado', 'en_curso');
+
+        let totalSuma = 0;
+        let conteo = 0;
+        let ocupacion = [false, false, false, false];
+
+        paxAboard?.forEach(p => {
+            totalSuma += p.tarifa || 1000; // Si no hay tarifa, asume $1000
+            conteo++;
+            ocupacion[p.asiento_num - 1] = true;
+        });
+
+        // Actualizar Asientos
+        for(let i=1; i<=4; i++) {
+            const cuadro = document.getElementById('m-as-'+i);
+            cuadro.className = ocupacion[i-1] ? "as-cuadro ocupado" : "as-cuadro";
+        }
+
+        // Actualizar Marcadores Superiores
+        document.getElementById('txt-recaudacion').innerText = "$" + totalSuma;
+        document.getElementById('txt-pax').innerText = conteo;
+    }
+
+    // Botón de Línea
+    async function toggleLinea() {
+        enLinea = !enLinea;
+        document.getElementById('btn-servicio').parentElement.classList.toggle('active');
+        await _s.from('estado_movil').update({ en_servicio: enLinea }).eq('id', idMovil);
+    }
+
+    // Iniciar el ciclo inteligente
+    escucharContorno();
+    refrescarPanel();
+    setInterval(escucharContorno, 5000); // Revisa contorno cada 5seg
+    setInterval(refrescarPanel, 3000); // Revisa cabina cada 3seg
+</script>
 </body>
 </html>
