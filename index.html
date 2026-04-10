@@ -3,77 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Panel Conductor</title>
+    <title>Panel Conductor - TuMovil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; background: #111; font-family: sans-serif; color: white; }
-        #map { height: 60vh; width: 100%; }
-        .panel { padding: 15px; }
-        .btn-linea { width: 100%; padding: 20px; font-weight: bold; border-radius: 10px; border: none; font-size: 20px; margin-bottom: 10px; }
-        .asientos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        .asiento { background: #333; padding: 15px; border-radius: 8px; text-align: center; border: 2px solid #555; }
-        .asiento.ocupado { background: #ff3b30; border-color: #ff3b30; }
+        body { margin: 0; background: #111; color: white; font-family: sans-serif; text-align: center; }
+        .header { background: #FFD700; color: black; padding: 15px; font-weight: bold; font-size: 20px; }
+        
+        /* BOTONES DE ESTADO */
+        .status-bar { display: flex; justify-content: space-around; padding: 15px; background: #222; }
+        .btn-status { padding: 10px 20px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
+        .online { background: #4cd964; color: black; }
+        .offline { background: #ff3b30; color: white; }
+
+        /* SWITCH DE SENTIDO */
+        .sentido-container { margin: 20px; padding: 20px; border: 2px solid #FFD700; border-radius: 15px; }
+        .btn-sentido { width: 100%; padding: 15px; font-size: 18px; border-radius: 10px; border: none; font-weight: bold; margin-top: 10px; }
+        .ida { background: #00d4ff; color: black; }
+        .vuelta { background: #FFD700; color: black; }
+
+        /* LISTA DE PASAJEROS */
+        #lista-pax { margin: 20px; text-align: left; }
+        .pax-item { background: #333; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid #4cd964; }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div class="panel">
-        <button id="btn-linea" class="btn-linea" style="background: #ff3b30;" onclick="toggleLinea()">FUERA DE RADAR</button>
-        <div class="asientos">
-            <div id="as1" class="asiento">1</div>
-            <div id="as2" class="asiento">2</div>
-            <div id="as3" class="asiento">3</div>
-            <div id="as4" class="asiento">4</div>
-        </div>
+
+    <div class="header">MÓVIL #1 - PANEL DE CONTROL</div>
+
+    <div class="status-bar">
+        <button id="btn-conectar" class="btn-status online" onclick="cambiarEstado(true)">EN LÍNEA</button>
+        <button id="btn-desconectar" class="btn-status offline" onclick="cambiarEstado(false)">SALIR DE LÍNEA</button>
     </div>
+
+    <div class="sentido-container">
+        <p>SENTIDO ACTUAL:</p>
+        <button id="btn-sentido" class="btn-sentido ida" onclick="toggleSentido()">HACIA ABASTO (IDA)</button>
+    </div>
+
+    <div id="lista-pax">
+        <h3 style="text-align: center;">Pasajeros Asignados (0/4)</h3>
+        </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    // --- CAMBIAR SEGÚN EL CONDUCTOR ---
-    const MI_ID = 1; 
-    let enLinea = false;
-    let miLat, miLon;
-    let markersPax = {};
+    let idMovil = 1; 
+    let enLinea = true;
+    let sentidoIda = true; // true = Ida, false = Vuelta
 
-    const map = L.map('map').setView([-34.561264, -58.770506], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    navigator.geolocation.watchPosition(p => {
-        miLat = p.coords.latitude; miLon = p.coords.longitude;
-        if(enLinea) actualizarPosicion();
-    });
-
-    async function actualizarPosicion() {
-        await _s.from('estado_movil').update({ latitud: miLat, longitud: miLon, en_servicio: true }).eq('id', MI_ID);
+    // 1. Cambiar estado (Online/Offline)
+    async function cambiarEstado(estado) {
+        enLinea = estado;
+        document.getElementById('btn-conectar').style.opacity = estado ? "1" : "0.3";
+        document.getElementById('btn-desconectar').style.opacity = estado ? "0.3" : "1";
+        
+        await _s.from('estado_movil').update({ en_servicio: estado }).eq('id', idMovil);
+        if(!estado) alert("Ya no eres visible para los pasajeros.");
     }
 
-    async function toggleLinea() {
-        enLinea = !enLinea;
-        const btn = document.getElementById('btn-linea');
-        btn.innerText = enLinea ? "EN LÍNEA (RADAR OK)" : "FUERA DE RADAR";
-        btn.style.background = enLinea ? "#4cd964" : "#ff3b30";
-        await _s.from('estado_movil').update({ en_servicio: enLinea }).eq('id', MI_ID);
+    // 2. Cambiar Sentido (El botón inteligente)
+    function toggleSentido() {
+        sentidoIda = !sentidoIda;
+        const btn = document.getElementById('btn-sentido');
+        if(sentidoIda) {
+            btn.innerText = "HACIA ABASTO (IDA)";
+            btn.className = "btn-sentido ida";
+        } else {
+            btn.innerText = "HACIA CANÉ (VUELTA)";
+            btn.className = "btn-sentido vuelta";
+        }
+        actualizarPasajeros();
     }
 
-    async function refrescarRadar() {
+    // 3. Ver pasajeros que el sistema le asignó
+    async function actualizarPasajeros() {
         if(!enLinea) return;
-        // Solo busca pasajeros asignados a SU ID
-        const { data } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID).eq('estado', 'en_curso');
+
+        const { data } = await _s.from('reservas_activas')
+            .select('*')
+            .eq('id_movil', idMovil)
+            .eq('estado', 'en_curso');
+
+        const lista = document.getElementById('lista-pax');
+        lista.innerHTML = `<h3 style="text-align:center">Pasajeros: ${data.length}/4</h3>`;
         
-        // Limpiar asientos
-        document.querySelectorAll('.asiento').forEach(a => a.classList.remove('ocupado'));
-        
-        data?.forEach(p => {
-            document.getElementById('as'+p.asiento_num).classList.add('ocupado');
-            if(!markersPax[p.nombre_pasajero]) {
-                markersPax[p.nombre_pasajero] = L.circleMarker([p.pasajero_lat, p.pasajero_lon], { color: 'red', radius: 10 }).addTo(map).bindTooltip(p.nombre_pasajero);
-            }
+        data.forEach(p => {
+            lista.innerHTML += `
+                <div class="pax-item">
+                    <b>${p.nombre_pasajero}</b> - Asiento: ${p.asiento_num}<br>
+                    <small>Destino: Parada ${p.destino_idx}</small>
+                    <button onclick="finalizarViaje(${p.id})" style="float:right">Llegó</button>
+                </div>`;
         });
     }
-    setInterval(refrescarRadar, 4000);
+
+    async function finalizarViaje(idReserva) {
+        await _s.from('reservas_activas').delete().eq('id', idReserva);
+        actualizarPasajeros();
+    }
+
+    // GPS: Solo envía si está En Línea
+    navigator.geolocation.watchPosition(async p => {
+        if(enLinea) {
+            await _s.from('estado_movil').update({ 
+                latitud: p.coords.latitude, 
+                longitud: p.coords.longitude 
+            }).eq('id', idMovil);
+        }
+    });
+
+    setInterval(actualizarPasajeros, 3000);
 </script>
 </body>
 </html>
