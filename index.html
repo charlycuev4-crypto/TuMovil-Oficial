@@ -3,116 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Panel Conductor - TuMovil</title>
+    <title>TuMovil - Pasajero</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; background: #111; color: white; font-family: sans-serif; text-align: center; }
-        .header { background: #FFD700; color: black; padding: 15px; font-weight: bold; font-size: 20px; }
-        
-        /* BOTONES DE ESTADO */
-        .status-bar { display: flex; justify-content: space-around; padding: 15px; background: #222; }
-        .btn-status { padding: 10px 20px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
-        .online { background: #4cd964; color: black; }
-        .offline { background: #ff3b30; color: white; }
-
-        /* SWITCH DE SENTIDO */
-        .sentido-container { margin: 20px; padding: 20px; border: 2px solid #FFD700; border-radius: 15px; }
-        .btn-sentido { width: 100%; padding: 15px; font-size: 18px; border-radius: 10px; border: none; font-weight: bold; margin-top: 10px; }
-        .ida { background: #00d4ff; color: black; }
-        .vuelta { background: #FFD700; color: black; }
-
-        /* LISTA DE PASAJEROS */
-        #lista-pax { margin: 20px; text-align: left; }
-        .pax-item { background: #333; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid #4cd964; }
+        body { margin: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
+        #map { height: 50vh; width: 100%; border-bottom: 2px solid #FFD700; }
+        .pax-card { background: #111; border: 2px solid #FFD700; margin: 10px; padding: 10px; border-radius: 12px; text-align: center; }
+        .radar-flota { display: flex; justify-content: space-around; background: #222; padding: 8px; font-size: 14px; font-weight: bold; }
+        .btn-as { width: 65px; height: 65px; margin: 5px; border: 3px solid #4cd964; background: transparent; color: #4cd964; border-radius: 15px; font-size: 22px; font-weight: bold; }
+        .btn-as.selected { background: #4cd964; color: black; }
+        .btn-confirm { width: 90%; margin: 15px 5%; padding: 20px; background: #4cd964; border: none; border-radius: 20px; font-weight: 900; font-size: 20px; box-shadow: 0 5px 15px rgba(76,217,100,0.4); }
+        select { width: 90%; padding: 15px; background: #333; color: white; border: 1px solid #FFD700; border-radius: 10px; font-size: 16px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="header">MÓVIL #1 - PANEL DE CONTROL</div>
+    <div class="pax-card"><b style="color:#FFD700; font-size:24px;">CARLOS</b></div>
+    <div class="radar-flota" id="radar">Cargando flota...</div>
+    <div id="map"></div>
 
-    <div class="status-bar">
-        <button id="btn-conectar" class="btn-status online" onclick="cambiarEstado(true)">EN LÍNEA</button>
-        <button id="btn-desconectar" class="btn-status offline" onclick="cambiarEstado(false)">SALIR DE LÍNEA</button>
-    </div>
-
-    <div class="sentido-container">
-        <p>SENTIDO ACTUAL:</p>
-        <button id="btn-sentido" class="btn-sentido ida" onclick="toggleSentido()">HACIA ABASTO (IDA)</button>
-    </div>
-
-    <div id="lista-pax">
-        <h3 style="text-align: center;">Pasajeros Asignados (0/4)</h3>
+    <div style="text-align: center;">
+        <select id="select-destino" onchange="marcarDestino(this.value)">
+            <option value="" disabled selected>¿A DÓNDE VAS?</option>
+        </select>
+        
+        <div style="margin-top: 10px;">
+            <button class="btn-as" id="as-1" onclick="toggleAsiento(1)">1</button>
+            <button class="btn-as" id="as-2" onclick="toggleAsiento(2)">2</button>
+            <button class="btn-as" id="as-3" onclick="toggleAsiento(3)">3</button>
+            <button class="btn-as" id="as-4" onclick="toggleAsiento(4)">4</button>
         </div>
+        <button class="btn-confirm" id="btn-confirmar" onclick="confirmarViaje()">CONFIRMAR VIAJE ($0)</button>
+    </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    let idMovil = 1; 
-    let enLinea = true;
-    let sentidoIda = true; // true = Ida, false = Vuelta
+    // TODAS LAS 25 PARADAS INTEGRADAS
+    const paradas = [
+        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]}, {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]}, {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]}, {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]}, {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]}, {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]}, {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]}, {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]}, {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]}, {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]}, {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]}, {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]}, {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+    ];
 
-    // 1. Cambiar estado (Online/Offline)
-    async function cambiarEstado(estado) {
-        enLinea = estado;
-        document.getElementById('btn-conectar').style.opacity = estado ? "1" : "0.3";
-        document.getElementById('btn-desconectar').style.opacity = estado ? "0.3" : "1";
-        
-        await _s.from('estado_movil').update({ en_servicio: estado }).eq('id', idMovil);
-        if(!estado) alert("Ya no eres visible para los pasajeros.");
-    }
+    let map = L.map('map', {zoomControl: false}).setView(paradas[10].c, 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // 2. Cambiar Sentido (El botón inteligente)
-    function toggleSentido() {
-        sentidoIda = !sentidoIda;
-        const btn = document.getElementById('btn-sentido');
-        if(sentidoIda) {
-            btn.innerText = "HACIA ABASTO (IDA)";
-            btn.className = "btn-sentido ida";
-        } else {
-            btn.innerText = "HACIA CANÉ (VUELTA)";
-            btn.className = "btn-sentido vuelta";
-        }
-        actualizarPasajeros();
-    }
-
-    // 3. Ver pasajeros que el sistema le asignó
-    async function actualizarPasajeros() {
-        if(!enLinea) return;
-
-        const { data } = await _s.from('reservas_activas')
-            .select('*')
-            .eq('id_movil', idMovil)
-            .eq('estado', 'en_curso');
-
-        const lista = document.getElementById('lista-pax');
-        lista.innerHTML = `<h3 style="text-align:center">Pasajeros: ${data.length}/4</h3>`;
-        
-        data.forEach(p => {
-            lista.innerHTML += `
-                <div class="pax-item">
-                    <b>${p.nombre_pasajero}</b> - Asiento: ${p.asiento_num}<br>
-                    <small>Destino: Parada ${p.destino_idx}</small>
-                    <button onclick="finalizarViaje(${p.id})" style="float:right">Llegó</button>
-                </div>`;
-        });
-    }
-
-    async function finalizarViaje(idReserva) {
-        await _s.from('reservas_activas').delete().eq('id', idReserva);
-        actualizarPasajeros();
-    }
-
-    // GPS: Solo envía si está En Línea
-    navigator.geolocation.watchPosition(async p => {
-        if(enLinea) {
-            await _s.from('estado_movil').update({ 
-                latitud: p.coords.latitude, 
-                longitud: p.coords.longitude 
-            }).eq('id', idMovil);
-        }
+    // DIBUJAR RUTA Y PARADAS
+    L.polyline(paradas.map(p => p.c), {color: '#00d4ff', weight: 5, opacity: 0.6}).addTo(map);
+    paradas.forEach((p, i) => {
+        L.circleMarker(p.c, { radius: 8, color: '#000', weight: 3, fillColor: '#fff', fillOpacity: 1 }).addTo(map).bindPopup(p.n);
+        document.getElementById('select-destino').innerHTML += `<option value="${i}">${p.n}</option>`;
     });
 
-    setInterval(actualizarPasajeros, 3000);
+    let markerDestino;
+    function marcarDestino(idx) {
+        if(markerDestino) map.removeLayer(markerDestino);
+        markerDestino = L.marker(paradas[idx].c).addTo(map).bindPopup("Tu destino: " + paradas[idx].n).openPopup();
+        map.panTo(paradas[idx].c);
+    }
+
+    let asientos = [];
+    function toggleAsiento(n) {
+        const i = asientos.indexOf(n);
+        if(i > -1) {
+            asientos.splice(i, 1);
+            document.getElementById('as-'+n).classList.remove('selected');
+        } else {
+            asientos.push(n);
+            document.getElementById('as-'+n).classList.add('selected');
+        }
+        document.getElementById('btn-confirmar').innerText = `CONFIRMAR ${asientos.length} VIAJES ($${asientos.length * 1000})`;
+    }
+
+    async function confirmarViaje() {
+        const dest = document.getElementById('select-destino').value;
+        if(!dest || asientos.length === 0) return alert("Falta destino o asientos");
+        
+        const { data: ocupacion } = await _s.from('reservas_activas').select('id_movil').eq('estado', 'en_curso');
+        let conteo = {1:0, 2:0, 3:0};
+        ocupacion.forEach(r => conteo[r.id_movil]++);
+        
+        let idAsignado = conteo[1] < 4 ? 1 : (conteo[2] < 4 ? 2 : 3);
+        const registros = asientos.map(a => ({ asiento_num: a, nombre_pasajero: "Carlos", destino_idx: parseInt(dest), id_movil: idAsignado, estado: 'en_curso' }));
+
+        const { error } = await _s.from('reservas_activas').insert(registros);
+        if(!error) { alert("¡Viaje Confirmado con Móvil " + idAsignado + "!"); location.reload(); }
+    }
 </script>
 </body>
 </html>
