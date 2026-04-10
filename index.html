@@ -3,70 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TuMovil - Conductor</title>
+    <title>TuMovil - Panel Inteligente del Conductor</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin:0; background:#111; color:white; font-family:sans-serif; text-align:center; }
-        .header { background:#FFD700; color:000; padding:15px; font-weight:900; }
-        .btn { width:90%; padding:20px; margin:10px 0; border-radius:15px; border:none; font-weight:bold; font-size:18px; }
-        .ida { background:#00d4ff; }
-        .vuelta { background:#FFD700; }
-        .status { padding:10px; font-size:14px; background:#222; }
+        body { margin: 0; background: #000; font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; color: white; }
+        
+        /* SPLASH SCREEN / TARJETA PRESENTACIÓN */
+        #splash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 5000;
+            transition: opacity 1s ease-out;
+        }
+        .logo-anim { font-size: 80px; animation: taxiDrive 2s infinite linear; }
+        @keyframes taxiDrive { 0% { transform: translateX(-10px); } 50% { transform: translateX(10px); } 100% { transform: translateX(-10px); } }
+
+        /* EL MAPA ES EL FONDO */
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+
+        /* UI FLOTANTE INTELIGENTE */
+        .top-bar { 
+            position: absolute; top: 0; width: 100%; z-index: 1000;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            padding: 15px 0; text-align: center;
+        }
+        .header-title { background: #FFD700; color: black; padding: 5px 15px; border-radius: 20px; font-weight: 900; font-size: 14px; text-transform: uppercase; }
+        .gps-status { color: #fff; font-size: 10px; margin-top: 5px; opacity: 0.7; }
+
+        /* BOTÓN DE SENTIDO MINIMALISTA */
+        .sentido-card {
+            position: absolute; top: 70px; left: 5%; width: 90%; z-index: 1000;
+            background: rgba(10,10,10,0.85); border: 1px solid #FFD700; border-radius: 12px;
+            backdrop-filter: blur(5px); transition: 0.3s;
+        }
+        .btn-sentido { 
+            width: 100%; background: transparent; border: none; padding: 15px;
+            color: #00d4ff; font-weight: bold; font-size: 16px; text-transform: uppercase;
+        }
+        .btn-sentido.vuelta { color: #FFD700; }
+
+        /* PANEL DE PASAJEROS INFERIOR */
+        .pax-panel { 
+            position: absolute; bottom: 20px; left: 5%; width: 90%; z-index: 1000;
+            background: rgba(10,10,10,0.9); border-radius: 15px; border: 1px solid #333;
+            max-height: 40vh; overflow-y: auto; transition: 0.3s;
+        }
+        .pax-header { padding: 10px; border-bottom: 1px solid #333; text-align: center; color: #4cd964; font-weight: bold; }
+        .pax-item { padding: 15px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+        .pax-name { font-weight: bold; }
+        .pax-info { color: #aaa; font-size: 12px; }
+        .btn-action { background: #333; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-size: 12px; }
+        .btn-action.success { background: #4cd964; color: black; }
+
+        /* ICONOS MAPA */
+        .pax-marker { background: #4cd964; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 10px #4cd964; }
     </style>
 </head>
 <body>
-    <div class="header">CONTROL MÓVIL #1</div>
-    <div class="status" id="gps-status">GPS: Buscando señal...</div>
-    
-    <button id="btn-sentido" class="btn ida" onclick="cambiarSentido()">SENTIDO: HACIA ABASTO</button>
-    
-    <div id="pax-lista" style="padding:20px;">
-        <h3>Pasajeros en viaje:</h3>
-        <div id="pax-items">Buscando pasajeros...</div>
+
+    <div id="splash">
+        <div class="logo-anim">🚕</div>
+        <h1 style="color: #FFD700; margin: 10px 0 0 0;">TUMOVIL</h1>
+        <p style="color: #666; font-size: 14px;">Panel del Conductor</p>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="top-bar">
+        <span class="header-title">MÓVIL #1</span>
+        <div class="gps-status" id="gps-text">Buscando GPS...</div>
+    </div>
+
+    <div class="sentido-card">
+        <button id="btn-sentido" class="btn-sentido" onclick="cambiarSentido()">Sentido: Hacia Abasto</button>
+    </div>
+
+    <div class="pax-panel" id="pax-panel">
+        <div class="pax-header">Pasajeros: 0/4</div>
+        <div id="pax-lista">
+            <p style="text-align:center; padding: 20px; color:#555;">Esperando solicitudes...</p>
+        </div>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    let idMovil = 1;
+    
+    // Configuración Inicial
+    const idMovil = 1;
     let esIda = true;
+    let miLat, miLon, map, markerMovil, paxMarkers = {};
 
+    // Remoción del Splash
+    setTimeout(() => { 
+        document.getElementById('splash').style.opacity = '0'; 
+        setTimeout(() => document.getElementById('splash').remove(), 1000); 
+    }, 2500);
+
+    // Inicializar Mapa
+    map = L.map('map', { zoomControl: false }).setView([-34.577, -58.756], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+
+    // Icono del Auto
+    markerMovil = L.marker([-34.577, -58.756], {
+        icon: L.divIcon({ html: '<div style="font-size:30px;">🚕</div>', className: '' })
+    }).addTo(map);
+
+    // --- ACTIVACIÓN REAL DEL GPS (INTELIGENTE) ---
+    // Usamos watchPosition con Alta Precisión para que el auto se mueva en el mapa
+    navigator.geolocation.watchPosition(async p => {
+        miLat = p.coords.latitude;
+        miLon = p.coords.longitude;
+        
+        // Mover el auto en el mapa
+        markerMovil.setLatLng([miLat, miLon]);
+        map.panTo([miLat, miLon]); // Mantiene el auto centrado
+        
+        document.getElementById('gps-text').innerText = `GPS Conectado (±${p.coords.accuracy.toFixed(0)}m)`;
+
+        // Actualizar Supabase (image_5.png / image_6.png)
+        await _s.from('estado_movil').update({ 
+            latitud: miLat, longitud: miLon, en_servicio: true 
+        }).eq('id', idMovil);
+
+    }, err => {
+        document.getElementById('gps-text').innerText = "Error GPS: " + err.message;
+        document.getElementById('gps-text').style.color = "red";
+    }, { enableHighAccuracy: true, maximumAge: 0 });
+
+
+    // --- LÓGICA DE SENTIDO (image_18.png) ---
     function cambiarSentido() {
         esIda = !esIda;
         const btn = document.getElementById('btn-sentido');
-        btn.innerText = esIda ? "SENTIDO: HACIA ABASTO" : "SENTIDO: HACIA CANÉ";
-        btn.className = esIda ? "btn ida" : "btn vuelta";
+        if(esIda) {
+            btn.innerText = "Sentido: Hacia Abasto";
+            btn.className = "btn-sentido";
+        } else {
+            btn.innerText = "Sentido: Hacia Cané";
+            btn.className = "btn-sentido vuelta";
+        }
+        cargarPasajeros(); // Recargar para filtrar
     }
 
-    // SEGUIMIENTO GPS REAL
-    navigator.geolocation.watchPosition(async p => {
-        const { error } = await _s.from('estado_movil').update({
-            latitud: p.coords.latitude,
-            longitud: p.coords.longitude,
-            en_servicio: true
-        }).eq('id', idMovil);
-        
-        document.getElementById('gps-status').innerText = "GPS: Conectado (Lat: " + p.coords.latitude.toFixed(4) + ")";
-    }, err => {
-        document.getElementById('gps-status').innerText = "GPS: Error de señal";
-    }, { enableHighAccuracy: true });
 
+    // --- CARGAR PASAJEROS (INTELIGENTE CON FILTRO) ---
     async function cargarPasajeros() {
-        const { data } = await _s.from('reservas_activas').select('*').eq('id_movil', idMovil).eq('estado', 'en_curso');
-        const container = document.getElementById('pax-items');
-        container.innerHTML = data.length > 0 ? "" : "Sin pasajeros asignados.";
-        data.forEach(p => {
-            container.innerHTML += `<div style="background:#333; margin:5px; padding:10px; border-radius:10px;">
-                <b>${p.nombre_pasajero}</b> - Asiento ${p.asiento_num} <br>
-                <button onclick="bajarPax(${p.id})">Finalizar Viaje</button>
-            </div>`;
+        // Obtenemos pasajeros asignados a este móvil (image_18.png)
+        const { data: pax } = await _s.from('reservas_activas')
+            .select('*')
+            .eq('id_movil', idMovil)
+            .eq('estado', 'en_curso');
+
+        // Actualizar la lista visual
+        document.querySelector('.pax-header').innerText = `Pasajeros: ${pax.length}/4`;
+        const lista = document.getElementById('pax-lista');
+        lista.innerHTML = pax.length === 0 ? '<p style="text-align:center; padding: 20px; color:#555;">Sin solicitudes asignadas.</p>' : '';
+        
+        // Limpiar markers antiguos del mapa
+        Object.values(paxMarkers).forEach(m => map.removeLayer(m));
+        paxMarkers = {};
+
+        pax.forEach(p => {
+            // Inteligencia: Solo mostramos al pasajero si va en el mismo sentido
+            // (Esta es la lógica avanzada que pediste)
+            // Asumimos: Ida va de parada 0 a 12, Vuelta de 13 a 25.
+            const esPaxIda = p.destino_idx <= 12;
+            if(esPaxIda !== esIda) return; // Filtramos si el sentido no coincide
+
+            // Crear Tarjeta en el panel inferior
+            lista.innerHTML += `
+                <div class="pax-item">
+                    <div>
+                        <div class="pax-name">${p.nombre_pasajero}</div>
+                        <div class="pax-info">Asiento: ${p.asiento_num} | Destino: Parada ${p.destino_idx}</div>
+                    </div>
+                    <button class="btn-action success" onclick="finalizarViaje(${p.id})">Llegó</button>
+                </div>
+            `;
+
+            // Crear Punto en el Mapa (si hay coordenadas)
+            if(p.pasajero_lat && p.pasajero_lon) {
+                paxMarkers[p.id] = L.marker([p.pasajero_lat, p.pasajero_lon], {
+                    icon: L.divIcon({ html: '<div class="pax-marker" style="width:12px;height:12px;"></div>', className: '' })
+                }).addTo(map)
+                .bindPopup(`<b>${p.nombre_pasajero}</b><br>Asiento ${p.asiento_num}<br>Hacia: P. ${p.destino_idx}`);
+            }
         });
     }
 
-    async function bajarPax(id) {
+    // Finalizar el viaje (liberar asiento en reservas_activas, image_18.png)
+    async function finalizarViaje(id) {
         await _s.from('reservas_activas').delete().eq('id', id);
         cargarPasajeros();
     }
 
+    // Actualización automática
     setInterval(cargarPasajeros, 3000);
 </script>
 </body>
