@@ -1,1 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Panel Conductor</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; background: #111; font-family: sans-serif; color: white; }
+        #map { height: 60vh; width: 100%; }
+        .panel { padding: 15px; }
+        .btn-linea { width: 100%; padding: 20px; font-weight: bold; border-radius: 10px; border: none; font-size: 20px; margin-bottom: 10px; }
+        .asientos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .asiento { background: #333; padding: 15px; border-radius: 8px; text-align: center; border: 2px solid #555; }
+        .asiento.ocupado { background: #ff3b30; border-color: #ff3b30; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="panel">
+        <button id="btn-linea" class="btn-linea" style="background: #ff3b30;" onclick="toggleLinea()">FUERA DE RADAR</button>
+        <div class="asientos">
+            <div id="as1" class="asiento">1</div>
+            <div id="as2" class="asiento">2</div>
+            <div id="as3" class="asiento">3</div>
+            <div id="as4" class="asiento">4</div>
+        </div>
+    </div>
 
+<script>
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    
+    // --- CAMBIAR SEGÚN EL CONDUCTOR ---
+    const MI_ID = 1; 
+    let enLinea = false;
+    let miLat, miLon;
+    let markersPax = {};
+
+    const map = L.map('map').setView([-34.561264, -58.770506], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    navigator.geolocation.watchPosition(p => {
+        miLat = p.coords.latitude; miLon = p.coords.longitude;
+        if(enLinea) actualizarPosicion();
+    });
+
+    async function actualizarPosicion() {
+        await _s.from('estado_movil').update({ latitud: miLat, longitud: miLon, en_servicio: true }).eq('id', MI_ID);
+    }
+
+    async function toggleLinea() {
+        enLinea = !enLinea;
+        const btn = document.getElementById('btn-linea');
+        btn.innerText = enLinea ? "EN LÍNEA (RADAR OK)" : "FUERA DE RADAR";
+        btn.style.background = enLinea ? "#4cd964" : "#ff3b30";
+        await _s.from('estado_movil').update({ en_servicio: enLinea }).eq('id', MI_ID);
+    }
+
+    async function refrescarRadar() {
+        if(!enLinea) return;
+        // Solo busca pasajeros asignados a SU ID
+        const { data } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID).eq('estado', 'en_curso');
+        
+        // Limpiar asientos
+        document.querySelectorAll('.asiento').forEach(a => a.classList.remove('ocupado'));
+        
+        data?.forEach(p => {
+            document.getElementById('as'+p.asiento_num).classList.add('ocupado');
+            if(!markersPax[p.nombre_pasajero]) {
+                markersPax[p.nombre_pasajero] = L.circleMarker([p.pasajero_lat, p.pasajero_lon], { color: 'red', radius: 10 }).addTo(map).bindTooltip(p.nombre_pasajero);
+            }
+        });
+    }
+    setInterval(refrescarRadar, 4000);
+</script>
+</body>
+</html>
