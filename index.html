@@ -3,129 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor Pro - TuMovil</title>
+    <title>Panel Conductor - Ruta 34</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
         #map { height: 50vh; width: 100%; }
-        
-        .panel-control { background: #111; padding: 15px; border-top: 2px solid #FFD700; height: 50vh; }
-        
-        /* GRILLA DE ASIENTOS (Igual al pasajero) */
-        .asientos-monitor { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px; }
-        .m-asiento { aspect-ratio: 1; border: 2px solid #333; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #555; }
-        .m-asiento.ocupado { border-color: #4cd964; color: #4cd964; background: rgba(76, 217, 100, 0.1); font-weight: bold; }
-
-        .btn-status { width: 100%; padding: 15px; border-radius: 10px; border: none; font-weight: bold; margin-bottom: 10px; }
+        .panel { padding: 15px; background: #111; border-top: 2px solid #FFD700; height: 50vh; }
+        .asientos-monitor { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 15px 0; }
+        .as-m { aspect-ratio: 1; border: 2px solid #333; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #444; }
+        .as-m.ocupado { border-color: #4cd964; color: #4cd964; background: rgba(76, 217, 100, 0.1); }
+        .btn-status { width: 100%; padding: 15px; border-radius: 12px; border: none; font-weight: bold; font-size: 16px; margin-bottom: 10px; }
         .online { background: #4cd964; color: black; }
         .offline { background: #ff3b30; color: white; }
-
-        .pax-scroll { height: 120px; overflow-y: auto; background: #000; border-radius: 10px; padding: 10px; font-size: 14px; }
-        .pax-row { display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding: 8px 0; }
+        #lista-pax { background: #000; border-radius: 10px; padding: 10px; height: 100px; overflow-y: auto; font-size: 14px; }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
 
-    <div class="panel-control">
-        <button id="btn-servicio" class="btn-status online" onclick="toggleServicio()">MÓVIL EN LÍNEA</button>
+    <div class="panel">
+        <button id="btn-status" class="btn-status online" onclick="toggleServicio()">MÓVIL EN LÍNEA</button>
         
-        <p style="font-size: 12px; color: #FFD700; margin: 5px 0;">ESTADO DE CABINA:</p>
+        <div style="color: #FFD700; font-size: 12px; margin-bottom: 5px;">ESTADO DE ASIENTOS:</div>
         <div class="asientos-monitor">
-            <div id="m-as-1" class="m-asiento">1</div>
-            <div id="m-as-2" class="m-asiento">2</div>
-            <div id="m-as-3" class="m-asiento">3</div>
-            <div id="m-as-4" class="m-asiento">4</div>
+            <div id="m-as-1" class="as-m">1</div>
+            <div id="m-as-2" class="as-m">2</div>
+            <div id="m-as-3" class="as-m">3</div>
+            <div id="m-as-4" class="as-m">4</div>
         </div>
 
-        <div class="pax-scroll" id="lista-pax">Cargando pasajeros...</div>
-        <button onclick="cambiarSentido()" id="btn-sentido" style="width:100%; margin-top:10px; background:#222; color:white; border:1px solid #333; padding:10px; border-radius:8px;">HACIA: ABASTO</button>
+        <div id="lista-pax">Esperando pasajeros...</div>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    let idMovil = 1;
-    let enServicio = true;
-    let markersPuntos = {}; // Para limpiar el mapa
-
-    // 25 PARADAS (Lista reducida por espacio, asegúrate de tener las tuyas)
-    const paradas = [{n:'Miguel Cané', c:[-34.561264, -58.770506]}, /* ... todas las demás ... */ {n:'Abasto y Roca', c:[-34.586030, -58.747278]}];
+    // TODAS TUS 34 PARADAS CARGADAS
+    const paradas = [
+        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Aromos', c:[-34.562160, -58.771380]}, {n:'Aromos 11016', c:[-34.562494, -58.772133]},
+        {n:'Aromos 10874', c:[-34.563541, -58.773244]}, {n:'Aromos/Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
+        {n:'Güiraldes', c:[-34.567268, -58.769484]}, {n:'Watt', c:[-34.569090, -58.767095]}, {n:'Prado 2555', c:[-34.571016, -58.764443]},
+        {n:'Payró', c:[-34.571956, -58.763201]}, {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Caveri Ent.', c:[-34.578528, -58.757064]},
+        {n:'Azara', c:[-34.579296, -58.755864]}, {n:'Vedia', c:[-34.580020, -58.755063]}, {n:'Tablada', c:[-34.580901, -58.753842]},
+        {n:'Echeverría', c:[-34.581998, -58.752441]}, {n:'Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri Fin', c:[-34.584740, -58.748804]},
+        {n:'Libertador/Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]}, {n:'Libertador 7200', c:[-34.588041, -58.751542]},
+        {n:'Maza', c:[-34.588273, -58.751338]}, {n:'Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
+        {n:'Maza/Albatros', c:[-34.588930, -58.750543]}, {n:'Kirchner', c:[-34.586030, -58.747278]}, {n:'Cruce', -34.585, -58.7485},
+        {n:'Libertador/Caveri', -34.584, -58.7495}, {n:'Gálvez R', -34.583319, -58.750710}, {n:'Echeverría R', -34.581998, -58.752441},
+        {n:'Tablada R', -34.580901, -58.753842}, {n:'Azara R', -34.579296, -58.755864}, {n:'Aromos R', -34.56216, -58.77138}, {n:'Final', -34.561264, -58.770506}
+    ];
 
     let map = L.map('map', {zoomControl: false}).setView(paradas[0].c, 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Ruta espejo
-    L.polyline(paradas.map(p => p.c), {color: '#00d4ff', weight: 4}).addTo(map);
+    // DIBUJAR RUTA CELESTE (Siguiendo tus 34 coordenadas)
+    L.polyline(paradas.map(p => p.c), {color: '#00d4ff', weight: 6, opacity: 0.6}).addTo(map);
 
-    // Marcador del Auto
+    // DIBUJAR CADA PARADA CON BORDE NEGRO
+    paradas.forEach(p => {
+        L.circleMarker(p.c, { radius: 6, color: '#000', weight: 2, fillColor: '#fff', fillOpacity: 1 }).addTo(map);
+    });
+
     let markerTaxi = L.marker(paradas[0].c, {icon: L.divIcon({html:'🚕', className:'', iconSize:[30,30]})}).addTo(map);
+    let enServicio = true;
+    let markersPuntos = {};
 
-    // GPS REAL CON FRENO
+    // GPS REAL: Solo envía si está en servicio
     navigator.geolocation.watchPosition(async p => {
-        if(!enServicio) return; // SI ESTÁ OFF, NO ENVÍA NADA
-
+        if(!enServicio) return;
         const pos = [p.coords.latitude, p.coords.longitude];
         markerTaxi.setLatLng(pos);
-        
-        await _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1], en_servicio: true }).eq('id', idMovil);
+        await _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1], en_servicio: true }).eq('id', 1);
     }, null, {enableHighAccuracy: true});
 
     async function toggleServicio() {
         enServicio = !enServicio;
-        const btn = document.getElementById('btn-servicio');
+        const btn = document.getElementById('btn-status');
         btn.innerText = enServicio ? "MÓVIL EN LÍNEA" : "MÓVIL FUERA DE LÍNEA";
         btn.className = enServicio ? "btn-status online" : "btn-status offline";
-        await _s.from('estado_movil').update({ en_servicio: enServicio }).eq('id', idMovil);
+        await _s.from('estado_movil').update({ en_servicio: enServicio }).eq('id', 1);
     }
 
-    async function actualizarPanel() {
-        const { data: pax } = await _s.from('reservas_activas').select('*').eq('id_movil', idMovil).eq('estado', 'en_curso');
-
-        // 1. Limpiar asientos y mapa
-        document.querySelectorAll('.m-asiento').forEach(el => el.classList.remove('ocupado'));
+    async function monitorearCabina() {
+        const { data: pax } = await _s.from('reservas_activas').select('*').eq('id_movil', 1);
+        
+        // Limpiar
+        document.querySelectorAll('.as-m').forEach(el => el.classList.remove('ocupado'));
         Object.values(markersPuntos).forEach(m => map.removeLayer(m));
         markersPuntos = {};
 
         const lista = document.getElementById('lista-pax');
         lista.innerHTML = "";
 
-        pax.forEach(p => {
-            // 2. Marcar Asiento Ocupado
-            const asCell = document.getElementById('m-as-' + p.asiento_num);
-            if(asCell) asCell.classList.add('ocupado');
-
-            // 3. Agregar a lista con botón de finalizar
-            lista.innerHTML += `<div class="pax-row">
+        pax?.forEach(p => {
+            // Pintar asiento en cabina
+            document.getElementById('m-as-' + p.asiento_num).classList.add('ocupado');
+            
+            // Lista de pasajeros
+            lista.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:5px;">
                 <span>${p.nombre_pasajero} (As. ${p.asiento_num})</span>
-                <button onclick="terminar(${p.id})" style="background:#4cd964; border:none; border-radius:5px;">LLEGÓ</button>
+                <button onclick="bajar(${p.id})" style="background:#4cd964; border:none; border-radius:4px;">OK</button>
             </div>`;
 
-            // 4. UBICACIÓN DEL PASAJERO EN MAPA (Si la tenemos en la tabla)
-            // Asumiendo que guardas la ubicación del pasajero al pedir
-            if(p.pax_lat && p.pax_lon) {
-                markersPuntos[p.id] = L.marker([p.pax_lat, p.pax_lon], {
-                    icon: L.divIcon({html:'👤', className:'', iconSize:[20,20]})
-                }).addTo(map).bindPopup("Recoger a " + p.nombre_pasajero);
-            }
-            
-            // 5. DESTINO DEL PASAJERO
+            // MARCAR DESTINO EN EL MAPA (Línea azul cian seguirá esto)
             const cDest = paradas[p.destino_idx].c;
-            markersPuntos['d'+p.id] = L.marker(cDest, {
+            markersPuntos[p.id] = L.marker(cDest, {
                 icon: L.divIcon({html:'📍', className:'', iconSize:[20,20]})
-            }).addTo(map).bindPopup("Destino de " + p.nombre_pasajero);
+            }).addTo(map).bindPopup("Baja: " + p.nombre_pasajero);
         });
     }
 
-    async function terminar(id) {
+    async function bajar(id) {
         await _s.from('reservas_activas').delete().eq('id', id);
-        actualizarPanel();
+        monitorearCabina();
     }
 
-    setInterval(actualizarPanel, 3000);
+    setInterval(monitorearCabina, 3000);
 </script>
 </body>
 </html>
