@@ -16,11 +16,13 @@
         select { width: 100%; background: #222; color: white; border: 1px solid #333; border-radius: 8px; padding: 10px; }
         .bottom-panel { position: absolute; bottom: 15px; width: 92%; left: 4%; background: rgba(15, 15, 15, 0.95); border: 2px solid #00d4ff; border-radius: 25px; padding: 15px; z-index: 1000; box-sizing: border-box; }
         .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px; }
-        .btn-as { aspect-ratio: 1; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-weight: bold; font-size: 18px; }
+        .btn-as { aspect-ratio: 1; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-weight: bold; font-size: 18px; transition: 0.3s; }
         .btn-as.selected { background: #4cd964 !important; color: #000 !important; border-color: #4cd964 !important; }
+        .btn-as.occupied { background: #555 !important; color: #888 !important; border-color: #333 !important; pointer-events: none; }
         .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; background: #333; color: #666; pointer-events: none; }
-        .btn-confirm.ready { background: #00d4ff !important; color: black !important; pointer-events: auto !important; cursor: pointer; }
+        .btn-confirm.ready { background: #00d4ff !important; color: black !important; pointer-events: auto !important; }
         .btn-cancel { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; background: #ff3b30; color: white; display: none; }
+        .taxi-icon { font-size: 30px; }
     </style>
 </head>
 <body>
@@ -37,11 +39,11 @@
     <div id="map"></div>
 
     <div class="bottom-panel">
-        <div class="asientos-grid">
-            <button class="btn-as" id="b1" onclick="toggleAsiento(1)">1</button>
-            <button class="btn-as" id="b2" onclick="toggleAsiento(2)">2</button>
-            <button class="btn-as" id="b3" onclick="toggleAsiento(3)">3</button>
-            <button class="btn-as" id="b4" onclick="toggleAsiento(4)">4</button>
+        <div class="asientos-grid" id="grid-asientos">
+            <button class="btn-as" id="asiento-1" onclick="toggleAsiento(1)">1</button>
+            <button class="btn-as" id="asiento-2" onclick="toggleAsiento(2)">2</button>
+            <button class="btn-as" id="asiento-3" onclick="toggleAsiento(3)">3</button>
+            <button class="btn-as" id="asiento-4" onclick="toggleAsiento(4)">4</button>
         </div>
         <button id="btn-accion" class="btn-confirm" onclick="confirmarReserva()">Confirmar Reserva ($1000)</button>
         <button id="btn-finalizar" class="btn-cancel" onclick="finalizarViaje()">Finalizar Mi Viaje</button>
@@ -69,47 +71,58 @@
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Dibujar Ruta
+    // Dibujar Ruta Visual
     L.polyline(paradas.map(p => p.c), {color: '#00d4ff', weight: 4, opacity: 0.6}).addTo(map);
     paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d4ff', fillColor: '#000', fillOpacity: 1 }).addTo(map));
 
     const sel = document.getElementById('select-destino');
     paradas.forEach((p,i) => { sel.innerHTML += `<option value="${i}">${p.n}</option>`; });
 
-    // Marcadores
     let mTaxi = L.marker([0,0], { icon: L.divIcon({ html: '🚕', className: 'taxi-icon' }) }).addTo(map);
     let mYo = L.circleMarker([0,0], { color: '#4cd964', radius: 9, fillOpacity: 1, weight: 3 }).addTo(map);
+    let marcadorDestino = null;
     
-    let miLat, miLon, asientosElegidos = [];
+    let miLat, miLon, asientoElegido = null;
 
-    // GEOLOCALIZACIÓN REFORZADA
-    function actualizarPosicion(pos) {
-        miLat = pos.coords.latitude;
-        miLon = pos.coords.longitude;
+    // GPS Activo
+    navigator.geolocation.watchPosition(p => { 
+        miLat = p.coords.latitude; miLon = p.coords.longitude; 
         mYo.setLatLng([miLat, miLon]);
-        // Centrar mapa la primera vez
-        if (mYo.getLatLng().lat === 0) map.setView([miLat, miLon], 15);
-    }
+    }, null, { enableHighAccuracy: true });
 
-    navigator.geolocation.watchPosition(actualizarPosicion, (err) => console.log(err), { enableHighAccuracy: true });
+    // Sincronización Real con el Conductor
+    async function sync() {
+        // 1. Ubicación del Taxi
+        const { data: movil } = await _s.from('estado_movil').select('*').eq('id', 1).single();
+        if (movil && movil.en_servicio) mTaxi.setLatLng([movil.latitud, movil.longitud]).setOpacity(1);
+        else mTaxi.setOpacity(0);
 
-    async function trackTaxi() {
-        const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
-        if (data && data.en_servicio) {
-            mTaxi.setLatLng([data.latitud, data.longitud]).setOpacity(1);
-        } else { mTaxi.setOpacity(0); }
+        // 2. Estado de Asientos (Para que no se destilden solos)
+        const { data: reservas } = await _s.from('reservas_activas').select('asiento_num').eq('estado', 'en_curso');
+        const ocupados = reservas ? reservas.map(r => r.asiento_num) : [];
+        
+        for(let i=1; i<=4; i++) {
+            const btn = document.getElementById('asiento-'+i);
+            if (ocupados.includes(i) && asientoElegido !== i) {
+                btn.classList.add('occupied');
+            } else if (!ocupados.includes(i)) {
+                btn.classList.remove('occupied');
+            }
+        }
     }
-    setInterval(trackTaxi, 4000);
+    setInterval(sync, 3000);
 
     function toggleAsiento(n) {
         if(localStorage.getItem('v_curso')) return;
-        const index = asientosElegidos.indexOf(n);
-        if(index > -1) {
-            asientosElegidos.splice(index, 1);
-            document.getElementById('b'+n).classList.remove('selected');
+        
+        // Desmarcar anterior si existe
+        if (asientoElegido) document.getElementById('asiento-'+asientoElegido).classList.remove('selected');
+        
+        if (asientoElegido === n) {
+            asientoElegido = null;
         } else {
-            asientosElegidos.push(n);
-            document.getElementById('b'+n).classList.add('selected');
+            asientoElegido = n;
+            document.getElementById('asiento-'+n).classList.add('selected');
         }
         validarFormulario();
     }
@@ -118,56 +131,60 @@
         const d = document.getElementById('select-destino').value;
         const n = document.getElementById('nombre-pax').value.trim();
         const btn = document.getElementById('btn-accion');
-        if(asientosElegidos.length > 0 && d !== "" && n !== "") btn.classList.add('ready');
+        if(asientoElegido && d !== "" && n !== "") btn.classList.add('ready');
         else btn.classList.remove('ready');
     }
 
     async function confirmarReserva() {
-        if (!miLat) return alert("Esperando señal de GPS...");
-        
+        if(!miLat) return alert("Buscando tu ubicación GPS...");
         const nombre = document.getElementById('nombre-pax').value.trim();
-        const destIdx = parseInt(document.getElementById('select-destino').value);
+        const destIdx = document.getElementById('select-destino').value;
         
-        // ELIMINÉ id_movil PARA EVITAR EL ERROR DE COLUMNA
-        const reservas = asientosElegidos.map(num => ({
-            asiento_num: num, 
-            pasajero_lat: miLat, 
+        // SIN 'id_movil' PARA EVITAR EL ERROR DE COLUMNA
+        const { error } = await _s.from('reservas_activas').insert([{
+            asiento_num: asientoElegido,
+            pasajero_lat: miLat,
             pasajero_lon: miLon,
-            destino_idx: destIdx, 
-            nombre_pasajero: nombre, 
+            destino_idx: parseInt(destIdx),
+            nombre_pasajero: nombre,
             estado: 'en_curso'
-        }));
+        }]);
 
-        const { error } = await _s.from('reservas_activas').insert(reservas);
-        
         if(!error) {
             localStorage.setItem('v_curso', 'true');
             localStorage.setItem('mi_n', nombre);
             localStorage.setItem('mi_dest', destIdx);
+            localStorage.setItem('mi_asiento', asientoElegido);
             location.reload();
         } else {
-            alert("Error: " + error.message);
+            alert("Error al guardar: " + error.message);
         }
     }
 
     function finalizarViaje() {
+        if(!confirm("¿Deseas finalizar el viaje?")) return;
         localStorage.clear();
         location.reload();
     }
 
-    // Cargar estado si está en viaje
-    if(localStorage.getItem('v_curso')) {
-        document.getElementById('btn-accion').style.display = 'none';
-        document.getElementById('btn-finalizar').style.display = 'block';
-        document.getElementById('nombre-pax').value = localStorage.getItem('mi_n');
-        document.getElementById('nombre-pax').disabled = true;
-        document.getElementById('select-destino').value = localStorage.getItem('mi_dest');
-        document.getElementById('select-destino').disabled = true;
-        
-        // Mostrar marcador de destino
-        const dIdx = localStorage.getItem('mi_dest');
-        L.marker(paradas[dIdx].c).addTo(map).bindTooltip("Tu Destino", {permanent: true});
-    }
+    // Al recargar: Restaurar estado desde memoria local
+    window.onload = () => {
+        if(localStorage.getItem('v_curso')) {
+            const num = localStorage.getItem('mi_asiento');
+            asientoElegido = parseInt(num);
+            document.getElementById('asiento-'+num).classList.add('selected');
+            document.getElementById('btn-accion').style.display = 'none';
+            document.getElementById('btn-finalizar').style.display = 'block';
+            document.getElementById('nombre-pax').value = localStorage.getItem('mi_n');
+            document.getElementById('nombre-pax').disabled = true;
+            document.getElementById('select-destino').value = localStorage.getItem('mi_dest');
+            document.getElementById('select-destino').disabled = true;
+
+            const dIdx = localStorage.getItem('mi_dest');
+            if(marcadorDestino) map.removeLayer(marcadorDestino);
+            marcadorDestino = L.marker(paradas[dIdx].c).addTo(map).bindTooltip("Tu Destino", {permanent: true}).openTooltip();
+        }
+    };
 </script>
 </body>
 </html>
