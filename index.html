@@ -3,46 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TuMovil - Pasajero</title>
+    <title>TuMovil - Conductor</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
-        .top-ui { position: absolute; top: 10px; width: 100%; padding: 0 15px; z-index: 1000; box-sizing: border-box; }
-        .dest-card { background: rgba(25, 25, 25, 0.95); border: 2px solid #FFD700; border-radius: 15px; padding: 12px; }
-        input#nombre-pax { width: 100%; background: rgba(255,255,255,0.1); color: #4cd964; border: 1px solid #4cd964; border-radius: 8px; padding: 12px; font-weight: bold; margin-bottom: 10px; outline: none; box-sizing: border-box; font-size: 16px; }
-        select { width: 100%; background: #222; color: white; border: 1px solid #333; border-radius: 8px; padding: 12px; font-size: 16px; }
-        .bottom-panel { position: absolute; bottom: 15px; width: 92%; left: 4%; background: rgba(15, 15, 15, 0.95); border: 2px solid #00d4ff; border-radius: 25px; padding: 15px; z-index: 1000; box-sizing: border-box; }
-        .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px; }
-        .btn-as { aspect-ratio: 1; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-weight: bold; font-size: 18px; }
-        .btn-as.selected { background: #4cd964 !important; color: #000 !important; border-color: #4cd964 !important; }
-        .btn-confirm { width: 100%; padding: 18px; border-radius: 15px; border: none; font-weight: bold; background: #333; color: #666; pointer-events: none; font-size: 18px; }
-        .btn-confirm.ready { background: #00d4ff !important; color: black !important; pointer-events: auto !important; }
-        .btn-cancel { width: 100%; padding: 18px; border-radius: 15px; border: none; font-weight: bold; background: #ff3b30; color: white; display: none; }
+        .panel-top { position: absolute; top: 10px; width: 100%; display: flex; justify-content: center; z-index: 1001; }
+        .btn-linea { background: #444; color: white; border: 2px solid #FFD700; padding: 12px 30px; border-radius: 30px; font-weight: bold; }
+        .btn-linea.on { background: #4cd964; color: black; }
+        .bottom-ui { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
+        .pills { display: flex; gap: 8px; margin-bottom: 12px; }
+        .pill { width: 45px; height: 45px; border: 2px solid #00d4ff; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); }
+        .pill.active { background: #ff3b30; color: white; border-color: #ff3b30; }
         .taxi-icon { font-size: 30px; }
     </style>
 </head>
 <body>
-    <div class="top-ui">
-        <div class="dest-card">
-            <input type="text" id="nombre-pax" placeholder="TU NOMBRE" oninput="validarFormulario()">
-            <select id="select-destino" onchange="autoSeleccionar()">
-                <option value="" disabled selected>¿A DÓNDE VAS?</option>
-            </select>
-        </div>
-    </div>
+    <div class="panel-top"><button id="btn-estado" class="btn-linea" onclick="toggleLinea()">FUERA DE LÍNEA</button></div>
     <div id="map"></div>
-    <div class="bottom-panel">
-        <div class="asientos-grid">
-            <button class="btn-as" id="b1" onclick="toggleAsiento(1)">1</button>
-            <button class="btn-as" id="b2" onclick="toggleAsiento(2)">2</button>
-            <button class="btn-as" id="b3" onclick="toggleAsiento(3)">3</button>
-            <button class="btn-as" id="b4" onclick="toggleAsiento(4)">4</button>
-        </div>
-        <button id="btn-accion" class="btn-confirm" onclick="confirmarReserva()">Confirmar Reserva</button>
-        <button id="btn-finalizar" class="btn-cancel" onclick="finalizarViaje()">Finalizar Mi Viaje</button>
+    <div class="bottom-ui">
+        <div class="pills"><div id="p1" class="pill">1</div><div id="p2" class="pill">2</div><div id="p3" class="pill">3</div><div id="p4" class="pill">4</div></div>
+        <button style="background:#ff3b30; color:white; border:none; padding:15px 40px; border-radius:15px; font-weight:bold;" onclick="vaciar()">VACIAR TODO</button>
     </div>
 
 <script>
@@ -51,71 +34,38 @@
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    L.polyline(paradas.map(p => p.c), {color: '#00d4ff', weight: 4, opacity: 0.6}).addTo(map);
-    paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d4ff', fillColor: '#000', fillOpacity: 1 }).addTo(map));
+    L.polyline(paradas.map(p => p.c), {color: '#00d4ff', weight: 4}).addTo(map);
 
-    const sel = document.getElementById('select-destino');
-    paradas.forEach((p,i) => { sel.innerHTML += `<option value="${i}">${p.n}</option>`; });
+    let mYo = L.marker([0,0], { icon: L.divIcon({ html: '🚕', className: 'taxi-icon' }) }).addTo(map);
+    let lineOn = false, markersPax = [], markersDest = [];
 
-    let mYo = L.circleMarker([0,0], { color: '#4cd964', radius: 10, fillOpacity: 1, weight: 3 }).addTo(map);
-    let mTaxi = L.marker([0,0], { icon: L.divIcon({ html: '🚕', className: 'taxi-icon' }) }).addTo(map);
-    let miLat, miLon, asientosElegidos = [];
-
-    navigator.geolocation.watchPosition(p => {
-        miLat = p.coords.latitude; miLon = p.coords.longitude;
-        mYo.setLatLng([miLat, miLon]);
-    }, null, { enableHighAccuracy: true });
-
-    async function trackTaxi() {
-        const { data } = await _s.from('estado_movil').select('*').limit(1).single();
-        if (data && data.en_servicio) mTaxi.setLatLng([data.latitud, data.longitud]).setOpacity(1);
-        else mTaxi.setOpacity(0);
-    }
-    setInterval(trackTaxi, 4000);
-
-    function autoSeleccionar() {
-        if(asientosElegidos.length === 0) toggleAsiento(1);
-        validarFormulario();
+    async function toggleLinea() {
+        lineOn = !lineOn;
+        const btn = document.getElementById('btn-estado');
+        btn.innerText = lineOn ? "EN LÍNEA" : "FUERA DE LÍNEA";
+        btn.className = lineOn ? "btn-linea on" : "btn-linea";
+        if(lineOn) navigator.geolocation.watchPosition(async p => {
+            const lat = p.coords.latitude, lon = p.coords.longitude;
+            mYo.setLatLng([lat, lon]);
+            await _s.from('estado_movil').update({ latitud: lat, longitud: lon, en_servicio: true }).eq('id', 1);
+        });
     }
 
-    function toggleAsiento(n) {
-        if(localStorage.getItem('v_curso')) return;
-        const btn = document.getElementById('b'+n);
-        const idx = asientosElegidos.indexOf(n);
-        if(idx > -1) { asientosElegidos.splice(idx, 1); btn.classList.remove('selected'); }
-        else { asientosElegidos.push(n); btn.classList.add('selected'); }
-        validarFormulario();
-    }
+    async function refresh() {
+        // BUSCA TODAS LAS RESERVAS SIN FILTRO DE ID_MOVIL
+        const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
+        markersPax.forEach(m => map.removeLayer(m)); markersDest.forEach(m => map.removeLayer(m));
+        for(let i=1; i<=4; i++) document.getElementById('p'+i).className = 'pill';
 
-    function validarFormulario() {
-        const d = document.getElementById('select-destino').value;
-        const n = document.getElementById('nombre-pax').value.trim();
-        const btn = document.getElementById('btn-accion');
-        if(asientosElegidos.length > 0 && d !== "" && n !== "") btn.classList.add('ready');
-        else btn.classList.remove('ready');
+        if(data) data.forEach(r => {
+            document.getElementById('p'+r.asiento_num).className = 'pill active';
+            const mp = L.circleMarker([r.pasajero_lat, r.pasajero_lon], {color:'red'}).addTo(map).bindTooltip(r.nombre_pasajero);
+            const md = L.marker(paradas[r.destino_idx].c).addTo(map).bindTooltip("Baja: "+r.nombre_pasajero);
+            markersPax.push(mp); markersDest.push(md);
+        });
     }
-
-    async function confirmarReserva() {
-        const nombre = document.getElementById('nombre-pax').value.trim();
-        const destIdx = parseInt(document.getElementById('select-destino').value);
-        const res = asientosElegidos.map(num => ({
-            asiento_num: num, pasajero_lat: miLat, pasajero_lon: miLon,
-            destino_idx: destIdx, nombre_pasajero: nombre, estado: 'en_curso'
-        }));
-        const { error } = await _s.from('reservas_activas').insert(res);
-        if(!error) {
-            localStorage.setItem('v_curso', 'true');
-            localStorage.setItem('mi_n', nombre);
-            location.reload();
-        }
-    }
-
-    if(localStorage.getItem('v_curso')) {
-        document.getElementById('btn-accion').style.display = 'none';
-        document.getElementById('btn-finalizar').style.display = 'block';
-        document.getElementById('nombre-pax').disabled = true;
-    }
-    function finalizarViaje() { localStorage.clear(); location.reload(); }
+    setInterval(refresh, 4000);
+    async function vaciar() { await _s.from('reservas_activas').update({estado:'finalizado'}).eq('estado', 'en_curso'); refresh(); }
 </script>
 </body>
 </html>
