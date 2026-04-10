@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CONDUCTOR PRO - TuMovil</title>
+    <title>TuMovil - Pasajero</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
         
-        /* Splash Screen */
+        /* Splash Screen Style */
         #splash {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 9999; display: flex; flex-direction: column;
@@ -18,45 +19,29 @@
         }
         .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
         .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
+        .splash-sub { color: #00d4ff; font-size: 14px; letter-spacing: 2px; opacity: 0.8; }
+        .loader { width: 40px; height: 40px; border: 3px solid rgba(255,215,0,0.2); border-top: 3px solid #FFD700; border-radius: 50%; margin-top: 30px; animation: spin 1s linear infinite; }
         
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
         @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
-        /* Mapa y UI */
+        /* App Styles */
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
-        .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
-        .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
-        .stat-box { background: rgba(0,0,0,0.9); border: 2px solid #00d4ff; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
-        
-        /* Interruptor de Conexión */
-        .connection-panel {
-            position: absolute; top: 95px; left: 50%; transform: translateX(-50%);
-            z-index: 1001; display: flex; align-items: center; gap: 12px;
-            background: rgba(0,0,0,0.9); padding: 8px 15px; border-radius: 30px;
-            border: 1px solid #00d4ff; pointer-events: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
-        .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #444; transition: .4s; border-radius: 22px;
-        }
-        .slider:before {
-            position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
-            background-color: white; transition: .4s; border-radius: 50%;
-        }
-        input:checked + .slider { background-color: #4cd964; }
-        input:checked + .slider:before { transform: translateX(24px); }
-        #status-label { color: white; font-size: 12px; font-weight: bold; min-width: 90px; text-align: center; }
-
-        .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
-        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 15px; font-weight: bold; font-size: 16px; pointer-events: auto; }
-        .asientos-pills { display: flex; gap: 8px; margin-bottom: 12px; pointer-events: auto; }
-        .pill { width: 45px; height: 45px; border: 2px solid #00d4ff; border-radius: 10px; color: #00d4ff; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.8); transition: all 0.3s ease; }
-        .pill.active { background: #ff3b30; border-color: #ff3b30; color: white; box-shadow: 0 0 10px #ff3b30; width: 65px; }
-        
-        .taxi-icon { font-size: 30px; display: flex; align-items: center; justify-content: center; }
-        .loader { width: 30px; height: 30px; border: 3px solid rgba(255,215,0,0.1); border-top: 3px solid #FFD700; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px; }
+        .top-ui { position: absolute; top: 10px; width: 100%; padding: 0 15px; z-index: 1000; }
+        .dest-card { background: rgba(25, 25, 25, 0.95); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        input#nombre-pax { width: 100%; background: rgba(255,255,255,0.1); color: #4cd964; border: 1px solid #4cd964; border-radius: 8px; padding: 10px; font-weight: bold; font-size: 16px; outline: none; }
+        select { width: 100%; background: transparent; color: white; border: none; font-size: 16px; outline: none; border-top: 1px solid #333; padding-top: 5px; }
+        .bottom-panel { position: absolute; bottom: 15px; width: 92%; left: 4%; background: rgba(15, 15, 15, 0.95); border: 2px solid #00d4ff; border-radius: 25px; padding: 15px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
+        #resumen-viaje { background: rgba(76, 217, 100, 0.15); border: 1px dashed #4cd964; border-radius: 12px; padding: 8px; text-align: center; display: none; }
+        .resaltado { color: #4cd964; font-weight: 800; font-size: 18px; }
+        .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .btn-as { aspect-ratio: 1; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-size: 18px; font-weight: bold; }
+        .btn-as.selected { background: #4cd964 !important; color: #000 !important; border-color: #4cd964 !important; }
+        .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; background: #333; color: #666; pointer-events: none; }
+        .btn-confirm.ready { background: #00d4ff !important; color: black !important; pointer-events: auto !important; }
+        .btn-cancel { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 15px; background: #ff3b30; color: white; display: none; }
+        .taxi-icon { font-size: 28px; }
+        .user-icon { font-size: 22px; }
     </style>
 </head>
 <body>
@@ -64,38 +49,37 @@
     <div id="splash">
         <div class="splash-logo">🚕</div>
         <h1 class="splash-title">TU MÓVIL</h1>
+        <p class="splash-sub">BIENVENIDO PASAJERO</p>
         <div class="loader"></div>
     </div>
 
-    <div class="connection-panel">
-        <span id="status-label">FUERA DE LÍNEA</span>
-        <label class="switch">
-            <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
-            <span class="slider"></span>
-        </label>
+    <div class="top-ui">
+        <div class="dest-card">
+            <input type="text" id="nombre-pax" placeholder="TU NOMBRE (Ej: Carlos)" oninput="validarFormulario()">
+            <select id="select-destino" onchange="validarFormulario()">
+                <option value="" disabled selected>--- ¿A DÓNDE VAS? ---</option>
+            </select>
+        </div>
     </div>
-
+    
     <div id="map"></div>
 
-    <div class="ui-overlay top-stats">
-        <div class="stat-box"><small>HOY</small><div id="txt-plata" style="font-size:22px; font-weight:800; color:#4cd964;">$0</div></div>
-        <div class="stat-box"><small>PASAJEROS</small><div id="txt-pax" style="font-size:22px; font-weight:800;">0</div></div>
-    </div>
-
-    <div class="ui-overlay bottom-ui">
-        <div class="asientos-pills">
-            <div id="pill1" class="pill">1</div>
-            <div id="pill2" class="pill">2</div>
-            <div id="pill3" class="pill">3</div>
-            <div id="pill4" class="pill">4</div>
+    <div class="bottom-panel">
+        <div id="resumen-viaje"><p style="margin:0; font-size:13px;">Asientos: <span class="resaltado" id="cant-resumen">0</span> | Total: <span class="resaltado" id="precio-resumen">$0</span></p></div>
+        <div class="asientos-grid" id="grid-asientos">
+            <button class="btn-as" id="b1" onclick="toggleAsiento(1)">1</button>
+            <button class="btn-as" id="b2" onclick="toggleAsiento(2)">2</button>
+            <button class="btn-as" id="b3" onclick="toggleAsiento(3)">3</button>
+            <button class="btn-as" id="b4" onclick="toggleAsiento(4)">4</button>
         </div>
-        <button class="btn-vaciar" onclick="vaciarTodo()">FINALIZAR VIAJE / VACIAR</button>
+        <button id="btn-accion" class="btn-confirm" onclick="confirmarReserva()">Confirmar Reserva</button>
+        <button id="btn-finalizar" class="btn-cancel" onclick="finalizarViaje()">Finalizar Mi Viaje</button>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    const paradas = [
+    const rutaOficial = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
         {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
@@ -111,94 +95,105 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
+    const sel = document.getElementById('select-destino');
+    rutaOficial.forEach((p,i) => { sel.innerHTML += `<option value="${i}">${p.n}</option>`; });
+
+    const map = L.map('map', { zoomControl: false }).setView(rutaOficial[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.4 }).addTo(map);
+
+    L.polyline(rutaOficial.map(p => p.c), {color: '#00d4ff', weight: 4, opacity: 0.6, dashArray: '5, 10'}).addTo(map);
+    rutaOficial.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d4ff', fillColor: '#000', fillOpacity: 1 }).addTo(map));
 
     const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
-    const marcadorConductor = L.marker(paradas[0].c, { icon: iconTaxi }).addTo(map);
+    const iconUser = L.divIcon({ html: '👤', className: 'user-icon', iconAnchor: [12, 12] });
+    let mTaxi = L.marker([0,0], { icon: iconTaxi }).addTo(map);
+    let mYo = L.marker([0,0], { icon: iconUser }).addTo(map);
+    const mDest = L.marker([0,0]).addTo(map); mDest.setOpacity(0);
 
-    let markersPax = [];
-    let markersDest = [];
-    let watchId = null;
-    let estaOnline = false;
+    let miLat, miLon, asientosElegidos = [];
 
-    async function gestionarConexion() {
-        estaOnline = document.getElementById('online-toggle').checked;
-        const label = document.getElementById('status-label');
-        
-        if (estaOnline) {
-            label.innerText = "EN LÍNEA";
-            label.style.color = "#4cd964";
-            document.querySelector('.connection-panel').style.borderColor = "#4cd964";
-            iniciarGPS();
+    // LÓGICA DE DESCONEXIÓN: Si el conductor marca 0,0 el taxi desaparece
+    async function tickConductor() {
+        const { data } = await _s.from('estado_movil').select('*').eq('id', 1).single();
+        if (data) {
+            if (data.latitud !== 0 && data.longitud !== 0) {
+                mTaxi.setLatLng([data.latitud, data.longitud]);
+                mTaxi.setOpacity(1);
+            } else {
+                mTaxi.setOpacity(0);
+            }
+        }
+    }
+    setInterval(tickConductor, 5000);
+
+    navigator.geolocation.watchPosition(p => {
+        miLat = p.coords.latitude; miLon = p.coords.longitude;
+        mYo.setLatLng([miLat, miLon]);
+    }, null, { enableHighAccuracy: true });
+
+    function toggleAsiento(n) {
+        if(localStorage.getItem('viaje_en_curso')) return;
+        const idx = asientosElegidos.indexOf(n);
+        if (idx > -1) {
+            asientosElegidos.splice(idx, 1);
+            document.getElementById('b'+n).classList.remove('selected');
         } else {
-            label.innerText = "FUERA DE LÍNEA";
-            label.style.color = "white";
-            document.querySelector('.connection-panel').style.borderColor = "#00d4ff";
-            
-            if (watchId) navigator.geolocation.clearWatch(watchId);
-            // Avisar a la base de datos que ya no estamos visibles
-            await _s.from('estado_movil').update({ latitud: 0, longitud: 0 }).eq('id', 1);
+            asientosElegidos.push(n);
+            document.getElementById('b'+n).classList.add('selected');
         }
+        actualizarResumen(); validarFormulario();
     }
 
-    function iniciarGPS() {
-        watchId = navigator.geolocation.watchPosition(async p => {
-            if (!estaOnline) return;
-            const myLat = p.coords.latitude; 
-            const myLon = p.coords.longitude;
-            marcadorConductor.setLatLng([myLat, myLon]); 
-            map.panTo([myLat, myLon]);
-            await _s.from('estado_movil').update({ latitud: myLat, longitud: myLon }).eq('id', 1);
-        }, null, { enableHighAccuracy: true });
+    function actualizarResumen() {
+        document.getElementById('cant-resumen').innerText = asientosElegidos.length;
+        document.getElementById('precio-resumen').innerText = '$' + (asientosElegidos.length * 1000);
+        document.getElementById('resumen-viaje').style.display = asientosElegidos.length > 0 ? 'block' : 'none';
     }
 
-    async function actualizarDatos() {
-        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
-        
-        markersPax.forEach(m => map.removeLayer(m));
-        markersDest.forEach(m => map.removeLayer(m));
-        markersPax = []; markersDest = [];
-        
-        for(let i=1; i<=4; i++) {
-            const p = document.getElementById('pill'+i);
-            p.className = 'pill'; p.innerText = i;
+    function validarFormulario() {
+        const d = document.getElementById('select-destino').value;
+        const n = document.getElementById('nombre-pax').value.trim();
+        if (d !== "" && rutaOficial[d]) mDest.setLatLng(rutaOficial[d].c).setOpacity(1);
+        if(asientosElegidos.length > 0 && d !== "" && n !== "") document.getElementById('btn-accion').classList.add('ready');
+        else document.getElementById('btn-accion').classList.remove('ready');
+    }
+
+    async function confirmarReserva() {
+        const n = document.getElementById('nombre-pax').value.trim();
+        const d = document.getElementById('select-destino').value;
+        const reservas = asientosElegidos.map(num => ({
+            asiento_num: num, pasajero_lat: miLat, pasajero_lon: miLon,
+            destino_idx: d, nombre_pasajero: n, estado: 'en_curso'
+        }));
+        const { error } = await _s.from('reservas_activas').insert(reservas);
+        if(!error) { localStorage.setItem('viaje_en_curso', 'true'); localStorage.setItem('mi_nombre', n); location.reload(); }
+    }
+
+    async function finalizarViaje() {
+        if(!confirm("¿Ya bajaste?")) return;
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('nombre_pasajero', localStorage.getItem('mi_nombre'));
+        localStorage.clear(); location.reload();
+    }
+
+    async function recuperarEstado() {
+        if(localStorage.getItem('viaje_en_curso')) {
+            const nom = localStorage.getItem('mi_nombre');
+            const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('nombre_pasajero', nom);
+            if(data && data.length > 0) {
+                document.getElementById('nombre-pax').value = nom; document.getElementById('nombre-pax').disabled = true;
+                const dIdx = data[0].destino_idx; document.getElementById('select-destino').value = dIdx; document.getElementById('select-destino').disabled = true;
+                if(rutaOficial[dIdx]) mDest.setLatLng(rutaOficial[dIdx].c).setOpacity(1);
+                document.getElementById('btn-accion').style.display = 'none'; document.getElementById('btn-finalizar').style.display = 'block';
+                asientosElegidos = data.map(r => r.asiento_num);
+                asientosElegidos.forEach(n => document.getElementById('b' + n).classList.add('selected'));
+                actualizarResumen();
+            } else { localStorage.clear(); }
         }
-
-        if (reservas) {
-            document.getElementById('txt-pax').innerText = reservas.length;
-            document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
-
-            reservas.forEach(res => {
-                const pill = document.getElementById('pill' + res.asiento_num);
-                if(pill) { pill.className = 'pill active'; pill.innerText = (res.nombre_pasajero || res.asiento_num).substring(0,3); }
-                
-                const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: 'red', radius: 10, fillOpacity: 0.9 }).addTo(map)
-                    .bindTooltip(res.nombre_pasajero || "Pax", { permanent: true, direction: 'top' });
-                markersPax.push(pM);
-
-                if(paradas[res.destino_idx]) {
-                    const dM = L.marker(paradas[res.destino_idx].c).addTo(map)
-                        .bindTooltip(`Baja: ${res.nombre_pasajero}`, { permanent: true, direction: 'bottom' });
-                    markersDest.push(dM);
-                }
-            });
-        }
-        
         const spl = document.getElementById('splash');
         if(spl) { spl.style.opacity = '0'; setTimeout(() => spl.style.display = 'none', 800); }
     }
-
-    async function vaciarTodo() {
-        if(!confirm("¿Finalizar el viaje de todos?")) return;
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso');
-        actualizarDatos();
-    }
-
-    _s.channel('cambios').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, actualizarDatos).subscribe();
-    setInterval(actualizarDatos, 10000);
-    actualizarDatos();
+    setTimeout(recuperarEstado, 1200);
+    tickConductor();
 </script>
 </body>
 </html>
