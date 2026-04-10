@@ -3,44 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TuMovil - Pasajero (Ruta Mejorada)</title>
+    <title>TuMovil - Pasajero</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { margin: 0; background: #000; font-family: 'Segoe UI', sans-serif; color: white; height: 100vh; overflow: hidden; }
+        body { margin: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         
-        /* UI SUPERIOR (Fija) */
-        .top-ui { position: absolute; top: 10px; width: 100%; z-index: 1000; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-        .input-pax { width: 85%; background: rgba(0,0,0,0.9); border: 2px solid #FFD700; border-radius: 12px; padding: 12px; color: #FFD700; font-weight: bold; font-size: 18px; text-align: center; outline: none; }
-        .dest-card { width: 85%; background: rgba(20, 20, 20, 0.95); border-radius: 12px; border: 1px solid #444; }
+        /* TARJETA DE PRESENTACIÓN (Nombre del Pasajero) */
+        .pax-card { 
+            position: absolute; top: 10px; width: 90%; left: 5%; z-index: 1000;
+            background: rgba(0,0,0,0.9); border: 2px solid #FFD700; border-radius: 12px;
+            padding: 10px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .pax-name { color: #FFD700; font-weight: bold; font-size: 20px; text-transform: uppercase; }
+
+        /* SELECTOR DE DESTINO */
+        .dest-card { 
+            position: absolute; top: 70px; width: 85%; left: 7.5%; z-index: 1000;
+            background: #1a1a1a; border-radius: 10px; border: 1px solid #444;
+        }
         select { width: 100%; background: transparent; color: white; border: none; padding: 12px; font-size: 16px; outline: none; }
 
-        /* PANEL INFERIOR (Fijo) */
-        .bottom-ui { position: absolute; bottom: 0; width: 100%; z-index: 1000; background: linear-gradient(to top, #000 85%, transparent); padding: 20px 0; }
+        /* UI INFERIOR */
+        .bottom-ui { position: absolute; bottom: 0; width: 100%; z-index: 1000; background: linear-gradient(to top, #000 90%, transparent); padding: 20px 0; }
         .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 10px 20px 20px 20px; }
-        .btn-as { aspect-ratio: 1; border: 2px solid #4cd964; border-radius: 15px; background: transparent; color: #4cd964; font-weight: bold; font-size: 22px; transition: 0.2s; }
-        .btn-as.selected { background: #4cd964 !important; color: #000 !important; }
+        .btn-as { aspect-ratio: 1; border: 2px solid #4cd964; border-radius: 15px; background: transparent; color: #4cd964; font-weight: bold; font-size: 22px; }
+        .btn-as.selected { background: #4cd964; color: #000; }
         
-        .btn-confirm { width: 90%; margin: 0 5%; padding: 20px; border-radius: 15px; border: none; font-weight: bold; background: #4cd964; color: black; font-size: 18px; box-shadow: 0 5px 15px rgba(76, 217, 100, 0.3); }
+        .btn-confirm { width: 90%; margin: 0 5%; padding: 20px; border-radius: 15px; border: none; font-weight: bold; background: #4cd964; color: black; font-size: 18px; }
     </style>
 </head>
 <body>
 
-    <div class="top-ui">
-        <input type="text" id="nombre-pax" class="input-pax" placeholder="TU NOMBRE">
-        <div class="dest-card">
-            <select id="select-destino">
-                <option value="" disabled selected>¿A qué parada vas?</option>
-            </select>
-        </div>
+    <div class="pax-card">
+        <div class="pax-name" id="display-nombre">PASAJERO</div>
+    </div>
+
+    <div class="dest-card">
+        <select id="select-destino">
+            <option value="" disabled selected>¿A qué parada vas?</option>
+        </select>
     </div>
 
     <div id="map"></div>
 
     <div class="bottom-ui">
-        <div class="asientos-grid" id="grid-asientos">
+        <div class="asientos-grid">
             <button class="btn-as" id="as-1" onclick="toggleAsiento(1)">1</button>
             <button class="btn-as" id="as-2" onclick="toggleAsiento(2)">2</button>
             <button class="btn-as" id="as-3" onclick="toggleAsiento(3)">3</button>
@@ -52,39 +62,32 @@
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    // Coordenadas de la Ruta (Mismas paradas)
+    // Si no hay nombre, lo pedimos una sola vez
+    let nombreActual = localStorage.getItem('mi_n');
+    if(!nombreActual) {
+        nombreActual = prompt("Ingresa tu nombre para el conductor:");
+        if(nombreActual) localStorage.setItem('mi_n', nombreActual);
+    }
+    document.getElementById('display-nombre').innerText = nombreActual || "VIAJERO";
+
     const paradas = [{n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]}, {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]}, {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]}, {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]}, {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]}, {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]}, {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]}, {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]}, {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]}, {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]}, {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]}, {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]}, {n:'Abasto y Roca', c:[-34.586030, -58.747278]}];
 
-    let map = L.map('map', { zoomControl: false }).setView(paradas[10].c, 14); // Centrado más abajo
+    let map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // --- DISEÑO DE RUTA MEJORADO ---
-    // 1. Crear línea de ruta sólida y brillante
-    const routeCoords = paradas.map(p => p.c);
-    L.polyline(routeCoords, { color: '#00d4ff', weight: 4, opacity: 0.8 }).addTo(map);
+    // LÍNEA DE RUTA MÁS LINDA
+    const puntosRuta = paradas.map(p => p.c);
+    L.polyline(puntosRuta, { color: '#00d4ff', weight: 5, opacity: 0.7 }).addTo(map);
 
-    // 2. Crear círculos de parada con BORDE NEGRO fuerte
+    // PARADAS CON BORDE NEGRO
     paradas.forEach((p, i) => {
         L.circleMarker(p.c, { 
-            radius: 7, 
-            color: '#000',      // Borde Negro
-            weight: 3,         // Grosor del borde
-            fillColor: '#fff',  // Relleno blanco para contraste
-            fillOpacity: 1 
-        }).addTo(map).bindPopup(`<b>Parada ${i+1}:</b><br>${p.n}`); // Muestra nombre al tocar
-
+            radius: 8, color: '#000', weight: 3, fillColor: '#00d4ff', fillOpacity: 1 
+        }).addTo(map);
         document.getElementById('select-destino').innerHTML += `<option value="${i}">${p.n}</option>`;
     });
 
-    let asientosElegidos = [], miLat = paradas[0].c[0], miLon = paradas[0].c[1]; // Coordenadas por defecto por seguridad
-
-    // GPS Pasajero (Intenta obtener ubicación real)
-    navigator.geolocation.getCurrentPosition(p => { 
-        miLat = p.coords.latitude; 
-        miLon = p.coords.longitude; 
-    }, (err) => {
-        console.warn("GPS no disponible, usando coordenadas por defecto.", err.message);
-    }, { enableHighAccuracy: true });
+    let asientosElegidos = [];
 
     function toggleAsiento(n) {
         const idx = asientosElegidos.indexOf(n);
@@ -95,69 +98,39 @@
             asientosElegidos.push(n);
             document.getElementById('as-'+n).classList.add('selected');
         }
-        const total = asientosElegidos.length;
-        document.getElementById('btn-confirmar').innerText = `CONFIRMAR ${total} VIAJES ($${total * 1000})`;
+        document.getElementById('btn-confirmar').innerText = `CONFIRMAR ${asientosElegidos.length} VIAJES ($${asientosElegidos.length * 1000})`;
     }
 
-    // --- FUNCIÓN DE CONFIRMACIÓN CON DETECCIÓN DE ERRORES ---
     async function confirmarViaje() {
-        console.log("Iniciando confirmación de viaje..."); // Debug
+        const dest = document.getElementById('select-destino').value;
+        if(dest === "" || asientosElegidos.length === 0) return alert("Elegí destino y asientos");
 
-        const nombre = document.getElementById('nombre-pax').value.trim();
-        const destIdx = document.getElementById('select-destino').value;
         const btn = document.getElementById('btn-confirmar');
-
-        // Validaciones básicas
-        if(!nombre) { alert("Por favor escribe tu nombre arriba."); return; }
-        if(destIdx === "") { alert("Por favor selecciona una parada de destino."); return; }
-        if(asientosElegidos.length === 0) { alert("Por favor toca al menos un asiento."); return; }
-
-        btn.innerText = "PROCESANDO..."; btn.disabled = true; // Feedback visual
+        btn.innerText = "PROCESANDO..."; btn.disabled = true;
 
         try {
-            // Lógica de Relevo (Siempre Móvil 1 por ahora para simplificar la prueba)
+            // RELEVO AUTOMÁTICO (Necesita la columna id_movil en Supabase)
             const idMovilAsignado = 1; 
 
-            // Preparar registros
-            const nuevasReservas = asientosElegidos.map(asNum => ({
-                asiento_num: asNum,
-                nombre_pasajero: nombre,
-                destino_idx: parseInt(destIdx),
-                id_movil: idMovilAsignado,
-                pasajero_lat: miLat,
-                pasajero_lon: miLon,
+            const registros = asientosElegidos.map(as => ({
+                asiento_num: as,
+                nombre_pasajero: nombreActual,
+                destino_idx: parseInt(dest),
+                id_movil: idMovilAsignado, // ESTA ES LA COLUMNA QUE DEBES CREAR
                 estado: 'en_curso'
             }));
 
-            console.log("Enviando datos a Supabase:", nuevasReservas); // Debug
+            const { error } = await _s.from('reservas_activas').insert(registros);
 
-            // --- INSERCIÓN EN SUPABASE ---
-            const { data, error } = await _s.from('reservas_activas').insert(nuevasReservas);
+            if(error) throw error;
 
-            if(error) {
-                // Error reportado por Supabase (ej: permisos, columna inexistente)
-                throw new Error(`Error de base de datos: ${error.message} - Detalle: ${error.details}`);
-            }
-
-            // --- ÉXITO ---
-            console.log("Reserva exitosa:", data);
-            alert(`¡Viaje confirmado! Te busca el Móvil ${idAsignado}.`);
-            localStorage.setItem('mi_n', nombre); // Guardar nombre para la próxima
-            location.reload(); // Recargar para limpiar
-
+            alert("¡Viaje confirmado!");
+            location.reload();
         } catch (err) {
-            // --- CAPTURA DE CUALQUIER ERROR ---
-            console.error("ERROR CRÍTICO EN CONFIRMACIÓN:", err);
-            alert(`Hubo un problema al confirmar: ${err.message}\n\nRevisa la conexión o contacta soporte.`);
-            
-            // Restaurar botón para reintentar
-            const total = asientosElegidos.length;
-            btn.innerText = `CONFIRMAR ${total} VIAJES ($${total * 1000})`; btn.disabled = false;
+            alert("Error: " + err.message);
+            btn.disabled = false; btn.innerText = "CONFIRMAR VIAJE";
         }
     }
-
-    // Recuperar nombre guardado
-    document.getElementById('nombre-pax').value = localStorage.getItem('mi_n') || "";
 </script>
 </body>
 </html>
