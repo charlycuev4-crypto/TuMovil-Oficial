@@ -1,30 +1,141 @@
-// AGREGAR ESTO DENTRO DEL <script> DEL PASAJERO
-async function verificarViajeActivo() {
-    const { data, error } = await _s.from('reservas_activas')
-        .select('*')
-        .eq('nombre_pasajero', "Carlos")
-        .eq('estado', 'en_curso');
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TuMovil - Pasajero Inteligente</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; background: #000; font-family: 'Segoe UI', sans-serif; color: white; height: 100vh; overflow: hidden; }
+        #map { height: 45vh; width: 100%; border-bottom: 2px solid #FFD700; }
+        
+        /* UI Estilo Carlos */
+        .pax-card { background: #111; border: 2px solid #FFD700; margin: 10px; padding: 12px; border-radius: 15px; text-align: center; }
+        .pax-name { color: #FFD700; font-weight: 900; font-size: 22px; text-transform: uppercase; }
 
-    if (data && data.length > 0) {
-        // Bloquear UI porque ya hay un viaje
-        asientos = data.map(r => r.asiento_num);
-        asientos.forEach(num => {
-            const btn = document.getElementById('as-' + num);
-            if(btn) {
-                btn.classList.add('selected');
-                btn.style.backgroundColor = "#555"; // Color de bloqueado
-            }
-        });
-        
-        const btnConfirmar = document.getElementById('btn-confirmar');
-        btnConfirmar.innerText = "VIAJE EN CURSO...";
-        btnConfirmar.disabled = true;
-        btnConfirmar.style.background = "#333";
-        
-        // Marcar el destino que ya estaba elegido
-        marcarDestino(data[0].destino_idx);
+        .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px 20px; }
+        .btn-as { aspect-ratio: 1; border: 3px solid #4cd964; border-radius: 15px; background: transparent; color: #4cd964; font-weight: bold; font-size: 20px; }
+        .btn-as.selected { background: #4cd964 !important; color: #000 !important; }
+        .btn-as.booked { border-color: #555; color: #555; pointer-events: none; } /* Para asientos ya ocupados por otros */
+
+        .btn-confirm { 
+            width: 90%; margin: 10px 5%; padding: 18px; border-radius: 15px; border: none; 
+            font-weight: 900; background: #4cd964; color: black; font-size: 18px; 
+        }
+        .btn-confirm:disabled { background: #222; color: #555; }
+
+        select { width: 90%; margin: 5px 5%; padding: 12px; background: #1a1a1a; color: white; border: 1px solid #FFD700; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="pax-card"><div class="pax-name">CARLOS</div></div>
+
+    <div id="map"></div>
+
+    <div style="margin-top: 5px;">
+        <select id="select-destino" onchange="marcarDestinoEnMapa(this.value)">
+            <option value="" disabled selected>¿A DÓNDE VAS HOY?</option>
+        </select>
+
+        <div class="asientos-grid" id="grid-asientos">
+            <button class="btn-as" id="as-1" onclick="toggleAsiento(1)">1</button>
+            <button class="btn-as" id="as-2" onclick="toggleAsiento(2)">2</button>
+            <button class="btn-as" id="as-3" onclick="toggleAsiento(3)">3</button>
+            <button class="btn-as" id="as-4" onclick="toggleAsiento(4)">4</button>
+        </div>
+
+        <button class="btn-confirm" id="btn-confirmar" onclick="confirmarViaje()">CONFIRMAR VIAJE ($0)</button>
+    </div>
+
+<script>
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    
+    const paradas = [
+        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]}, {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]}, {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]}, {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]}, {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]}, {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]}, {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]}, {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]}, {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]}, {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]}, {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]}, {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]}, {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+    ];
+
+    let map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // Ruta y Paradas Espejo (Borde Negro)
+    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.8 }).addTo(map);
+    paradas.forEach((p, i) => {
+        L.circleMarker(p.c, { radius: 8, color: '#000', weight: 3, fillColor: '#fff', fillOpacity: 1 }).addTo(map);
+        document.getElementById('select-destino').innerHTML += `<option value="${i}">${p.n}</option>`;
+    });
+
+    let asientosElegidos = [];
+    let markerDestino;
+
+    function marcarDestinoEnMapa(idx) {
+        if(markerDestino) map.removeLayer(markerDestino);
+        markerDestino = L.marker(paradas[idx].c).addTo(map).bindPopup("Tu destino").openPopup();
+        map.panTo(paradas[idx].c);
     }
-}
 
-// Llamar a la función al cargar
-window.onload = verificarViajeActivo;
+    function toggleAsiento(n) {
+        const i = asientosElegidos.indexOf(n);
+        if(i > -1) {
+            asientosElegidos.splice(i, 1);
+            document.getElementById('as-'+n).classList.remove('selected');
+        } else {
+            asientosElegidos.push(n);
+            document.getElementById('as-'+n).classList.add('selected');
+        }
+        document.getElementById('btn-confirmar').innerText = `CONFIRMAR (${asientosElegidos.length}) VIAJES`;
+    }
+
+    // --- LA "MEMORIA" DEL SISTEMA ---
+    async function sincronizarEstado() {
+        const { data } = await _s.from('reservas_activas')
+            .select('*')
+            .eq('nombre_pasajero', 'Carlos')
+            .eq('estado', 'en_curso');
+
+        if(data && data.length > 0) {
+            // Si hay viaje, bloqueamos la UI
+            asientosElegidos = data.map(r => r.asiento_num);
+            asientosElegidos.forEach(n => document.getElementById('as-'+n).classList.add('selected'));
+            
+            document.getElementById('select-destino').value = data[0].destino_idx;
+            marcarDestinoEnMapa(data[0].destino_idx);
+
+            const btn = document.getElementById('btn-confirmar');
+            btn.innerText = "VIAJE EN CURSO...";
+            btn.disabled = true;
+        }
+    }
+
+    async function confirmarViaje() {
+        const dest = document.getElementById('select-destino').value;
+        if(!dest || asientosElegidos.length === 0) return alert("Elegí destino y asientos");
+
+        const btn = document.getElementById('btn-confirmar');
+        btn.innerText = "PROCESANDO..."; btn.disabled = true;
+
+        const { data: ocupacion } = await _s.from('reservas_activas').select('id_movil').eq('estado', 'en_curso');
+        let c = {1:0, 2:0, 3:0};
+        ocupacion?.forEach(r => c[r.id_movil]++);
+        
+        let idAsignado = c[1] < 4 ? 1 : (c[2] < 4 ? 2 : 3);
+
+        const registros = asientosElegidos.map(as => ({
+            asiento_num: as, nombre_pasajero: "Carlos", 
+            destino_idx: parseInt(dest), id_movil: idAsignado, estado: 'en_curso'
+        }));
+
+        const { error } = await _s.from('reservas_activas').insert(registros);
+        if(!error) {
+            alert("¡Confirmado con Móvil " + idAsignado + "!");
+            location.reload();
+        }
+    }
+
+    // Ejecutar al cargar
+    window.onload = sincronizarEstado;
+</script>
+</body>
+</html>
