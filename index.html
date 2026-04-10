@@ -3,65 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Panel Conductor - Oficial</title>
+    <title>Panel Conductor Inteligente - Móvil 1</title>
     
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
+        * { box-sizing: border-box; }
         body { 
-            margin: 0; 
-            padding: 0; 
-            background-color: #000; 
-            color: #fff; 
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            height: 100vh; /* Ocupa todo el alto del celular */
-            overflow: hidden;
+            margin: 0; padding: 0; background: #000; color: white; 
+            font-family: 'Segoe UI', sans-serif; height: 100vh; 
+            display: flex; flex-direction: column; overflow: hidden;
         }
 
-        /* Sección de Recaudación (Tus cuadraditos amarillos) */
+        /* 1. Encabezado de Recaudación (Bordes Amarillos) */
         .header-stats {
-            display: flex;
-            justify-content: space-around;
-            padding: 10px;
-            border-bottom: 2px solid #FFD700;
+            display: flex; justify-content: space-around; padding: 15px;
+            border-bottom: 2px solid #FFD700; background: #000;
         }
         .stat-box { text-align: center; }
-        .stat-label { color: #FFD700; font-size: 10px; text-transform: uppercase; font-weight: bold; }
-        .stat-value { font-size: 22px; font-weight: bold; display: block; }
+        .stat-label { color: #FFD700; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-value { font-size: 26px; font-weight: bold; display: block; margin-top: 5px; }
 
-        /* Controles: Switch y Sentido */
+        /* 2. Controles de Conexión y Sentido */
         .controls {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px;
-            background: #111;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 15px; background: #111; gap: 10px;
         }
         .btn-sentido {
-            background: #00d4ff;
-            color: #000;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-weight: bold;
-            font-size: 14px;
+            background: #00d4ff; color: #000; border: none; padding: 12px;
+            border-radius: 8px; font-weight: bold; flex: 1; font-size: 14px;
         }
 
-        /* EL MAPA: Aquí estaba el error. Necesita altura flexible */
+        /* Switch Estilo iOS */
+        .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { 
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; 
+            background-color: #ff3b30; transition: .4s; border-radius: 34px; 
+        }
+        .slider:before { 
+            position: absolute; content: ""; height: 20px; width: 20px; 
+            left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; 
+        }
+        input:checked + .slider { background-color: #4cd964; }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        /* 3. El Mapa (Ocupa el centro) */
         #map { 
-            flex-grow: 1; /* Esto obliga al mapa a ocupar todo el espacio central */
-            width: 100%;
-            background: #222; /* Fondo gris oscuro mientras carga */
+            flex-grow: 1; width: 100%; background: #111; 
+            min-height: 250px; /* Evita que colapse en móviles */
         }
 
-        /* Sección inferior: Asientos */
-        .footer-cabin {
-            padding: 10px;
-            background: #000;
-            border-top: 1px solid #333;
+        /* 4. Monitor de Asientos */
+        .cabin-monitor { padding: 15px; background: #000; }
+        .grid-asientos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .asiento { 
+            border: 2px solid #333; border-radius: 10px; padding: 12px 5px; 
+            text-align: center; background: #050505; transition: 0.3s;
+        }
+        .asiento.ocupado { border-color: #4cd964; background: rgba(76, 217, 100, 0.1); }
+        .as-num { font-size: 10px; color: #888; display: block; }
+        .as-status { font-size: 16px; font-weight: bold; color: #4cd964; }
+
+        /* 5. Botón Finalizar (Grande abajo) */
+        .footer-action { padding: 15px; background: #000; border-top: 1px solid #222; }
+        .btn-finalizar {
+            width: 100%; background: #ff3b30; color: white; border: none; 
+            padding: 16px; border-radius: 50px; font-weight: bold; font-size: 16px;
         }
     </style>
 </head>
@@ -69,55 +79,56 @@
 
     <div class="header-stats">
         <div class="stat-box">
-            <span class="stat-label">Recaudación</span>
-            <span id="recaudacion-total" class="stat-value">$0</span>
+            <span class="stat-label">Recaudación Viaje</span>
+            <span id="recaudacion" class="stat-value">$0</span>
         </div>
         <div class="stat-box">
             <span class="stat-label">Pasajeros</span>
-            <span id="pax-total" class="stat-value">0</span>
+            <span id="pax-count" class="stat-value">0</span>
         </div>
     </div>
 
     <div class="controls">
-        <div style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="check-linea" checked onchange="toggleMap()">
-            <span style="color:#4cd964; font-size:12px; font-weight:bold;">EN LÍNEA</span>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <label class="switch">
+                <input type="checkbox" id="check-linea" onchange="gestionarConexion()" checked>
+                <span class="slider"></span>
+            </label>
+            <span id="status-txt" style="font-size: 11px; color: #4cd964; font-weight: bold;">EN LÍNEA</span>
         </div>
-        <button class="btn-sentido">HACIA: IDA</button>
+        <button class="btn-sentido" id="btn-sentido" onclick="cambiarSentido()">HACIA: IDA</button>
     </div>
 
     <div id="map"></div>
 
-    <div class="footer-cabin">
-        <div style="color:#FFD700; font-size:11px; margin-bottom:5px;">ESTADO DE CABINA:</div>
-        <div id="grid-asientos" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px;">
+    <div class="cabin-monitor">
+        <div style="color: #FFD700; font-size: 11px; margin-bottom: 8px; font-weight: bold;">MONITOR DE ASIENTOS</div>
+        <div class="grid-asientos" id="grid-asientos">
             </div>
     </div>
 
-<script>
-    // Inicializar el mapa con una vista por defecto
-    var map = L.map('map', { 
-        zoomControl: false,
-        attributionControl: false 
-    }).setView([-34.5612, -58.7705], 15);
+    <div class="footer-action">
+        <button class="btn-finalizar" onclick="finalizarViajeGeneral()">🏁 FINALIZAR VIAJE / VACIAR</button>
+    </div>
 
-    // CAPA DE MAPA (Tiles): Sin esto se ve negro
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19
+<script>
+    // --- INICIALIZACIÓN SUPABASE ---
+    const _s = supabase.createClient('TU_URL_SUPABASE', 'TU_KEY_ANON');
+
+    // --- CONFIGURACIÓN MAPA ---
+    // Miguel Cané como inicio
+    var map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-34.561264, -58.770506], 15);
+    
+    // Capa visual (Esto arregla el mapa negro)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // Taxi Icon
+    var markerTaxi = L.marker([-34.561264, -58.770506], {
+        icon: L.divIcon({html:'🚕', className:'', iconSize:[30,30]})
     }).addTo(map);
 
-    // Forzar re-render del mapa después de cargar
-    setTimeout(function(){ map.invalidateSize(); }, 500);
-
-    function toggleMap() {
-        const isOnline = document.getElementById('check-linea').checked;
-        const mapDiv = document.getElementById('map');
-        mapDiv.style.opacity = isOnline ? "1" : "0.3";
-        mapDiv.style.filter = isOnline ? "none" : "grayscale(100%)";
-    }
-
-    // Dibujar la ruta de IDA (Las 25 paradas)
-    const puntosIda = [
+    // --- RUTA INTELIGENTE (IDA - 25 PUNTOS) ---
+    const paradasIda = [
         [-34.561264, -58.770506], [-34.562160, -58.771380], [-34.562494, -58.772133],
         [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061],
         [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443],
@@ -129,7 +140,70 @@
         [-34.588930, -58.750543]
     ];
 
-    L.polyline(puntosIda, {color: '#00d4ff', weight: 5}).addTo(map);
+    let rutaLine = L.polyline(paradasIda, {color: '#00d4ff', weight: 6, opacity: 0.8}).addTo(map);
+
+    // --- LÓGICA DE FUNCIONAMIENTO ---
+    let enLinea = true;
+    let sentido = 'ida';
+
+    function gestionarConexion() {
+        enLinea = document.getElementById('check-linea').checked;
+        const mapDiv = document.getElementById('map');
+        const statusTxt = document.getElementById('status-txt');
+        
+        mapDiv.style.opacity = enLinea ? "1" : "0.2";
+        mapDiv.style.filter = enLinea ? "none" : "grayscale(100%)";
+        statusTxt.innerText = enLinea ? "EN LÍNEA" : "FUERA DE LÍNEA";
+        statusTxt.style.color = enLinea ? "#4cd964" : "#ff3b30";
+    }
+
+    function cambiarSentido() {
+        sentido = (sentido === 'ida') ? 'vuelta' : 'ida';
+        document.getElementById('btn-sentido').innerText = "HACIA: " + sentido.toUpperCase();
+        // Aquí podrías alternar el array de coordenadas
+    }
+
+    async function actualizarDatos() {
+        if(!enLinea) return;
+
+        // Consultar reservas reales en Supabase para el Móvil 1
+        const { data: reservas } = await _s.from('reservas').select('*').eq('id_movil', 1).eq('estado', 'viajando');
+
+        let totalSuma = 0;
+        let ocupados = [false, false, false, false];
+        const grid = document.getElementById('grid-asientos');
+        grid.innerHTML = "";
+
+        reservas?.forEach(r => {
+            totalSuma += r.tarifa || 1000;
+            ocupados[r.asiento_num - 1] = true;
+        });
+
+        // Dibujar los 4 asientos
+        for (let i = 1; i <= 4; i++) {
+            const isOcupado = ocupados[i-1];
+            grid.innerHTML += `
+                <div class="asiento ${isOcupado ? 'ocupado' : ''}">
+                    <span class="as-num">AS. ${i}</span>
+                    <span class="as-status">${isOcupado ? '$1000' : '---'}</span>
+                </div>`;
+        }
+
+        document.getElementById('recaudacion').innerText = "$" + totalSuma;
+        document.getElementById('pax-count').innerText = reservas ? reservas.length : 0;
+    }
+
+    async function finalizarViajeGeneral() {
+        const confirmar = confirm("¿Finalizar viaje actual y liberar todos los asientos?");
+        if(confirmar) {
+            await _s.from('reservas').update({ estado: 'finalizado' }).eq('id_movil', 1).eq('estado', 'viajando');
+            actualizarDatos();
+        }
+    }
+
+    // Intervalo de actualización (3 seg)
+    setInterval(actualizarDatos, 3000);
+    actualizarDatos(); // Carga inicial
 </script>
 </body>
 </html>
