@@ -8,32 +8,35 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; color: white; height: 100vh; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         .top-ui { position: absolute; top: 10px; width: 100%; padding: 0 15px; z-index: 1000; }
-        .dest-card { background: rgba(25, 25, 25, 0.95); border: 2px solid #00d4ff; border-radius: 15px; padding: 12px; }
-        input#nombre-pax { width: 100%; background: rgba(255,255,255,0.1); color: #4cd964; border: 1px solid #4cd964; border-radius: 8px; padding: 10px; margin-bottom: 5px; font-weight: bold; }
+        .dest-card { background: rgba(25, 25, 25, 0.95); border: 2px solid #FFD700; border-radius: 15px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        input#nombre-pax { width: 100%; background: rgba(255,255,255,0.1); color: #4cd964; border: 1px solid #4cd964; border-radius: 8px; padding: 10px; font-weight: bold; font-size: 16px; outline: none; margin-bottom: 10px; }
+        select { width: 100%; background: #222; color: white; border: 1px solid #333; border-radius: 8px; padding: 10px; font-size: 14px; }
         .bottom-panel { position: absolute; bottom: 15px; width: 92%; left: 4%; background: rgba(15, 15, 15, 0.95); border: 2px solid #00d4ff; border-radius: 25px; padding: 15px; z-index: 1000; }
-        .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
-        .btn-as { aspect-ratio: 1; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-weight: bold; font-size: 18px; }
-        .btn-as.selected { background: #4cd964 !important; color: black !important; border-color: #4cd964; }
-        .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; background: #333; color: #666; margin-top: 10px; }
-        .btn-confirm.ready { background: #00d4ff !important; color: black !important; }
-        .btn-finalizar { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; background: #ff3b30; color: white; margin-top: 10px; display: none; }
-        .taxi-icon { font-size: 25px; }
+        .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
+        .btn-as { aspect-ratio: 1; border: 2px solid #00d4ff; border-radius: 12px; background: transparent; color: #00d4ff; font-size: 18px; font-weight: bold; }
+        .btn-as.selected { background: #4cd964 !important; color: #000 !important; border-color: #4cd964 !important; }
+        .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; font-size: 16px; background: #333; color: #666; pointer-events: none; }
+        .btn-confirm.ready { background: #00d4ff !important; color: black !important; pointer-events: auto !important; }
+        .btn-cancel { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; background: #ff3b30; color: white; display: none; }
+        .taxi-icon { font-size: 28px; }
     </style>
 </head>
 <body>
+
     <div class="top-ui">
         <div class="dest-card">
-            <input type="text" id="nombre-pax" placeholder="TU NOMBRE" oninput="validarFormulario()">
-            <select id="select-destino" style="width:100%; padding:10px; background:#222; color:#fff; border:1px solid #444; border-radius:8px;" onchange="validarFormulario()">
-                <option value="" disabled selected>¿A DÓNDE VAS?</option>
+            <input type="text" id="nombre-pax" placeholder="TU NOMBRE (Ej: Carlos)" oninput="validarFormulario()">
+            <select id="select-destino" onchange="validarFormulario()">
+                <option value="" disabled selected>--- ¿A DÓNDE VAS? ---</option>
             </select>
         </div>
     </div>
+    
     <div id="map"></div>
+
     <div class="bottom-panel">
         <div class="asientos-grid" id="grid-asientos">
             <button class="btn-as" id="b1" onclick="toggleAsiento(1)">1</button>
@@ -42,40 +45,57 @@
             <button class="btn-as" id="b4" onclick="toggleAsiento(4)">4</button>
         </div>
         <button id="btn-accion" class="btn-confirm" onclick="confirmarReserva()">Confirmar Reserva</button>
-        <button id="btn-finalizar" class="btn-finalizar" onclick="finalizarViaje()">Finalizar Mi Viaje</button>
+        <button id="btn-finalizar" class="btn-cancel" onclick="finalizarViaje()">Finalizar Mi Viaje</button>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    const rutaOficial = [{n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]}, {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]}, {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]}, {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]}, {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]}, {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]}, {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]}, {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]}, {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]}, {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]}, {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]}, {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]}, {n:'Abasto y Roca', c:[-34.586030, -58.747278]}];
 
-    const map = L.map('map', { zoomControl: false }).setView(rutaOficial[0].c, 15);
+    // LA RUTA COMPLETA (IDA)
+    const paradas = [
+        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
+        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
+        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
+        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
+        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
+        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
+        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
+        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
+        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
+        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
+        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
+        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
+        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+    ];
+
+    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    rutaOficial.forEach(p => L.circleMarker(p.c, {radius: 5, color:'#00d4ff', fillOpacity: 0.8}).addTo(map));
+    L.polyline(paradas.map(p => p.c), {color: '#00d4ff', weight: 4, opacity: 0.5}).addTo(map);
 
     const sel = document.getElementById('select-destino');
-    rutaOficial.forEach((p,i) => { sel.innerHTML += `<option value="${i}">${p.n}</option>`; });
+    paradas.forEach((p,i) => { sel.innerHTML += `<option value="${i}">${p.n}</option>`; });
 
-    let mTaxi = L.marker([0,0], { icon: L.divIcon({html:'🚕', className:'taxi-icon', iconAnchor:[12,12]}) }).addTo(map);
+    let mTaxi = L.marker([0,0], { icon: L.divIcon({ html: '🚕', className: 'taxi-icon' }) }).addTo(map);
     let miLat, miLon, asientosElegidos = [];
 
-    navigator.geolocation.watchPosition(p => {
-        miLat = p.coords.latitude; miLon = p.coords.longitude;
+    navigator.geolocation.watchPosition(p => { 
+        miLat = p.coords.latitude; miLon = p.coords.longitude; 
     }, null, { enableHighAccuracy: true });
 
-    async function monitorearMovil() {
-        const { data: c } = await _s.from('estado_movil').select('*').eq('en_servicio', true).eq('id', 1).single();
-        if (c && c.latitud !== 0) {
-            mTaxi.setLatLng([c.latitud, c.longitud]).setOpacity(1);
+    async function actualizarTaxi() {
+        const { data } = await _s.from('estado_movil').select('*').eq('en_servicio', true).order('id', {ascending: true});
+        if (data && data.length > 0) {
+            // Mostramos el primer taxi activo por ahora
+            mTaxi.setLatLng([data[0].latitud, data[0].longitud]).setOpacity(1);
         } else { mTaxi.setOpacity(0); }
     }
-    setInterval(monitorearMovil, 4000);
+    setInterval(actualizarTaxi, 5000);
 
     function toggleAsiento(n) {
-        if(localStorage.getItem('viaje_id')) return;
-        const idx = asientosElegidos.indexOf(n);
-        if (idx > -1) { 
-            asientosElegidos.splice(idx, 1); 
+        if(localStorage.getItem('v_curso')) return;
+        const i = asientosElegidos.indexOf(n);
+        if(i > -1) { 
+            asientosElegidos.splice(i, 1); 
             document.getElementById('b'+n).classList.remove('selected'); 
         } else { 
             asientosElegidos.push(n); 
@@ -87,37 +107,63 @@
     function validarFormulario() {
         const d = document.getElementById('select-destino').value;
         const n = document.getElementById('nombre-pax').value.trim();
-        const btn = document.getElementById('btn-accion');
-        if(asientosElegidos.length > 0 && d !== "" && n !== "") btn.classList.add('ready');
-        else btn.classList.remove('ready');
+        if(asientosElegidos.length > 0 && d !== "" && n !== "") document.getElementById('btn-accion').classList.add('ready');
+        else document.getElementById('btn-accion').classList.remove('ready');
     }
 
     async function confirmarReserva() {
-        const n = document.getElementById('nombre-pax').value.trim();
-        const d = document.getElementById('select-destino').value;
-        const reservas = asientosElegidos.map(num => ({
-            asiento_num: num, pasajero_lat: miLat || 0, pasajero_lon: miLon || 0,
-            destino_idx: parseInt(d), nombre_pasajero: n, estado: 'en_curso'
+        const nombre = document.getElementById('nombre-pax').value.trim();
+        const destIdx = parseInt(document.getElementById('select-destino').value);
+        
+        // Detectar mi parada origen
+        let miP = 0; let minD = Infinity;
+        paradas.forEach((p, i) => {
+            const dist = Math.sqrt(Math.pow(miLat - p.c[0], 2) + Math.pow(miLon - p.c[1], 2));
+            if (dist < minD) { minD = dist; miP = i; }
+        });
+
+        // LÓGICA IDA/VUELTA: Si destino > origen es IDA, sino es VUELTA
+        const sentido = (destIdx >= miP) ? 'ida' : 'vuelta';
+
+        const { data: moviles } = await _s.from('estado_movil').select('*').eq('en_servicio', true);
+        
+        // Asignación inteligente simple:
+        let movilId = 1; 
+        if(moviles && moviles.length > 0) {
+            const m1 = moviles.find(m => m.id === 1);
+            // Si el móvil 1 ya pasó mi parada en el sentido que voy, le toca al 2
+            if(sentido === 'ida' && m1 && m1.disponible_desde > miP) movilId = 2;
+            if(sentido === 'vuelta' && m1 && m1.disponible_desde < miP) movilId = 2;
+        }
+
+        const res = asientosElegidos.map(num => ({
+            asiento_num: num, pasajero_lat: miLat, pasajero_lon: miLon,
+            destino_idx: destIdx, nombre_pasajero: nombre, estado: 'en_curso', 
+            id_movil: movilId
         }));
-        const { error } = await _s.from('reservas_activas').insert(reservas);
-        if(!error) { 
-            localStorage.setItem('viaje_id', 'activo');
-            localStorage.setItem('mi_nombre', n);
-            location.reload(); 
+
+        const { error } = await _s.from('reservas_activas').insert(res);
+        if(!error) {
+            localStorage.setItem('v_curso', 'true');
+            localStorage.setItem('mi_n', nombre);
+            location.reload();
         }
     }
 
     async function finalizarViaje() {
-        const nom = localStorage.getItem('mi_nombre');
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('nombre_pasajero', nom).eq('estado', 'en_curso');
+        if(!confirm("¿Bajaste del móvil?")) return;
+        await _s.from('reservas_activas').update({ estado: 'finalizado' })
+            .eq('nombre_pasajero', localStorage.getItem('mi_n'))
+            .eq('estado', 'en_curso');
         localStorage.clear();
         location.reload();
     }
 
-    if(localStorage.getItem('viaje_id')) {
+    // Recuperar estado si ya está viajando
+    if(localStorage.getItem('v_curso')) {
         document.getElementById('btn-accion').style.display = 'none';
         document.getElementById('btn-finalizar').style.display = 'block';
-        document.getElementById('nombre-pax').value = localStorage.getItem('mi_nombre');
+        document.getElementById('nombre-pax').value = localStorage.getItem('mi_n');
         document.getElementById('nombre-pax').disabled = true;
     }
 </script>
