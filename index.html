@@ -3,64 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Panel de Control - Móvil 1</title>
+    <title>Móvil 1 - Inteligente</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style>
-        body { margin: 0; background: #000; color: white; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        
-        /* 1. Recaudación y Pasajeros */
-        .stats-header { display: flex; justify-content: space-around; padding: 15px; background: #000; border-bottom: 2px solid #FFD700; }
-        .stat-box { text-align: center; }
-        .stat-label { color: #FFD700; font-size: 10px; text-transform: uppercase; }
-        .stat-value { font-size: 26px; font-weight: bold; display: block; }
 
-        /* 2. Interruptor y Sentido */
-        .control-bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; background: #111; gap: 10px; }
-        .btn-sentido { background: #222; color: #FFD700; border: 1px solid #FFD700; padding: 12px; border-radius: 8px; font-weight: bold; flex: 1; }
+    <style>
+        body { margin: 0; background: #000; color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
         
-        /* Switch Estilo iOS */
-        .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+        /* Cabecera Amarilla (Recaudación) */
+        .header { display: flex; justify-content: space-around; padding: 15px; border-bottom: 2px solid #FFD700; background: #000; }
+        .stat-box { text-align: center; }
+        .stat-label { color: #FFD700; font-size: 11px; text-transform: uppercase; display: block; }
+        .stat-value { font-size: 26px; font-weight: bold; }
+
+        /* Controles */
+        .controls { display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; background: #111; gap: 10px; }
+        .btn-sentido { background: #00d4ff; color: #000; border: none; padding: 12px 15px; border-radius: 8px; font-weight: bold; flex: 1; }
+        
+        /* Switch */
+        .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ff3b30; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #4cd964; }
-        input:checked + .slider:before { transform: translateX(26px); }
+        input:checked + .slider:before { transform: translateX(24px); }
 
-        /* 3. Mapa */
-        #map { flex-grow: 1; width: 100%; transition: opacity 0.5s; background: #000; }
+        /* Mapa (Forzado a verse) */
+        #map { flex-grow: 1; width: 100%; background: #111; transition: 0.5s; }
 
-        /* 4. Asientos */
-        .cabina { padding: 15px; background: #000; }
-        .grid-asientos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        .asiento { background: #111; border: 2px solid #333; border-radius: 12px; padding: 15px 5px; text-align: center; transition: 0.3s; }
+        /* Cabina de Asientos */
+        .cabina { padding: 15px; background: #000; border-top: 1px solid #333; }
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .asiento { border: 2px solid #333; border-radius: 10px; padding: 12px 5px; text-align: center; background: #050505; }
         .asiento.ocupado { border-color: #4cd964; background: rgba(76, 217, 100, 0.1); }
-        .as-num { font-size: 10px; color: #888; }
-        .as-precio { font-size: 18px; font-weight: bold; color: #4cd964; display: block; }
+        .as-num { font-size: 10px; color: #888; display: block; }
+        .as-price { font-size: 16px; font-weight: bold; color: #4cd964; }
     </style>
 </head>
 <body>
 
-    <div class="stats-header">
+    <div class="header">
         <div class="stat-box">
             <span class="stat-label">Recaudación</span>
-            <span id="total-dinero" class="stat-value">$0</span>
+            <span id="txt-recaudacion" class="stat-value">$0</span>
         </div>
         <div class="stat-box">
             <span class="stat-label">Pasajeros</span>
-            <span id="total-pax" class="stat-value">0</span>
+            <span id="txt-pax" class="stat-value">0</span>
         </div>
     </div>
 
-    <div class="control-bar">
-        <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:10px; color:#888;">OFF</span>
+    <div class="controls">
+        <div style="display:flex; align-items:center; gap:10px;">
             <label class="switch">
-                <input type="checkbox" id="check-linea" onchange="gestionarConexion()" checked>
+                <input type="checkbox" id="check-linea" onchange="actualizarEstado()" checked>
                 <span class="slider"></span>
             </label>
-            <span style="font-size:10px; color:#4cd964; font-weight:bold;">ON</span>
+            <span id="status-label" style="font-size: 11px; color: #4cd964; font-weight: bold;">EN LÍNEA</span>
         </div>
         <button id="btn-sentido" class="btn-sentido" onclick="cambiarSentido()">HACIA: IDA</button>
     </div>
@@ -68,85 +68,87 @@
     <div id="map"></div>
 
     <div class="cabina">
-        <div class="grid-asientos" id="grid-asientos">
+        <div class="grid" id="grid-asientos">
             </div>
     </div>
 
 <script>
-    const _s = supabase.createClient('URL_DE_TU_SUPABASE', 'TU_KEY_PUBLICA');
-    
-    // 34 Coordenadas (Ida y Vuelta)
-    const coordenadas = [ /* Pegá acá la lista de 34 puntos que me pasaste antes */ ];
-    const paradasIda = coordenadas.slice(0, 25);
-    const paradasVuelta = coordenadas.slice(25);
-    
-    let mapa = L.map('map', { zoomControl: false }).setView(paradasIda[0], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapa);
+    // 1. INICIALIZAR SUPABASE (Usar tus credenciales)
+    const _s = supabase.createClient('TU_URL', 'TU_KEY');
 
-    let enLinea = true;
-    let sentido = 'ida';
-    let markerTaxi = L.marker(paradasIda[0], { icon: L.divIcon({html:'🚕', className:'', iconSize:[30,30]}) }).addTo(mapa);
+    // 2. CONFIGURAR MAPA (MODO DÍA SEGURO)
+    var map = L.map('map', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    function gestionarConexion() {
-        enLinea = document.getElementById('check-linea').checked;
-        const mapaDiv = document.getElementById('map');
-        const cabinaDiv = document.getElementById('grid-asientos');
-        
-        mapaDiv.style.opacity = enLinea ? "1" : "0.2";
-        mapaDiv.style.pointerEvents = enLinea ? "auto" : "none";
-        cabinaDiv.style.opacity = enLinea ? "1" : "0.3";
-        
-        if(!enLinea) {
-            mapa.removeLayer(markerTaxi);
-        } else {
-            markerTaxi.addTo(mapa);
-        }
-    }
+    var markerTaxi = L.marker([-34.561264, -58.770506], {
+        icon: L.divIcon({html:'🚕', className:'', iconSize:[30,30]})
+    }).addTo(map);
 
-    function cambiarSentido() {
-        sentido = (sentido === 'ida') ? 'vuelta' : 'ida';
-        document.getElementById('btn-sentido').innerText = "HACIA: " + sentido.toUpperCase();
-        dibujarRuta();
-    }
+    // 3. LAS 25 PARADAS DE IDA (Para evitar triángulos)
+    const paradasIda = [
+        [-34.561264, -58.770506], [-34.562160, -58.771380], [-34.562494, -58.772133],
+        [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061],
+        [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443],
+        [-34.571956, -58.763201], [-34.577371, -58.755909], [-34.578528, -58.757064],
+        [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842],
+        [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804],
+        [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542],
+        [-34.588273, -58.751338], [-34.588771, -58.750804], [-34.588244, -58.749877],
+        [-34.588930, -58.750543]
+    ];
 
-    function dibujarRuta() {
-        if(window.rutaL) mapa.removeLayer(window.rutaL);
-        const puntos = (sentido === 'ida') ? paradasIda : paradasVuelta;
-        window.rutaL = L.polyline(puntos, { color: '#00d4ff', weight: 6 }).addTo(mapa);
-        mapa.fitBounds(window.rutaL.getBounds());
-    }
+    L.polyline(paradasIda, {color: '#00d4ff', weight: 6}).addTo(map);
 
-    async function actualizarDatos() {
-        if(!enLinea) return;
+    // 4. LÓGICA DE ACTUALIZACIÓN
+    async function actualizarTablero() {
+        const isOnline = document.getElementById('check-linea').checked;
+        if(!isOnline) return;
 
+        // Traer reservas activas
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', 1);
-        
-        let total = 0;
+
+        let suma = 0;
         let ocupados = [false, false, false, false];
         const grid = document.getElementById('grid-asientos');
         grid.innerHTML = "";
 
         reservas?.forEach(r => {
-            total += r.tarifa || 1000;
+            suma += r.tarifa || 1000;
             ocupados[r.asiento_num - 1] = true;
         });
 
+        // Dibujar Asientos
         for (let i = 1; i <= 4; i++) {
-            const ocupado = ocupados[i-1];
-            const p = ocupado ? (reservas.find(res => res.asiento_num == i).tarifa || 1000) : "---";
+            const isOk = ocupados[i-1];
             grid.innerHTML += `
-                <div class="asiento ${ocupado ? 'ocupado' : ''}">
+                <div class="asiento ${isOk ? 'ocupado' : ''}">
                     <span class="as-num">AS. ${i}</span>
-                    <span class="as-precio">${ocupado ? '$'+p : p}</span>
+                    <span class="as-price">${isOk ? '$1000' : '---'}</span>
                 </div>`;
         }
 
-        document.getElementById('total-dinero').innerText = "$" + total;
-        document.getElementById('total-pax').innerText = reservas ? reservas.length : 0;
+        document.getElementById('txt-recaudacion').innerText = "$" + suma;
+        document.getElementById('txt-pax').innerText = reservas ? reservas.length : 0;
     }
 
-    dibujarRuta();
-    setInterval(actualizarDatos, 3000);
+    function actualizarEstado() {
+        const check = document.getElementById('check-linea');
+        const mapDiv = document.getElementById('map');
+        const label = document.getElementById('status-label');
+
+        if(check.checked) {
+            mapDiv.style.opacity = "1";
+            label.innerText = "EN LÍNEA";
+            label.style.color = "#4cd964";
+        } else {
+            mapDiv.style.opacity = "0.2";
+            label.innerText = "FUERA DE LÍNEA";
+            label.style.color = "#ff3b30";
+        }
+    }
+
+    setInterval(actualizarTablero, 3000);
+    actualizarEstado();
 </script>
 </body>
 </html>
