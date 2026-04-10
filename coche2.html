@@ -9,45 +9,55 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
-        
-        #splash {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 9999; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; transition: opacity 0.8s ease-out;
-        }
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; }
         .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
-        .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
-        
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
+        .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
-        
         .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
-        .stat-box { 
-            background: rgba(0,0,0,0.85); 
-            border: 2px solid #FFD700; 
-            border-radius: 12px; padding: 8px; width: 45%; 
-            text-align: center; color: white; pointer-events: auto; 
-        }
-        
-        .connection-panel {
-            position: absolute; top: 95px; left: 50%; transform: translateX(-50%);
-            z-index: 1001; display: flex; align-items: center; gap: 12px;
-            background: rgba(0,0,0,0.9); padding: 8px 15px; border-radius: 30px;
-            border: 1px solid #FFD700; pointer-events: auto;
-        }
+        .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
+        .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.9); padding: 8px 15px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
         .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #444; transition: .4s; border-radius: 22px;
-        }
-        .slider:before {
-            position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
-            background-color: white; transition: .4s; border-radius: 50%;
-        }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 22px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #4cd964; }
         input:checked + .slider:before { transform: translateX(24px); }
         #status-label { color: white; font-size: 11px; font-weight: bold; width: 85px; text-align: center; }
+        .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
+        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; }
+        .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
+        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); }
+        .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
+        .taxi-icon { font-size: 30px; }
+    </style>
+</head>
+<body>
+    <div id="splash"><div class="splash-logo">🚕</div><h1 class="splash-title">COCHE 02</h1></div>
+    <div class="connection-panel"><span id="status-label">FUERA DE LÍNEA</span><label class="switch"><input type="checkbox" id="online-toggle" onchange="gestionarConexion()"><span class="slider"></span></label></div>
+    <div id="map"></div>
+    <div class="ui-overlay top-stats">
+        <div class="stat-box"><small style="color:#FFD700">RECAUDACIÓN</small><div id="txt-plata" style="font-size:24px; color:#4cd964;">$0</div></div>
+        <div class="stat-box"><small style="color:#FFD700">PASAJEROS</small><div id="txt-pax" style="font-size:24px;">0</div></div>
+    </div>
+    <div class="ui-overlay bottom-ui">
+        <div class="asientos-pills"><div id="pill1" class="pill">1</div><div id="pill2" class="pill">2</div><div id="pill3" class="pill">3</div><div id="pill4" class="pill">4</div></div>
+        <button class="btn-vaciar" onclick="vaciarTodo()">🏁 FINALIZAR / VACIAR COCHE 02</button>
+    </div>
+<script>
+    const MI_ID_MOVIL = 2;
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    const paradas = [{n:'P1', c:[-34.561264,-58.770506]},{n:'P2', c:[-34.586030,-58.747278]}]; // Simplificado por espacio
+    const map = L.map('map',{zoomControl:false}).setView(paradas[0].c, 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    const iconTaxi = L.divIcon({html:'🚕', className:'taxi-icon', iconAnchor:[15,15]});
+    const marcadorConductor = L.marker(paradas[0].c,{icon:iconTaxi}).addTo(map);
+    let markersPax = [], markersDest = [], watchId = null, estaOnline = false;
+
+    async function gestionarConexion() {
+        estaOnline = document.getElementById('online-toggle').checked;
+        const label = document.getElementById('status-label');
+        if (estaOnline) {
+            label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
+            await _s.from('estado_movil').update({ ultima_conexion: new
