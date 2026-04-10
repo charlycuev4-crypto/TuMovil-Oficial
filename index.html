@@ -23,17 +23,24 @@
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
         /* Mapa y UI */
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
-        .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
-        .stat-box { background: rgba(0,0,0,0.9); border: 2px solid #00d4ff; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
         
-        /* Interruptor de Conexión */
+        /* Estadísticas Superiores con color Amarillo */
+        .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
+        .stat-box { 
+            background: rgba(0,0,0,0.85); 
+            border: 2px solid #FFD700; /* Borde Amarillo */
+            border-radius: 12px; padding: 8px; width: 45%; 
+            text-align: center; color: white; pointer-events: auto; 
+        }
+        
+        /* Panel de Conexión */
         .connection-panel {
             position: absolute; top: 95px; left: 50%; transform: translateX(-50%);
             z-index: 1001; display: flex; align-items: center; gap: 12px;
             background: rgba(0,0,0,0.9); padding: 8px 15px; border-radius: 30px;
-            border: 1px solid #00d4ff; pointer-events: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 1px solid #FFD700; pointer-events: auto;
         }
         .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -47,15 +54,24 @@
         }
         input:checked + .slider { background-color: #4cd964; }
         input:checked + .slider:before { transform: translateX(24px); }
-        #status-label { color: white; font-size: 12px; font-weight: bold; min-width: 90px; text-align: center; }
+        #status-label { color: white; font-size: 11px; font-weight: bold; width: 85px; text-align: center; }
 
+        /* UI Inferior */
         .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
-        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 15px; font-weight: bold; font-size: 16px; pointer-events: auto; }
-        .asientos-pills { display: flex; gap: 8px; margin-bottom: 12px; pointer-events: auto; }
-        .pill { width: 45px; height: 45px; border: 2px solid #00d4ff; border-radius: 10px; color: #00d4ff; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.8); transition: all 0.3s ease; }
-        .pill.active { background: #ff3b30; border-color: #ff3b30; color: white; box-shadow: 0 0 10px #ff3b30; width: 65px; }
+        .btn-vaciar { 
+            background: #ff3b30; color: white; border: none; padding: 15px 40px; 
+            border-radius: 50px; font-weight: bold; font-size: 16px; 
+            pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4);
+        }
+        .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
+        .pill { 
+            width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; 
+            color: #FFD700; display: flex; align-items: center; justify-content: center; 
+            font-weight: bold; background: rgba(0,0,0,0.85); transition: all 0.3s ease; 
+        }
+        .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
         
-        .taxi-icon { font-size: 30px; display: flex; align-items: center; justify-content: center; }
+        .taxi-icon { font-size: 30px; }
         .loader { width: 30px; height: 30px; border: 3px solid rgba(255,215,0,0.1); border-top: 3px solid #FFD700; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px; }
     </style>
 </head>
@@ -78,8 +94,8 @@
     <div id="map"></div>
 
     <div class="ui-overlay top-stats">
-        <div class="stat-box"><small>HOY</small><div id="txt-plata" style="font-size:22px; font-weight:800; color:#4cd964;">$0</div></div>
-        <div class="stat-box"><small>PASAJEROS</small><div id="txt-pax" style="font-size:22px; font-weight:800;">0</div></div>
+        <div class="stat-box"><small style="color:#FFD700">RECAUDACIÓN</small><div id="txt-plata" style="font-size:24px; font-weight:800; color:#4cd964;">$0</div></div>
+        <div class="stat-box"><small style="color:#FFD700">PASAJEROS</small><div id="txt-pax" style="font-size:24px; font-weight:800;">0</div></div>
     </div>
 
     <div class="ui-overlay bottom-ui">
@@ -89,12 +105,14 @@
             <div id="pill3" class="pill">3</div>
             <div id="pill4" class="pill">4</div>
         </div>
-        <button class="btn-vaciar" onclick="vaciarTodo()">FINALIZAR VIAJE / VACIAR</button>
+        <button class="btn-vaciar" onclick="vaciarTodo()">🏁 FINALIZAR VIAJE / VACIAR</button>
     </div>
 
 <script>
+    // --- CONFIGURACIÓN SUPABASE ---
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
+    // --- RUTA Y PARADAS ---
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -111,9 +129,23 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
+    // --- INICIALIZAR MAPA ---
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.4 }).addTo(map);
+
+    // Dibujar Línea de Ruta
+    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.5 }).addTo(map);
+
+    // DIBUJAR LAS PARADAS (Círculos con "boxer negro" / borde negro)
+    paradas.forEach(p => {
+        L.circleMarker(p.c, {
+            radius: 6,
+            color: '#000', // El "boxer" negro
+            weight: 3,
+            fillColor: '#FFF',
+            fillOpacity: 1
+        }).addTo(map);
+    });
 
     const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
     const marcadorConductor = L.marker(paradas[0].c, { icon: iconTaxi }).addTo(map);
@@ -123,6 +155,7 @@
     let watchId = null;
     let estaOnline = false;
 
+    // --- FUNCIONES ---
     async function gestionarConexion() {
         estaOnline = document.getElementById('online-toggle').checked;
         const label = document.getElementById('status-label');
@@ -130,15 +163,11 @@
         if (estaOnline) {
             label.innerText = "EN LÍNEA";
             label.style.color = "#4cd964";
-            document.querySelector('.connection-panel').style.borderColor = "#4cd964";
             iniciarGPS();
         } else {
             label.innerText = "FUERA DE LÍNEA";
             label.style.color = "white";
-            document.querySelector('.connection-panel').style.borderColor = "#00d4ff";
-            
             if (watchId) navigator.geolocation.clearWatch(watchId);
-            // Avisar a la base de datos que ya no estamos visibles
             await _s.from('estado_movil').update({ latitud: 0, longitud: 0 }).eq('id', 1);
         }
     }
@@ -157,10 +186,12 @@
     async function actualizarDatos() {
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
         
+        // Limpiar markers anteriores
         markersPax.forEach(m => map.removeLayer(m));
         markersDest.forEach(m => map.removeLayer(m));
         markersPax = []; markersDest = [];
         
+        // Reset de asientos
         for(let i=1; i<=4; i++) {
             const p = document.getElementById('pill'+i);
             p.className = 'pill'; p.innerText = i;
@@ -171,13 +202,19 @@
             document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
 
             reservas.forEach(res => {
+                // Pintar asiento
                 const pill = document.getElementById('pill' + res.asiento_num);
-                if(pill) { pill.className = 'pill active'; pill.innerText = (res.nombre_pasajero || res.asiento_num).substring(0,3); }
+                if(pill) { 
+                    pill.className = 'pill active'; 
+                    pill.innerText = "OK";
+                }
                 
-                const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: 'red', radius: 10, fillOpacity: 0.9 }).addTo(map)
-                    .bindTooltip(res.nombre_pasajero || "Pax", { permanent: true, direction: 'top' });
+                // Ubicación pasajero (Punto Rojo)
+                const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: 'red', radius: 8, fillOpacity: 0.9 }).addTo(map)
+                    .bindTooltip(res.nombre_pasajero || "Pasajero", { permanent: false });
                 markersPax.push(pM);
 
+                // Destino (Icono Azul)
                 if(paradas[res.destino_idx]) {
                     const dM = L.marker(paradas[res.destino_idx].c).addTo(map)
                         .bindTooltip(`Baja: ${res.nombre_pasajero}`, { permanent: true, direction: 'bottom' });
@@ -186,18 +223,20 @@
             });
         }
         
+        // Quitar Splash
         const spl = document.getElementById('splash');
         if(spl) { spl.style.opacity = '0'; setTimeout(() => spl.style.display = 'none', 800); }
     }
 
     async function vaciarTodo() {
-        if(!confirm("¿Finalizar el viaje de todos?")) return;
+        if(!confirm("¿Finalizar el viaje y vaciar la cabina?")) return;
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso');
         actualizarDatos();
     }
 
+    // Suscripción en tiempo real
     _s.channel('cambios').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, actualizarDatos).subscribe();
-    setInterval(actualizarDatos, 10000);
+    
     actualizarDatos();
 </script>
 </body>
