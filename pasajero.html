@@ -21,20 +21,21 @@
         .btn-confirm { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; background: #333; color: #666; margin-top: 10px; }
         .btn-confirm.ready { background: #00d4ff !important; color: black !important; }
         .btn-finalizar { width: 100%; padding: 16px; border-radius: 15px; border: none; font-weight: bold; background: #ff3b30; color: white; margin-top: 10px; display: none; }
+        .taxi-icon { font-size: 25px; }
     </style>
 </head>
 <body>
     <div class="top-ui">
         <div class="dest-card">
             <input type="text" id="nombre-pax" placeholder="TU NOMBRE" oninput="validarFormulario()">
-            <select id="select-destino" style="width:100%; padding:10px; background: #222; color: white; border: 1px solid #333; border-radius: 8px;" onchange="validarFormulario()">
+            <select id="select-destino" style="width:100%; padding:10px; background:#222; color:#fff; border:1px solid #444; border-radius:8px;" onchange="validarFormulario()">
                 <option value="" disabled selected>¿A DÓNDE VAS?</option>
             </select>
         </div>
     </div>
     <div id="map"></div>
     <div class="bottom-panel">
-        <div class="asientos-grid">
+        <div class="asientos-grid" id="grid-asientos">
             <button class="btn-as" id="b1" onclick="toggleAsiento(1)">1</button>
             <button class="btn-as" id="b2" onclick="toggleAsiento(2)">2</button>
             <button class="btn-as" id="b3" onclick="toggleAsiento(3)">3</button>
@@ -50,7 +51,7 @@
 
     const map = L.map('map', { zoomControl: false }).setView(rutaOficial[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    rutaOficial.forEach(p => L.circleMarker(p.c, { radius: 4, color: '#00d4ff' }).addTo(map));
+    rutaOficial.forEach(p => L.circleMarker(p.c, {radius: 5, color:'#00d4ff', fillOpacity: 0.8}).addTo(map));
 
     const sel = document.getElementById('select-destino');
     rutaOficial.forEach((p,i) => { sel.innerHTML += `<option value="${i}">${p.n}</option>`; });
@@ -63,7 +64,7 @@
     }, null, { enableHighAccuracy: true });
 
     async function monitorearMovil() {
-        const { data: c } = await _s.from('estado_movil').select('*').eq('online', true).eq('id', 1).single();
+        const { data: c } = await _s.from('estado_movil').select('*').eq('en_servicio', true).eq('id', 1).single();
         if (c && c.latitud !== 0) {
             mTaxi.setLatLng([c.latitud, c.longitud]).setOpacity(1);
         } else { mTaxi.setOpacity(0); }
@@ -71,7 +72,7 @@
     setInterval(monitorearMovil, 4000);
 
     function toggleAsiento(n) {
-        if(localStorage.getItem('viaje_en_curso')) return;
+        if(localStorage.getItem('viaje_id')) return;
         const idx = asientosElegidos.indexOf(n);
         if (idx > -1) { 
             asientosElegidos.splice(idx, 1); 
@@ -98,39 +99,27 @@
             asiento_num: num, pasajero_lat: miLat || 0, pasajero_lon: miLon || 0,
             destino_idx: parseInt(d), nombre_pasajero: n, estado: 'en_curso'
         }));
-        
         const { error } = await _s.from('reservas_activas').insert(reservas);
         if(!error) { 
-            localStorage.setItem('viaje_en_curso', 'true');
+            localStorage.setItem('viaje_id', 'activo');
             localStorage.setItem('mi_nombre', n);
             location.reload(); 
-        } else { alert("Error: " + error.message); }
+        }
     }
 
     async function finalizarViaje() {
-        if(!confirm("¿Deseas finalizar el viaje?")) return;
         const nom = localStorage.getItem('mi_nombre');
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('nombre_pasajero', nom).eq('estado', 'en_curso');
         localStorage.clear();
         location.reload();
     }
 
-    async function recuperarEstado() {
-        if(localStorage.getItem('viaje_en_curso')) {
-            const nom = localStorage.getItem('mi_nombre');
-            const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('nombre_pasajero', nom);
-            if(data && data.length > 0) {
-                document.getElementById('nombre-pax').value = nom;
-                document.getElementById('nombre-pax').disabled = true;
-                document.getElementById('select-destino').value = data[0].destino_idx;
-                document.getElementById('select-destino').disabled = true;
-                document.getElementById('btn-accion').style.display = 'none';
-                document.getElementById('btn-finalizar').style.display = 'block';
-                data.forEach(r => document.getElementById('b' + r.asiento_num).classList.add('selected'));
-            } else { localStorage.clear(); }
-        }
+    if(localStorage.getItem('viaje_id')) {
+        document.getElementById('btn-accion').style.display = 'none';
+        document.getElementById('btn-finalizar').style.display = 'block';
+        document.getElementById('nombre-pax').value = localStorage.getItem('mi_nombre');
+        document.getElementById('nombre-pax').disabled = true;
     }
-    recuperarEstado();
 </script>
 </body>
 </html>
