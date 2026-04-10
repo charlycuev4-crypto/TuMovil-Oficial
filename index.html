@@ -1,99 +1,119 @@
-<div style="display: flex; justify-content: space-around; background: #000; padding: 10px; border-bottom: 2px solid #FFD700;">
-    <div style="text-align: center;">
-        <span style="color: #FFD700; font-size: 10px; display: block;">RECAUDACIÓN VIAJE</span>
-        <span id="total-viaje" style="font-size: 22px; font-weight: bold; color: #fff;">$0</span>
-    </div>
-    <div style="text-align: center;">
-        <span style="color: #FFD700; font-size: 10px; display: block;">PASAJEROS A BORDO</span>
-        <span id="pax-conteo" style="font-size: 22px; font-weight: bold; color: #fff;">0</span>
-    </div>
-</div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Panel Conductor Pro</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<div style="padding: 10px; background: #111; display: flex; gap: 10px;">
-    <button id="btn-status" class="btn-status online" style="flex: 2;" onclick="toggleServicio()">MÓVIL EN LÍNEA</button>
-    <button id="btn-sentido" onclick="cambiarSentido()" style="flex: 1; background: #222; color: #FFD700; border: 1px solid #FFD700; border-radius: 8px; font-weight: bold;">HACIA: IDA</button>
-</div>
-
-<div id="map" style="height: 40vh; width: 100%; background: #000;"></div>
-
-<div class="panel-cabina" style="padding: 15px; background: #111;">
-    <div style="color: #888; font-size: 12px; margin-bottom: 8px;">ESTADO DE ASIENTOS Y TARIFAS:</div>
-    <div id="grid-asientos" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
-        </div>
-</div>
-
-<script>
-    // CONFIGURACIÓN DE RUTAS (IDA: 0-24, VUELTA: 25-33)
-    const paradasCoords = [ /* Pegar aquí las 34 coordenadas del SQL */ ];
-    let sentido = 'ida';
-    let recaudacion = 0;
-
-    // INICIALIZACIÓN DEL MAPA PROFESIONAL
-    let map = L.map('map', { zoomControl: false }).setView(paradasCoords[0], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    function actualizarMapaRuta() {
-        if(window.rutaLine) map.removeLayer(window.rutaLine);
-        
-        // Filtrar puntos para evitar triángulos
-        const puntos = (sentido === 'ida') ? paradasCoords.slice(0, 25) : paradasCoords.slice(25);
-        
-        window.rutaLine = L.polyline(puntos, {
-            color: '#00d4ff', 
-            weight: 5, 
-            opacity: 0.8,
-            lineCap: 'round'
-        }).addTo(map);
-        
-        map.fitBounds(window.rutaLine.getBounds());
-    }
-
-    // LÓGICA DE TARIFAS Y CABINA
-    async function refrescarCabina() {
-        const { data: reservas } = await _s.from('reservas_activas')
-            .select('*')
-            .eq('id_movil', 1)
-            .eq('estado', 'en_curso');
-
-        let totalSuma = 0;
-        let ocupados = [false, false, false, false];
-        const grid = document.getElementById('grid-asientos');
-        grid.innerHTML = "";
-
-        // Procesar reservas
-        reservas.forEach(r => {
-            totalSuma += r.tarifa || 1000;
-            ocupados[r.asiento_num - 1] = true;
-        });
-
-        // Dibujar los 4 asientos con su precio
-        for (let i = 1; i <= 4; i++) {
-            const estaOcupado = ocupados[i-1];
-            grid.innerHTML += `
-                <div class="asiento ${estaOcupado ? 'ocupado' : ''}" 
-                     style="border: 2px solid ${estaOcupado ? '#4cd964' : '#333'}; 
-                            padding: 10px; border-radius: 8px; text-align: center;
-                            background: ${estaOcupado ? 'rgba(76,217,100,0.1)' : 'transparent'}">
-                    <div style="font-size: 10px; color: #888;">AS. ${i}</div>
-                    <div style="color: ${estaOcupado ? '#4cd964' : '#555'}; font-weight: bold;">
-                        ${estaOcupado ? '$' + (reservas.find(res => res.asiento_num == i).tarifa || 1000) : '---'}
-                    </div>
-                </div>
-            `;
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            margin: 0; 
+            background: #000; 
+            color: white; 
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
         }
 
-        // Actualizar marcadores superiores
-        document.getElementById('total-viaje').innerText = "$" + totalSuma;
-        document.getElementById('pax-conteo').innerText = reservas.length;
-    }
+        /* Bloque superior con números grandes */
+        .header-stats {
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 5px;
+            background: #000;
+            border-bottom: 2px solid #FFD700;
+        }
+        .stat-box { text-align: center; flex: 1; }
+        .stat-label { color: #FFD700; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-value { font-size: 28px; font-weight: 800; display: block; margin-top: 5px; }
 
-    function cambiarSentido() {
-        sentido = (sentido === 'ida') ? 'vuelta' : 'ida';
-        document.getElementById('btn-sentido').innerText = "HACIA: " + sentido.toUpperCase();
-        actualizarMapaRuta();
-    }
+        /* Botones táctiles grandes */
+        .mando-container {
+            display: flex;
+            gap: 10px;
+            padding: 12px;
+            background: #111;
+        }
+        .btn-principal {
+            height: 60px; /* Altura cómoda para el dedo */
+            border-radius: 12px;
+            border: none;
+            font-size: 16px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .btn-online { background: #4cd964; color: #000; flex: 2; }
+        .btn-sentido { background: #222; color: #FFD700; border: 2px solid #FFD700; flex: 1; }
 
-    // Iniciar
-    actualizarMapaRuta();
-    setInterval(refrescarCabina, 3000);
-</script>
+        /* El Mapa */
+        #map { 
+            flex-grow: 1; /* Ocupa todo el espacio disponible */
+            width: 100%;
+            background: #111;
+        }
+
+        /* Monitor de asientos optimizado */
+        .cabina-container {
+            padding: 15px;
+            background: #000;
+            border-top: 1px solid #333;
+        }
+        .grid-asientos {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+        .asiento-card {
+            background: #111;
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 12px 5px;
+            text-align: center;
+        }
+        .asiento-card.ocupado {
+            border-color: #4cd964;
+            background: rgba(76, 217, 100, 0.15);
+        }
+        .asiento-num { font-size: 10px; color: #888; margin-bottom: 4px; }
+        .asiento-precio { font-size: 16px; font-weight: bold; color: #4cd964; }
+    </style>
+</head>
+<body>
+
+    <div class="header-stats">
+        <div class="stat-box">
+            <span class="stat-label">Recaudación</span>
+            <span id="total-dinero" class="stat-value">$0</span>
+        </div>
+        <div class="stat-box" style="border-left: 1px solid #333;">
+            <span class="stat-label">Pasajeros</span>
+            <span id="total-pax" class="stat-value">0</span>
+        </div>
+    </div>
+
+    <div class="mando-container">
+        <button id="btn-status" class="btn-principal btn-online" onclick="toggleLinea()">MÓVIL EN LÍNEA</button>
+        <button id="btn-sentido" class="btn-principal btn-sentido" onclick="cambiarSentido()">IDA</button>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="cabina-container">
+        <div style="color: #FFD700; font-size: 12px; margin-bottom: 10px; font-weight: bold;">CABINA DE PASAJEROS</div>
+        <div id="grid-asientos" class="grid-asientos">
+            </div>
+    </div>
+
+    <script>
+        // ... (Aquí va la lógica de Supabase y Leaflet que ya tenemos) ...
+        // Asegúrate de incluir el L.tileLayer para que no se vea negro
+        // Y el filtro de coordenadas para evitar triángulos
+    </script>
+</body>
+</html>
