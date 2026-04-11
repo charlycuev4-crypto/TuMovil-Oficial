@@ -29,7 +29,6 @@
         }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-        /* UI ENCUADRADA */
         .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; flex-shrink: 0; }
         .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
 
@@ -67,15 +66,6 @@
             box-shadow: 0 0 15px rgba(40, 167, 69, 0.3);
         }
         .btn-pedir:disabled { background: #444; color: #888; }
-
-        /* Estilo de la flecha GPS */
-        .flecha-gps {
-            width: 0; height: 0;
-            border-left: 12px solid transparent;
-            border-right: 12px solid transparent;
-            border-bottom: 25px solid var(--azul-gps);
-            filter: drop-shadow(0 0 5px rgba(0, 122, 255, 0.8));
-        }
     </style>
 </head>
 <body>
@@ -138,22 +128,33 @@
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+    // Trayecto fijo de la flota
     const trayectoCoords = paradas.map(p => p.c);
     L.polyline(trayectoCoords, { color: '#00d2ff', weight: 4, opacity: 0.4 }).addTo(map);
 
+    // Círculos celestes en paradas
     paradas.forEach(p => {
         L.circleMarker(p.c, { radius: 6, color: '#000', weight: 2, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map);
     });
 
-    // ICONO DE FLECHA AZUL
-    const iconFlecha = L.divIcon({ 
-        html: '<div id="flecha-pas" class="flecha-gps"></div>', 
-        className: 'gps-arrow', 
-        iconAnchor: [12, 12] 
+    // ICONO PERSONITA (Ubicación Pasajero)
+    const iconP = L.divIcon({ 
+        html: '<div style="font-size:30px; filter: drop-shadow(0 0 5px white);">🚶</div>', 
+        className: 'p-mark', 
+        iconAnchor: [15, 30] 
     });
+
+    // ICONO FLECHA AZUL (Destino)
+    const iconDestinoFlecha = L.divIcon({ 
+        html: `<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid var(--azul-gps); filter: drop-shadow(0 0 8px var(--azul-gps));"></div>`, 
+        className: 'dest-arrow', 
+        iconAnchor: [10, 11] 
+    });
+
     const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
 
-    let markerPasajero = L.marker([0,0], { icon: iconFlecha }).addTo(map);
+    let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
+    let markerDestinoFlecha = L.marker([0,0], { icon: iconDestinoFlecha });
     let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
     let markerTaxis = {};
     let miLat = 0, miLon = 0, asientosElegidos = [];
@@ -166,16 +167,7 @@
 
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
-        const rumbo = p.coords.heading;
-
         markerPasajero.setLatLng([miLat, miLon]);
-        
-        // Rotar flecha si hay movimiento
-        if(rumbo !== null) {
-            const el = document.getElementById('flecha-pas');
-            if(el) el.style.transform = `rotate(${rumbo}deg)`;
-        }
-
         actualizarMapaRuta();
         document.getElementById('btn-pedir').disabled = false;
         document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR MI VIAJE";
@@ -187,10 +179,10 @@
         if(val !== "" && miLat !== 0) {
             const dest = paradas[val].c;
             guiaDestino.setLatLngs([[miLat, miLon], dest]);
+            markerDestinoFlecha.setLatLng(dest).addTo(map);
             
-            // Auto-encuadre para ver flecha y destino
             const bounds = L.latLngBounds([miLat, miLon], dest);
-            map.fitBounds(bounds, { padding: [70, 70] });
+            map.fitBounds(bounds, { padding: [80, 80] });
         }
     }
 
