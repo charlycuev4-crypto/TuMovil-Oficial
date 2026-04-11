@@ -51,7 +51,7 @@
     const MI_ID_MOVIL = 2;
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    // LISTA COMPLETA DE PARADAS PARA DESTINOS
+    // LISTA COMPLETA DE PARADAS
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -70,6 +70,16 @@
 
     const map = L.map('map',{zoomControl:false}).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // --- DIBUJAR RUTA Y PARADAS ---
+    // Línea azul de la ruta
+    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.5 }).addTo(map);
+
+    // Círculos de paradas (Blancos con borde negro)
+    paradas.forEach(p => {
+        L.circleMarker(p.c, { radius: 6, color: '#000', weight: 3, fillColor: '#FFF', fillOpacity: 1 }).addTo(map);
+    });
+
     const iconTaxi = L.divIcon({html:'🚕', className:'taxi-icon', iconAnchor:[15,15]});
     const marcadorConductor = L.marker(paradas[0].c,{icon:iconTaxi}).addTo(map);
     
@@ -82,8 +92,7 @@
             label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
             await _s.from('estado_movil').update({ 
                 ultima_conexion: new Date().toISOString(), 
-                latitud: paradas[0].c[0], 
-                longitud: paradas[0].c[1] 
+                latitud: paradas[0].c[0], longitud: paradas[0].c[1] 
             }).eq('id', MI_ID_MOVIL);
             iniciarGPS();
         } else {
@@ -105,7 +114,6 @@
     async function actualizarDatos() {
         const { data: reser } = await _s.from('reservas_activas').select('*').eq('estado','en_curso').eq('id_movil', MI_ID_MOVIL);
         
-        // Limpiar puntos de pasajeros y destinos previos
         markersPax.forEach(m => map.removeLayer(m)); 
         markersDest.forEach(m => map.removeLayer(m));
         markersPax = []; markersDest = [];
@@ -120,16 +128,15 @@
             document.getElementById('txt-plata').innerText = '$' + (reser.length * 1000);
             
             reser.forEach(r => {
-                // Marcar asiento como ocupado
                 const p = document.getElementById('pill'+r.asiento_num); 
                 if(p){ p.className='pill active'; p.innerText="OK"; }
                 
-                // Marcador de RECOGIDA (Rojo)
+                // ORIGEN PASAJERO
                 const pm = L.circleMarker([r.pasajero_lat, r.pasajero_lon],{color:'red',radius:8, fillOpacity:0.8}).addTo(map)
                     .bindTooltip("Recoger: " + (r.nombre_pasajero || "Pasajero")); 
                 markersPax.push(pm);
 
-                // Marcador de DESTINO (Azul con etiqueta)
+                // DESTINO PASAJERO
                 if (paradas[r.destino_idx]) {
                     const dm = L.marker(paradas[r.destino_idx].c).addTo(map)
                         .bindTooltip("Baja: " + (r.nombre_pasajero || "Pasajero"), { permanent: true, direction: 'bottom' });
