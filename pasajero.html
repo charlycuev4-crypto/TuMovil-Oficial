@@ -9,59 +9,63 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
+        .header { background: #111; border-bottom: 2px solid #FFD700; padding: 10px; text-align: center; color: #FFD700; }
+        .header h1 { margin: 0; font-size: 18px; letter-spacing: 2px; }
         
-        /* Panel Superior */
-        .header { background: #111; border-bottom: 2px solid #FFD700; padding: 15px; text-align: center; color: #FFD700; }
-        .header h1 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: 2px; }
-        
-        /* Mapa */
         #map { flex-grow: 1; width: 100%; background: #000; }
         
-        /* UI Inferior */
         .bottom-ui { background: #111; border-top: 2px solid #FFD700; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .input-group { display: flex; flex-direction: column; gap: 5px; }
-        label { color: #FFD700; font-size: 12px; font-weight: bold; }
+        .input-group { display: flex; flex-direction: column; gap: 4px; }
+        label { color: #FFD700; font-size: 11px; font-weight: bold; }
         input, select { background: #222; border: 1px solid #444; color: white; padding: 10px; border-radius: 8px; font-size: 14px; }
-        input:focus, select:focus { border-color: #FFD700; outline: none; }
         
-        .btn-pedir { background: #4cd964; color: black; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; width: 100%; transition: background 0.3s; }
-        .btn-pedir:active { background: #3cc755; transform: scale(0.98); }
-        .btn-pedir:disabled { background: #444; color: #888; cursor: not-allowed; }
+        /* DISEÑO DE ASIENTOS PARA EL PASAJERO */
+        .asientos-container { display: flex; justify-content: center; gap: 10px; margin: 5px 0; }
+        .asiento-btn { 
+            width: 50px; height: 50px; border: 2px solid #FFD700; border-radius: 10px; 
+            background: #000; color: #FFD700; font-weight: bold; 
+            display: flex; align-items: center; justify-content: center; transition: 0.3s;
+        }
+        .asiento-btn.selected { background: #FFD700; color: #000; transform: scale(1.1); }
+        .asiento-btn.occupied { background: #444; border-color: #666; color: #888; pointer-events: none; }
 
+        .btn-pedir { background: #4cd964; color: black; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; width: 100%; }
+        .btn-pedir:disabled { background: #444; color: #888; }
         .taxi-icon { font-size: 25px; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h1>SOLICITAR MI VIAJE</h1>
-    </div>
-
+    <div class="header"><h1>SOLICITAR MI VIAJE</h1></div>
     <div id="map"></div>
 
     <div class="bottom-ui">
         <div class="input-group">
-            <label>NOMBRE DEL PASAJERO</label>
-            <input type="text" id="nombre-input" placeholder="Ej: Juan Pérez">
+            <label>MI NOMBRE</label>
+            <input type="text" id="nombre-input" placeholder="Nombre para el chofer">
         </div>
 
         <div class="input-group">
-            <label>SELECCIONAR DESTINO (Parada)</label>
+            <label>MI DESTINO</label>
             <select id="destino-select">
-                <option value="" disabled selected>Cargando paradas...</option>
+                <option value="" disabled selected>Seleccione parada...</option>
             </select>
         </div>
 
-        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>
-            ⌛ BUSCANDO GPS...
-        </button>
+        <label style="text-align: center;">ELIGE TU ASIENTO ($1000)</label>
+        <div class="asientos-container" id="selector-asientos">
+            <div class="asiento-btn" onclick="seleccionarAsiento(1)" id="as-1">1</div>
+            <div class="asiento-btn" onclick="seleccionarAsiento(2)" id="as-2">2</div>
+            <div class="asiento-btn" onclick="seleccionarAsiento(3)" id="as-3">3</div>
+            <div class="asiento-btn" onclick="seleccionarAsiento(4)" id="as-4">4</div>
+        </div>
+
+        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ BUSCANDO GPS...</button>
     </div>
 
 <script>
-    // --- CONFIGURACIÓN SUPABASE ---
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-
-    // --- LAS 25 PARADAS ORIGINALES ---
+    
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -78,28 +82,18 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    // --- INICIALIZAR MAPA ---
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    // Dibujar Ruta Azul
     L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.5 }).addTo(map);
+    paradas.forEach(p => { L.circleMarker(p.c, { radius: 5, color: '#000', fillColor: '#FFF', fillOpacity: 1 }).addTo(map); });
 
-    // Dibujar Paradas (Círculos blancos con borde negro)
-    paradas.forEach(p => {
-        L.circleMarker(p.c, { radius: 6, color: '#000', weight: 3, fillColor: '#FFF', fillOpacity: 1 }).addTo(map);
-    });
-
-    // Marcador de mi ubicación (Punto Azul)
     const marcadorMiLoc = L.circleMarker([0,0], { color: '#007bff', radius: 10, fillOpacity: 1 }).addTo(map);
-
-    // Marcadores de Taxis Online
     const markerTaxis = {};
     const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
 
-    let miLat = 0, miLon = 0;
+    let miLat = 0, miLon = 0, asientoSeleccionado = null;
 
-    // --- CARGAR DESTINOS ---
+    // Cargar selector de destinos
     const selectDestino = document.getElementById('destino-select');
     paradas.forEach((p, idx) => {
         const option = document.createElement('option');
@@ -107,94 +101,71 @@
         selectDestino.appendChild(option);
     });
 
-    // --- INICIAR GPS ---
+    // Iniciar GPS
     navigator.geolocation.getCurrentPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
-        marcadorMiLoc.setLatLng([miLat, miLon]);
-        map.panTo([miLat, miLon]);
+        marcadorMiLoc.setLatLng([miLat, miLon]); map.panTo([miLat, miLon]);
         document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR VIAJE";
         document.getElementById('btn-pedir').disabled = false;
     }, null, { enableHighAccuracy: true });
 
-    // --- ACTUALIZAR TAXIS EN TIEMPO REAL ---
-    async function actualizarTaxis() {
-        // Solo traemos conductores que estén ONLINE (latitud != 0)
-        const { data: moviles } = await _s.from('estado_movil').select('id, latitud, longitud').neq('latitud', 0);
+    function seleccionarAsiento(num) {
+        asientoSeleccionado = num;
+        document.querySelectorAll('.asiento-btn').forEach(b => b.classList.remove('selected'));
+        document.getElementById('as-' + num).classList.add('selected');
+    }
 
-        // Limpiar marcadores viejos
+    async function actualizarTaxisYAsientos() {
+        const { data: moviles } = await _s.from('estado_movil').select('*').neq('latitud', 0).order('ultima_conexion', {ascending:true}).limit(1);
+        
         Object.keys(markerTaxis).forEach(id => map.removeLayer(markerTaxis[id]));
+        
+        if (moviles && moviles.length > 0) {
+            const taxi = moviles[0];
+            markerTaxis[taxi.id] = L.marker([taxi.latitud, taxi.longitud], { icon: iconTaxi }).addTo(map).bindTooltip("Coche 0"+taxi.id, {permanent:true});
 
-        if (moviles) {
-            moviles.forEach(m => {
-                // Crear y guardar el nuevo marcador
-                markerTaxis[m.id] = L.marker([m.latitud, m.longitud], { icon: iconTaxi })
-                    .addTo(map)
-                    .bindTooltip("Coche 0" + m.id, { permanent: true, direction: 'top' });
+            // Bloquear asientos ya ocupados en ese taxi
+            const { data: ocupados } = await _s.from('reservas_activas').select('asiento_num').eq('id_movil', taxi.id).eq('estado', 'en_curso');
+            document.querySelectorAll('.asiento-btn').forEach(b => b.classList.remove('occupied'));
+            if(ocupados) ocupados.forEach(o => {
+                document.getElementById('as-' + o.asiento_num).classList.add('occupied');
             });
         }
     }
 
-    // --- FUNCIÓN CRÍTICA: CONFIRMAR VIAJE CON FILTRO ---
     async function confirmarViajePasajero() {
         const nombreVal = document.getElementById('nombre-input').value;
         const destinoIdx = document.getElementById('destino-select').value;
 
-        if (!nombreVal || !destinoIdx) {
-            alert("Por favor ingrese su Nombre y seleccione un Destino."); return;
+        if (!nombreVal || !destinoIdx || !asientoSeleccionado) {
+            alert("Completa: Nombre, Destino y elige un Asiento (1-4)."); return;
         }
 
         document.getElementById('btn-pedir').disabled = true;
-        document.getElementById('btn-pedir').innerText = "⌛ BUSCANDO CHOFER...";
+        const { data: moviles } = await _s.from('estado_movil').select('id').neq('latitud', 0).order('ultima_conexion', { ascending: true }).limit(1);
 
-        // 1. BUSCAR CONDUCTOR ONLINE (Solo latitud != 0) Y LLEGADO PRIMERO
-        const { data: moviles, error: errM } = await _s.from('estado_movil')
-            .select('id')
-            .neq('latitud', 0) // <--- ESTE ES EL FILTRO QUE SOLUCIONA TU PROBLEMA
-            .order('ultima_conexion', { ascending: true }) // <--- FILA DE ESPERA (Arribo)
-            .limit(1);
-
-        if (errM || !moviles || moviles.length === 0) {
-            alert("Atención: No hay conductores conectados en este momento. Intente más tarde.");
-            resetBotonPedir(); return;
+        if (!moviles || moviles.length === 0) {
+            alert("No hay coches en línea."); resetBoton(); return;
         }
 
         const idAsignado = moviles[0].id;
-        console.log("Asignando viaje al Coche: " + idAsignado);
+        const { error } = await _s.from('reservas_activas').insert([{
+            asiento_num: asientoSeleccionado,
+            id_movil: idAsignado,
+            estado: 'en_curso',
+            nombre_pasajero: nombreVal,
+            pasajero_lat: miLat, pasajero_lon: miLon,
+            destino_idx: destinoIdx
+        }]);
 
-        // 2. INSERTAR LA RESERVA PARA ESE CONDUCTORespecífico
-        const { error } = await _s.from('reservas_activas').insert([
-            {
-                asiento_num: 1, // Se asigna el asiento 1 por defecto (lógica simple)
-                id_movil: idAsignado, // Guardamos el ID del que SÍ está conectado
-                estado: 'en_curso',
-                nombre_pasajero: nombreVal,
-                pasajero_lat: miLat,
-                pasajero_lon: miLon,
-                destino_idx: destinoIdx
-            }
-        ]);
-
-        if (!error) {
-            alert("¡Viaje confirmado con el Coche 0" + idAsignado + "!");
-        } else {
-            console.error("Error al reservar:", error);
-            alert("Ocurrió un error al solicitar el viaje.");
-        }
-        resetBotonPedir();
+        if (!error) { alert("¡Viaje pedido al Coche 0" + idAsignado + "! Asiento: " + asientoSeleccionado); }
+        resetBoton();
     }
 
-    function resetBotonPedir() {
-        document.getElementById('btn-pedir').disabled = false;
-        document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR VIAJE";
-    }
+    function resetBoton() { document.getElementById('btn-pedir').disabled = false; document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR VIAJE"; }
 
-    // Suscripción al Realtime de móviles para verlos moverse
-    _s.channel('taxis_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'estado_movil' }, actualizarTaxis)
-      .subscribe();
-    
-    // Carga inicial de taxis
-    actualizarTaxis();
+    setInterval(actualizarTaxisYAsientos, 3000);
+    actualizarTaxisYAsientos();
 </script>
 </body>
 </html>
