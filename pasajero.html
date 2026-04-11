@@ -3,103 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TuMovil - Pasajero</title>
+    <title>TuMovil - Pasajero Futurista</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         :root {
-            --celeste: #00a8e8;
-            --amarillo: #ffcc00;
-            --blanco: #ffffff;
-            --gris-suave: #f4f7f6;
-            --texto: #333;
+            --celeste-neon: #00d2ff;
+            --azul-profundo: #0072ff;
+            --amarillo-vibrante: #fff200;
+            --fondo-blanco: #ffffff;
+            --glass: rgba(255, 255, 255, 0.8);
         }
 
         body { 
-            margin: 0; padding: 0; background: var(--blanco); 
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            height: 100vh; display: flex; flex-direction: column; color: var(--texto);
+            margin: 0; padding: 0; background: var(--fondo-blanco); 
+            font-family: 'Inter', sans-serif; height: 100vh; 
+            display: flex; flex-direction: column; overflow: hidden;
         }
         
-        /* Header Moderno */
+        /* Header con Degradado Futurista */
         .header { 
-            background: var(--blanco); 
-            border-bottom: 3px solid var(--celeste); 
-            padding: 15px; text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            background: linear-gradient(135deg, var(--azul-profundo), var(--celeste-neon));
+            padding: 18px; text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3);
+            z-index: 1000;
         }
         .header h1 { 
-            margin: 0; font-size: 20px; font-weight: 800; 
-            color: var(--celeste); text-transform: uppercase; letter-spacing: 1px;
-        }
-        
-        #map { flex-grow: 1; width: 100%; background: var(--gris-suave); }
-        
-        /* UI Inferior con bordes redondeados y sombras */
-        .bottom-ui { 
-            background: var(--blanco); 
-            border-top: 1px solid #ddd; 
-            padding: 20px; display: flex; flex-direction: column; gap: 12px;
-            border-radius: 20px 20px 0 0;
-            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+            margin: 0; font-size: 22px; font-weight: 900; 
+            color: white; text-transform: uppercase; letter-spacing: 2px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
-        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        #map { flex-grow: 1; width: 100%; z-index: 1; }
         
-        label { 
-            color: var(--celeste); font-size: 12px; font-weight: 700; 
-            margin-left: 5px; text-transform: uppercase;
+        /* Panel Inferior con efecto Cristal */
+        .bottom-ui { 
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0, 210, 255, 0.3);
+            padding: 20px; display: flex; flex-direction: column; gap: 12px;
+            border-radius: 30px 30px 0 0;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.1);
+            position: relative; z-index: 1001;
+            margin-top: -30px;
+        }
+
+        .input-group label { 
+            color: var(--azul-profundo); font-size: 11px; font-weight: 800; 
+            margin-bottom: 5px; display: block; text-transform: uppercase;
         }
 
         input, select { 
-            background: var(--gris-suave); border: 2px solid #eee; 
-            color: var(--texto); padding: 12px; border-radius: 12px; 
-            font-size: 15px; transition: all 0.3s;
+            background: white; border: 2px solid #e0e0e0; 
+            color: #333; padding: 14px; border-radius: 16px; 
+            font-size: 15px; width: 100%; box-sizing: border-box;
+            transition: all 0.3s ease;
         }
-        input:focus { border-color: var(--celeste); outline: none; background: #fff; }
+        input:focus { border-color: var(--celeste-neon); box-shadow: 0 0 10px rgba(0, 210, 255, 0.2); }
         
-        /* Selector de Asientos Moderno */
-        .asientos-container { display: flex; justify-content: center; gap: 12px; margin: 10px 0; }
+        /* Asientos con estilo 3D */
+        .asientos-container { display: flex; justify-content: space-around; margin: 10px 0; }
         .asiento-btn { 
-            width: 55px; height: 55px; border: 2px solid var(--celeste); 
-            border-radius: 15px; background: #fff; color: var(--celeste); 
-            font-weight: 900; font-size: 18px;
+            width: 60px; height: 60px; border: 2px solid var(--celeste-neon); 
+            border-radius: 18px; background: white; color: var(--azul-profundo); 
+            font-weight: 900; font-size: 20px;
             display: flex; align-items: center; justify-content: center; 
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            cursor: pointer;
+            cursor: pointer; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
         .asiento-btn.selected { 
-            background: var(--amarillo); border-color: var(--amarillo); 
-            color: #000; transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(255, 204, 0, 0.4);
+            background: var(--amarillo-vibrante); border-color: var(--amarillo-vibrante);
+            color: #000; transform: scale(1.1) translateY(-5px);
+            box-shadow: 0 10px 20px rgba(255, 242, 0, 0.4);
         }
-        .asiento-btn.occupied { background: #e0e0e0; border-color: #ccc; color: #999; cursor: not-allowed; }
+        .asiento-btn.occupied { background: #eee; border-color: #ddd; color: #bbb; cursor: not-allowed; }
 
-        .info-pago { 
-            text-align: center; color: var(--texto); 
-            font-weight: 800; font-size: 18px; padding: 5px;
-            border-radius: 10px; background: rgba(0, 168, 232, 0.1);
+        .total-display {
+            background: linear-gradient(90deg, #f0f9ff, #e0f2fe);
+            padding: 12px; border-radius: 15px; text-align: center;
+            font-weight: 800; font-size: 20px; color: var(--azul-profundo);
+            border: 1px dashed var(--celeste-neon);
         }
-        .info-pago span { color: var(--celeste); }
 
         .btn-pedir { 
-            background: var(--celeste); color: white; border: none; 
-            padding: 16px; border-radius: 15px; font-weight: 800; 
-            font-size: 17px; width: 100%; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0, 168, 224, 0.3);
-            transition: all 0.3s;
+            background: linear-gradient(to right, var(--azul-profundo), var(--celeste-neon));
+            color: white; border: none; padding: 18px; border-radius: 20px;
+            font-weight: 900; font-size: 18px; text-transform: uppercase;
+            box-shadow: 0 6px 20px rgba(0, 114, 255, 0.3);
+            cursor: pointer; transition: all 0.3s;
         }
-        .btn-pedir:active { transform: scale(0.96); }
-        .btn-pedir:disabled { background: #ccc; box-shadow: none; }
-
-        .taxi-icon { font-size: 28px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2)); }
+        .btn-pedir:active { transform: scale(0.95); opacity: 0.9; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>TuMovil <span style="color:var(--amarillo)">⚡</span> Viajes</h1>
+        <h1>TUMOVIL <span style="color: var(--amarillo-vibrante);">⚡</span> VIAJES</h1>
     </div>
 
     <div id="map"></div>
@@ -107,34 +107,36 @@
     <div class="bottom-ui">
         <div class="input-group">
             <label>👤 Nombre del Pasajero</label>
-            <input type="text" id="nombre-input" placeholder="¿Quién viaja?">
+            <input type="text" id="nombre-input" placeholder="Escribe tu nombre">
         </div>
 
         <div class="input-group">
-            <label>📍 ¿A qué parada vas?</label>
+            <label>📍 Punto de Destino</label>
             <select id="destino-select">
-                <option value="" disabled selected>Selecciona tu destino...</option>
+                <option value="" disabled selected>Selecciona una parada...</option>
             </select>
         </div>
 
-        <label style="text-align: center; margin-top: 5px;">Selecciona tus asientos</label>
-        <div class="asientos-container" id="selector-asientos">
+        <div class="asientos-container">
             <div class="asiento-btn" onclick="toggleAsiento(1)" id="as-1">1</div>
             <div class="asiento-btn" onclick="toggleAsiento(2)" id="as-2">2</div>
             <div class="asiento-btn" onclick="toggleAsiento(3)" id="as-3">3</div>
             <div class="asiento-btn" onclick="toggleAsiento(4)" id="as-4">4</div>
         </div>
 
-        <div class="info-pago" id="div-total">Total: <span id="txt-total">$0</span></div>
+        <div class="total-display">
+            TOTAL: <span id="txt-total">$0</span>
+        </div>
 
         <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>
-            BUSCANDO GPS...
+            ⌛ INICIANDO...
         </button>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
+    // Las 25 paradas originales
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -151,19 +153,31 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
+    // Mapa claro moderno
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map); // Mapa más claro/moderno
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-    // Línea de ruta en celeste
-    L.polyline(paradas.map(p => p.c), { color: '#00a8e8', weight: 5, opacity: 0.4 }).addTo(map);
+    // Dibujar Ruta Celeste Neón
+    L.polyline(paradas.map(p => p.c), { color: '#00d2ff', weight: 6, opacity: 0.6 }).addTo(map);
 
-    const marcadorMiLoc = L.circleMarker([0,0], { color: '#007bff', radius: 8, fillOpacity: 1 }).addTo(map);
+    // DIBUJAR LAS PARADAS: Círculo celeste con borde negro
+    paradas.forEach(p => {
+        L.circleMarker(p.c, { 
+            radius: 7, 
+            color: '#000', // Borde negro
+            weight: 2.5, 
+            fillColor: '#00d2ff', // Fondo celeste
+            fillOpacity: 1 
+        }).addTo(map);
+    });
+
+    const marcadorMiLoc = L.circleMarker([0,0], { color: '#007bff', radius: 10, fillOpacity: 1, weight: 3 }).addTo(map);
     const markerTaxis = {};
-    const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
+    const iconTaxi = L.divIcon({ html: '<span style="font-size:30px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.3));">🚕</span>', className: 'taxi-icon', iconAnchor: [15, 15] });
 
     let miLat = 0, miLon = 0, asientosElegidos = [];
 
-    // Cargar destinos
+    // Cargar selector
     const selectDestino = document.getElementById('destino-select');
     paradas.forEach((p, idx) => {
         const option = document.createElement('option');
@@ -171,11 +185,10 @@
         selectDestino.appendChild(option);
     });
 
-    // Iniciar GPS
     navigator.geolocation.getCurrentPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
         marcadorMiLoc.setLatLng([miLat, miLon]); map.panTo([miLat, miLon]);
-        document.getElementById('btn-pedir').innerText = "🚀 SOLICITAR AHORA";
+        document.getElementById('btn-pedir').innerText = "🚀 PEDIR MI VIAJE";
         document.getElementById('btn-pedir').disabled = false;
     }, null, { enableHighAccuracy: true });
 
@@ -196,42 +209,3 @@
         Object.keys(markerTaxis).forEach(id => map.removeLayer(markerTaxis[id]));
         if (moviles && moviles.length > 0) {
             const taxi = moviles[0];
-            markerTaxis[taxi.id] = L.marker([taxi.latitud, taxi.longitud], { icon: iconTaxi }).addTo(map).bindTooltip("Coche 0"+taxi.id);
-            const { data: ocupados } = await _s.from('reservas_activas').select('asiento_num').eq('id_movil', taxi.id).eq('estado', 'en_curso');
-            document.querySelectorAll('.asiento-btn').forEach(b => b.classList.remove('occupied'));
-            if(ocupados) ocupados.forEach(o => {
-                const el = document.getElementById('as-' + o.asiento_num);
-                if(el) el.classList.add('occupied');
-            });
-        }
-    }
-
-    async function confirmarViajePasajero() {
-        const nombreVal = document.getElementById('nombre-input').value;
-        const destinoIdx = document.getElementById('destino-select').value;
-        if (!nombreVal || !destinoIdx || asientosElegidos.length === 0) {
-            alert("⚠️ Completa tu nombre, destino y elige tus asientos."); return;
-        }
-        document.getElementById('btn-pedir').disabled = true;
-        const { data: moviles } = await _s.from('estado_movil').select('id').neq('latitud', 0).order('ultima_conexion', { ascending: true }).limit(1);
-        if (!moviles || moviles.length === 0) { alert("❌ No hay coches disponibles."); resetBoton(); return; }
-        
-        const idAsignado = moviles[0].id;
-        const nuevasReservas = asientosElegidos.map(num => ({
-            asiento_num: num, id_movil: idAsignado, estado: 'en_curso',
-            nombre_pasajero: nombreVal, pasajero_lat: miLat, pasajero_lon: miLon,
-            destino_idx: parseInt(destinoIdx)
-        }));
-        const { error } = await _s.from('reservas_activas').insert(nuevasReservas);
-        if (!error) { 
-            alert("✅ ¡Viaje confirmado!\nCoche 0" + idAsignado + "\nTotal: $" + (asientosElegidos.length * 1000)); 
-            location.reload(); 
-        } else { alert("Error al pedir viaje."); resetBoton(); }
-    }
-
-    function resetBoton() { document.getElementById('btn-pedir').disabled = false; document.getElementById('btn-pedir').innerText = "🚀 SOLICITAR AHORA"; }
-    setInterval(actualizarTaxisYAsientos, 4000);
-    actualizarTaxisYAsientos();
-</script>
-</body>
-</html>
