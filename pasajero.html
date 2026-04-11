@@ -1,126 +1,113 @@
-<!DOCTYPE html>
+        <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TuMovil - App Pasajero</title>
+    <title>TuMovil - Pasajero</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root {
-            --celeste: #00d2ff;
-            --amarillo: #ffcc00;
-            --dark: #121212;
-            --panel: #1e1e1e;
-        }
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
+        body, html { margin: 0; padding: 0; background: var(--dark); height: 100vh; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; }
 
-        body, html { margin: 0; padding: 0; background: var(--dark); height: 100vh; font-family: sans-serif; overflow: hidden; }
-
-        /* --- SPLASH SCREEN --- */
+        /* --- SPLASH SCREEN MEJORADO --- */
         #splash {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--dark); display: flex; flex-direction: column;
-            align-items: center; justify-content: center; z-index: 9999;
-            transition: opacity 1s ease;
+            align-items: center; justify-content: center; z-index: 10000;
+            transition: opacity 0.8s ease, visibility 0.8s;
         }
-        .logo-splash {
-            width: 150px; height: 150px; border: 4px solid var(--celeste);
+        .logo-circle {
+            width: 160px; height: 160px; border: 4px solid var(--celeste);
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            font-size: 50px; color: var(--celeste); box-shadow: 0 0 30px var(--celeste);
-            margin-bottom: 20px; animation: pulse 2s infinite;
+            box-shadow: 0 0 25px var(--celeste); margin-bottom: 25px;
+            animation: pulse 2s infinite;
         }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(1); opacity: 0.8; } }
 
-        /* --- TARJETA DE PRESENTACIÓN (15x15) --- */
-        .promo-card {
-            background: linear-gradient(135deg, var(--panel), #2a2a2a);
-            border: 2px solid var(--celeste); border-radius: 15px;
-            padding: 10px; text-align: center; margin-bottom: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-        }
-        .promo-card h2 { margin: 0; color: var(--amarillo); font-size: 16px; }
-        .promo-card p { margin: 2px 0; color: #fff; font-size: 22px; font-weight: 900; }
+        /* --- UI --- */
+        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 12px; text-align: center; z-index: 10; }
+        .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
 
-        /* --- INTERFAZ PRINCIPAL --- */
-        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 12px; text-align: center; }
-        .header h1 { margin: 0; font-size: 18px; color: var(--celeste); text-transform: uppercase; }
-
-        #map { flex-grow: 1; width: 100%; height: 50vh; }
+        #map { flex-grow: 1; width: 100%; }
         
         .bottom-ui { 
             background: var(--panel); border-top: 2px solid var(--celeste); 
-            padding: 15px; display: flex; flex-direction: column; gap: 8px;
-            border-radius: 20px 20px 0 0; position: relative; z-index: 100;
+            padding: 15px; display: flex; flex-direction: column; gap: 10px;
+            border-radius: 20px 20px 0 0; z-index: 100;
         }
 
-        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 14px; }
+        .promo-card {
+            background: rgba(0, 210, 255, 0.1); border: 1px dashed var(--celeste);
+            border-radius: 10px; padding: 8px; text-align: center;
+        }
+
+        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; }
         
-        .asientos-container { display: flex; justify-content: space-around; margin: 5px 0; }
+        .asientos-grid { display: flex; justify-content: space-around; margin: 5px 0; }
         .asiento-btn { 
-            width: 50px; height: 50px; border: 2px solid var(--celeste); 
+            width: 55px; height: 55px; border: 2px solid var(--celeste); 
             border-radius: 12px; background: transparent; color: var(--celeste); 
             font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center;
+            transition: 0.3s;
         }
         .asiento-btn.selected { background: var(--amarillo); border-color: var(--amarillo); color: #000; box-shadow: 0 0 15px var(--amarillo); }
-        .asiento-btn.occupied { border-color: #444; color: #444; pointer-events: none; }
+        .asiento-btn.occupied { border-color: #333; color: #333; pointer-events: none; opacity: 0.5; }
 
         .btn-pedir { 
-            background: #28a745; color: white; border: none; padding: 15px; 
-            border-radius: 12px; font-weight: bold; font-size: 16px; 
-            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3);
+            background: #28a745; color: white; border: none; padding: 16px; 
+            border-radius: 12px; font-weight: bold; font-size: 16px;
         }
-        .btn-pedir:disabled { background: #444; }
-
+        .btn-pedir:disabled { background: #444; color: #888; }
     </style>
 </head>
 <body>
 
     <div id="splash">
-        <div class="logo-splash">🚕</div>
-        <h2 style="color: var(--celeste); letter-spacing: 3px;">TUMOVIL</h2>
-        <p style="color: white; font-size: 12px;">Cargando sistema de flota...</p>
+        <div class="logo-circle"><span style="font-size: 60px;">🚕</span></div>
+        <h2 style="color: var(--celeste); margin: 0;">TUMOVIL</h2>
+        <p style="color: #666; font-size: 14px; margin-top: 10px;">Cargando sistema...</p>
     </div>
 
-    <div class="header">
-        <h1>TuMovil ⚡ Pasajero</h1>
-    </div>
+    <div class="header"><h1>TUMOVIL ⚡ VIAJES</h1></div>
 
     <div id="map"></div>
 
     <div class="bottom-ui">
         <div class="promo-card">
-            <h2>¡OFERTA DE LANZAMIENTO!</h2>
-            <p>TU VIAJE A SOLO <span style="color:var(--celeste)">$1000</span></p>
+            <span style="color:white; font-size: 12px;">PROMO LANZAMIENTO</span><br>
+            <b style="color:var(--amarillo); font-size: 18px;">TU VIAJE A SOLO $1000</b>
         </div>
 
-        <input type="text" id="nombre-input" placeholder="Ingresa tu nombre">
-        
+        <input type="text" id="nombre-input" placeholder="Tu Nombre">
         <select id="destino-select">
-            <option value="" disabled selected>Selecciona destino...</option>
+            <option value="" disabled selected>¿A qué parada vas?</option>
         </select>
 
-        <div class="asientos-container">
+        <div class="asientos-grid">
             <div class="asiento-btn" onclick="toggleAsiento(1)" id="as-1">1</div>
             <div class="asiento-btn" onclick="toggleAsiento(2)" id="as-2">2</div>
             <div class="asiento-btn" onclick="toggleAsiento(3)" id="as-3">3</div>
             <div class="asiento-btn" onclick="toggleAsiento(4)" id="as-4">4</div>
         </div>
 
-        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>
-            ⌛ ACTIVANDO GPS...
-        </button>
+        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ BUSCANDO GPS...</button>
     </div>
 
 <script>
+    // Inicialización de Supabase
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
-    // Quitar Splash después de 3 segundos
-    setTimeout(() => {
-        const s = document.getElementById('splash');
-        s.style.opacity = '0';
-        setTimeout(() => s.style.display = 'none', 1000);
-    }, 3000);
+
+    // FUNCIÓN PARA QUITAR SPLASH (Segura)
+    function ocultarSplash() {
+        const splash = document.getElementById('splash');
+        splash.style.opacity = '0';
+        setTimeout(() => { splash.style.visibility = 'hidden'; }, 800);
+    }
+
+    // Forzamos la salida del splash a los 4 segundos por si algo falla
+    setTimeout(ocultarSplash, 4000);
 
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
@@ -138,9 +125,11 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
+    // Mapa
+    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+    // Dibujar paradas (Celeste con borde negro)
     paradas.forEach(p => {
         L.circleMarker(p.c, { radius: 6, color: '#000', weight: 2, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map);
     });
@@ -151,6 +140,7 @@
 
     let miLat = 0, miLon = 0, asientosElegidos = [];
 
+    // Llenar selector de paradas
     const selectDestino = document.getElementById('destino-select');
     paradas.forEach((p, idx) => {
         const option = document.createElement('option');
@@ -158,6 +148,72 @@
         selectDestino.appendChild(option);
     });
 
-    // CORRECCIÓN GPS WATCHPOSITION
+    // GPS Activo
     navigator.geolocation.watchPosition(p => {
-        miLat = p.coords.latitude; mi
+        miLat = p.coords.latitude; miLon = p.coords.longitude;
+        markerMiLoc.setLatLng([miLat, miLon]);
+        document.getElementById('btn-pedir').disabled = false;
+        document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR VIAJE";
+        ocultarSplash(); // Si el GPS responde, quitamos el splash
+    }, (err) => { 
+        console.warn("GPS esperando..."); 
+    }, { enableHighAccuracy: true });
+
+    function toggleAsiento(num) {
+        const index = asientosElegidos.indexOf(num);
+        if (index > -1) {
+            asientosElegidos.splice(index, 1);
+            document.getElementById('as-' + num).classList.remove('selected');
+        } else {
+            asientosElegidos.push(num);
+            document.getElementById('as-' + num).classList.add('selected');
+        }
+    }
+
+    async function actualizarTaxis() {
+        try {
+            const { data: moviles } = await _s.from('estado_movil').select('*').neq('latitud', 0).order('ultima_conexion', {ascending:true}).limit(1);
+            Object.keys(markerTaxis).forEach(id => map.removeLayer(markerTaxis[id]));
+            if (moviles && moviles.length > 0) {
+                const taxi = moviles[0];
+                markerTaxis[taxi.id] = L.marker([taxi.latitud, taxi.longitud], { icon: iconTaxi }).addTo(map).bindTooltip("Coche 0"+taxi.id, {permanent:true});
+                
+                const { data: ocupados } = await _s.from('reservas_activas').select('asiento_num').eq('id_movil', taxi.id).eq('estado', 'en_curso');
+                document.querySelectorAll('.asiento-btn').forEach(b => b.classList.remove('occupied'));
+                if(ocupados) ocupados.forEach(o => {
+                    const el = document.getElementById('as-' + o.asiento_num);
+                    if(el) el.classList.add('occupied');
+                });
+            }
+        } catch (e) { console.error("Error base de datos:", e); }
+    }
+
+    async function confirmarViajePasajero() {
+        const nombreVal = document.getElementById('nombre-input').value;
+        const destinoIdx = document.getElementById('destino-select').value;
+        if (!nombreVal || !destinoIdx || asientosElegidos.length === 0) {
+            alert("⚠️ Completa nombre, destino y asientos."); return;
+        }
+        
+        const { data: moviles } = await _s.from('estado_movil').select('id').neq('latitud', 0).order('ultima_conexion', { ascending: true }).limit(1);
+        if (!moviles || moviles.length === 0) { alert("No hay coches en línea."); return; }
+        
+        const idAsignado = moviles[0].id;
+        const reservas = asientosElegidos.map(num => ({
+            asiento_num: num, id_movil: idAsignado, estado: 'en_curso',
+            nombre_pasajero: nombreVal, pasajero_lat: miLat, pasajero_lon: miLon,
+            destino_idx: parseInt(destinoIdx)
+        }));
+        
+        const { error } = await _s.from('reservas_activas').insert(reservas);
+        if(!error) {
+            alert("✅ ¡Viaje pedido al Coche 0" + idAsignado + "!");
+            location.reload();
+        } else { alert("Hubo un error al reservar."); }
+    }
+
+    setInterval(actualizarTaxis, 5000);
+    actualizarTaxis();
+</script>
+</body>
+</html>
