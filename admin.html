@@ -1,3 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TuMovil - Admin Final</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
+        body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        #sidebar { width: 320px; background: var(--panel); border-right: 2px solid var(--celeste); display: flex; flex-direction: column; padding: 15px; overflow-y: auto; z-index: 1000; }
+        #map { flex-grow: 1; height: 100vh; }
+        .stat-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 12px; margin-bottom: 10px; text-align: center; }
+        .stat-card p { margin: 5px 0; font-size: 26px; color: var(--amarillo); font-weight: bold; }
+        .admin-section { border-top: 1px solid #333; margin-top: 15px; padding-top: 15px; }
+        input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
+        .btn-add { background: var(--celeste); color: #000; border: none; padding: 12px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; transition: 0.3s; }
+        .btn-add:hover { background: var(--amarillo); }
+        .flota-item { background: #252525; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; line-height: 1.5; }
+        .money-tag { color: #28a745; font-weight: bold; float: right; font-size: 16px; }
+        .map-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+    </style>
+</head>
+<body>
+
 <div id="sidebar">
     <h2 style="color: var(--celeste); margin-top: 0;">TuMovil Admin 🛰️</h2>
     
@@ -16,13 +43,23 @@
         <p style="font-size: 10px; color: #888; margin-top: 5px;">*Si el coche ya existe, se cambiarán los datos.</p>
     </div>
 
-    <div class="admin-section" id="flota-list">
+    <div id="flota-list" class="admin-section">
         <h4>🚗 ESTADO DE FLOTA ACTUAL</h4>
-        </div>
+    </div>
 </div>
 
+<div id="map"></div>
+
 <script>
-    // ... (Tu configuración de Supabase arriba) ...
+    // Configuración de Conexión
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+
+    // Inicializar Mapa
+    const map = L.map('map', { zoomControl: false }).setView([-34.588, -58.750], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { className: 'map-tiles' }).addTo(map);
+
+    let markersChoferes = {};
+    const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
 
     async function guardarCambiosChofer() {
         const id = document.getElementById('new-id').value;
@@ -31,11 +68,10 @@
         const patente = document.getElementById('new-plate').value;
 
         if(!id || !nombre) {
-            alert("Por favor, pon al menos el Número de Coche y el Nombre del Chofer.");
+            alert("Falta el N° de Coche y el Nombre.");
             return;
         }
 
-        // Usamos UPSERT: Si el ID existe, lo cambia. Si no, lo crea.
         const { error } = await _s.from('estado_movil').upsert({
             id: parseInt(id),
             chofer: nombre,
@@ -44,60 +80,59 @@
         });
 
         if (error) {
-            alert("Error al guardar: " + error.message);
+            alert("Error: " + error.message);
         } else {
-            alert("¡Datos del Coche " + id + " actualizados!");
-            // Limpiamos los campos
-            document.getElementById('new-id').value = "";
-            document.getElementById('new-driver').value = "";
-            document.getElementById('new-car').value = "";
-            document.getElementById('new-plate').value = "";
-            refrescarTodo(); // Recargamos la lista
+            alert("¡Datos actualizados!");
+            refrescarTodo();
         }
     }
 
     async function refrescarTodo() {
-        const { data: moviles } = await _s.from('estado_movil').select('*').order('id', {ascending: true});
-        const { data: reservas } = await _s.from('reservas_activas').select('*');
+        try {
+            const { data: moviles } = await _s.from('estado_movil').select('*').order('id', {ascending: true});
+            const { data: reservas } = await _s.from('reservas_activas').select('*');
 
-        const flotaDiv = document.getElementById('flota-list');
-        flotaDiv.innerHTML = '<h4>🚗 ESTADO DE FLOTA ACTUAL</h4>';
-        
-        let totalCajaGral = 0;
+            const flotaDiv = document.getElementById('flota-list');
+            flotaDiv.innerHTML = '<h4>🚗 ESTADO DE FLOTA ACTUAL</h4>';
+            
+            let totalCajaGral = 0;
 
-        moviles.forEach(m => {
-            // Actualizar Marcadores en el Mapa
-            if(m.latitud !== 0) {
-                const infoTooltip = `<b>Coche ${m.id}</b><br>Chofer: ${m.chofer || 'S/N'}<br>Auto: ${m.vehiculo || 'S/D'}`;
-                if(markersChoferes[m.id]) {
-                    markersChoferes[m.id].setLatLng([m.latitud, m.longitud]).setTooltipContent(infoTooltip);
-                } else {
-                    markersChoferes[m.id] = L.marker([m.latitud, m.longitud], { icon: iconT })
-                        .addTo(map)
-                        .bindTooltip(infoTooltip);
+            moviles.forEach(m => {
+                // Actualizar GPS en Mapa
+                if(m.latitud && m.latitud !== 0) {
+                    const infoTooltip = `<b>Coche ${m.id}</b><br>${m.chofer || 'S/N'}`;
+                    if(markersChoferes[m.id]) {
+                        markersChoferes[m.id].setLatLng([m.latitud, m.longitud]).setTooltipContent(infoTooltip);
+                    } else {
+                        markersChoferes[m.id] = L.marker([m.latitud, m.longitud], { icon: iconT }).addTo(map).bindTooltip(infoTooltip);
+                    }
                 }
-            }
 
-            // Calcular dinero solo de este coche (viajes finalizados)
-            const gananciaCoche = reservas.filter(r => r.id_movil == m.id && r.estado == 'finalizado').length * 1000;
-            totalCajaGral += gananciaCoche;
+                // Dinero por coche
+                const gananciaCoche = reservas.filter(r => r.id_movil == m.id && r.estado == 'finalizado').length * 1000;
+                totalCajaGral += gananciaCoche;
 
-            // Mostrar en la lista lateral con los nombres que guardaste
-            const item = document.createElement('div');
-            item.className = 'flota-item';
-            item.style.borderLeft = (m.latitud !== 0) ? "4px solid #28a745" : "4px solid #dc3545"; // Verde si está online, rojo si no
-            item.innerHTML = `
-                <b>COCHE ${m.id}</b> <span class="money-tag">$${gananciaCoche}</span><br>
-                <span>👤 Chofer: ${m.chofer || '<span style="color:gray">Sin asignar</span>'}</span><br>
-                <span>🚘 ${m.vehiculo || 'Vehículo no registrado'}</span><br>
-                <small>🆔 Patente: ${m.patente || '---'}</small>
-            `;
-            flotaDiv.appendChild(item);
-        });
+                const item = document.createElement('div');
+                item.className = 'flota-item';
+                item.style.borderLeft = (m.latitud !== 0) ? "4px solid #28a745" : "4px solid #dc3545";
+                item.innerHTML = `
+                    <b>COCHE ${m.id}</b> <span class="money-tag">$${gananciaCoche}</span><br>
+                    👤 ${m.chofer || 'Sin asignar'}<br>
+                    🚘 ${m.vehiculo || 'Sin vehículo'}<br>
+                    <small>🆔 Patente: ${m.patente || '---'}</small>
+                `;
+                flotaDiv.appendChild(item);
+            });
 
-        document.getElementById('caja-total').innerText = "$" + totalCajaGral;
+            document.getElementById('caja-total').innerText = "$" + totalCajaGral;
+        } catch (e) {
+            console.log("Esperando conexión...");
+        }
     }
     
     setInterval(refrescarTodo, 5000);
     refrescarTodo();
 </script>
+
+</body>
+</html>
