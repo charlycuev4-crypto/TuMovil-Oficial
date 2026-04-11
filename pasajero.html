@@ -1,88 +1,91 @@
-        <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TuMovil - Pasajero</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TuMovil - Pasajero Final</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
-        body, html { margin: 0; padding: 0; background: var(--dark); height: 100vh; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; }
+        
+        body, html { 
+            margin: 0; padding: 0; background: var(--dark); height: 100%; 
+            width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif;
+        }
 
-        /* --- SPLASH SCREEN MEJORADO --- */
+        /* SPLASH SCREEN */
         #splash {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--dark); display: flex; flex-direction: column;
             align-items: center; justify-content: center; z-index: 10000;
             transition: opacity 0.8s ease, visibility 0.8s;
         }
-        .logo-circle {
-            width: 160px; height: 160px; border: 4px solid var(--celeste);
-            border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 0 25px var(--celeste); margin-bottom: 25px;
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(1); opacity: 0.8; } }
 
-        /* --- UI --- */
-        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 12px; text-align: center; z-index: 10; }
-        .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
+        /* ENCUADRE RESPONSIVO */
+        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; flex-shrink: 0; }
+        .header h1 { margin: 0; font-size: 18px; color: var(--celeste); text-shadow: 0 0 10px var(--celeste); }
 
         #map { flex-grow: 1; width: 100%; }
         
         .bottom-ui { 
             background: var(--panel); border-top: 2px solid var(--celeste); 
-            padding: 15px; display: flex; flex-direction: column; gap: 10px;
+            padding: 15px 15px env(safe-area-inset-bottom);
+            display: flex; flex-direction: column; gap: 8px;
             border-radius: 20px 20px 0 0; z-index: 100;
+            box-shadow: 0 -10px 20px rgba(0,0,0,0.5);
+            max-height: 40vh; overflow-y: auto; /* Evita que se salga de la pantalla */
         }
 
         .promo-card {
-            background: rgba(0, 210, 255, 0.1); border: 1px dashed var(--celeste);
+            background: rgba(0, 210, 255, 0.1); border: 1px solid var(--celeste);
             border-radius: 10px; padding: 8px; text-align: center;
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.2);
         }
 
-        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; }
+        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
         
         .asientos-grid { display: flex; justify-content: space-around; margin: 5px 0; }
         .asiento-btn { 
-            width: 55px; height: 55px; border: 2px solid var(--celeste); 
+            width: 50px; height: 50px; border: 2px solid var(--celeste); 
             border-radius: 12px; background: transparent; color: var(--celeste); 
             font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center;
-            transition: 0.3s;
+            text-shadow: 0 0 5px var(--celeste); transition: 0.3s;
         }
-        .asiento-btn.selected { background: var(--amarillo); border-color: var(--amarillo); color: #000; box-shadow: 0 0 15px var(--amarillo); }
-        .asiento-btn.occupied { border-color: #333; color: #333; pointer-events: none; opacity: 0.5; }
+        .asiento-btn.selected { background: var(--amarillo); border-color: var(--amarillo); color: #000; box-shadow: 0 0 15px var(--amarillo); text-shadow: none; }
+        .asiento-btn.occupied { border-color: #333; color: #333; pointer-events: none; opacity: 0.4; }
 
         .btn-pedir { 
-            background: #28a745; color: white; border: none; padding: 16px; 
+            background: #28a745; color: white; border: none; padding: 15px; 
             border-radius: 12px; font-weight: bold; font-size: 16px;
+            box-shadow: 0 0 15px rgba(40, 167, 69, 0.4);
         }
-        .btn-pedir:disabled { background: #444; color: #888; }
+        .btn-pedir:disabled { background: #444; color: #888; box-shadow: none; }
+
+        /* Icono de Persona Personalizado */
+        .person-icon { font-size: 30px; text-shadow: 0 0 10px white; }
     </style>
 </head>
 <body>
 
     <div id="splash">
-        <div class="logo-circle"><span style="font-size: 60px;">🚕</span></div>
-        <h2 style="color: var(--celeste); margin: 0;">TUMOVIL</h2>
-        <p style="color: #666; font-size: 14px; margin-top: 10px;">Cargando sistema...</p>
+        <div style="font-size: 80px; margin-bottom: 20px;">🚕</div>
+        <h2 style="color: var(--celeste); letter-spacing: 5px;">TUMOVIL</h2>
     </div>
 
-    <div class="header"><h1>TUMOVIL ⚡ VIAJES</h1></div>
+    <div class="header"><h1>SOLICITAR VIAJE</h1></div>
 
     <div id="map"></div>
 
     <div class="bottom-ui">
         <div class="promo-card">
-            <span style="color:white; font-size: 12px;">PROMO LANZAMIENTO</span><br>
-            <b style="color:var(--amarillo); font-size: 18px;">TU VIAJE A SOLO $1000</b>
+            <b style="color:var(--amarillo);">PROMO: VIAJES A $1000</b>
         </div>
 
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
-        <select id="destino-select">
-            <option value="" disabled selected>¿A qué parada vas?</option>
+        <select id="destino-select" onchange="dibujarRutaDestino()">
+            <option value="" disabled selected>¿A dónde vas?</option>
         </select>
 
         <div class="asientos-grid">
@@ -96,18 +99,7 @@
     </div>
 
 <script>
-    // Inicialización de Supabase
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-
-    // FUNCIÓN PARA QUITAR SPLASH (Segura)
-    function ocultarSplash() {
-        const splash = document.getElementById('splash');
-        splash.style.opacity = '0';
-        setTimeout(() => { splash.style.visibility = 'hidden'; }, 800);
-    }
-
-    // Forzamos la salida del splash a los 4 segundos por si algo falla
-    setTimeout(ocultarSplash, 4000);
 
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
@@ -125,22 +117,19 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    // Mapa
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Dibujar paradas (Celeste con borde negro)
-    paradas.forEach(p => {
-        L.circleMarker(p.c, { radius: 6, color: '#000', weight: 2, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map);
-    });
+    // Iconos personalizados
+    const iconPersona = L.divIcon({ html: '<div class="person-icon">🚶</div>', className: 'p-marker', iconAnchor: [15, 30] });
+    const iconTaxi = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', className: 't-marker', iconAnchor: [12, 12] });
 
-    const markerMiLoc = L.circleMarker([0,0], { color: '#FFF', fillColor: '#007bff', radius: 10, fillOpacity: 1, weight: 3 }).addTo(map);
-    const markerTaxis = {};
-    const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
-
+    let markerPersona = L.marker([0,0], { icon: iconPersona }).addTo(map);
+    let lineaRuta = L.polyline([], { color: var(--amarillo), dashArray: '10, 10', weight: 3 }).addTo(map);
+    let markerTaxis = {};
     let miLat = 0, miLon = 0, asientosElegidos = [];
 
-    // Llenar selector de paradas
+    // Llenar destinos
     const selectDestino = document.getElementById('destino-select');
     paradas.forEach((p, idx) => {
         const option = document.createElement('option');
@@ -148,16 +137,25 @@
         selectDestino.appendChild(option);
     });
 
-    // GPS Activo
+    // GPS y Salida del Splash
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
-        markerMiLoc.setLatLng([miLat, miLon]);
+        markerPersona.setLatLng([miLat, miLon]);
+        dibujarRutaDestino(); 
         document.getElementById('btn-pedir').disabled = false;
         document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR VIAJE";
-        ocultarSplash(); // Si el GPS responde, quitamos el splash
-    }, (err) => { 
-        console.warn("GPS esperando..."); 
-    }, { enableHighAccuracy: true });
+        document.getElementById('splash').style.opacity = '0';
+        setTimeout(() => document.getElementById('splash').style.display = 'none', 800);
+    }, null, { enableHighAccuracy: true });
+
+    function dibujarRutaDestino() {
+        const idx = document.getElementById('destino-select').value;
+        if (idx !== "" && miLat !== 0) {
+            const destinoCoord = paradas[idx].c;
+            lineaRuta.setLatLngs([[miLat, miLon], destinoCoord]);
+            map.fitBounds(lineaRuta.getBounds(), { padding: [50, 50] });
+        }
+    }
 
     function toggleAsiento(num) {
         const index = asientosElegidos.indexOf(num);
@@ -171,45 +169,34 @@
     }
 
     async function actualizarTaxis() {
-        try {
-            const { data: moviles } = await _s.from('estado_movil').select('*').neq('latitud', 0).order('ultima_conexion', {ascending:true}).limit(1);
-            Object.keys(markerTaxis).forEach(id => map.removeLayer(markerTaxis[id]));
-            if (moviles && moviles.length > 0) {
-                const taxi = moviles[0];
-                markerTaxis[taxi.id] = L.marker([taxi.latitud, taxi.longitud], { icon: iconTaxi }).addTo(map).bindTooltip("Coche 0"+taxi.id, {permanent:true});
-                
-                const { data: ocupados } = await _s.from('reservas_activas').select('asiento_num').eq('id_movil', taxi.id).eq('estado', 'en_curso');
-                document.querySelectorAll('.asiento-btn').forEach(b => b.classList.remove('occupied'));
-                if(ocupados) ocupados.forEach(o => {
-                    const el = document.getElementById('as-' + o.asiento_num);
-                    if(el) el.classList.add('occupied');
-                });
-            }
-        } catch (e) { console.error("Error base de datos:", e); }
+        const { data: moviles } = await _s.from('estado_movil').select('*').neq('latitud', 0).order('ultima_conexion', {ascending:true}).limit(1);
+        Object.keys(markerTaxis).forEach(id => map.removeLayer(markerTaxis[id]));
+        if (moviles && moviles.length > 0) {
+            const t = moviles[0];
+            markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconTaxi }).addTo(map).bindTooltip("Coche 0"+t.id);
+            const { data: ocup } = await _s.from('reservas_activas').select('asiento_num').eq('id_movil', t.id).eq('estado', 'en_curso');
+            document.querySelectorAll('.asiento-btn').forEach(b => b.classList.remove('occupied'));
+            if(ocup) ocup.forEach(o => document.getElementById('as-' + o.asiento_num).classList.add('occupied'));
+        }
     }
 
     async function confirmarViajePasajero() {
         const nombreVal = document.getElementById('nombre-input').value;
         const destinoIdx = document.getElementById('destino-select').value;
-        if (!nombreVal || !destinoIdx || asientosElegidos.length === 0) {
-            alert("⚠️ Completa nombre, destino y asientos."); return;
-        }
+        if (!nombreVal || !destinoIdx || asientosElegidos.length === 0) { alert("Completa todos los datos."); return; }
         
-        const { data: moviles } = await _s.from('estado_movil').select('id').neq('latitud', 0).order('ultima_conexion', { ascending: true }).limit(1);
-        if (!moviles || moviles.length === 0) { alert("No hay coches en línea."); return; }
+        const { data: moviles } = await _s.from('estado_movil').select('id').neq('latitud', 0).limit(1);
+        if (!moviles || moviles.length === 0) { alert("Sin coches disponibles."); return; }
         
-        const idAsignado = moviles[0].id;
-        const reservas = asientosElegidos.map(num => ({
-            asiento_num: num, id_movil: idAsignado, estado: 'en_curso',
+        const idMovil = moviles[0].id;
+        const res = asientosElegidos.map(n => ({
+            asiento_num: n, id_movil: idMovil, estado: 'en_curso',
             nombre_pasajero: nombreVal, pasajero_lat: miLat, pasajero_lon: miLon,
             destino_idx: parseInt(destinoIdx)
         }));
-        
-        const { error } = await _s.from('reservas_activas').insert(reservas);
-        if(!error) {
-            alert("✅ ¡Viaje pedido al Coche 0" + idAsignado + "!");
-            location.reload();
-        } else { alert("Hubo un error al reservar."); }
+        await _s.from('reservas_activas').insert(res);
+        alert("Viaje solicitado con éxito.");
+        location.reload();
     }
 
     setInterval(actualizarTaxis, 5000);
