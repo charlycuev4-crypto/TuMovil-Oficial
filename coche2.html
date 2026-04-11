@@ -42,17 +42,24 @@
         <div class="stat-box"><small style="color:#FFD700">PASAJEROS</small><div id="txt-pax" style="font-size:24px;">0</div></div>
     </div>
     <div class="ui-overlay bottom-ui">
-        <div class="asientos-pills"><div id="pill1" class="pill">1</div><div id="pill2" class="pill">2</div><div id="pill3" class="pill">3</div><div id="pill4" class="pill">4</div></div>
+        <div class="asientos-pills">
+            <div id="pill1" class="pill">1</div><div id="pill2" class="pill">2</div><div id="pill3" class="pill">3</div><div id="pill4" class="pill">4</div>
+        </div>
         <button class="btn-vaciar" onclick="vaciarTodo()">🏁 FINALIZAR / VACIAR COCHE 02</button>
     </div>
 <script>
     const MI_ID_MOVIL = 2;
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    const paradas = [{n:'P1', c:[-34.561264,-58.770506]},{n:'P2', c:[-34.586030,-58.747278]}]; // Simplificado por espacio
+    
+    const paradas = [
+        {n:'P1', c:[-34.561264, -58.770506]}, {n:'P25', c:[-34.586030, -58.747278]} 
+    ];
+
     const map = L.map('map',{zoomControl:false}).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     const iconTaxi = L.divIcon({html:'🚕', className:'taxi-icon', iconAnchor:[15,15]});
     const marcadorConductor = L.marker(paradas[0].c,{icon:iconTaxi}).addTo(map);
+    
     let markersPax = [], markersDest = [], watchId = null, estaOnline = false;
 
     async function gestionarConexion() {
@@ -60,4 +67,59 @@
         const label = document.getElementById('status-label');
         if (estaOnline) {
             label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
-            await _s.from('estado_movil').update({ ultima_conexion: new
+            // CORRECCIÓN AQUÍ: Se envía la fecha completa para la fila de espera
+            await _s.from('estado_movil').update({ 
+                ultima_conexion: new Date().toISOString(), 
+                latitud: paradas[0].c[0], 
+                longitud: paradas[0].c[1] 
+            }).eq('id', MI_ID_MOVIL);
+            iniciarGPS();
+        } else {
+            label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            await _s.from('estado_movil').update({ latitud: 0, longitud: 0 }).eq('id', MI_ID_MOVIL);
+        }
+    }
+
+    function iniciarGPS() {
+        watchId = navigator.geolocation.watchPosition(async p => {
+            if (!estaOnline) return;
+            const lat = p.coords.latitude, lon = p.coords.longitude;
+            marcadorConductor.setLatLng([lat, lon]); map.panTo([lat, lon]);
+            await _s.from('estado_movil').update({ latitud: lat, longitud: lon }).eq('id', MI_ID_MOVIL);
+        }, null, { enableHighAccuracy: true });
+    }
+
+    async function actualizarDatos() {
+        const { data: reser } = await _s.from('reservas_activas').select('*').eq('estado','en_curso').eq('id_movil', MI_ID_MOVIL);
+        markersPax.forEach(m => map.removeLayer(m)); markersDest.forEach(m => map.removeLayer(m));
+        markersPax = []; markersDest = [];
+        for(let i=1;i<=4;i++){ 
+            const p = document.getElementById('pill'+i);
+            p.className='pill'; p.innerText=i; 
+        }
+        if (reser) {
+            document.getElementById('txt-pax').innerText = reser.length;
+            document.getElementById('txt-plata').innerText = '$' + (reser.length * 1000);
+            reser.forEach(r => {
+                const p = document.getElementById('pill'+r.asiento_num); 
+                if(p){ p.className='pill active'; p.innerText="OK"; }
+                const pm = L.circleMarker([r.pasajero_lat, r.pasajero_lon],{color:'red',radius:8}).addTo(map); 
+                markersPax.push(pm);
+            });
+        }
+        document.getElementById('splash').style.opacity = '0'; 
+        setTimeout(()=>document.getElementById('splash').style.display='none', 800);
+    }
+
+    async function vaciarTodo() {
+        if(!confirm("¿Vaciar Coche 02?")) return;
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
+        actualizarDatos();
+    }
+
+    _s.channel('c2').on('postgres_changes',{event:'*',schema:'public',table:'reservas_activas'}, actualizarDatos).subscribe();
+    actualizarDatos();
+</script>
+</body>
+</html>
