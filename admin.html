@@ -3,92 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comando Central - TuMovil</title>
+    <title>TuMovil - Administrador</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --gold: #FFD700; --cyan: #00d4ff; --dark: #050505; --card: #121212; }
-        body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
-        #lock-screen { position: fixed; inset: 0; background: var(--dark); z-index: 9999; display: flex; justify-content: center; align-items: center; }
-        .lock-box { background: var(--card); padding: 30px; border: 2px solid var(--gold); border-radius: 15px; text-align: center; width: 85%; max-width: 320px; box-shadow: 0 0 20px rgba(255, 215, 0, 0.2); }
-        #main-panel { display: none; flex-direction: column; flex: 1; height: 100vh; }
-        header { background: #111; padding: 15px; border-bottom: 2px solid var(--gold); text-align: center; }
-        header h1 { margin: 0; font-size: 18px; color: var(--gold); letter-spacing: 2px; }
-        #map { flex: 1; width: 100%; min-height: 300px; }
-        .dashboard { background: var(--card); padding: 15px; border-top: 2px solid var(--gold); }
-        .stats { display: flex; gap: 10px; margin-bottom: 15px; }
-        .stat-card { flex: 1; background: #1a1a1a; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #333; }
-        .stat-card strong { display: block; font-size: 20px; color: var(--cyan); }
-        .admin-form input { width: 100%; padding: 12px; margin-bottom: 8px; background: #000; border: 1px solid #333; color: white; border-radius: 5px; box-sizing: border-box; }
-        .btn { width: 100%; padding: 14px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; background: var(--gold); color: black; }
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
+        body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; display: flex; height: 100vh; }
+        
+        /* Sidebar de datos */
+        #sidebar { width: 300px; background: var(--panel); border-right: 2px solid var(--celeste); display: flex; flex-direction: column; padding: 15px; box-sizing: border-box; }
+        #map { flex-grow: 1; }
+
+        .stat-card { background: rgba(0, 210, 255, 0.1); border: 1px solid var(--celeste); border-radius: 10px; padding: 15px; margin-bottom: 15px; text-align: center; }
+        .stat-card h3 { margin: 0; font-size: 14px; color: var(--celeste); text-transform: uppercase; }
+        .stat-card p { margin: 10px 0 0; font-size: 24px; font-weight: bold; color: var(--amarillo); }
+
+        .lista-viajes { flex-grow: 1; overflow-y: auto; margin-top: 10px; }
+        .viaje-item { background: #2a2a2a; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; border-left: 4px solid var(--amarillo); }
     </style>
 </head>
 <body>
 
-    <div id="lock-screen">
-        <div class="lock-box">
-            <h2 style="color: var(--gold); margin-bottom: 20px;">ACCESO SEGURO</h2>
-            <input type="password" id="pin-input" placeholder="Ingresa tu clave" style="width:100%; padding:12px; margin-bottom:15px; text-align:center; background:#000; color:white; border:1px solid var(--gold); border-radius:8px;">
-            <button class="btn" onclick="validar()">ENTRAR AL CEREBRO</button>
-        </div>
-    </div>
-
-    <div id="main-panel">
-        <header><h1>TU MÓVIL ADMIN</h1></header>
-        <div id="map"></div>
-        <div class="dashboard">
-            <div class="stats">
-                <div class="stat-card"><span>VIAJES</span><strong id="count">0</strong></div>
-                <div class="stat-card"><span>CAJA</span><strong id="money">$0</strong></div>
-            </div>
-            <div class="admin-form">
-                <input type="text" id="d-name" placeholder="Nombre del Chofer">
-                <input type="text" id="d-pat" placeholder="Patente">
-                <button class="btn" onclick="guardarChofer()">REGISTRAR CHOFER EN SANTA BRÍGIDA</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // CLAVE ACTUALIZADA: Yeshua77moira
-        const PIN_SECRET = "Yeshua77moira"; 
+    <div id="sidebar">
+        <h2 style="color: var(--celeste); margin-bottom: 20px;">TuMovil Admin</h2>
         
-        const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+        <div class="stat-card">
+            <h3>Recaudación Estimada</h3>
+            <p id="total-dinero">$0</p>
+        </div>
 
-        function validar() {
-            if(document.getElementById('pin-input').value === PIN_SECRET) {
-                document.getElementById('lock-screen').style.display = 'none';
-                document.getElementById('main-panel').style.display = 'flex';
-                setTimeout(initMap, 100);
-                update();
-            } else { alert("❌ Clave incorrecta"); }
-        }
+        <div class="stat-card">
+            <h3>Pasajeros en Curso</h3>
+            <p id="total-pasajeros">0</p>
+        </div>
 
-        let map;
-        function initMap() {
-            if (map) return;
-            map = L.map('map', { zoomControl: false }).setView([-34.572, -58.751], 14);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-        }
+        <div class="lista-viajes" id="lista-viajes">
+            <h4 style="border-bottom: 1px solid #444; padding-bottom: 5px;">Viajes Activos</h4>
+            </div>
+    </div>
 
-        async function update() {
-            const { data } = await _s.from('reservas_activas').select('*');
-            if(data) {
-                const fin = data.filter(v => v.estado === 'finalizado');
-                document.getElementById('count').innerText = fin.length;
-                document.getElementById('money').innerText = '$' + (fin.length * 1000);
+    <div id="map"></div>
+
+<script>
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+
+    // Configuración inicial del Mapa
+    const map = L.map('map').setView([-34.588, -58.750], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        className: 'map-tiles'
+    }).addTo(map);
+
+    let markersChoferes = {};
+    const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
+
+    async function refrescarAdmin() {
+        // 1. Obtener ubicación de todos los móviles
+        const { data: moviles } = await _s.from('estado_movil').select('*');
+        
+        moviles.forEach(m => {
+            if(m.latitud !== 0) {
+                if(markersChoferes[m.id]) {
+                    markersChoferes[m.id].setLatLng([m.latitud, m.longitud]);
+                } else {
+                    markersChoferes[m.id] = L.marker([m.latitud, m.longitud], { icon: iconT }).addTo(map).bindTooltip("Coche 0"+m.id);
+                }
             }
-        }
+        });
 
-        async function guardarChofer() {
-            const n = document.getElementById('d-name').value;
-            const p = document.getElementById('d-pat').value;
-            if(!n || !p) return alert("Faltan datos");
-            const { error } = await _s.from('conductores').insert([{ nombre: n, patente: p }]);
-            if(error) alert("Error: " + error.message);
-            else { alert("✅ ¡Chofer guardado correctamente!"); update(); }
+        // 2. Obtener todas las reservas activas
+        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
+        
+        if(reservas) {
+            document.getElementById('total-pasajeros').innerText = reservas.length;
+            document.getElementById('total-dinero').innerText = "$" + (reservas.length * 1000);
+            
+            const lista = document.getElementById('lista-viajes');
+            lista.innerHTML = '<h4 style="border-bottom: 1px solid #444; padding-bottom: 5px;">Viajes Activos</h4>';
+            
+            reservas.forEach(r => {
+                const item = document.createElement('div');
+                item.className = 'viaje-item';
+                item.innerHTML = `<b>${r.nombre_pasajero}</b><br>Coche 0${r.id_movil} - Asiento ${r.asiento_num}`;
+                lista.appendChild(item);
+            });
         }
-    </script>
+    }
+
+    // Actualizar cada 5 segundos para no gastar de más pero estar al día
+    setInterval(refrescarAdmin, 5000);
+    refrescarAdmin();
+</script>
+
+<style>
+    /* Filtro oscuro para el mapa para que haga juego con tu diseño */
+    .map-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+</style>
+
 </body>
 </html>
