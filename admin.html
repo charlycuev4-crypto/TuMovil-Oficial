@@ -3,43 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TuMovil - Administrador</title>
+    <title>TuMovil - Admin Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
-        body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; display: flex; height: 100vh; }
+        body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
         
-        /* Sidebar de datos */
-        #sidebar { width: 300px; background: var(--panel); border-right: 2px solid var(--celeste); display: flex; flex-direction: column; padding: 15px; box-sizing: border-box; }
+        /* Sidebar Izquierdo */
+        #sidebar { width: 320px; background: var(--panel); border-right: 2px solid var(--celeste); display: flex; flex-direction: column; padding: 15px; overflow-y: auto; }
         #map { flex-grow: 1; }
 
-        .stat-card { background: rgba(0, 210, 255, 0.1); border: 1px solid var(--celeste); border-radius: 10px; padding: 15px; margin-bottom: 15px; text-align: center; }
-        .stat-card h3 { margin: 0; font-size: 14px; color: var(--celeste); text-transform: uppercase; }
-        .stat-card p { margin: 10px 0 0; font-size: 24px; font-weight: bold; color: var(--amarillo); }
+        .stat-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 12px; margin-bottom: 10px; text-align: center; }
+        .stat-card p { margin: 5px 0; font-size: 22px; color: var(--amarillo); font-weight: bold; }
 
-        .lista-viajes { flex-grow: 1; overflow-y: auto; margin-top: 10px; }
-        .viaje-item { background: #2a2a2a; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; border-left: 4px solid var(--amarillo); }
+        /* Formulario Añadir Conductor */
+        .admin-section { border-top: 1px solid #333; margin-top: 15px; padding-top: 15px; }
+        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 8px; border-radius: 5px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
+        .btn-add { background: var(--celeste); color: #000; border: none; padding: 10px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; }
+
+        /* Lista de Flota */
+        .flota-item { background: #252525; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid var(--celeste); font-size: 13px; }
+        .flota-item b { color: var(--celeste); }
+        .money-tag { color: #28a745; font-weight: bold; float: right; }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <h2 style="color: var(--celeste); margin-bottom: 20px;">TuMovil Admin</h2>
+        <h2 style="color: var(--celeste); margin-top: 0;">TuMovil Admin 🛰️</h2>
         
         <div class="stat-card">
-            <h3>Recaudación Estimada</h3>
-            <p id="total-dinero">$0</p>
+            <small>TOTAL RECAUDADO HOY</small>
+            <p id="caja-total">$0</p>
         </div>
 
-        <div class="stat-card">
-            <h3>Pasajeros en Curso</h3>
-            <p id="total-pasajeros">0</p>
+        <div class="admin-section">
+            <h4>➕ NUEVO CONDUCTOR</h4>
+            <input type="number" id="new-id" placeholder="ID Móvil (Ej: 2)">
+            <input type="text" id="new-driver" placeholder="Nombre Chofer">
+            <input type="text" id="new-car" placeholder="Marca / Modelo">
+            <input type="text" id="new-plate" placeholder="Patente">
+            <button class="btn-add" onclick="registrarVehiculo()">DAR DE ALTA</button>
         </div>
 
-        <div class="lista-viajes" id="lista-viajes">
-            <h4 style="border-bottom: 1px solid #444; padding-bottom: 5px;">Viajes Activos</h4>
+        <div class="admin-section" id="flota-list">
+            <h4>🚗 ESTADO DE FLOTA</h4>
             </div>
     </div>
 
@@ -48,55 +58,76 @@
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // Configuración inicial del Mapa
     const map = L.map('map').setView([-34.588, -58.750], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        className: 'map-tiles'
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { className: 'map-tiles' }).addTo(map);
 
     let markersChoferes = {};
     const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
 
-    async function refrescarAdmin() {
-        // 1. Obtener ubicación de todos los móviles
-        const { data: moviles } = await _s.from('estado_movil').select('*');
-        
-        moviles.forEach(m => {
-            if(m.latitud !== 0) {
-                if(markersChoferes[m.id]) {
-                    markersChoferes[m.id].setLatLng([m.latitud, m.longitud]);
-                } else {
-                    markersChoferes[m.id] = L.marker([m.latitud, m.longitud], { icon: iconT }).addTo(map).bindTooltip("Coche 0"+m.id);
-                }
-            }
+    // 1. REGISTRAR VEHÍCULO
+    async function registrarVehiculo() {
+        const id = document.getElementById('new-id').value;
+        const nombre = document.getElementById('new-driver').value;
+        const marca = document.getElementById('new-car').value;
+        const patente = document.getElementById('new-plate').value;
+
+        if(!id || !nombre) return alert("Faltan datos");
+
+        // Insertar o actualizar en la tabla de móviles
+        await _s.from('estado_movil').upsert({
+            id: id,
+            chofer: nombre,
+            vehiculo: marca,
+            patente: patente,
+            latitud: 0, longitud: 0
         });
 
-        // 2. Obtener todas las reservas activas
-        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
-        
-        if(reservas) {
-            document.getElementById('total-pasajeros').innerText = reservas.length;
-            document.getElementById('total-dinero').innerText = "$" + (reservas.length * 1000);
-            
-            const lista = document.getElementById('lista-viajes');
-            lista.innerHTML = '<h4 style="border-bottom: 1px solid #444; padding-bottom: 5px;">Viajes Activos</h4>';
-            
-            reservas.forEach(r => {
-                const item = document.createElement('div');
-                item.className = 'viaje-item';
-                item.innerHTML = `<b>${r.nombre_pasajero}</b><br>Coche 0${r.id_movil} - Asiento ${r.asiento_num}`;
-                lista.appendChild(item);
-            });
-        }
+        alert("Vehículo " + id + " registrado correctamente");
+        location.reload();
     }
 
-    // Actualizar cada 5 segundos para no gastar de más pero estar al día
-    setInterval(refrescarAdmin, 5000);
-    refrescarAdmin();
+    // 2. ACTUALIZAR TODO
+    async function refrescarTodo() {
+        // Traer móviles y reservas
+        const { data: moviles } = await _s.from('estado_movil').select('*').order('id', {ascending: true});
+        const { data: reservas } = await _s.from('reservas_activas').select('*');
+
+        const flotaDiv = document.getElementById('flota-list');
+        flotaDiv.innerHTML = '<h4>🚗 ESTADO DE FLOTA</h4>';
+        
+        let totalCajaGral = 0;
+
+        moviles.forEach(m => {
+            // Dibujar en mapa
+            if(m.latitud !== 0) {
+                if(markersChoferes[m.id]) markersChoferes[m.id].setLatLng([m.latitud, m.longitud]);
+                else markersChoferes[m.id] = L.marker([m.latitud, m.longitud], { icon: iconT }).addTo(map).bindTooltip(`Coche ${m.id}: ${m.chofer}`);
+            }
+
+            // Calcular ganancias de este coche
+            const viajesCoche = reservas.filter(r => r.id_movil == m.id && r.estado == 'finalizado');
+            const gananciaCoche = viajesCoche.length * 1000;
+            totalCajaGral += gananciaCoche;
+
+            // Añadir a la lista lateral
+            const item = document.createElement('div');
+            item.className = 'flota-item';
+            item.innerHTML = `
+                <b>COCHE ${m.id}</b> <span class="money-tag">$${gananciaCoche}</span><br>
+                <small>${m.chofer || 'Sin nombre'} | ${m.vehiculo || 'S/D'}</small><br>
+                <small>Patente: ${m.patente || '---'}</small>
+            `;
+            flotaDiv.appendChild(item);
+        });
+
+        document.getElementById('caja-total').innerText = "$" + totalCajaGral;
+    }
+
+    setInterval(refrescarTodo, 5000);
+    refrescarTodo();
 </script>
 
 <style>
-    /* Filtro oscuro para el mapa para que haga juego con tu diseño */
     .map-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
 </style>
 
