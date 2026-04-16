@@ -3,35 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TuMovil - Admin Master</title>
+    <title>TuMovil - Admin Control Total</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
         body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
-        
-        /* Sidebar con scroll para que entre todo */
         #sidebar { width: 350px; background: var(--panel); border-right: 2px solid var(--celeste); display: flex; flex-direction: column; padding: 15px; overflow-y: auto; z-index: 1000; }
         #map { flex-grow: 1; height: 100vh; }
-        
         .stat-card { background: rgba(0, 210, 255, 0.1); border: 1px solid var(--celeste); border-radius: 12px; padding: 12px; margin-bottom: 10px; text-align: center; }
         .stat-card p { margin: 5px 0; font-size: 26px; color: var(--amarillo); font-weight: bold; }
-        
         .admin-section { border-top: 1px solid #333; margin-top: 15px; padding-top: 15px; }
-        h4 { color: var(--celeste); margin-bottom: 10px; font-size: 14px; text-transform: uppercase; }
-        
+        h4 { color: var(--celeste); margin-bottom: 10px; font-size: 14px; }
         input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 8px; border-radius: 5px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
-        .btn-add { background: var(--celeste); color: #000; border: none; padding: 10px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; transition: 0.3s; margin-bottom: 10px;}
-        
-        /* Estilo para los items de la lista */
+        .btn-add { background: var(--celeste); color: #000; border: none; padding: 10px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; width: 100%; }
         .item-list { background: #252525; padding: 10px; border-radius: 8px; margin-top: 8px; font-size: 13px; border-left: 4px solid #444; position: relative; }
-        .pasajero-item { border-left-color: var(--amarillo); }
-        .coche-item { border-left-color: #28a745; }
-        
-        .btn-delete { background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; position: absolute; right: 10px; top: 10px; }
-        
-        .money-tag { color: #28a745; font-weight: bold; float: right; font-size: 14px; }
+        .pasajero-card { border-left-color: var(--amarillo); }
+        .btn-finalizar { background: #dc3545; color: white; border: none; padding: 3px 7px; border-radius: 4px; font-size: 10px; cursor: pointer; position: absolute; right: 10px; top: 10px; }
         .map-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
     </style>
 </head>
@@ -41,36 +30,32 @@
     <h2 style="color: var(--celeste); margin-top: 0;">TuMovil Admin 🛰️</h2>
     
     <div class="stat-card">
-        <small>RECAUDACIÓN ESTIMADA</small>
+        <small>RECAUDACIÓN HOY</small>
         <p id="caja-total">$0</p>
     </div>
 
     <div class="admin-section">
-        <h4>👥 PASAJEROS EN LA APP</h4>
-        <div id="pasajeros-list">
-            <p style="font-size: 12px; color: #888;">Buscando pasajeros...</p>
-        </div>
+        <h4>👥 PASAJEROS ACTIVOS</h4>
+        <div id="lista-pasajeros">Buscando...</div>
     </div>
 
     <div class="admin-section">
-        <h4>🚗 GESTIÓN DE FLOTA</h4>
-        <div id="flota-list"></div>
-    </div>
-
-    <div class="admin-section">
-        <h4>⚙️ CONFIGURAR COCHE</h4>
+        <h4>⚙️ GESTIONAR CHOFERES</h4>
         <input type="number" id="new-id" placeholder="N° de Coche">
-        <input type="text" id="new-driver" placeholder="Nombre Chofer">
+        <input type="text" id="new-driver" placeholder="Nombre del Chofer">
         <input type="text" id="new-car" placeholder="Vehículo">
         <input type="text" id="new-plate" placeholder="Patente">
-        <button class="btn-add" onclick="guardarCambiosChofer()">ACTUALIZAR</button>
+        <button class="btn-add" onclick="guardarCambiosChofer()">ACTUALIZAR DATOS</button>
+    </div>
+
+    <div id="flota-list" class="admin-section">
+        <h4>🚗 ESTADO DE FLOTA</h4>
     </div>
 </div>
 
 <div id="map"></div>
 
 <script>
-    // Configuración Supabase
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
     const map = L.map('map', { zoomControl: false }).setView([-34.588, -58.750], 14);
@@ -84,19 +69,18 @@
         const nombre = document.getElementById('new-driver').value;
         const marca = document.getElementById('new-car').value;
         const patente = document.getElementById('new-plate').value;
-        if(!id || !nombre) return alert("N° Coche y Nombre obligatorios");
+        if(!id || !nombre) return alert("N° de Coche y Nombre son obligatorios");
 
         const { error } = await _s.from('estado_movil').upsert({
             id: parseInt(id), chofer: nombre, vehiculo: marca, patente: patente
         });
-        if (error) alert(error.message); else { alert("Coche actualizado"); refrescarTodo(); }
+        if (error) alert(error.message); else { alert("¡Chofer actualizado!"); refrescarTodo(); }
     }
 
-    // Función para borrar reserva cuando el pasajero baja
-    async function finalizarViaje(idReserva) {
-        if(!confirm("¿El pasajero ya bajó? Esto lo quitará de la lista.")) return;
-        const { error } = await _s.from('reservas_activas').delete().eq('id', idReserva);
-        if (error) alert("Error al borrar"); else refrescarTodo();
+    async function eliminarPasajero(id) {
+        if(!confirm("¿Borrar este registro?")) return;
+        await _s.from('reservas_activas').delete().eq('id', id);
+        refrescarTodo();
     }
 
     async function refrescarTodo() {
@@ -104,60 +88,49 @@
             const { data: moviles } = await _s.from('estado_movil').select('*').order('id', {ascending: true});
             const { data: reservas } = await _s.from('reservas_activas').select('*');
 
-            // --- ACTUALIZAR PASAJEROS ---
-            const pasDiv = document.getElementById('pasajeros-list');
-            pasDiv.innerHTML = '';
-            if(reservas.length === 0) pasDiv.innerHTML = '<p style="font-size:12px;color:#666;">No hay pasajeros registrados aún.</p>';
-
+            // Actualizar Lista de Pasajeros
+            const pDiv = document.getElementById('lista-pasajeros');
+            pDiv.innerHTML = '';
+            if(reservas.length === 0) pDiv.innerHTML = '<small style="color:#666;">Sin pasajeros por ahora.</small>';
             reservas.forEach(r => {
                 const div = document.createElement('div');
-                div.className = 'item-list pasajero-item';
+                div.className = 'item-list pasajero-card';
                 div.innerHTML = `
-                    <button class="btn-delete" onclick="finalizarViaje(${r.id})">BORRAR</button>
-                    <b>👤 ${r.nombre_pasajero || 'Anónimo'}</b><br>
-                    📍 Coche: ${r.id_movil} | Asiento: ${r.asiento}<br>
-                    <small>🕒 ${new Date(r.created_at).toLocaleTimeString()}</small>
+                    <button class="btn-finalizar" onclick="eliminarPasajero(${r.id})">X</button>
+                    <b>${r.nombre_pasajero}</b><br>
+                    <small>Coche ${r.id_movil} | Asiento ${r.asiento}</small>
                 `;
-                pasDiv.appendChild(div);
+                pDiv.appendChild(div);
             });
 
-            // --- ACTUALIZAR FLOTA Y MAPA ---
-            const flotaDiv = document.getElementById('flota-list');
-            flotaDiv.innerHTML = '';
+            // Actualizar Mapa y Flota
+            const fDiv = document.getElementById('flota-list');
+            fDiv.innerHTML = '<h4>🚗 ESTADO DE FLOTA</h4>';
             let totalCaja = 0;
 
             moviles.forEach(m => {
-                if(m.latitud && m.latitud !== 0) {
-                    const info = `<b>Coche ${m.id}</b><br>${m.chofer}`;
+                if(m.latitud) {
+                    const info = `Coche ${m.id}: ${m.chofer}`;
                     if(markersChoferes[m.id]) {
                         markersChoferes[m.id].setLatLng([m.latitud, m.longitud]).setTooltipContent(info);
                     } else {
                         markersChoferes[m.id] = L.marker([m.latitud, m.longitud], { icon: iconT }).addTo(map).bindTooltip(info);
                     }
                 }
-
-                // Cálculo de caja (Solo pasajeros confirmados en ese auto)
-                const pasajerosEsteCoche = reservas.filter(r => r.id_movil == m.id).length;
-                const gananciaCoche = pasajerosEsteCoche * 1000;
-                totalCaja += gananciaCoche;
+                const ganancia = reservas.filter(r => r.id_movil == m.id).length * 1000;
+                totalCaja += ganancia;
 
                 const item = document.createElement('div');
-                item.className = 'item-list coche-item';
-                item.innerHTML = `
-                    <b>COCHE ${m.id}</b> <span class="money-tag">$${gananciaCoche}</span><br>
-                    👤 ${m.chofer || 'S/N'} | 🚘 ${m.vehiculo || '---'}<br>
-                    <small>📡 ${m.latitud !== 0 ? 'En línea' : 'Desconectado'}</small>
-                `;
-                flotaDiv.appendChild(item);
+                item.className = 'item-list';
+                item.innerHTML = `<b>COCHE ${m.id}</b>: $${ganancia}<br><small>${m.chofer || 'S/N'}</small>`;
+                fDiv.appendChild(item);
             });
-
             document.getElementById('caja-total').innerText = "$" + totalCaja;
-        } catch (e) { console.error(e); }
+        } catch (e) { console.log("Reconectando..."); }
     }
     
     setInterval(refrescarTodo, 5000);
     refrescarTodo();
 </script>
-
 </body>
 </html>
