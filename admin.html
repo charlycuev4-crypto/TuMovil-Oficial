@@ -3,74 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TuMovil - Admin Master</title>
+    <title>TuMovil - Admin Final Protegido</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --gold: #FFD700; --cyan: #00d4ff; --dark: #050505; --card: #121212; --success: #4cd964; }
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
         body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
-        #sidebar { width: 350px; background: #111; border-right: 2px solid var(--gold); display: flex; flex-direction: column; padding: 15px; overflow-y: auto; z-index: 1000; }
+        #sidebar { width: 320px; background: var(--panel); border-right: 2px solid var(--celeste); display: flex; flex-direction: column; padding: 15px; overflow-y: auto; z-index: 1000; }
         #map { flex-grow: 1; height: 100vh; }
-        .stat-card { background: rgba(255, 215, 0, 0.1); border: 1px solid var(--gold); border-radius: 12px; padding: 12px; margin-bottom: 10px; text-align: center; }
-        .stat-card p { margin: 5px 0; font-size: 26px; color: var(--gold); font-weight: bold; }
-        .section { border-top: 1px solid #333; margin-top: 15px; padding-top: 15px; }
-        input { background: #222; border: 1px solid #444; color: white; padding: 8px; border-radius: 5px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
-        .btn { background: var(--gold); color: black; border: none; padding: 10px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; margin-bottom: 5px; }
-        .btn-sec { background: #333; color: white; font-size: 10px; padding: 5px; }
-        .pax-item { background: #1a1a1a; padding: 10px; border-radius: 8px; margin-top: 8px; border-left: 4px solid var(--cyan); font-size: 13px; }
+        .stat-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 12px; margin-bottom: 10px; text-align: center; }
+        .stat-card p { margin: 5px 0; font-size: 26px; color: var(--amarillo); font-weight: bold; }
+        .admin-section { border-top: 1px solid #333; margin-top: 15px; padding-top: 15px; }
+        input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
+        .btn-add { background: var(--celeste); color: #000; border: none; padding: 12px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; transition: 0.3s; margin-bottom: 5px; }
+        .btn-add:hover { background: var(--amarillo); }
+        .flota-item { background: #252525; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; line-height: 1.5; position: relative; }
+        .money-tag { color: #28a745; font-weight: bold; float: right; font-size: 16px; }
         .map-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+        .btn-chico { background: #444; color: #ccc; font-size: 10px; padding: 5px; border: none; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <script>
-    // --- LÓGICA DE CONTRASEÑA ---
-    let passGuardada = localStorage.getItem("adminPass") || "1234"; 
-    const ingreso = prompt("Acceso de Administrador. Ingrese su clave:");
+    // --- LÓGICA DE SEGURIDAD ---
+    let passCorrecta = localStorage.getItem("adminPass") || "1234"; 
+    const intento = prompt("Ingrese la contraseña de Administrador:");
 
-    if (ingreso !== passGuardada) {
+    if (intento !== passCorrecta) {
         document.body.innerHTML = "<h1 style='color:white; text-align:center; margin-top:100px;'>❌ Acceso Denegado</h1>";
         window.stop();
     }
 
-    function cambiarPass() {
+    function cambiarContrasena() {
         const nueva = prompt("Ingrese su NUEVA contraseña:");
         if (nueva && nueva.length > 0) {
             localStorage.setItem("adminPass", nueva);
-            alert("¡Contraseña actualizada! Se pedirá en el próximo ingreso.");
+            alert("Contraseña actualizada. Se aplicará en el próximo ingreso.");
         }
     }
 </script>
 
 <div id="sidebar">
-    <h2 style="color: var(--gold); margin-top: 0;">TuMovil Admin 🛰️</h2>
+    <h2 style="color: var(--celeste); margin-top: 0;">TuMovil Admin 🛰️</h2>
     
     <div class="stat-card">
-        <small>RECAUDACIÓN ESTIMADA</small>
+        <small>TOTAL RECAUDADO HOY</small>
         <p id="caja-total">$0</p>
     </div>
 
-    <div class="section">
-        <h4 style="color: var(--cyan);">👥 RADAR DE PASAJEROS</h4>
-        <div id="lista-pax"><small>Buscando movimientos...</small></div>
+    <div class="admin-section">
+        <h4 style="color: var(--amarillo); margin-bottom: 10px;">👥 PASAJEROS EN LA APP</h4>
+        <div id="pax-radar"><small style="color: #666;">Buscando actividad...</small></div>
     </div>
 
-    <div class="section">
-        <h4>⚙️ GESTIÓN DE CONDUCTORES</h4>
-        <input type="number" id="c-id" placeholder="N° de Coche">
-        <input type="text" id="c-nom" placeholder="Nombre Chofer">
-        <input type="text" id="c-veh" placeholder="Vehículo">
-        <input type="text" id="c-pat" placeholder="Patente">
-        <button class="btn" onclick="actualizarChofer()">ACTUALIZAR CONDUCTOR</button>
+    <div class="admin-section">
+        <h4>📝 GESTIONAR CHOFER / AUTO</h4>
+        <input type="number" id="new-id" placeholder="N° de Coche">
+        <input type="text" id="new-driver" placeholder="Nombre del Chofer">
+        <input type="text" id="new-car" placeholder="Marca y Modelo">
+        <input type="text" id="new-plate" placeholder="Patente">
+        <button class="btn-add" onclick="guardarCambiosChofer()">ACTUALIZAR DATOS</button>
     </div>
 
-    <div id="flota" class="section">
-        <h4>🚗 ESTADO DE FLOTA</h4>
+    <div id="flota-list" class="admin-section">
+        <h4>🚗 ESTADO DE FLOTA ACTUAL</h4>
     </div>
 
-    <div class="section" style="margin-top: auto;">
-        <button class="btn btn-sec" onclick="cambiarPass()">⚙️ CAMBIAR MI CONTRASEÑA</button>
+    <div class="admin-section" style="margin-top: auto; padding-bottom: 10px;">
+        <button class="btn-chico" onclick="cambiarContrasena()">⚙️ CAMBIAR CONTRASEÑA</button>
     </div>
 </div>
 
@@ -81,54 +83,78 @@
 
     const map = L.map('map', { zoomControl: false }).setView([-34.588, -58.750], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { className: 'map-tiles' }).addTo(map);
-    
-    let markers = {};
-    const taxiIcon = L.divIcon({ html: '🚕', className: 'taxi-icon', iconSize: [25, 25] });
 
-    async function actualizarChofer() {
-        const id = document.getElementById('c-id').value;
+    let markersChoferes = {};
+    const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
+
+    async function guardarCambiosChofer() {
+        const id = document.getElementById('new-id').value;
+        const nombre = document.getElementById('new-driver').value;
+        if(!id || !nombre) return alert("Falta el N° de Coche y el Nombre.");
+
         const { error } = await _s.from('estado_movil').upsert({
-            id: id, 
-            chofer: document.getElementById('c-nom').value,
-            vehiculo: document.getElementById('c-veh').value,
-            patente: document.getElementById('c-pat').value
+            id: parseInt(id),
+            chofer: nombre,
+            vehiculo: document.getElementById('new-car').value,
+            patente: document.getElementById('new-plate').value
         });
-        if (error) alert("Error al guardar"); else alert("¡Chofer actualizado con éxito!");
+        if (error) alert("Error: " + error.message); else { alert("¡Datos actualizados!"); refrescarTodo(); }
     }
 
-    async function refrescar() {
+    async function refrescarTodo() {
         try {
-            const { data: moviles } = await _s.from('estado_movil').select('*');
+            const { data: moviles } = await _s.from('estado_movil').select('*').order('id', {ascending: true});
             const { data: reservas } = await _s.from('reservas_activas').select('*');
 
-            // Radar de Pasajeros
-            const pList = document.getElementById('lista-pax');
-            pList.innerHTML = '';
-            if(reservas.length === 0) pList.innerHTML = '<small style="color:#666;">Sin actividad reciente.</small>';
+            // 1. Radar de Pasajeros (TikTok / FB Monitor)
+            const radarDiv = document.getElementById('pax-radar');
+            radarDiv.innerHTML = '';
+            if(reservas.length === 0) radarDiv.innerHTML = '<small style="color:#666;">Sin pasajeros ahora.</small>';
             reservas.forEach(r => {
-                pList.innerHTML += `<div class='pax-item'><b>👤 ${r.nombre_pasajero}</b><br>Asiento ${r.asiento} | Coche ${r.id_movil}</div>`;
+                const pItem = document.createElement('div');
+                pItem.className = 'flota-item';
+                pItem.style.borderLeft = "4px solid var(--amarillo)";
+                pItem.innerHTML = `👤 <b>${r.nombre_pasajero}</b><br><small>Coche ${r.id_movil} | Asiento ${r.asiento}</small>`;
+                radarDiv.appendChild(pItem);
             });
 
-            // Flota y Mapa
-            const fList = document.getElementById('flota');
-            fList.innerHTML = '<h4>🚗 ESTADO DE FLOTA</h4>';
-            let total = 0;
+            // 2. Estado de Flota y Mapa
+            const flotaDiv = document.getElementById('flota-list');
+            flotaDiv.innerHTML = '<h4>🚗 ESTADO DE FLOTA ACTUAL</h4>';
+            let totalCajaGral = 0;
 
             moviles.forEach(m => {
-                const ganancia = reservas.filter(r => r.id_movil == m.id).length * 1000;
-                total += ganancia;
-                if(m.latitud) {
-                    if(markers[m.id]) markers[m.id].setLatLng([m.latitud, m.longitud]);
-                    else markers[m.id] = L.marker([m.latitud, m.longitud], {icon: taxiIcon}).addTo(map);
+                if(m.latitud && m.latitud !== 0) {
+                    const infoTooltip = `<b>Coche ${m.id}</b><br>${m.chofer || 'S/N'}`;
+                    if(markersChoferes[m.id]) {
+                        markersChoferes[m.id].setLatLng([m.latitud, m.longitud]).setTooltipContent(infoTooltip);
+                    } else {
+                        markersChoferes[m.id] = L.marker([m.latitud, m.longitud], { icon: iconT }).addTo(map).bindTooltip(infoTooltip);
+                    }
                 }
-                fList.innerHTML += `<div class='pax-item' style='border-color:var(--gold)'><b>COCHE ${m.id}</b>: $${ganancia}<br><small>${m.chofer}</small></div>`;
+
+                const gananciaCoche = reservas.filter(r => r.id_movil == m.id).length * 1000;
+                totalCajaGral += gananciaCoche;
+
+                const item = document.createElement('div');
+                item.className = 'flota-item';
+                item.style.borderLeft = (m.latitud !== 0) ? "4px solid #28a745" : "4px solid #dc3545";
+                item.innerHTML = `
+                    <b>COCHE ${m.id}</b> <span class="money-tag">$${gananciaCoche}</span><br>
+                    👤 ${m.chofer || 'Sin asignar'}<br>
+                    🚘 ${m.vehiculo || 'Sin vehículo'}<br>
+                    <small>🆔 Patente: ${m.patente || '---'}</small>
+                `;
+                flotaDiv.appendChild(item);
             });
-            document.getElementById('caja-total').innerText = "$" + total;
+
+            document.getElementById('caja-total').innerText = "$" + totalCajaGral;
         } catch (e) { console.log("Reconectando..."); }
     }
-
-    setInterval(refrescar, 5000);
-    refrescar();
+    
+    setInterval(refrescarTodo, 5000);
+    refrescarTodo();
 </script>
+
 </body>
 </html>
