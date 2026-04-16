@@ -3,23 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TuMovil - Admin Final</title>
+    <title>TuMovil - Admin Master</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
         body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
-        #sidebar { width: 320px; background: var(--panel); border-right: 2px solid var(--celeste); display: flex; flex-direction: column; padding: 15px; overflow-y: auto; z-index: 1000; }
+        
+        /* Sidebar con scroll para que entre todo */
+        #sidebar { width: 350px; background: var(--panel); border-right: 2px solid var(--celeste); display: flex; flex-direction: column; padding: 15px; overflow-y: auto; z-index: 1000; }
         #map { flex-grow: 1; height: 100vh; }
-        .stat-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 12px; margin-bottom: 10px; text-align: center; }
+        
+        .stat-card { background: rgba(0, 210, 255, 0.1); border: 1px solid var(--celeste); border-radius: 12px; padding: 12px; margin-bottom: 10px; text-align: center; }
         .stat-card p { margin: 5px 0; font-size: 26px; color: var(--amarillo); font-weight: bold; }
+        
         .admin-section { border-top: 1px solid #333; margin-top: 15px; padding-top: 15px; }
-        input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
-        .btn-add { background: var(--celeste); color: #000; border: none; padding: 12px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; transition: 0.3s; }
-        .btn-add:hover { background: var(--amarillo); }
-        .flota-item { background: #252525; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; line-height: 1.5; }
-        .money-tag { color: #28a745; font-weight: bold; float: right; font-size: 16px; }
+        h4 { color: var(--celeste); margin-bottom: 10px; font-size: 14px; text-transform: uppercase; }
+        
+        input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 8px; border-radius: 5px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
+        .btn-add { background: var(--celeste); color: #000; border: none; padding: 10px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; transition: 0.3s; margin-bottom: 10px;}
+        
+        /* Estilo para los items de la lista */
+        .item-list { background: #252525; padding: 10px; border-radius: 8px; margin-top: 8px; font-size: 13px; border-left: 4px solid #444; position: relative; }
+        .pasajero-item { border-left-color: var(--amarillo); }
+        .coche-item { border-left-color: #28a745; }
+        
+        .btn-delete { background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; position: absolute; right: 10px; top: 10px; }
+        
+        .money-tag { color: #28a745; font-weight: bold; float: right; font-size: 14px; }
         .map-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
     </style>
 </head>
@@ -29,32 +41,38 @@
     <h2 style="color: var(--celeste); margin-top: 0;">TuMovil Admin 🛰️</h2>
     
     <div class="stat-card">
-        <small>TOTAL RECAUDADO HOY</small>
+        <small>RECAUDACIÓN ESTIMADA</small>
         <p id="caja-total">$0</p>
     </div>
 
     <div class="admin-section">
-        <h4>📝 GESTIONAR CHOFER / AUTO</h4>
-        <input type="number" id="new-id" placeholder="N° de Coche (Ej: 1 o 2)">
-        <input type="text" id="new-driver" placeholder="Nombre del Chofer">
-        <input type="text" id="new-car" placeholder="Marca y Modelo">
-        <input type="text" id="new-plate" placeholder="Patente del vehículo">
-        <button class="btn-add" onclick="guardarCambiosChofer()">ACTUALIZAR DATOS</button>
-        <p style="font-size: 10px; color: #888; margin-top: 5px;">*Si el coche ya existe, se cambiarán los datos.</p>
+        <h4>👥 PASAJEROS EN LA APP</h4>
+        <div id="pasajeros-list">
+            <p style="font-size: 12px; color: #888;">Buscando pasajeros...</p>
+        </div>
     </div>
 
-    <div id="flota-list" class="admin-section">
-        <h4>🚗 ESTADO DE FLOTA ACTUAL</h4>
+    <div class="admin-section">
+        <h4>🚗 GESTIÓN DE FLOTA</h4>
+        <div id="flota-list"></div>
+    </div>
+
+    <div class="admin-section">
+        <h4>⚙️ CONFIGURAR COCHE</h4>
+        <input type="number" id="new-id" placeholder="N° de Coche">
+        <input type="text" id="new-driver" placeholder="Nombre Chofer">
+        <input type="text" id="new-car" placeholder="Vehículo">
+        <input type="text" id="new-plate" placeholder="Patente">
+        <button class="btn-add" onclick="guardarCambiosChofer()">ACTUALIZAR</button>
     </div>
 </div>
 
 <div id="map"></div>
 
 <script>
-    // Configuración de Conexión
+    // Configuración Supabase
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // Inicializar Mapa
     const map = L.map('map', { zoomControl: false }).setView([-34.588, -58.750], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { className: 'map-tiles' }).addTo(map);
 
@@ -66,25 +84,19 @@
         const nombre = document.getElementById('new-driver').value;
         const marca = document.getElementById('new-car').value;
         const patente = document.getElementById('new-plate').value;
-
-        if(!id || !nombre) {
-            alert("Falta el N° de Coche y el Nombre.");
-            return;
-        }
+        if(!id || !nombre) return alert("N° Coche y Nombre obligatorios");
 
         const { error } = await _s.from('estado_movil').upsert({
-            id: parseInt(id),
-            chofer: nombre,
-            vehiculo: marca,
-            patente: patente
+            id: parseInt(id), chofer: nombre, vehiculo: marca, patente: patente
         });
+        if (error) alert(error.message); else { alert("Coche actualizado"); refrescarTodo(); }
+    }
 
-        if (error) {
-            alert("Error: " + error.message);
-        } else {
-            alert("¡Datos actualizados!");
-            refrescarTodo();
-        }
+    // Función para borrar reserva cuando el pasajero baja
+    async function finalizarViaje(idReserva) {
+        if(!confirm("¿El pasajero ya bajó? Esto lo quitará de la lista.")) return;
+        const { error } = await _s.from('reservas_activas').delete().eq('id', idReserva);
+        if (error) alert("Error al borrar"); else refrescarTodo();
     }
 
     async function refrescarTodo() {
@@ -92,42 +104,55 @@
             const { data: moviles } = await _s.from('estado_movil').select('*').order('id', {ascending: true});
             const { data: reservas } = await _s.from('reservas_activas').select('*');
 
+            // --- ACTUALIZAR PASAJEROS ---
+            const pasDiv = document.getElementById('pasajeros-list');
+            pasDiv.innerHTML = '';
+            if(reservas.length === 0) pasDiv.innerHTML = '<p style="font-size:12px;color:#666;">No hay pasajeros registrados aún.</p>';
+
+            reservas.forEach(r => {
+                const div = document.createElement('div');
+                div.className = 'item-list pasajero-item';
+                div.innerHTML = `
+                    <button class="btn-delete" onclick="finalizarViaje(${r.id})">BORRAR</button>
+                    <b>👤 ${r.nombre_pasajero || 'Anónimo'}</b><br>
+                    📍 Coche: ${r.id_movil} | Asiento: ${r.asiento}<br>
+                    <small>🕒 ${new Date(r.created_at).toLocaleTimeString()}</small>
+                `;
+                pasDiv.appendChild(div);
+            });
+
+            // --- ACTUALIZAR FLOTA Y MAPA ---
             const flotaDiv = document.getElementById('flota-list');
-            flotaDiv.innerHTML = '<h4>🚗 ESTADO DE FLOTA ACTUAL</h4>';
-            
-            let totalCajaGral = 0;
+            flotaDiv.innerHTML = '';
+            let totalCaja = 0;
 
             moviles.forEach(m => {
-                // Actualizar GPS en Mapa
                 if(m.latitud && m.latitud !== 0) {
-                    const infoTooltip = `<b>Coche ${m.id}</b><br>${m.chofer || 'S/N'}`;
+                    const info = `<b>Coche ${m.id}</b><br>${m.chofer}`;
                     if(markersChoferes[m.id]) {
-                        markersChoferes[m.id].setLatLng([m.latitud, m.longitud]).setTooltipContent(infoTooltip);
+                        markersChoferes[m.id].setLatLng([m.latitud, m.longitud]).setTooltipContent(info);
                     } else {
-                        markersChoferes[m.id] = L.marker([m.latitud, m.longitud], { icon: iconT }).addTo(map).bindTooltip(infoTooltip);
+                        markersChoferes[m.id] = L.marker([m.latitud, m.longitud], { icon: iconT }).addTo(map).bindTooltip(info);
                     }
                 }
 
-                // Dinero por coche
-                const gananciaCoche = reservas.filter(r => r.id_movil == m.id && r.estado == 'finalizado').length * 1000;
-                totalCajaGral += gananciaCoche;
+                // Cálculo de caja (Solo pasajeros confirmados en ese auto)
+                const pasajerosEsteCoche = reservas.filter(r => r.id_movil == m.id).length;
+                const gananciaCoche = pasajerosEsteCoche * 1000;
+                totalCaja += gananciaCoche;
 
                 const item = document.createElement('div');
-                item.className = 'flota-item';
-                item.style.borderLeft = (m.latitud !== 0) ? "4px solid #28a745" : "4px solid #dc3545";
+                item.className = 'item-list coche-item';
                 item.innerHTML = `
                     <b>COCHE ${m.id}</b> <span class="money-tag">$${gananciaCoche}</span><br>
-                    👤 ${m.chofer || 'Sin asignar'}<br>
-                    🚘 ${m.vehiculo || 'Sin vehículo'}<br>
-                    <small>🆔 Patente: ${m.patente || '---'}</small>
+                    👤 ${m.chofer || 'S/N'} | 🚘 ${m.vehiculo || '---'}<br>
+                    <small>📡 ${m.latitud !== 0 ? 'En línea' : 'Desconectado'}</small>
                 `;
                 flotaDiv.appendChild(item);
             });
 
-            document.getElementById('caja-total').innerText = "$" + totalCajaGral;
-        } catch (e) {
-            console.log("Esperando conexión...");
-        }
+            document.getElementById('caja-total').innerText = "$" + totalCaja;
+        } catch (e) { console.error(e); }
     }
     
     setInterval(refrescarTodo, 5000);
