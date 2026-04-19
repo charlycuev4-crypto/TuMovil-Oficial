@@ -11,12 +11,14 @@
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
         
-        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; }
+        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 15px; text-align: center; z-index: 1000; }
         #map { flex-grow: 1; width: 100%; }
         
-        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px; display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; max-height: 45vh; overflow-y: auto; }
+        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px; display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 1000; max-height: 45vh; overflow-y: auto; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; width: 100%; box-sizing: border-box; }
         .btn-pedir { background: #28a745; color: white; padding: 15px; border-radius: 12px; border: none; font-weight: bold; }
+        .btn-asiento { background: #333; border: 2px solid #555; padding: 10px; border-radius: 8px; color: white; width: 100%; }
+        .btn-asiento.active { background: var(--celeste); color: black; border-color: white; }
     </style>
 </head>
 <body>
@@ -26,15 +28,22 @@
 
     <div class="bottom-ui">
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
-        <select id="destino-select" onchange="actualizarMapaRuta()">
-            <option value="" disabled selected>Esperando información del conductor...</option>
+        <select id="destino-select">
+            <option value="" disabled selected>Esperando información...</option>
         </select>
+        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:5px;">
+            <button class="btn-asiento" onclick="seleccionarAsiento(1)" id="as-1">1</button>
+            <button class="btn-asiento" onclick="seleccionarAsiento(2)" id="as-2">2</button>
+            <button class="btn-asiento" onclick="seleccionarAsiento(3)" id="as-3">3</button>
+            <button class="btn-asiento" onclick="seleccionarAsiento(4)" id="as-4">4</button>
+        </div>
         <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()">SOLICITAR VIAJE</button>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-
+    let asientosElegidos = 0;
+    
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -54,12 +63,35 @@
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // --- LÓGICA DE RENDERING DE PARADAS ---
+    let routeLayer = null;
+    let stopMarkers = [];
+
+    // --- LÓGICA DE DIBUJO ---
+    function dibujarMapa(listaParadas) {
+        if(routeLayer) map.removeLayer(routeLayer);
+        stopMarkers.forEach(m => map.removeLayer(m));
+        stopMarkers = [];
+
+        // Dibujar ruta (Línea)
+        routeLayer = L.polyline(listaParadas.map(p => p.c), { color: '#00d2ff', weight: 6, opacity: 0.6 }).addTo(map);
+
+        // Dibujar paradas (Círculos celeste borde negro)
+        listaParadas.forEach(p => {
+            const m = L.circleMarker(p.c, { 
+                radius: 6, 
+                color: '#000', // Borde negro
+                weight: 2, 
+                fillColor: '#00d2ff', // Relleno celeste
+                fillOpacity: 1 
+            }).addTo(map);
+            stopMarkers.push(m);
+        });
+    }
+
     function renderizarParadas(haciaAdelante) {
         const selDest = document.getElementById('destino-select');
         selDest.innerHTML = '<option value="" disabled selected>Selecciona tu destino...</option>';
         
-        // Si haciaAdelante es false (vuelta), invertimos la lista
         let lista = haciaAdelante ? [...paradas] : [...paradas].reverse();
         
         lista.forEach(p => {
@@ -69,28 +101,32 @@
             opt.innerText = p.n;
             selDest.appendChild(opt);
         });
-        console.log("Ruta actualizada. ¿Va hacia adelante?", haciaAdelante);
+        
+        // Llamamos a la nueva función de dibujo
+        dibujarMapa(paradas); // Dibujamos sobre la ruta base, independiente del sentido
     }
 
-    // --- ESCUCHA EN TIEMPO REAL ---
+    function seleccionarAsiento(num) {
+        asientosElegidos = num;
+        document.querySelectorAll('.btn-asiento').forEach((b, i) => b.classList.toggle('active', i+1 === num));
+    }
+
+    async function confirmarViajePasajero() {
+        const nom = document.getElementById('nombre-input').value;
+        const dest = document.getElementById('destino-select').value;
+        if(!nom || !dest || asientosElegidos === 0) return alert("Completa tus datos");
+        
+        await _s.from('solicitudes_viaje').insert([{ nombre_pasajero: nom, destino_idx: dest, asientos: asientosElegidos }]);
+        alert("Solicitud enviada");
+    }
+
     _s.channel('cambios_driver')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, payload => {
-          // Detectamos si cambió el estado de "hacia_adelante"
-          if(payload.new.hasOwnProperty('hacia_adelante')) {
-              renderizarParadas(payload.new.hacia_adelante);
-          }
+          if(payload.new.hasOwnProperty('hacia_adelante')) renderizarParadas(payload.new.hacia_adelante);
       })
       .subscribe();
 
-    // Carga inicial: consultar el estado actual del conductor antes de renderizar
-    async function init() {
-        const { data } = await _s.from('estado_movil').select('hacia_adelante').eq('id', 1).single();
-        const estadoInicial = data ? data.hacia_adelante : true;
-        renderizarParadas(estadoInicial);
-    }
-    init();
-
-    // ... (Tu función confirmarViajePasajero y actualizarMapaRuta se mantienen igual)
+    renderizarParadas(true);
 </script>
 </body>
 </html>
