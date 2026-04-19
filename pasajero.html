@@ -2,36 +2,41 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TuMovil - Pasajero</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
-        body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; font-family: sans-serif; }
+        body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; font-family: sans-serif; color: white; }
         
-        #map { height: 60%; width: 100%; }
-        .bottom-ui { height: 40%; background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        #map { height: 50vh; width: 100%; z-index: 1; }
+        .bottom-ui { height: 50vh; background: var(--panel); padding: 20px; display: flex; flex-direction: column; gap: 15px; border-radius: 25px 25px 0 0; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
         
-        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; }
+        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 15px; border-radius: 12px; font-size: 16px; }
+        
         .asientos-grid { display: flex; justify-content: space-around; }
-        .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 10px; background: transparent; color: var(--celeste); display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .asiento-btn { width: 60px; height: 60px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; }
         .asiento-btn.selected { background: var(--amarillo); color: black; border-color: var(--amarillo); }
-        .asiento-btn.occupied { border-color: #555; color: #555; opacity: 0.4; pointer-events: none; }
+        .asiento-btn.occupied { border-color: #555; color: #555; opacity: 0.3; pointer-events: none; }
         
-        button { padding: 15px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
+        button { padding: 15px; border-radius: 12px; border: none; font-weight: bold; font-size: 16px; cursor: pointer; }
         .btn-pedir { background: #28a745; color: white; }
         .btn-cancelar { background: #dc3545; color: white; display: none; }
+        #status-bar { font-size: 12px; color: #888; text-align: center; margin-bottom: 5px; }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
     <div class="bottom-ui">
-        <input type="text" id="nombre-input" placeholder="Tu Nombre">
-        <select id="destino-select"><option value="">Selecciona una parada</option></select>
-        <div class="asientos-grid" id="grid-asientos">
+        <div id="status-bar">Conectando con el servidor...</div>
+        <input type="text" id="nombre-input" placeholder="Nombre del pasajero">
+        <select id="destino-select">
+            <option value="" disabled selected>¿A qué parada vas?</option>
+        </select>
+        <div class="asientos-grid">
             <div class="asiento-btn" onclick="toggleAsiento(1)" id="as-1">1</div>
             <div class="asiento-btn" onclick="toggleAsiento(2)" id="as-2">2</div>
             <div class="asiento-btn" onclick="toggleAsiento(3)" id="as-3">3</div>
@@ -62,34 +67,53 @@
 
     const map = L.map('map').setView([-34.57, -58.76], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    
+
+    // 1. Dibujar Paradas
+    paradas.forEach((p, i) => {
+        L.circleMarker(p.c, {radius: 6, color: '#00d2ff', fillColor: '#00d2ff', fillOpacity: 1})
+         .addTo(map)
+         .bindPopup(p.n);
+        const o = document.createElement('option'); o.value = i; o.innerText = p.n;
+        document.getElementById('destino-select').appendChild(o);
+    });
+
     let asientosElegidos = [];
-    let miLat = 0, miLon = 0;
+    let markerChofer = L.marker([0,0]).addTo(map);
 
-    // Rellenar select
-    const sel = document.getElementById('destino-select');
-    paradas.forEach((p, i) => { const o = document.createElement('option'); o.value = i; o.innerText = p.n; sel.appendChild(o); });
-
+    // 2. Lógica de Asientos
     function toggleAsiento(num) {
-        const idx = asientosElegidos.indexOf(num);
-        if(idx > -1) { 
-            asientosElegidos.splice(idx, 1); 
-            document.getElementById('as-'+num).classList.remove('selected'); 
-        } else { 
-            asientosElegidos.push(num); 
-            document.getElementById('as-'+num).classList.add('selected'); 
+        const i = asientosElegidos.indexOf(num);
+        if(i > -1) { asientosElegidos.splice(i, 1); document.getElementById('as-'+num).classList.remove('selected'); }
+        else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
+    }
+
+    // 3. Conexión (Polling)
+    async function actualizarEstado() {
+        // Obtener chofer
+        const { data: choferes } = await _s.from('estado_movil').select('*').limit(1);
+        if(choferes && choferes.length > 0) {
+            const c = choferes[0];
+            markerChofer.setLatLng([c.latitud, c.longitud]);
+            document.getElementById('status-bar').innerText = "Chofer activo - Conectado";
+        }
+        
+        // Obtener asientos ocupados
+        const { data: reservas } = await _s.from('reservas_activas').select('asiento_num').eq('estado', 'en_curso');
+        document.querySelectorAll('.asiento-btn').forEach(b => b.classList.remove('occupied'));
+        if(reservas) {
+            reservas.forEach(r => {
+                const btn = document.getElementById('as-'+r.asiento_num);
+                if(btn && !asientosElegidos.includes(r.asiento_num)) btn.classList.add('occupied');
+            });
         }
     }
 
     async function confirmarViaje() {
         const nom = document.getElementById('nombre-input').value;
         const dest = document.getElementById('destino-select').value;
-        if(!nom || !dest || asientosElegidos.length === 0) { alert("Completa nombre, destino y asiento"); return; }
+        if(!nom || !dest || asientosElegidos.length === 0) { alert("Completa los datos"); return; }
         
-        // Verificar si hay chofer activo
-        const { data: movil } = await _s.from('estado_movil').select('id').eq('en_linea', true).limit(1);
-        if(!movil || movil.length === 0) { alert("No hay choferes en línea en este momento."); return; }
-
+        const { data: movil } = await _s.from('estado_movil').select('id').limit(1);
         const rows = asientosElegidos.map(a => ({ 
             nombre_pasajero: nom, destino_idx: parseInt(dest), asiento_num: a, estado: 'en_curso', id_movil: movil[0].id 
         }));
@@ -97,28 +121,8 @@
         location.reload();
     }
 
-    async function finalizarViaje() {
-        await _s.from('reservas_activas').update({estado: 'finalizado'}).eq('nombre_pasajero', document.getElementById('nombre-input').value);
-        location.reload();
-    }
-
-    // Intervalo para actualizar asientos ocupados
-    setInterval(async () => {
-        const { data: ocupados } = await _s.from('reservas_activas').select('asiento_num').eq('estado', 'en_curso');
-        document.querySelectorAll('.asiento-btn').forEach(b => b.classList.remove('occupied'));
-        if(ocupados) {
-            ocupados.forEach(o => {
-                const btn = document.getElementById('as-'+o.asiento_num);
-                if(btn && !asientosElegidos.includes(o.asiento_num)) btn.classList.add('occupied');
-            });
-        }
-    }, 3000);
-
-    navigator.geolocation.watchPosition(p => { 
-        miLat = p.coords.latitude; miLon = p.coords.longitude; 
-        L.marker([miLat, miLon]).addTo(map).bindPopup("Estás aquí").openPopup();
-    });
-
+    setInterval(actualizarEstado, 3000); // Refrescar cada 3 seg
+    actualizarEstado();
 </script>
 </body>
 </html>
