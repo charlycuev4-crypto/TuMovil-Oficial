@@ -8,21 +8,27 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        /* (Tus estilos se mantienen igual) */
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
+        
+        /* Splash */
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease; }
         .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
         .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; }
         .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
+
         #map { flex-grow: 1; width: 100%; }
+        
         .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px; display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; width: 100%; box-sizing: border-box; }
+        
         .asientos-grid { display: flex; justify-content: space-around; margin: 5px 0; }
         .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center; }
         .asiento-btn.selected { background: var(--amarillo); border-color: var(--amarillo); color: #000; }
         .asiento-btn.occupied { border-color: #333; color: #333; opacity: 0.3; }
+        
         .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; }
         .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; }
     </style>
@@ -49,7 +55,6 @@
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    // Lista original de paradas
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -66,30 +71,29 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    let esHaciaAdelante = true; // Estado local sincronizado
+    let esHaciaAdelante = true; 
+    let asientosElegidos = [];
+    let miLat = 0, miLon = 0;
 
-    // Función que renderiza el selector basándose en el sentido
+    // --- LÓGICA DE SINCRONIZACIÓN ---
     function renderizarParadas() {
         const sel = document.getElementById('destino-select');
-        const valorActual = sel.value; // Guardar selección actual si existe
+        const valorActual = sel.value; 
         sel.innerHTML = '<option value="" disabled selected>¿A qué parada vas?</option>';
         
-        // Si no es adelante, invertimos visualmente pero mantenemos el indice correcto para el mapa
+        // Invertir lista si es necesario, manteniendo el índice original
         const lista = esHaciaAdelante ? paradas : [...paradas].reverse();
         
-        lista.forEach((p, index) => {
+        lista.forEach((p) => {
             const opt = document.createElement('option');
-            // Buscamos el índice original para que el mapa sepa qué coordenada es
             const idxOriginal = paradas.findIndex(orig => orig.n === p.n);
             opt.value = idxOriginal;
             opt.innerText = p.n;
             sel.appendChild(opt);
         });
-        if(valorActual) sel.value = valorActual;
+        sel.value = valorActual;
     }
 
-    // --- LÓGICA DE SINCRONIZACIÓN ---
-    // Escucha cambios en la tabla estado_movil (donde el conductor cambia el botón)
     _s.channel('cambios_estado_movil')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, (payload) => {
           if(payload.new.hacia_adelante !== esHaciaAdelante) {
@@ -98,15 +102,33 @@
           }
       }).subscribe();
 
-    // Carga inicial: consultar el estado al abrir
     async function inicializarEstado() {
         const { data } = await _s.from('estado_movil').select('hacia_adelante').eq('id', 1).single();
         if(data !== null) { esHaciaAdelante = data.hacia_adelante; renderizarParadas(); }
     }
-    inicializarEstado();
 
-    // (El resto de tus funciones como toggleAsiento, confirmarViajePasajero, etc. siguen igual)
-    // ...
+    // Funciones básicas
+    function toggleAsiento(num) {
+        const i = asientosElegidos.indexOf(num);
+        if(i > -1) { asientosElegidos.splice(i, 1); document.getElementById('as-'+num).classList.remove('selected'); }
+        else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
+    }
+
+    function actualizarMapaRuta() {
+        const val = document.getElementById('destino-select').value;
+        if(val !== "" && miLat !== 0) {
+            console.log("Destino seleccionado:", paradas[val].n);
+        }
+    }
+
+    async function confirmarViajePasajero() { /* Tu lógica de inserción */ }
+    async function finalizarViaje() { /* Tu lógica de finalizar */ }
+
+    window.onload = () => {
+        inicializarEstado();
+        navigator.geolocation.watchPosition(p => { miLat = p.coords.latitude; miLon = p.coords.longitude; }, null, { enableHighAccuracy: true });
+        const s = document.getElementById('splash'); if(s) { setTimeout(() => s.style.opacity = '0', 1000); }
+    };
 </script>
 </body>
 </html>
