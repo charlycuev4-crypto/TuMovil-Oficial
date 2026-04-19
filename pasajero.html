@@ -54,7 +54,7 @@
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
         
         <select id="destino-select" onchange="actualizarMapaRuta()">
-            <option value="" disabled selected>¿A qué parada vas?</option>
+            <option value="" disabled selected>Cargando rutas...</option>
         </select>
 
         <div class="asientos-grid">
@@ -101,12 +101,10 @@
     let markerTaxis = {};
     let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
 
-    // Selector
-    const selDest = document.getElementById('destino-select');
-    paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
-
-    // RECUERDA AL PASAJERO
+    // Inicialización inteligente
     window.onload = async () => {
+        await cargarParadasInteligente(); // <-- Aquí se carga la lista según el sentido del coche
+        
         const nombreGuardado = localStorage.getItem('usuario_nombre');
         if(nombreGuardado) {
             document.getElementById('nombre-input').value = nombreGuardado;
@@ -119,6 +117,27 @@
             }
         }
     };
+
+    async function cargarParadasInteligente() {
+        const selDest = document.getElementById('destino-select');
+        // Consultamos el sentido del coche
+        const { data: moviles } = await _s.from('estado_movil').select('hacia_adelante').limit(1);
+        const haciaAdelante = moviles && moviles.length > 0 ? moviles[0].hacia_adelante : true;
+
+        selDest.innerHTML = '<option value="" disabled selected>¿A qué parada vas?</option>';
+        
+        // Si va hacia adelante (true), usamos lista normal. Si vuelve (false), invertimos.
+        const listaRender = haciaAdelante ? [...paradas] : [...paradas].reverse();
+
+        listaRender.forEach((p, i) => {
+            const opt = document.createElement('option');
+            // Calculamos el índice real para que la base de datos sepa exactamente a qué parada vas
+            const idxReal = haciaAdelante ? i : (paradas.length - 1 - i);
+            opt.value = idxReal;
+            opt.innerText = p.n;
+            selDest.appendChild(opt);
+        });
+    }
 
     function bloquearPanelParaViajeActivo() {
         document.getElementById('btn-pedir').style.display = 'none';
@@ -162,11 +181,14 @@
         
         localStorage.setItem('usuario_nombre', nom);
         const { data: moviles } = await _s.from('estado_movil').select('id').neq('latitud', 0).limit(1);
-        if (!moviles || moviles.length === 0) { alert("No hay choferes en línea."); return; }
-        
-        const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: moviles[0].id, estado: 'en_curso', nombre_pasajero: nom, pasajero_lat: miLat, pasajero_lon: miLon, destino_idx: parseInt(destIdx) }));
-        await _s.from('reservas_activas').insert(res);
-        location.reload();
+        if (!moviles || moviles.length > 0) {
+            // Nota: Se envía el destino seleccionado (que ya es el índice real)
+            const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: moviles[0].id, estado: 'en_curso', nombre_pasajero: nom, pasajero_lat: miLat, pasajero_lon: miLon, destino_idx: parseInt(destIdx) }));
+            await _s.from('reservas_activas').insert(res);
+            location.reload();
+        } else {
+            alert("No hay choferes en línea.");
+        }
     }
 
     async function finalizarViaje() {
