@@ -8,41 +8,49 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --azul-gps: #007AFF; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
         
-        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 15px; text-align: center; z-index: 1000; }
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s; }
+        .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); }
+        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 15px; text-align: center; }
         #map { flex-grow: 1; width: 100%; }
         
         .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px; display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 1000; max-height: 45vh; overflow-y: auto; }
-        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; width: 100%; box-sizing: border-box; }
+        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; width: 100%; }
+        
+        .asientos-grid { display: flex; justify-content: space-around; margin: 5px 0; }
+        .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .asiento-btn.selected { background: var(--amarillo); border-color: var(--amarillo); color: #000; }
+        .asiento-btn.occupied { border-color: #333; color: #333; opacity: 0.3; }
+
         .btn-pedir { background: #28a745; color: white; padding: 15px; border-radius: 12px; border: none; font-weight: bold; }
-        .btn-asiento { background: #333; border: 2px solid #555; padding: 10px; border-radius: 8px; color: white; width: 100%; }
-        .btn-asiento.active { background: var(--celeste); color: black; border-color: white; }
+        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; }
     </style>
 </head>
 <body>
+
+    <div id="splash"><div class="anillo"><span style="font-size: 60px;">🚕</span></div><p>Cargando ruta...</p></div>
 
     <div class="header"><h1>SOLICITAR VIAJE</h1></div>
     <div id="map"></div>
 
     <div class="bottom-ui">
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
-        <select id="destino-select">
-            <option value="" disabled selected>Esperando información...</option>
-        </select>
-        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:5px;">
-            <button class="btn-asiento" onclick="seleccionarAsiento(1)" id="as-1">1</button>
-            <button class="btn-asiento" onclick="seleccionarAsiento(2)" id="as-2">2</button>
-            <button class="btn-asiento" onclick="seleccionarAsiento(3)" id="as-3">3</button>
-            <button class="btn-asiento" onclick="seleccionarAsiento(4)" id="as-4">4</button>
+        <select id="destino-select"></select>
+        <div class="asientos-grid">
+            <div class="asiento-btn" onclick="toggleAsiento(1)" id="as-1">1</div>
+            <div class="asiento-btn" onclick="toggleAsiento(2)" id="as-2">2</div>
+            <div class="asiento-btn" onclick="toggleAsiento(3)" id="as-3">3</div>
+            <div class="asiento-btn" onclick="toggleAsiento(4)" id="as-4">4</div>
         </div>
         <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()">SOLICITAR VIAJE</button>
+        <button class="btn-cancelar" id="btn-cancelar" onclick="finalizarViaje()">TERMINAR MI VIAJE</button>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    let asientosElegidos = 0;
+    let asientosElegidos = [], miViajeActivo = false, miLat = 0, miLon = 0;
     
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
@@ -62,71 +70,83 @@
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    let routeLayer = null;
-    let stopMarkers = [];
+    
+    let routeLayer = null, stopMarkers = [];
 
     // --- LÓGICA DE DIBUJO ---
     function dibujarMapa(listaParadas) {
         if(routeLayer) map.removeLayer(routeLayer);
         stopMarkers.forEach(m => map.removeLayer(m));
         stopMarkers = [];
-
-        // Dibujar ruta (Línea)
         routeLayer = L.polyline(listaParadas.map(p => p.c), { color: '#00d2ff', weight: 6, opacity: 0.6 }).addTo(map);
-
-        // Dibujar paradas (Círculos celeste borde negro)
         listaParadas.forEach(p => {
-            const m = L.circleMarker(p.c, { 
-                radius: 6, 
-                color: '#000', // Borde negro
-                weight: 2, 
-                fillColor: '#00d2ff', // Relleno celeste
-                fillOpacity: 1 
-            }).addTo(map);
+            const m = L.circleMarker(p.c, { radius: 6, color: '#000', weight: 2, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map);
             stopMarkers.push(m);
         });
     }
 
     function renderizarParadas(haciaAdelante) {
         const selDest = document.getElementById('destino-select');
-        selDest.innerHTML = '<option value="" disabled selected>Selecciona tu destino...</option>';
-        
+        selDest.innerHTML = '';
         let lista = haciaAdelante ? [...paradas] : [...paradas].reverse();
-        
-        lista.forEach(p => {
-            const originalIndex = paradas.indexOf(p);
+        lista.forEach((p, i) => {
             const opt = document.createElement('option');
-            opt.value = originalIndex;
+            opt.value = paradas.indexOf(p); // Mantiene el índice original
             opt.innerText = p.n;
             selDest.appendChild(opt);
         });
-        
-        // Llamamos a la nueva función de dibujo
-        dibujarMapa(paradas); // Dibujamos sobre la ruta base, independiente del sentido
+        dibujarMapa(lista);
+        document.getElementById('splash').style.opacity = '0';
     }
 
-    function seleccionarAsiento(num) {
-        asientosElegidos = num;
-        document.querySelectorAll('.btn-asiento').forEach((b, i) => b.classList.toggle('active', i+1 === num));
+    // --- LÓGICA DE RESERVA ---
+    function toggleAsiento(num) {
+        if(miViajeActivo) return;
+        const i = asientosElegidos.indexOf(num);
+        if(i > -1) { asientosElegidos.splice(i, 1); document.getElementById('as-'+num).classList.remove('selected'); }
+        else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
     }
 
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
-        const dest = document.getElementById('destino-select').value;
-        if(!nom || !dest || asientosElegidos === 0) return alert("Completa tus datos");
+        const destIdx = document.getElementById('destino-select').value;
+        if (!nom || asientosElegidos.length === 0) { alert("Completa nombre y asientos."); return; }
         
-        await _s.from('solicitudes_viaje').insert([{ nombre_pasajero: nom, destino_idx: dest, asientos: asientosElegidos }]);
-        alert("Solicitud enviada");
+        localStorage.setItem('usuario_nombre', nom);
+        const { data: moviles } = await _s.from('estado_movil').select('id').limit(1);
+        const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: moviles[0].id, estado: 'en_curso', nombre_pasajero: nom, destino_idx: parseInt(destIdx) }));
+        await _s.from('reservas_activas').insert(res);
+        location.reload();
     }
 
+    async function finalizarViaje() {
+        const nom = document.getElementById('nombre-input').value;
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('nombre_pasajero', nom);
+        location.reload();
+    }
+
+    // --- SINCRONIZACIÓN ---
     _s.channel('cambios_driver')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, payload => {
           if(payload.new.hasOwnProperty('hacia_adelante')) renderizarParadas(payload.new.hacia_adelante);
-      })
-      .subscribe();
+      }).subscribe();
 
-    renderizarParadas(true);
+    window.onload = async () => {
+        const { data } = await _s.from('estado_movil').select('hacia_adelante').single();
+        renderizarParadas(data ? data.hacia_adelante : true);
+        
+        const nombreGuardado = localStorage.getItem('usuario_nombre');
+        if(nombreGuardado) {
+            document.getElementById('nombre-input').value = nombreGuardado;
+            const { data: reserva } = await _s.from('reservas_activas').select('*').eq('nombre_pasajero', nombreGuardado).eq('estado', 'en_curso');
+            if(reserva && reserva.length > 0) {
+                miViajeActivo = true;
+                document.getElementById('btn-pedir').style.display = 'none';
+                document.getElementById('btn-cancelar').style.display = 'block';
+                reserva.forEach(r => { asientosElegidos.push(r.asiento_num); document.getElementById('as-'+r.asiento_num).classList.add('selected'); });
+            }
+        }
+    };
 </script>
 </body>
 </html>
