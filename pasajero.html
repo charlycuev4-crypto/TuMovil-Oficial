@@ -12,32 +12,33 @@
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
         
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s; }
-        .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); }
-        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 15px; text-align: center; }
+        .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; }
         #map { flex-grow: 1; width: 100%; }
         
-        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px; display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 1000; max-height: 45vh; overflow-y: auto; }
-        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; width: 100%; }
+        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px; display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; max-height: 45vh; overflow-y: auto; }
+        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
         
         .asientos-grid { display: flex; justify-content: space-around; margin: 5px 0; }
-        .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center; }
         .asiento-btn.selected { background: var(--amarillo); border-color: var(--amarillo); color: #000; }
-        .asiento-btn.occupied { border-color: #333; color: #333; opacity: 0.3; }
+        .asiento-btn.occupied { border-color: #333; color: #333; pointer-events: none; opacity: 0.3; }
 
-        .btn-pedir { background: #28a745; color: white; padding: 15px; border-radius: 12px; border: none; font-weight: bold; }
+        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; }
         .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; }
     </style>
 </head>
 <body>
 
-    <div id="splash"><div class="anillo"><span style="font-size: 60px;">🚕</span></div><p>Cargando ruta...</p></div>
-
+    <div id="splash"><div class="anillo"><span style="font-size: 60px;">🚕</span></div></div>
     <div class="header"><h1>SOLICITAR VIAJE</h1></div>
     <div id="map"></div>
 
     <div class="bottom-ui">
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
-        <select id="destino-select"></select>
+        <select id="destino-select" onchange="actualizarMapaRuta()"></select>
         <div class="asientos-grid">
             <div class="asiento-btn" onclick="toggleAsiento(1)" id="as-1">1</div>
             <div class="asiento-btn" onclick="toggleAsiento(2)" id="as-2">2</div>
@@ -50,8 +51,6 @@
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    let asientosElegidos = [], miViajeActivo = false, miLat = 0, miLon = 0;
-    
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -70,34 +69,35 @@
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    
-    let routeLayer = null, stopMarkers = [];
+
+    let routeLayer = null, stopMarkers = [], miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
 
     // --- LÓGICA DE DIBUJO ---
-    function dibujarMapa(listaParadas) {
+    function renderizarParadas(haciaAdelante) {
         if(routeLayer) map.removeLayer(routeLayer);
         stopMarkers.forEach(m => map.removeLayer(m));
         stopMarkers = [];
-        routeLayer = L.polyline(listaParadas.map(p => p.c), { color: '#00d2ff', weight: 6, opacity: 0.6 }).addTo(map);
-        listaParadas.forEach(p => {
-            const m = L.circleMarker(p.c, { radius: 6, color: '#000', weight: 2, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map);
-            stopMarkers.push(m);
-        });
-    }
-
-    function renderizarParadas(haciaAdelante) {
+        
         const selDest = document.getElementById('destino-select');
         selDest.innerHTML = '';
+        
         let lista = haciaAdelante ? [...paradas] : [...paradas].reverse();
         lista.forEach((p, i) => {
             const opt = document.createElement('option');
-            opt.value = paradas.indexOf(p); // Mantiene el índice original
+            opt.value = paradas.indexOf(p);
             opt.innerText = p.n;
             selDest.appendChild(opt);
         });
-        dibujarMapa(lista);
+
+        routeLayer = L.polyline(lista.map(p => p.c), { color: '#00d2ff', weight: 6, opacity: 0.6 }).addTo(map);
+        lista.forEach(p => {
+            const m = L.circleMarker(p.c, { radius: 6, color: '#000', weight: 2, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map);
+            stopMarkers.push(m);
+        });
         document.getElementById('splash').style.opacity = '0';
     }
+
+    function actualizarMapaRuta() { /* Mantiene la función de centrado del viejo */ }
 
     // --- LÓGICA DE RESERVA ---
     function toggleAsiento(num) {
@@ -110,7 +110,7 @@
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
         const destIdx = document.getElementById('destino-select').value;
-        if (!nom || asientosElegidos.length === 0) { alert("Completa nombre y asientos."); return; }
+        if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
         
         localStorage.setItem('usuario_nombre', nom);
         const { data: moviles } = await _s.from('estado_movil').select('id').limit(1);
@@ -120,30 +120,29 @@
     }
 
     async function finalizarViaje() {
-        const nom = document.getElementById('nombre-input').value;
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('nombre_pasajero', nom);
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('nombre_pasajero', document.getElementById('nombre-input').value);
         location.reload();
     }
 
     // --- SINCRONIZACIÓN ---
     _s.channel('cambios_driver')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, payload => {
-          if(payload.new.hasOwnProperty('hacia_adelante')) renderizarParadas(payload.new.hacia_adelante);
+          renderizarParadas(payload.new.hacia_adelante);
       }).subscribe();
 
     window.onload = async () => {
         const { data } = await _s.from('estado_movil').select('hacia_adelante').single();
         renderizarParadas(data ? data.hacia_adelante : true);
         
-        const nombreGuardado = localStorage.getItem('usuario_nombre');
-        if(nombreGuardado) {
-            document.getElementById('nombre-input').value = nombreGuardado;
-            const { data: reserva } = await _s.from('reservas_activas').select('*').eq('nombre_pasajero', nombreGuardado).eq('estado', 'en_curso');
-            if(reserva && reserva.length > 0) {
+        const nom = localStorage.getItem('usuario_nombre');
+        if(nom) {
+            document.getElementById('nombre-input').value = nom;
+            const { data: res } = await _s.from('reservas_activas').select('*').eq('nombre_pasajero', nom).eq('estado', 'en_curso');
+            if(res && res.length > 0) {
                 miViajeActivo = true;
                 document.getElementById('btn-pedir').style.display = 'none';
                 document.getElementById('btn-cancelar').style.display = 'block';
-                reserva.forEach(r => { asientosElegidos.push(r.asiento_num); document.getElementById('as-'+r.asiento_num).classList.add('selected'); });
+                res.forEach(r => { asientosElegidos.push(r.asiento_num); document.getElementById('as-'+r.asiento_num).classList.add('selected'); });
             }
         }
     };
