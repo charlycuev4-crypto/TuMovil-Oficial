@@ -58,41 +58,71 @@
     const MI_ID_MOVIL = 1; 
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     let esHaciaAdelante = true;
-    const paradas = [{n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]}, {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]}, {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]}, {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]}, {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]}, {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]}, {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]}, {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]}, {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]}, {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]}, {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]}, {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]}, {n:'Abasto y Roca', c:[-34.586030, -58.747278]}];
-    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
+    
+    // Configuración mapa
+    const map = L.map('map', { zoomControl: false }).setView([-34.561264, -58.770506], 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     async function cambiarSentido() {
-        const nuevoEstado = !esHaciaAdelante;
-        await _s.from('estado_movil').update({ hacia_adelante: nuevoEstado }).eq('id', MI_ID_MOVIL);
-        esHaciaAdelante = nuevoEstado;
+        esHaciaAdelante = !esHaciaAdelante;
+        await _s.from('estado_movil').update({ hacia_adelante: esHaciaAdelante }).eq('id', MI_ID_MOVIL);
         actualizarUI();
     }
+
     function actualizarUI() {
         const btn = document.getElementById('btn-sentido');
         if(esHaciaAdelante) { btn.innerText = "SENTIDO: IDA"; btn.style.color = "#00d2ff"; btn.style.borderColor = "#00d2ff"; }
         else { btn.innerText = "SENTIDO: VUELTA"; btn.style.color = "#ffcc00"; btn.style.borderColor = "#ffcc00"; }
     }
+
     async function actualizarDatos() {
-        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
+        console.log("Actualizando datos...");
+        const { data: reservas } = await _s.from('reservas_activas')
+            .select('*')
+            .eq('estado', 'en_curso')
+            .eq('id_movil', MI_ID_MOVIL);
+            
         if (reservas) {
             document.getElementById('txt-pax').innerText = reservas.length;
             document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
+            
+            // Resetear pastillas
+            for(let i=1; i<=4; i++) {
+                const p = document.getElementById('pill'+i);
+                if(p) { p.className = 'pill'; p.innerText = i; }
+            }
+            // Activar las de los pasajeros actuales
+            reservas.forEach(res => {
+                const pill = document.getElementById('pill' + res.asiento_num);
+                if(pill) { pill.className = 'pill active'; pill.innerText = "OK"; }
+            });
         }
-        // Ocultar splash siempre
+        
+        // Quitar splash
         const spl = document.getElementById('splash');
         if(spl) { spl.style.opacity = '0'; setTimeout(() => spl.style.display = 'none', 800); }
     }
+
     async function vaciarTodo() {
+        if(!confirm("¿Finalizar viaje?")) return;
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
         actualizarDatos();
     }
+
+    // Listener Realtime (Lo que mantiene la conexión viva)
+    _s.channel('cambios_coche1')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => {
+          console.log("¡Cambio detectado en base de datos!");
+          actualizarDatos();
+      })
+      .subscribe();
+
     window.onload = async () => {
+        // Cargar estado inicial
         const { data } = await _s.from('estado_movil').select('hacia_adelante').eq('id', MI_ID_MOVIL).single();
-        if(data) { esHaciaAdelante = data.hacia_adelante; actualizarUI(); }
+        if(data !== null) { esHaciaAdelante = data.hacia_adelante; actualizarUI(); }
         actualizarDatos();
     };
-    _s.channel('cambios_coche1').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => { actualizarDatos(); }).subscribe();
 </script>
 </body>
 </html>
