@@ -158,12 +158,21 @@
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
         const destIdx = document.getElementById('destino-select').value;
-        if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
         
+        // 1. VALIDACIÓN BÁSICA
+        if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Por favor, completa nombre, destino y al menos un asiento."); return; }
+        
+        // 2. VALIDACIÓN DE AUTOS (EL PORTERO)
+        // Buscamos autos que tengan latitud distinta de 0
+        const { data: moviles, error } = await _s.from('estado_movil').select('id').neq('latitud', 0);
+        
+        if (error || !moviles || moviles.length === 0) {
+            alert("⚠️ Lo sentimos, en este momento no hay autos en línea. Intenta nuevamente en unos instantes.");
+            return;
+        }
+        
+        // 3. CONFIRMACIÓN
         localStorage.setItem('usuario_nombre', nom);
-        const { data: moviles } = await _s.from('estado_movil').select('id').neq('latitud', 0).limit(1);
-        if (!moviles || moviles.length === 0) { alert("No hay choferes en línea."); return; }
-        
         const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: moviles[0].id, estado: 'en_curso', nombre_pasajero: nom, pasajero_lat: miLat, pasajero_lon: miLon, destino_idx: parseInt(destIdx) }));
         await _s.from('reservas_activas').insert(res);
         location.reload();
@@ -176,7 +185,7 @@
     }
 
     async function actualizarFlota() {
-        const { data: moviles } = await _s.from('estado_movil').select('*').neq('latitud', 0).limit(1);
+        const { data: moviles } = await _s.from('estado_movil').select('*').neq('latitud', 0);
         Object.keys(markerTaxis).forEach(id => map.removeLayer(markerTaxis[id]));
         if (moviles && moviles.length > 0) {
             const t = moviles[0];
