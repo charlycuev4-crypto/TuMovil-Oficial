@@ -2,103 +2,113 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>TuMovil | CONSOLA ADMIN</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TuMovil - Admin Final</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --main: #00d2ff; --bg: #0a0a0a; --panel: #161616; }
-        body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
+        body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
         
         /* BLOQUEO DE SEGURIDAD */
-        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; justify-content: center; align-items: center; }
-        .login-box { background: var(--panel); padding: 30px; border: 1px solid var(--main); border-radius: 15px; text-align: center; }
+        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         
-        /* NAV Y LAYOUT */
-        #navbar { height: 60px; background: var(--panel); display: flex; align-items: center; padding: 0 20px; border-bottom: 2px solid var(--main); }
-        .nav-btn { color: white; padding: 10px 20px; cursor: pointer; border: none; background: none; font-weight: bold; }
-        .nav-btn:hover { color: var(--main); }
-        
-        #content { display: flex; height: calc(100vh - 60px); }
-        #sidebar { width: 350px; background: var(--panel); padding: 20px; overflow-y: auto; }
-        #map { flex-grow: 1; }
-
-        input { width: 100%; padding: 12px; margin: 5px 0 15px; background: #222; border: 1px solid #444; color: white; border-radius: 5px; box-sizing: border-box; }
-        .btn-action { background: var(--main); color: black; border: none; padding: 15px; width: 100%; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        #sidebar { width: 320px; background: var(--panel); border-right: 2px solid var(--celeste); display: flex; flex-direction: column; padding: 15px; overflow-y: auto; z-index: 1000; }
+        #map { flex-grow: 1; height: 100vh; }
+        .stat-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 12px; margin-bottom: 10px; text-align: center; }
+        .stat-card p { margin: 5px 0; font-size: 26px; color: var(--amarillo); font-weight: bold; }
+        .admin-section { border-top: 1px solid #333; margin-top: 15px; padding-top: 15px; }
+        input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
+        .btn-add { background: var(--celeste); color: #000; border: none; padding: 12px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; }
+        .btn-ruta { font-size: 10px; padding: 4px; margin-right: 5px; cursor: pointer; border: 1px solid var(--celeste); background: transparent; color: white; border-radius: 3px; }
+        .flota-item { background: #252525; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; line-height: 1.5; }
+        .money-tag { color: #28a745; font-weight: bold; float: right; font-size: 16px; }
+        .map-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
     </style>
 </head>
 <body>
 
 <div id="login-overlay">
-    <div class="login-box">
-        <h2>ACCESO RESTRINGIDO</h2>
-        <input type="password" id="pass-input" placeholder="Ingrese contraseña">
-        <button class="btn-action" onclick="validarLogin()">INGRESAR</button>
+    <h2>🔑 ACCESO RESTRINGIDO</h2>
+    <input type="password" id="pass-code" placeholder="Contraseña">
+    <button class="btn-add" style="width: 200px;" onclick="validar()">INGRESAR</button>
+</div>
+
+<div id="sidebar">
+    <h2 style="color: var(--celeste); margin-top: 0;">TuMovil Admin 🛰️</h2>
+    <div class="stat-card">
+        <small>TOTAL RECAUDADO HOY</small>
+        <p id="caja-total">$0</p>
+    </div>
+    <div class="admin-section">
+        <h4>📝 GESTIONAR CHOFER / AUTO</h4>
+        <input type="number" id="new-id" placeholder="N° de Coche">
+        <input type="text" id="new-driver" placeholder="Nombre del Chofer">
+        <input type="text" id="new-car" placeholder="Marca y Modelo">
+        <input type="text" id="new-plate" placeholder="Patente">
+        <button class="btn-add" onclick="guardarCambiosChofer()">ACTUALIZAR DATOS</button>
+    </div>
+    <div id="flota-list" class="admin-section">
+        <h4>🚗 ESTADO DE FLOTA ACTUAL</h4>
     </div>
 </div>
 
-<div id="navbar">
-    <h2 style="margin: 0; color: var(--main); margin-right: 40px;">TuMovil 🛰️</h2>
-    <button class="nav-btn" onclick="showView('map')">📍 VISTA MAPA</button>
-    <button class="nav-btn" onclick="showView('fleet')">⚙️ GESTIÓN FLOTA</button>
-</div>
-
-<div id="content">
-    <div id="map"></div>
-    <div id="sidebar" style="display:none;">
-        <h3>AGREGAR/EDITAR COCHE</h3>
-        <input type="number" id="c-id" placeholder="N° Coche (Ej: 3)">
-        <input type="text" id="c-nombre" placeholder="Nombre Chofer">
-        <input type="text" id="c-vehiculo" placeholder="Modelo">
-        <input type="text" id="c-patente" placeholder="Patente">
-        <button class="btn-action" onclick="upsertCoche()">GUARDAR CAMBIOS</button>
-        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #444;">
-        <div id="flota-list"></div>
-    </div>
-</div>
+<div id="map"></div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    const map = L.map('map').setView([-34.588, -58.750], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    const map = L.map('map', { zoomControl: false }).setView([-34.588, -58.750], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { className: 'map-tiles' }).addTo(map);
 
-    function validarLogin() {
-        if(document.getElementById('pass-input').value === "1234") { // Cambia esto por tu clave
+    // Seguridad
+    function validar() {
+        if(document.getElementById('pass-code').value === "1234") {
             document.getElementById('login-overlay').style.display = 'none';
-        } else { alert("Clave incorrecta"); }
+        } else { alert("Contraseña incorrecta"); }
     }
 
-    function showView(view) {
-        document.getElementById('map').style.display = (view === 'map') ? 'block' : 'none';
-        document.getElementById('sidebar').style.display = (view === 'fleet') ? 'block' : 'none';
+    async function cambiarSentido(id, valor) {
+        await _s.from('estado_movil').update({ hacia_adelante: valor }).eq('id', id);
+        refrescarTodo();
     }
 
-    async function upsertCoche() {
-        const id = document.getElementById('c-id').value;
+    // Funciones principales (Upsert + Carga)
+    async function guardarCambiosChofer() {
+        const id = document.getElementById('new-id').value;
         const { error } = await _s.from('estado_movil').upsert({
             id: parseInt(id),
-            chofer: document.getElementById('c-nombre').value,
-            vehiculo: document.getElementById('c-vehiculo').value,
-            patente: document.getElementById('c-patente').value
+            chofer: document.getElementById('new-driver').value,
+            vehiculo: document.getElementById('new-car').value,
+            patente: document.getElementById('new-plate').value
         });
         if(error) alert("Error: " + error.message);
-        else alert("Operación exitosa: Coche creado/actualizado.");
+        else refrescarTodo();
     }
 
-    async function cargarFlota() {
-        const { data } = await _s.from('estado_movil').select('*').order('id');
-        const list = document.getElementById('flota-list');
-        list.innerHTML = "";
-        data.forEach(m => {
-            list.innerHTML += `<div style="background:#222; padding:10px; margin-bottom:10px; border-radius:5px;">
-                <strong>Coche ${m.id}</strong> - ${m.chofer || 'Sin chofer'}<br>
-                <small>${m.vehiculo || ''}</small>
-            </div>`;
+    async function refrescarTodo() {
+        const { data: moviles } = await _s.from('estado_movil').select('*').order('id');
+        const { data: reservas } = await _s.from('reservas_activas').select('*');
+        const flotaDiv = document.getElementById('flota-list');
+        flotaDiv.innerHTML = '<h4>🚗 ESTADO DE FLOTA ACTUAL</h4>';
+        
+        moviles.forEach(m => {
+            const gananciaCoche = reservas.filter(r => r.id_movil == m.id && r.estado == 'finalizado').length * 1000;
+            const item = document.createElement('div');
+            item.className = 'flota-item';
+            item.innerHTML = `
+                <b>COCHE ${m.id}</b> | ${m.hacia_adelante ? 'IDA' : 'REGRESO'}<br>
+                👤 ${m.chofer || 'S/A'}<br>
+                <button class="btn-ruta" onclick="cambiarSentido(${m.id}, true)">IDA</button>
+                <button class="btn-ruta" onclick="cambiarSentido(${m.id}, false)">REGRESO</button>
+                <span class="money-tag">$${gananciaCoche}</span>
+            `;
+            flotaDiv.appendChild(item);
         });
     }
 
-    setInterval(cargarFlota, 5000);
-    cargarFlota();
+    setInterval(refrescarTodo, 5000);
+    refrescarTodo();
 </script>
 </body>
 </html>
