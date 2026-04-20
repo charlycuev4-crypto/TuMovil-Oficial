@@ -11,6 +11,7 @@
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --azul-gps: #007AFF; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
         
+        /* Splash */
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
         .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
@@ -100,28 +101,12 @@
     let markerTaxis = {};
     let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
 
-    // --- FUNCIÓN PARA ORDENAR PARADAS INTELIGENTEMENTE ---
-    async function cargarParadasSmart() {
-        const selDest = document.getElementById('destino-select');
-        const { data } = await _s.from('estado_movil').select('hacia_adelante').limit(1).single();
-        
-        // Si el conductor marca hacia_adelante=false, invertimos el orden visual
-        const lista = (data && data.hacia_adelante === false) ? [...paradas].reverse() : paradas;
-        
-        selDest.innerHTML = '<option value="" disabled selected>¿A qué parada vas?</option>';
-        lista.forEach((p, i) => { 
-            const opt = document.createElement('option'); 
-            // Si invertimos, el índice real en el array original es (length - 1 - i)
-            const indexOriginal = (data && data.hacia_adelante === false) ? (paradas.length - 1 - i) : i;
-            opt.value = indexOriginal; 
-            opt.innerText = p.n; 
-            selDest.appendChild(opt); 
-        });
-    }
+    // Selector
+    const selDest = document.getElementById('destino-select');
+    paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
 
     // RECUERDA AL PASAJERO
     window.onload = async () => {
-        await cargarParadasSmart(); // Cargamos orden inteligente
         const nombreGuardado = localStorage.getItem('usuario_nombre');
         if(nombreGuardado) {
             document.getElementById('nombre-input').value = nombreGuardado;
