@@ -11,19 +11,18 @@
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --azul-gps: #007AFF; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
         
-        /* Splash */
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
         .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; flex-shrink: 0; }
+        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; }
         .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
 
         #map { flex-grow: 1; width: 100%; }
         
-        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 45vh; overflow-y: auto; }
+        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px; display: flex; flex-direction: column; gap: 10px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); }
         
-        .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
+        .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; color: var(--amarillo); font-weight: bold; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
         
         .asientos-grid { display: flex; justify-content: space-around; margin: 5px 0; }
@@ -33,26 +32,25 @@
 
         .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; }
         .btn-pedir:disabled { background: #444; color: #888; }
-        
-        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
+        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; }
     </style>
 </head>
 <body>
 
-    <div id="splash">
-        <div class="anillo"><span style="font-size: 60px;">🚕</span></div>
-        <h2 style="color: var(--celeste); margin-top: 20px;">TUMOVIL</h2>
-        <p style="color: white; font-size: 12px;">Recuperando conexión...</p>
-    </div>
+    <div id="splash"><div class="anillo"><span style="font-size: 60px;">🚕</span></div><h2 style="color: var(--celeste); margin-top: 20px;">TUMOVIL</h2></div>
 
     <div class="header"><h1>SOLICITAR VIAJE</h1></div>
     <div id="map"></div>
 
     <div class="bottom-ui">
-        <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
-        
+        <div class="promo-card">TARIFA PLANA: $1000 POR ASIENTO</div>
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
         
+        <select id="sentido-select">
+            <option value="true">SENTIDO: IDA</option>
+            <option value="false">SENTIDO: VUELTA</option>
+        </select>
+
         <select id="destino-select" onchange="actualizarMapaRuta()">
             <option value="" disabled selected>¿A qué parada vas?</option>
         </select>
@@ -92,20 +90,16 @@
     paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d2ff' }).addTo(map));
 
     const iconP = L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] });
-    const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', className: 'dest-arrow', iconAnchor: [10, 11] });
     const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
 
     let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
-    let markerDestinoFlecha = L.marker([0,0], { icon: iconDest });
-    let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
     let markerTaxis = {};
     let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
 
-    // Selector
+    // Selector inicial
     const selDest = document.getElementById('destino-select');
     paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
 
-    // RECUERDA AL PASAJERO
     window.onload = async () => {
         const nombreGuardado = localStorage.getItem('usuario_nombre');
         if(nombreGuardado) {
@@ -125,28 +119,17 @@
         document.getElementById('btn-cancelar').style.display = 'block';
         document.getElementById('nombre-input').disabled = true;
         document.getElementById('destino-select').disabled = true;
+        document.getElementById('sentido-select').disabled = true;
         asientosElegidos.forEach(n => document.getElementById('as-'+n).classList.add('selected'));
     }
 
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
         markerPasajero.setLatLng([miLat, miLon]);
-        actualizarMapaRuta();
         document.getElementById('btn-pedir').disabled = false;
         if(!miViajeActivo) document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR MI VIAJE";
         const s = document.getElementById('splash'); if(s) { s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800); }
     }, null, { enableHighAccuracy: true });
-
-    function actualizarMapaRuta() {
-        const val = document.getElementById('destino-select').value;
-        if(val !== "" && miLat !== 0) {
-            const dest = paradas[val].c;
-            guiaDestino.setLatLngs([[miLat, miLon], dest]);
-            markerDestinoFlecha.setLatLng(dest).addTo(map);
-            const bounds = L.latLngBounds([miLat, miLon], dest);
-            map.fitBounds(bounds, { padding: [80, 80] });
-        }
-    }
 
     function toggleAsiento(num) {
         if(miViajeActivo) return;
@@ -158,46 +141,38 @@
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
         const destIdx = document.getElementById('destino-select').value;
+        const sentido = document.getElementById('sentido-select').value === 'true';
+
+        if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
         
-        // 1. VALIDACIÓN BÁSICA
-        if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Por favor, completa nombre, destino y al menos un asiento."); return; }
-        
-        // 2. VALIDACIÓN DE AUTOS (EL PORTERO)
-        // Buscamos autos que tengan latitud distinta de 0
-        const { data: moviles, error } = await _s.from('estado_movil').select('id').neq('latitud', 0);
-        
-        if (error || !moviles || moviles.length === 0) {
-            alert("⚠️ Lo sentimos, en este momento no hay autos en línea. Intenta nuevamente en unos instantes.");
-            return;
-        }
-        
-        // 3. CONFIRMACIÓN
         localStorage.setItem('usuario_nombre', nom);
+        
+        // Buscamos conductor que esté online Y tenga el sentido elegido
+        const { data: moviles, error } = await _s.from('estado_movil')
+            .select('id')
+            .eq('hacia_adelante', sentido)
+            .neq('latitud', 0)
+            .limit(1);
+
+        if (error || !moviles || moviles.length === 0) { alert("No hay choferes en ese sentido en este momento."); return; }
+        
         const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: moviles[0].id, estado: 'en_curso', nombre_pasajero: nom, pasajero_lat: miLat, pasajero_lon: miLon, destino_idx: parseInt(destIdx) }));
         await _s.from('reservas_activas').insert(res);
         location.reload();
     }
 
     async function finalizarViaje() {
-        const nom = document.getElementById('nombre-input').value;
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('nombre_pasajero', nom);
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('nombre_pasajero', document.getElementById('nombre-input').value);
         location.reload();
     }
 
     async function actualizarFlota() {
         const { data: moviles } = await _s.from('estado_movil').select('*').neq('latitud', 0);
         Object.keys(markerTaxis).forEach(id => map.removeLayer(markerTaxis[id]));
-        if (moviles && moviles.length > 0) {
-            const t = moviles[0];
-            markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map);
-            const { data: ocup } = await _s.from('reservas_activas').select('asiento_num, nombre_pasajero').eq('id_movil', t.id).eq('estado', 'en_curso');
-            document.querySelectorAll('.asiento-btn').forEach(b => b.classList.remove('occupied'));
-            if(ocup) {
-                const miNom = document.getElementById('nombre-input').value;
-                ocup.forEach(o => {
-                    if(o.nombre_pasajero !== miNom) document.getElementById('as-' + o.asiento_num).classList.add('occupied');
-                });
-            }
+        if (moviles) {
+            moviles.forEach(t => {
+                markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map).bindPopup("Conductor ID: "+t.id);
+            });
         }
     }
     setInterval(actualizarFlota, 5000); actualizarFlota();
