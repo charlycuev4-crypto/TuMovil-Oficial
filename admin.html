@@ -10,18 +10,14 @@
     <style>
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
         body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
-        
-        /* BLOQUEO DE SEGURIDAD */
-        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        
         #sidebar { width: 320px; background: var(--panel); border-right: 2px solid var(--celeste); display: flex; flex-direction: column; padding: 15px; overflow-y: auto; z-index: 1000; }
         #map { flex-grow: 1; height: 100vh; }
         .stat-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 12px; margin-bottom: 10px; text-align: center; }
         .stat-card p { margin: 5px 0; font-size: 26px; color: var(--amarillo); font-weight: bold; }
         .admin-section { border-top: 1px solid #333; margin-top: 15px; padding-top: 15px; }
         input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
-        .btn-add { background: var(--celeste); color: #000; border: none; padding: 12px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; }
-        .btn-ruta { font-size: 10px; padding: 4px; margin-right: 5px; cursor: pointer; border: 1px solid var(--celeste); background: transparent; color: white; border-radius: 3px; }
+        .btn-add { background: var(--celeste); color: #000; border: none; padding: 12px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; transition: 0.3s; }
+        .btn-add:hover { background: var(--amarillo); }
         .flota-item { background: #252525; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; line-height: 1.5; }
         .money-tag { color: #28a745; font-weight: bold; float: right; font-size: 16px; }
         .map-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
@@ -29,26 +25,24 @@
 </head>
 <body>
 
-<div id="login-overlay">
-    <h2>🔑 ACCESO RESTRINGIDO</h2>
-    <input type="password" id="pass-code" placeholder="Contraseña">
-    <button class="btn-add" style="width: 200px;" onclick="validar()">INGRESAR</button>
-</div>
-
 <div id="sidebar">
     <h2 style="color: var(--celeste); margin-top: 0;">TuMovil Admin 🛰️</h2>
+    
     <div class="stat-card">
         <small>TOTAL RECAUDADO HOY</small>
         <p id="caja-total">$0</p>
     </div>
+
     <div class="admin-section">
         <h4>📝 GESTIONAR CHOFER / AUTO</h4>
-        <input type="number" id="new-id" placeholder="N° de Coche">
+        <input type="number" id="new-id" placeholder="N° de Coche (Ej: 1 o 2)">
         <input type="text" id="new-driver" placeholder="Nombre del Chofer">
         <input type="text" id="new-car" placeholder="Marca y Modelo">
-        <input type="text" id="new-plate" placeholder="Patente">
+        <input type="text" id="new-plate" placeholder="Patente del vehículo">
         <button class="btn-add" onclick="guardarCambiosChofer()">ACTUALIZAR DATOS</button>
+        <p style="font-size: 10px; color: #888; margin-top: 5px;">*Si el coche ya existe, se cambiarán los datos.</p>
     </div>
+
     <div id="flota-list" class="admin-section">
         <h4>🚗 ESTADO DE FLOTA ACTUAL</h4>
     </div>
@@ -57,58 +51,88 @@
 <div id="map"></div>
 
 <script>
+    // Configuración de Conexión
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+
+    // Inicializar Mapa
     const map = L.map('map', { zoomControl: false }).setView([-34.588, -58.750], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { className: 'map-tiles' }).addTo(map);
 
-    // Seguridad
-    function validar() {
-        if(document.getElementById('pass-code').value === "1234") {
-            document.getElementById('login-overlay').style.display = 'none';
-        } else { alert("Contraseña incorrecta"); }
-    }
+    let markersChoferes = {};
+    const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
 
-    async function cambiarSentido(id, valor) {
-        await _s.from('estado_movil').update({ hacia_adelante: valor }).eq('id', id);
-        refrescarTodo();
-    }
-
-    // Funciones principales (Upsert + Carga)
     async function guardarCambiosChofer() {
         const id = document.getElementById('new-id').value;
+        const nombre = document.getElementById('new-driver').value;
+        const marca = document.getElementById('new-car').value;
+        const patente = document.getElementById('new-plate').value;
+
+        if(!id || !nombre) {
+            alert("Falta el N° de Coche y el Nombre.");
+            return;
+        }
+
         const { error } = await _s.from('estado_movil').upsert({
             id: parseInt(id),
-            chofer: document.getElementById('new-driver').value,
-            vehiculo: document.getElementById('new-car').value,
-            patente: document.getElementById('new-plate').value
+            chofer: nombre,
+            vehiculo: marca,
+            patente: patente
         });
-        if(error) alert("Error: " + error.message);
-        else refrescarTodo();
+
+        if (error) {
+            alert("Error: " + error.message);
+        } else {
+            alert("¡Datos actualizados!");
+            refrescarTodo();
+        }
     }
 
     async function refrescarTodo() {
-        const { data: moviles } = await _s.from('estado_movil').select('*').order('id');
-        const { data: reservas } = await _s.from('reservas_activas').select('*');
-        const flotaDiv = document.getElementById('flota-list');
-        flotaDiv.innerHTML = '<h4>🚗 ESTADO DE FLOTA ACTUAL</h4>';
-        
-        moviles.forEach(m => {
-            const gananciaCoche = reservas.filter(r => r.id_movil == m.id && r.estado == 'finalizado').length * 1000;
-            const item = document.createElement('div');
-            item.className = 'flota-item';
-            item.innerHTML = `
-                <b>COCHE ${m.id}</b> | ${m.hacia_adelante ? 'IDA' : 'REGRESO'}<br>
-                👤 ${m.chofer || 'S/A'}<br>
-                <button class="btn-ruta" onclick="cambiarSentido(${m.id}, true)">IDA</button>
-                <button class="btn-ruta" onclick="cambiarSentido(${m.id}, false)">REGRESO</button>
-                <span class="money-tag">$${gananciaCoche}</span>
-            `;
-            flotaDiv.appendChild(item);
-        });
-    }
+        try {
+            const { data: moviles } = await _s.from('estado_movil').select('*').order('id', {ascending: true});
+            const { data: reservas } = await _s.from('reservas_activas').select('*');
 
+            const flotaDiv = document.getElementById('flota-list');
+            flotaDiv.innerHTML = '<h4>🚗 ESTADO DE FLOTA ACTUAL</h4>';
+            
+            let totalCajaGral = 0;
+
+            moviles.forEach(m => {
+                // Actualizar GPS en Mapa
+                if(m.latitud && m.latitud !== 0) {
+                    const infoTooltip = `<b>Coche ${m.id}</b><br>${m.chofer || 'S/N'}`;
+                    if(markersChoferes[m.id]) {
+                        markersChoferes[m.id].setLatLng([m.latitud, m.longitud]).setTooltipContent(infoTooltip);
+                    } else {
+                        markersChoferes[m.id] = L.marker([m.latitud, m.longitud], { icon: iconT }).addTo(map).bindTooltip(infoTooltip);
+                    }
+                }
+
+                // Dinero por coche
+                const gananciaCoche = reservas.filter(r => r.id_movil == m.id && r.estado == 'finalizado').length * 1000;
+                totalCajaGral += gananciaCoche;
+
+                const item = document.createElement('div');
+                item.className = 'flota-item';
+                item.style.borderLeft = (m.latitud !== 0) ? "4px solid #28a745" : "4px solid #dc3545";
+                item.innerHTML = `
+                    <b>COCHE ${m.id}</b> <span class="money-tag">$${gananciaCoche}</span><br>
+                    👤 ${m.chofer || 'Sin asignar'}<br>
+                    🚘 ${m.vehiculo || 'Sin vehículo'}<br>
+                    <small>🆔 Patente: ${m.patente || '---'}</small>
+                `;
+                flotaDiv.appendChild(item);
+            });
+
+            document.getElementById('caja-total').innerText = "$" + totalCajaGral;
+        } catch (e) {
+            console.log("Esperando conexión...");
+        }
+    }
+    
     setInterval(refrescarTodo, 5000);
     refrescarTodo();
 </script>
+
 </body>
 </html>
