@@ -2,95 +2,47 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TuMovil - Master Panel Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TuMovil - Admin Profesional</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #0a0a0a; --panel: #161616; }
-        body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
-
-        /* PANTALLA DE BIENVENIDA */
-        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); z-index: 9999; display: flex; align-items: center; justify-content: center; }
-        .login-box { text-align: center; width: 85%; max-width: 350px; background: #111; padding: 30px; border-radius: 15px; border: 1px solid var(--celeste); }
-        
-        /* SIDEBAR DINÁMICO */
-        #sidebar { width: 320px; min-width: 320px; background: var(--panel); border-right: 1px solid #333; display: flex; flex-direction: column; transition: all 0.3s ease; z-index: 1000; }
-        #sidebar.fullscreen { margin-left: -320px; } /* Esconde el panel */
-
-        #map { flex-grow: 1; height: 100vh; position: relative; z-index: 1; }
-
-        /* BOTON FLOTANTE PARA VOLVER */
-        #btn-back { position: absolute; top: 15px; left: 15px; z-index: 2000; background: var(--celeste); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-
-        /* TABS SUPERIORES */
-        .tabs { display: flex; background: #222; overflow-x: auto; }
-        .tab-btn { flex: 1; padding: 15px 5px; border: none; background: #333; color: #777; font-size: 10px; cursor: pointer; text-transform: uppercase; min-width: 70px; }
-        .tab-btn.active { background: var(--celeste); color: black; font-weight: bold; }
-        
-        /* CONTENIDO */
-        .content { padding: 15px; overflow-y: auto; flex-grow: 1; }
-        .section { display: none; }
-        .section.active { display: block; }
-
-        .card { background: #222; border-radius: 8px; padding: 12px; margin-bottom: 10px; border-left: 4px solid var(--celeste); }
-        input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 5px; width: 100%; margin-bottom: 10px; box-sizing: border-box; }
-        .btn-main { background: var(--celeste); color: black; border: none; padding: 14px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; margin-top: 5px; }
-        
-        .map-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
+        body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        #sidebar { width: 350px; background: var(--panel); border-right: 2px solid var(--celeste); display: flex; flex-direction: column; padding: 15px; overflow-y: auto; z-index: 1000; }
+        #map { flex-grow: 1; height: 100vh; }
+        .stat-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 12px; margin-bottom: 10px; text-align: center; }
+        .stat-card p { margin: 5px 0; font-size: 26px; color: var(--amarillo); font-weight: bold; }
+        .admin-section { border-top: 1px solid #333; margin-top: 15px; padding-top: 15px; }
+        input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
+        .btn-add { background: var(--celeste); color: #000; border: none; padding: 12px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; }
+        .flota-item { background: #252525; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; line-height: 1.5; }
+        .money-tag { color: #28a745; font-weight: bold; float: right; font-size: 16px; }
+        .btn-ruta { border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-<div id="login-screen">
-    <div class="login-box">
-        <h1 style="color: var(--celeste);">TuMovil 🛰️</h1>
-        <input type="password" id="pass-field" placeholder="Contraseña">
-        <button class="btn-main" onclick="validar()">INGRESAR AL PANEL</button>
-        <p id="error" style="color: #ff4444; font-size: 12px; margin-top: 10px; display: none;">Clave incorrecta</p>
-    </div>
-</div>
-
-<button id="btn-back" onclick="toggleGPS(false)">☰ MOSTRAR MENÚ</button>
-
 <div id="sidebar">
-    <div class="tabs">
-        <button class="tab-btn active" onclick="ver('radar')">RADAR</button>
-        <button class="tab-btn" onclick="ver('flota')">FLOTA</button>
-        <button class="tab-btn" onclick="ver('caja')">CAJA</button>
-        <button class="tab-btn" onclick="ver('ajustes')">AJUSTES</button>
-        <button class="tab-btn" style="background: var(--amarillo); color: black;" onclick="toggleGPS(true)">📍 MAPA</button>
+    <h2 style="color: var(--celeste); margin-top: 0;">TuMovil Admin 🛰️</h2>
+    
+    <div class="stat-card">
+        <small>TOTAL RECAUDADO HOY</small>
+        <p id="caja-total">$0</p>
     </div>
 
-    <div class="content">
-        <div id="view-radar" class="section active">
-            <h4 style="color: var(--celeste);">PASAJEROS EN VIVO</h4>
-            <div id="pax-list">Cargando...</div>
-        </div>
+    <div class="admin-section">
+        <h4>📝 GESTIONAR CHOFER</h4>
+        <input type="number" id="new-id" placeholder="N° de Coche">
+        <input type="text" id="new-driver" placeholder="Nombre del Chofer">
+        <input type="text" id="new-car" placeholder="Vehículo">
+        <input type="text" id="new-plate" placeholder="Patente">
+        <button class="btn-add" onclick="guardarCambiosChofer()">ACTUALIZAR DATOS</button>
+    </div>
 
-        <div id="view-flota" class="section">
-            <h4>ESTADO DE CONDUCTORES</h4>
-            <div id="flota-list"></div>
-        </div>
-
-        <div id="view-caja" class="section">
-            <div style="background: rgba(0,210,255,0.1); padding: 15px; border-radius: 10px; text-align: center; border: 1px solid var(--celeste);">
-                <small>RECAUDACIÓN ESTIMADA</small>
-                <p id="total-general" style="font-size: 28px; color: var(--amarillo); margin: 5px 0; font-weight: bold;">$0</p>
-            </div>
-            <h4 style="margin-top: 20px;">DETALLE POR COCHE</h4>
-            <div id="caja-list"></div>
-        </div>
-
-        <div id="view-ajustes" class="section">
-            <h4>GESTIÓN DE UNIDADES</h4>
-            <input type="number" id="c-id" placeholder="N° de Coche">
-            <input type="text" id="c-nom" placeholder="Nombre Chofer">
-            <button class="btn-main" onclick="guardar()">ACTUALIZAR DATOS</button>
-            <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
-            <button class="btn-main" style="background: #444; color: white;" onclick="cambiarClave()">CAMBIAR CONTRASEÑA</button>
-        </div>
+    <div id="flota-list" class="admin-section">
+        <h4>🚗 ESTADO DE FLOTA ACTUAL</h4>
     </div>
 </div>
 
@@ -98,87 +50,73 @@
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
-    function validar() {
-        const correcta = localStorage.getItem("adminPass") || "1234";
-        if(document.getElementById("pass-field").value === correcta) {
-            document.getElementById("login-screen").style.display = "none";
-        } else {
-            document.getElementById("error").style.display = "block";
-        }
-    }
-
-    // FUNCIÓN PARA VER GPS EN TODA LA PANTALLA
-    function toggleGPS(full) {
-        const side = document.getElementById("sidebar");
-        const btn = document.getElementById("btn-back");
-        if(full) {
-            side.classList.add("fullscreen");
-            btn.style.display = "block";
-            setTimeout(() => { map.invalidateSize(); }, 300); // Ajusta el mapa al nuevo tamaño
-        } else {
-            side.classList.remove("fullscreen");
-            btn.style.display = "none";
-            setTimeout(() => { map.invalidateSize(); }, 300);
-        }
-    }
-
-    function ver(s) {
-        document.querySelectorAll('.section').forEach(x => x.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
-        document.getElementById('view-'+s).classList.add('active');
-        event.currentTarget.classList.add('active');
-    }
-
     const map = L.map('map', { zoomControl: false }).setView([-34.588, -58.750], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { className: 'map-tiles' }).addTo(map);
 
-    let markers = {};
-    const iconT = L.divIcon({ html: '🚕', iconSize: [25, 25] });
+    let markersChoferes = {};
+    const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
 
-    async function refrescar() {
-        const { data: moviles } = await _s.from('estado_movil').select('*').order('id');
-        const { data: reservas } = await _s.from('reservas_activas').select('*');
+    // --- NUEVA FUNCIÓN PARA CAMBIAR SENTIDO ---
+    async function cambiarSentido(idMovil, nuevoSentido) {
+        const { error } = await _s
+            .from('estado_movil')
+            .update({ sentido_ruta: nuevoSentido })
+            .eq('id', idMovil);
 
-        const paxBox = document.getElementById('pax-list');
-        paxBox.innerHTML = '';
-        reservas.forEach(r => {
-            paxBox.innerHTML += `<div class="card" style="border-left-color: var(--amarillo)">👤 <b>${r.nombre_pasajero}</b><br><small>Coche ${r.id_movil} | Asiento ${r.asiento}</small></div>`;
+        if (error) alert("Error: " + error.message);
+        else refrescarTodo(); // Recargar para mostrar cambios visuales
+    }
+
+    async function guardarCambiosChofer() {
+        const id = document.getElementById('new-id').value;
+        const { error } = await _s.from('estado_movil').upsert({
+            id: parseInt(id),
+            chofer: document.getElementById('new-driver').value,
+            vehiculo: document.getElementById('new-car').value,
+            patente: document.getElementById('new-plate').value
         });
-
-        const fBox = document.getElementById('flota-list');
-        const cBox = document.getElementById('caja-list');
-        fBox.innerHTML = ''; cBox.innerHTML = '';
-        let total = 0;
-
-        moviles.forEach(m => {
-            const g = reservas.filter(r => r.id_movil == m.id).length * 1000;
-            total += g;
-            if(m.latitud) {
-                if(markers[m.id]) markers[m.id].setLatLng([m.latitud, m.longitud]);
-                else markers[m.id] = L.marker([m.latitud, m.longitud], {icon: iconT}).addTo(map);
-            }
-            fBox.innerHTML += `<div class="card" style="border-left-color:${m.latitud ? '#28a745' : '#dc3545'}">🚗 <b>Coche ${m.id}</b><br><small>${m.chofer || 'Sin chofer'}</small></div>`;
-            cBox.innerHTML += `<div class="card">💰 <b>Coche ${m.id}</b>: $${g}</div>`;
-        });
-        document.getElementById('total-general').innerText = "$" + total;
+        if (error) alert("Error: " + error.message);
+        else { alert("¡Datos actualizados!"); refrescarTodo(); }
     }
 
-    async function guardar() {
-        await _s.from('estado_movil').upsert({ id: document.getElementById('c-id').value, chofer: document.getElementById('c-nom').value });
-        alert("¡Datos actualizados!");
-        refrescar();
-    }
+    async function refrescarTodo() {
+        try {
+            const { data: moviles } = await _s.from('estado_movil').select('*').order('id', {ascending: true});
+            const { data: reservas } = await _s.from('reservas_activas').select('*');
 
-    function cambiarClave() {
-        let n = prompt("Nueva clave:");
-        if(n) { localStorage.setItem("adminPass", n); alert("Clave actualizada."); location.reload(); }
-    }
+            const flotaDiv = document.getElementById('flota-list');
+            flotaDiv.innerHTML = '<h4>🚗 ESTADO DE FLOTA ACTUAL</h4>';
+            let totalCajaGral = 0;
 
-    setInterval(refrescar, 5000);
-    refrescar();
+            moviles.forEach(m => {
+                // Dibujar en mapa
+                if(m.latitud && m.latitud !== 0) {
+                    if(markersChoferes[m.id]) markersChoferes[m.id].setLatLng([m.latitud, m.longitud]);
+                    else markersChoferes[m.id] = L.marker([m.latitud, m.longitud], { icon: iconT }).addTo(map);
+                }
+
+                const gananciaCoche = reservas.filter(r => r.id_movil == m.id && r.estado == 'finalizado').length * 1000;
+                totalCajaGral += gananciaCoche;
+
+                // Crear elemento de lista con botones de control
+                const item = document.createElement('div');
+                item.className = 'flota-item';
+                item.innerHTML = `
+                    <b>COCHE ${m.id}</b> <span class="money-tag">$${gananciaCoche}</span><br>
+                    👤 ${m.chofer || '---'} | 🚘 ${m.vehiculo || '---'}<br>
+                    <div style="margin-top:8px;">
+                        <button class="btn-ruta" style="background:${m.sentido_ruta ? '#00d2ff' : '#333'}" onclick="cambiarSentido(${m.id}, true)">IDA (1→20)</button>
+                        <button class="btn-ruta" style="background:${!m.sentido_ruta ? '#ffcc00' : '#333'}" onclick="cambiarSentido(${m.id}, false)">REGRESO (20→1)</button>
+                    </div>
+                `;
+                flotaDiv.appendChild(item);
+            });
+            document.getElementById('caja-total').innerText = "$" + totalCajaGral;
+        } catch (e) { console.log("Esperando datos..."); }
+    }
+    
+    setInterval(refrescarTodo, 5000);
+    refrescarTodo();
 </script>
 </body>
 </html>
-
-    
