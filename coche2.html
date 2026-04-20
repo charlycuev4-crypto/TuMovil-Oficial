@@ -16,7 +16,7 @@
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         
-        /* NUEVO: Panel de Sentido */
+        /* Panel de Sentido */
         .sentido-panel { 
             position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
             background: #222; border: 2px solid #00d2ff; color: #00d2ff; 
@@ -40,69 +40,3 @@
         .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
         .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
         .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); transition: 0.3s; }
-        .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
-        .taxi-icon { font-size: 30px; }
-    </style>
-</head>
-<body>
-    <div id="splash"><div class="splash-logo">🚕</div><h1 class="splash-title">COCHE 02</h1></div>
-    
-    <div class="connection-panel"><span id="status-label">FUERA DE LÍNEA</span><label class="switch"><input type="checkbox" id="online-toggle" onchange="gestionarConexion()"><span class="slider"></span></label></div>
-    
-    <div class="sentido-panel" id="btn-sentido" onclick="cambiarSentido()">SENTIDO: IDA</div>
-
-    <div id="map"></div>
-    <div class="ui-overlay top-stats">
-        <div class="stat-box"><small style="color:#FFD700">RECAUDACIÓN</small><div id="txt-plata" style="font-size:24px; font-weight:800; color:#4cd964;">$0</div></div>
-        <div class="stat-box"><small style="color:#FFD700">PASAJEROS</small><div id="txt-pax" style="font-size:24px; font-weight:800;">0</div></div>
-    </div>
-    <div class="ui-overlay bottom-ui">
-        <div class="asientos-pills">
-            <div id="pill1" class="pill">1</div><div id="pill2" class="pill">2</div><div id="pill3" class="pill">3</div><div id="pill4" class="pill">4</div>
-        </div>
-        <button class="btn-vaciar" onclick="vaciarTodo()">🏁 FINALIZAR / VACIAR COCHE 02</button>
-    </div>
-<script>
-    const MI_ID_MOVIL = 2; // ID específico para este conductor
-    let esHaciaAdelante = true;
-    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
-    const paradas = [ /* ... (Tu lista de paradas igual que antes) ... */ ];
-    // [IMPORTANTE: Asegúrate de pegar tu lista completa de paradas aquí como tenías antes]
-
-    const map = L.map('map',{zoomControl:false}).setView([-34.561264, -58.770506], 16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    // --- NUEVAS FUNCIONES DE SENTIDO ---
-    async function cambiarSentido() {
-        esHaciaAdelante = !esHaciaAdelante;
-        await _s.from('estado_movil').update({ hacia_adelante: esHaciaAdelante }).eq('id', MI_ID_MOVIL);
-        actualizarUI();
-    }
-
-    function actualizarUI() {
-        const btn = document.getElementById('btn-sentido');
-        if(esHaciaAdelante) { 
-            btn.innerText = "SENTIDO: IDA"; btn.style.color = "#00d2ff"; btn.style.borderColor = "#00d2ff"; 
-        } else { 
-            btn.innerText = "SENTIDO: VUELTA"; btn.style.color = "#ffcc00"; btn.style.borderColor = "#ffcc00"; 
-        }
-    }
-
-    // --- FUNCIONES ORIGINALES ---
-    async function gestionarConexion() { /* ... (Tu lógica original) ... */ }
-    function iniciarGPS() { /* ... (Tu lógica original) ... */ }
-    async function actualizarDatos() { /* ... (Tu lógica original) ... */ }
-    async function vaciarTodo() { /* ... (Tu lógica original) ... */ }
-
-    window.onload = async () => {
-        // Traer estado del sentido al arrancar
-        const { data: estado } = await _s.from('estado_movil').select('hacia_adelante').eq('id', MI_ID_MOVIL).single();
-        if(estado !== null) { esHaciaAdelante = estado.hacia_adelante; actualizarUI(); }
-        actualizarDatos();
-    };
-
-    _s.channel('c2').on('postgres_changes',{event:'*',schema:'public',table:'reservas_activas'}, actualizarDatos).subscribe();
-</script>
-</body>
-</html>
