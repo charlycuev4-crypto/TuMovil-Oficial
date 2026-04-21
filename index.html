@@ -13,7 +13,6 @@
         .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
         .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
@@ -32,14 +31,12 @@
         .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); transition: all 0.3s ease; }
         .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
         .taxi-icon { font-size: 30px; }
-        .loader { width: 30px; height: 30px; border: 3px solid rgba(255,215,0,0.1); border-top: 3px solid #FFD700; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px; }
     </style>
 </head>
 <body>
     <div id="splash">
         <div class="splash-logo">🚕</div>
         <h1 class="splash-title">COCHE 01</h1>
-        <div class="loader"></div>
     </div>
     <div class="connection-panel">
         <span id="status-label">FUERA DE LÍNEA</span>
@@ -66,6 +63,12 @@
 <script>
     const MI_ID_MOVIL = 1; 
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    
+    // --- SEGURIDAD: Apagado automático al cerrar página ---
+    window.addEventListener('beforeunload', async () => {
+        await _s.from('estado_movil').update({ esta_online: false, latitud: 0, longitud: 0 }).eq('id', MI_ID_MOVIL);
+    });
+
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -93,15 +96,25 @@
     async function gestionarConexion() {
         estaOnline = document.getElementById('online-toggle').checked;
         const label = document.getElementById('status-label');
+        
         if (estaOnline) {
             label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
-            const ahora = new Date().toISOString();
-            await _s.from('estado_movil').update({ ultima_conexion: ahora, latitud: paradas[0].c[0], longitud: paradas[0].c[1] }).eq('id', MI_ID_MOVIL);
+            // Actualizamos estado a ONLINE y enviamos coordenadas
+            await _s.from('estado_movil').update({ 
+                esta_online: true, 
+                latitud: paradas[0].c[0], 
+                longitud: paradas[0].c[1] 
+            }).eq('id', MI_ID_MOVIL);
             iniciarGPS();
         } else {
             label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
             if (watchId) navigator.geolocation.clearWatch(watchId);
-            await _s.from('estado_movil').update({ latitud: 0, longitud: 0 }).eq('id', MI_ID_MOVIL);
+            // Actualizamos estado a OFFLINE y reseteamos coordenadas
+            await _s.from('estado_movil').update({ 
+                esta_online: false, 
+                latitud: 0, 
+                longitud: 0 
+            }).eq('id', MI_ID_MOVIL);
         }
     }
 
@@ -139,19 +152,13 @@
 
     async function vaciarTodo() {
         if(!confirm("¿Finalizar el viaje y vaciar el Coche 01?")) return;
+        // Al vaciar, también nos aseguramos de no quedar en línea por error
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
         actualizarDatos();
     }
 
-    // --- CORRECCIÓN INTEGRADA: FILTRO POR ID_MOVIL ---
     _s.channel('coche_' + MI_ID_MOVIL)
-      .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'reservas_activas',
-          filter: `id_movil=eq.${MI_ID_MOVIL}` 
-      }, (p) => {
-          console.log("Actualización recibida para este coche");
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas', filter: `id_movil=eq.${MI_ID_MOVIL}` }, (p) => {
           actualizarDatos();
       })
       .subscribe();
