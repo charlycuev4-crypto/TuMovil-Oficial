@@ -10,7 +10,6 @@
     <style>
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
         
-        /* Splash Screen */
         #splash {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 9999; display: flex; flex-direction: column;
@@ -22,11 +21,9 @@
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        /* Mapa y UI */
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         
-        /* Estadísticas Superiores */
         .top-stats { top: 10px; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 10px; }
         .stat-row { display: flex; justify-content: space-around; width: 100%; }
         .stat-box { 
@@ -36,7 +33,6 @@
             text-align: center; color: white; pointer-events: auto; 
         }
         
-        /* NUEVO: Botón Sentido */
         .sentido-panel { 
             background: #222; border: 2px solid #00d2ff; color: #00d2ff; 
             padding: 8px 30px; border-radius: 30px; font-weight: bold; font-size: 16px; 
@@ -44,7 +40,6 @@
             box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
         }
 
-        /* Panel de Conexión */
         .connection-panel {
             display: flex; align-items: center; gap: 12px;
             background: rgba(0,0,0,0.9); padding: 8px 15px; border-radius: 30px;
@@ -64,7 +59,6 @@
         input:checked + .slider:before { transform: translateX(24px); }
         #status-label { color: white; font-size: 11px; font-weight: bold; width: 85px; text-align: center; }
 
-        /* UI Inferior */
         .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
         .btn-vaciar { 
             background: #ff3b30; color: white; border: none; padding: 15px 40px; 
@@ -123,9 +117,7 @@
     const MI_ID_MOVIL = 1; 
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // Estado del sentido
     let esHaciaAdelante = true;
-
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -157,10 +149,8 @@
     let watchId = null;
     let estaOnline = false;
 
-    // --- FUNCIONES NUEVAS DE SENTIDO ---
     async function cambiarSentido() {
         esHaciaAdelante = !esHaciaAdelante;
-        // Actualizar en la base de datos
         await _s.from('estado_movil').update({ hacia_adelante: esHaciaAdelante }).eq('id', MI_ID_MOVIL);
         actualizarUI();
     }
@@ -178,7 +168,7 @@
         }
     }
 
-    // --- FUNCIONES ORIGINALES (INTACTAS) ---
+    // --- LOGICA FIFO: GESTIONAR CONEXIÓN ---
     async function gestionarConexion() {
         estaOnline = document.getElementById('online-toggle').checked;
         const label = document.getElementById('status-label');
@@ -186,9 +176,12 @@
         if (estaOnline) {
             label.innerText = "EN LÍNEA";
             label.style.color = "#4cd964";
+            
+            // Registramos la hora exacta en fecha_online para el sistema FIFO
             const ahora = new Date().toISOString();
             await _s.from('estado_movil').update({ 
-                ultima_conexion: ahora,
+                fecha_online: ahora,
+                en_servicio: true,
                 latitud: paradas[0].c[0],
                 longitud: paradas[0].c[1]
             }).eq('id', MI_ID_MOVIL);
@@ -198,7 +191,14 @@
             label.innerText = "FUERA DE LÍNEA";
             label.style.color = "white";
             if (watchId) navigator.geolocation.clearWatch(watchId);
-            await _s.from('estado_movil').update({ latitud: 0, longitud: 0 }).eq('id', MI_ID_MOVIL);
+            
+            // Borramos la fecha al desconectar para salir de la fila
+            await _s.from('estado_movil').update({ 
+                fecha_online: null,
+                en_servicio: false,
+                latitud: 0, 
+                longitud: 0 
+            }).eq('id', MI_ID_MOVIL);
         }
     }
 
@@ -209,7 +209,13 @@
             const myLon = p.coords.longitude;
             marcadorConductor.setLatLng([myLat, myLon]); 
             map.panTo([myLat, myLon]);
-            await _s.from('estado_movil').update({ latitud: myLat, longitud: myLon }).eq('id', MI_ID_MOVIL);
+            
+            // Esta función solo actualiza ubicación. ¡NO toca fecha_online!
+            await _s.from('estado_movil').update({ 
+                latitud: myLat, 
+                longitud: myLon 
+            }).eq('id', MI_ID_MOVIL);
+            
         }, null, { enableHighAccuracy: true });
     }
 
@@ -261,9 +267,7 @@
         actualizarDatos();
     }
 
-    // --- CARGA INICIAL Y REALTIME ---
     window.onload = async () => {
-        // Traer estado del sentido al arrancar
         const { data: estado } = await _s.from('estado_movil').select('hacia_adelante').eq('id', MI_ID_MOVIL).single();
         if(estado !== null) { 
             esHaciaAdelante = estado.hacia_adelante; 
