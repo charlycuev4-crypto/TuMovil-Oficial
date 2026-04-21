@@ -3,114 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CONDUCTOR 02 - TuMovil</title>
+    <title>TuMovil - Conductor</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
-        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; }
-        .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
-        .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; }
-        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
-        .sentido-panel { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); background: #222; border: 2px solid #00d2ff; color: #00d2ff; padding: 8px 30px; border-radius: 30px; font-weight: bold; font-size: 16px; cursor: pointer; pointer-events: auto; text-align: center; z-index: 1001; }
-        .top-stats { top: 120px; display: flex; justify-content: space-around; padding: 0 10px; }
         .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
-        .connection-panel { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.9); padding: 8px 15px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
-        .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 22px; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #4cd964; }
-        input:checked + .slider:before { transform: translateX(24px); }
-        #status-label { color: white; font-size: 11px; font-weight: bold; width: 85px; text-align: center; }
-        .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
-        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
-        .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
-        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); transition: 0.3s; }
-        .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
-        .taxi-icon { font-size: 30px; }
+        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); transition: all 0.3s ease; }
+        .pill.active { background: #4cd964; border-color: #4cd964; color: black; }
+        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; }
     </style>
 </head>
 <body>
-    <div id="splash"><div class="splash-logo">🚕</div><h1 class="splash-title">COCHE 02</h1></div>
-    <div class="connection-panel"><span id="status-label">FUERA DE LÍNEA</span><label class="switch"><input type="checkbox" id="online-toggle" onchange="gestionarConexion()"><span class="slider"></span></label></div>
-    <div class="sentido-panel" id="btn-sentido" onclick="cambiarSentido()">SENTIDO: IDA</div>
+    <div class="ui-overlay" style="top: 10px; display: flex; justify-content: space-around;">
+        <div class="stat-box"><small>RECAUDACIÓN</small><div id="txt-plata">$0</div></div>
+        <div class="stat-box"><small>PASAJEROS</small><div id="txt-pax">0</div></div>
+    </div>
     <div id="map"></div>
-    <div class="ui-overlay top-stats">
-        <div class="stat-box"><small style="color:#FFD700">RECAUDACIÓN</small><div id="txt-plata" style="font-size:24px; font-weight:800; color:#4cd964;">$0</div></div>
-        <div class="stat-box"><small style="color:#FFD700">PASAJEROS</small><div id="txt-pax" style="font-size:24px; font-weight:800;">0</div></div>
-    </div>
-    <div class="ui-overlay bottom-ui">
-        <div class="asientos-pills">
-            <div id="pill1" class="pill">1</div><div id="pill2" class="pill">2</div><div id="pill3" class="pill">3</div><div id="pill4" class="pill">4</div>
+    <div class="ui-overlay" style="bottom: 20px; display: flex; flex-direction: column; align-items: center;">
+        <div class="asientos-pills" style="display:flex; gap:10px; margin-bottom:15px; pointer-events:auto;">
+            <div id="pill1" class="pill">1</div><div id="pill2" class="pill">2</div>
+            <div id="pill3" class="pill">3</div><div id="pill4" class="pill">4</div>
         </div>
-        <button class="btn-vaciar" onclick="vaciarTodo()">🏁 FINALIZAR / VACIAR COCHE 02</button>
+        <button class="btn-vaciar" onclick="vaciarTodo()">FINALIZAR VIAJE</button>
     </div>
+
 <script>
-    const MI_ID_MOVIL = 2;
-    let esHaciaAdelante = true;
-    const _s = supabase.createClient('TU_URL_AQUI', 'TU_KEY_AQUI');
+    // ========================================================
+    // CONFIGURACIÓN MAESTRA (Cambia solo esto para cada coche)
+    // ========================================================
+    const MI_ID_MOVIL = 1; // Cambia a 2, 3, etc.
+    const CANAL_NAME = 'cambios_coche1'; // Cambia a 'cambios_coche2', etc.
+    // ========================================================
+
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    const paradas = [
-        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
-        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
-        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
-        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
-        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
-        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
-        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
-        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
-        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
-        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
-        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
-        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
-        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
-    ];
-
-    const map = L.map('map',{zoomControl:false}).setView(paradas[0].c, 16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.5 }).addTo(map);
-    paradas.forEach(p => { L.circleMarker(p.c, { radius: 6, color: '#000', weight: 3, fillColor: '#FFF', fillOpacity: 1 }).addTo(map); });
-    const iconTaxi = L.divIcon({html:'🚕', className:'taxi-icon', iconAnchor:[15,15]});
-    const marcadorConductor = L.marker(paradas[0].c,{icon:iconTaxi}).addTo(map);
-
-    async function cambiarSentido() {
-        esHaciaAdelante = !esHaciaAdelante;
-        await _s.from('estado_movil').update({ hacia_adelante: esHaciaAdelante }).eq('id', MI_ID_MOVIL);
-        actualizarUI();
-    }
-    function actualizarUI() {
-        const btn = document.getElementById('btn-sentido');
-        if(esHaciaAdelante) { btn.innerText = "SENTIDO: IDA"; btn.style.color = "#00d2ff"; btn.style.borderColor = "#00d2ff"; }
-        else { btn.innerText = "SENTIDO: VUELTA"; btn.style.color = "#ffcc00"; btn.style.borderColor = "#ffcc00"; }
-    }
-
-    async function gestionarConexion() {
-        let estaOnline = document.getElementById('online-toggle').checked;
-        const label = document.getElementById('status-label');
-        if (estaOnline) {
-            label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
-            await _s.from('estado_movil').update({ ultima_conexion: new Date().toISOString() }).eq('id', MI_ID_MOVIL);
-        } else {
-            label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
-        }
-    }
+    // Lógica para traer datos de MI coche Y el de mi compañero
     async function actualizarDatos() {
-        const { data: reser } = await _s.from('reservas_activas').select('*').eq('estado','en_curso').eq('id_movil', MI_ID_MOVIL);
-        document.getElementById('txt-pax').innerText = reser ? reser.length : 0;
-        document.getElementById('txt-plata').innerText = '$' + (reser ? reser.length * 1000 : 0);
-        document.getElementById('splash').style.opacity = '0'; 
-        setTimeout(()=>document.getElementById('splash').style.display='none', 800);
+        // Traemos las reservas de todos (o del 1 y 2) para tener visión global
+        const { data: reservas } = await _s.from('reservas_activas')
+            .select('*')
+            .eq('estado', 'en_curso')
+            .in('id_movil', [1, 2]); // Aquí puedes añadir más IDs: [1, 2, 3]
+
+        // Filtramos solo las que son MÍAS para el tablero
+        const misReservas = reservas.filter(r => r.id_movil === MI_ID_MOVIL);
+        const reservasCompañero = reservas.filter(r => r.id_movil !== MI_ID_MOVIL);
+
+        // Lógica de "Desbordamiento" (Overflow)
+        if (reservasCompañero.length >= 4) {
+            console.log("El otro conductor está lleno, prioridad activa");
+        }
+
+        // Actualizar UI
+        document.getElementById('txt-pax').innerText = misReservas.length;
+        document.getElementById('txt-plata').innerText = '$' + (misReservas.length * 1000);
+        
+        // Resetear píldoras
+        for(let i=1; i<=4; i++) { document.getElementById('pill'+i).className = 'pill'; }
+        
+        // Marcar ocupados
+        misReservas.forEach(res => {
+            const pill = document.getElementById('pill' + res.asiento_num);
+            if(pill) pill.className = 'pill active';
+        });
     }
+
     async function vaciarTodo() {
-        if(!confirm("¿Vaciar Coche 02?")) return;
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
+        await _s.from('reservas_activas').update({ estado: 'finalizado' })
+            .eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
+        actualizarDatos();
     }
-    _s.channel('c2').on('postgres_changes',{event:'*',schema:'public',table:'reservas_activas'}, actualizarDatos).subscribe();
+
+    _s.channel(CANAL_NAME)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => {
+          actualizarDatos();
+      })
+      .subscribe();
+
     actualizarDatos();
 </script>
 </body>
