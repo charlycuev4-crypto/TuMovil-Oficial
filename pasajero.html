@@ -12,6 +12,12 @@
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
         #map { flex-grow: 1; width: 100%; z-index: 1; }
         .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px; display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 1000; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); }
+        
+        /* Botones Ida/Vuelta */
+        .selector-sentido { display: flex; gap: 10px; margin-bottom: 5px; }
+        .btn-sentido { flex: 1; padding: 12px; border-radius: 10px; border: 2px solid #444; background: #2a2a2a; color: white; font-weight: bold; cursor: pointer; font-size: 13px; }
+        .btn-sentido.active { border-color: var(--celeste); background: rgba(0,210,255,0.2); box-shadow: 0 0 10px var(--celeste); }
+
         .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
         .asientos-grid { display: flex; justify-content: space-around; margin: 5px 0; }
@@ -26,6 +32,11 @@
     <div id="map"></div>
 
     <div class="bottom-ui">
+        <div class="selector-sentido">
+            <button id="btn-ida" class="btn-sentido active" onclick="seleccionarSentido(true)">IDA</button>
+            <button id="btn-vuelta" class="btn-sentido" onclick="seleccionarSentido(false)">VUELTA</button>
+        </div>
+
         <div class="promo-card"><b style="color:var(--amarillo);">TARIFA: $1000 x ASIENTO</b></div>
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
         <select id="destino-select" onchange="actualizarMapaRuta()">
@@ -60,11 +71,10 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
+    let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false, sentidoSeleccionado = true;
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Paradas con borde negro
     paradas.forEach(p => L.circleMarker(p.c, { radius: 6, color: '#000', fillColor: '#00d2ff', fillOpacity: 1, weight: 2 }).addTo(map));
 
     const iconP = L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] });
@@ -92,6 +102,12 @@
         }
     };
 
+    function seleccionarSentido(esIda) {
+        sentidoSeleccionado = esIda;
+        document.getElementById('btn-ida').className = esIda ? 'btn-sentido active' : 'btn-sentido';
+        document.getElementById('btn-vuelta').className = !esIda ? 'btn-sentido active' : 'btn-sentido';
+    }
+
     navigator.geolocation.watchPosition(p => { 
         miLat = p.coords.latitude; miLon = p.coords.longitude; 
         markerPasajero.setLatLng([miLat, miLon]);
@@ -112,11 +128,10 @@
         const idx = parseInt(document.getElementById('destino-select').value);
         if (!nom || isNaN(idx) || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
         
-        // Logica simplificada: el sistema asume sentido automaticamente
         const { data: moviles } = await _s.from('estado_movil').select('id').eq('en_servicio', true).gt('asientos_libres', 0);
         if (!moviles || moviles.length === 0) { alert("No hay choferes disponibles."); return; }
         
-        const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: moviles[0].id, estado: 'en_curso', nombre_pasajero: nom, destino_idx: idx }));
+        const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: moviles[0].id, estado: 'en_curso', nombre_pasajero: nom, destino_idx: idx, ida: sentidoSeleccionado }));
         const { error } = await _s.from('reservas_activas').insert(res);
         if(!error) { localStorage.setItem('usuario_nombre', nom); location.reload(); }
     }
