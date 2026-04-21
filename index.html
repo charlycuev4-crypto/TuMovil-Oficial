@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+            <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -11,7 +11,6 @@
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
         
-        /* Splash Screen */
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; }
         .splash-logo { font-size: 80px; margin-bottom: 20px; }
         .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
@@ -99,6 +98,7 @@
     let watchId = null;
     let estaOnline = false;
 
+    // --- FUNCIONES ---
     async function gestionarConexion() {
         estaOnline = document.getElementById('online-toggle').checked;
         document.getElementById('status-label').innerText = estaOnline ? "EN LÍNEA" : "FUERA DE LÍNEA";
@@ -133,19 +133,18 @@
         markersDest.forEach(m => map.removeLayer(m));
         markersPax = []; markersDest = [];
         
-        // Reseteo pills
+        // Reseteo visual pills
         for(let i=1; i<=4; i++) {
             const p = document.getElementById('pill'+i);
             p.className = 'pill'; p.innerText = i;
         }
 
         if (reservas && reservas.length > 0) {
-            console.log("Reservas detectadas:", reservas);
             document.getElementById('txt-pax').innerText = reservas.length;
             document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
 
             reservas.forEach(res => {
-                // Dibujar Pasajero
+                // Dibujar Pasajero (Punto Rojo)
                 if (res.pasajero_lat && res.pasajero_lon) {
                     const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: '#FF0000', radius: 10, fillOpacity: 1 }).addTo(map)
                         .bindTooltip("Pasajero: " + res.nombre_pasajero);
@@ -168,20 +167,23 @@
             document.getElementById('txt-plata').innerText = '$0';
         }
 
-        // Ocultar splash
         const spl = document.getElementById('splash');
-        if(spl) { spl.style.opacity = '0'; setTimeout(() => spl.style.display = 'none', 800); }
+        if(spl && spl.style.display !== 'none') { spl.style.opacity = '0'; setTimeout(() => spl.style.display = 'none', 800); }
     }
 
     async function vaciarTodo() {
+        if(!confirm("¿Finalizar viaje y vaciar Coche 01?")) return;
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
         actualizarDatos();
     }
 
-    // Suscripción Realtime
+    // Suscripción Realtime (Escucha cambios)
     _s.channel('cambios_coche1')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, actualizarDatos)
       .subscribe();
+    
+    // BACKUP: Actualiza cada 10 segundos por seguridad
+    setInterval(actualizarDatos, 10000);
     
     // Carga inicial
     actualizarDatos();
