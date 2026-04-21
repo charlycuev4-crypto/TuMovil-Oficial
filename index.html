@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+        <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -9,22 +9,21 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
         
         /* Splash Screen */
-        #splash-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease; }
-        .logo-text { color: #00d2ff; font-size: 40px; font-weight: bold; letter-spacing: 5px; text-shadow: 0 0 20px #00d2ff; margin-bottom: 20px; }
-        .loader { border: 4px solid #333; border-top: 4px solid #00d2ff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; }
+        .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
+        .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .loader { width: 30px; height: 30px; border: 3px solid rgba(255,215,0,0.1); border-top: 3px solid #FFD700; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px; }
 
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
-        .top-stats { top: 10px; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 10px; }
-        .stat-row { display: flex; justify-content: space-around; width: 100%; }
+        .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
         .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
         
-        .parada-panel { background: #222; border: 2px solid #00d2ff; color: #00d2ff; padding: 10px 20px; border-radius: 30px; font-weight: bold; font-size: 18px; cursor: pointer; pointer-events: auto; display: flex; gap: 15px; align-items: center; }
-        
-        .connection-panel { display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.9); padding: 8px 15px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
+        .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.9); padding: 8px 15px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
         .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 22px; }
@@ -34,42 +33,35 @@
         #status-label { color: white; font-size: 11px; font-weight: bold; width: 85px; text-align: center; }
 
         .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
-        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 16px; pointer-events: auto; }
+        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
         .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
-        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); }
-        .pill.active { background: #4cd964; border-color: #4cd964; color: black; }
+        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); transition: all 0.3s ease; }
+        .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
         .taxi-icon { font-size: 30px; }
     </style>
 </head>
 <body>
 
-    <div id="splash-screen">
-        <div class="logo-text">TUMOVIL</div>
+    <div id="splash">
+        <div class="splash-logo">🚕</div>
+        <h1 class="splash-title">COCHE 01</h1>
         <div class="loader"></div>
     </div>
 
-    <div class="ui-overlay top-stats">
-        <div class="connection-panel">
-            <span id="status-label">FUERA DE LÍNEA</span>
-            <label class="switch">
-                <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
-                <span class="slider"></span>
-            </label>
-        </div>
-        
-        <div class="parada-panel">
-            <button onclick="cambiarParada(-1)" style="background:none; border:none; color:white; font-size:20px;">◀</button>
-            <span id="txt-parada">PARADA: 0</span>
-            <button onclick="cambiarParada(1)" style="background:none; border:none; color:white; font-size:20px;">▶</button>
-        </div>
-        
-        <div class="stat-row">
-            <div class="stat-box"><small style="color:#FFD700">RECAUDACIÓN</small><div id="txt-plata" style="font-size:20px; font-weight:800; color:#4cd964;">$0</div></div>
-            <div class="stat-box"><small style="color:#FFD700">PASAJEROS</small><div id="txt-pax" style="font-size:20px; font-weight:800;">0</div></div>
-        </div>
+    <div class="connection-panel">
+        <span id="status-label">FUERA DE LÍNEA</span>
+        <label class="switch">
+            <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
+            <span class="slider"></span>
+        </label>
     </div>
 
     <div id="map"></div>
+
+    <div class="ui-overlay top-stats">
+        <div class="stat-box"><small style="color:#FFD700">RECAUDACIÓN</small><div id="txt-plata" style="font-size:24px; font-weight:800; color:#4cd964;">$0</div></div>
+        <div class="stat-box"><small style="color:#FFD700">PASAJEROS</small><div id="txt-pax" style="font-size:24px; font-weight:800;">0</div></div>
+    </div>
 
     <div class="ui-overlay bottom-ui">
         <div class="asientos-pills">
@@ -83,75 +75,98 @@
     const MI_ID_MOVIL = 1; 
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    let indice_parada = 0;
-    const map = L.map('map', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    const marcadorConductor = L.marker([-34.561264, -58.770506], { icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] }) }).addTo(map);
+    // RUTA DEFINIDA
+    const paradas = [
+        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
+        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
+        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
+        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
+        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
+        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
+        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
+        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
+        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
+        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
+        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
+        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
+        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+    ];
 
-    // 1. CARGA INICIAL
+    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.5 }).addTo(map);
+    paradas.forEach(p => L.circleMarker(p.c, { radius: 6, color: '#000', weight: 3, fillColor: '#FFF', fillOpacity: 1 }).addTo(map));
+
+    const marcadorConductor = L.marker(paradas[0].c, { icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] }) }).addTo(map);
+
+    let markersPax = [];
+    let markersDest = [];
+    let watchId = null;
+    let estaOnline = false;
+
     window.onload = async () => {
-        const { data, error } = await _s.from('estado_movil').select('*').eq('id', MI_ID_MOVIL).single();
-        if(data) {
-            indice_parada = data.indice_parada || 0;
-            document.getElementById('txt-parada').innerText = "PARADA: " + indice_parada;
-            if(data.en_servicio) {
-                document.getElementById('online-toggle').checked = true;
-                document.getElementById('status-label').innerText = "EN LÍNEA";
-            }
-            if(data.latitud && data.longitud) marcadorConductor.setLatLng([data.latitud, data.longitud]);
-        }
-        await actualizarUI();
-        setTimeout(() => document.getElementById('splash-screen').style.opacity = '0', 2000);
-        setTimeout(() => document.getElementById('splash-screen').style.display = 'none', 2500);
+        await actualizarDatos();
+        setTimeout(() => {
+            const spl = document.getElementById('splash');
+            if(spl) { spl.style.opacity = '0'; setTimeout(() => spl.style.display = 'none', 800); }
+        }, 1500);
     };
 
-    // 2. LOGICA POSICION
-    async function cambiarParada(dir) {
-        indice_parada += dir;
-        if(indice_parada < 0) indice_parada = 49;
-        if(indice_parada > 49) indice_parada = 0;
-        document.getElementById('txt-parada').innerText = "PARADA: " + indice_parada;
-        await _s.from('estado_movil').update({ indice_parada: indice_parada }).eq('id', MI_ID_MOVIL);
-    }
-
-    // 3. GESTION CONEXION (FIFO)
     async function gestionarConexion() {
-        const estaOnline = document.getElementById('online-toggle').checked;
-        const datosAActualizar = { en_servicio: estaOnline };
-        
-        if(estaOnline) datosAActualizar.fecha_online = new Date().toISOString();
-        
-        await _s.from('estado_movil').update(datosAActualizar).eq('id', MI_ID_MOVIL);
-        document.getElementById('status-label').innerText = estaOnline ? "EN LÍNEA" : "FUERA DE LÍNEA";
-    }
-
-    // 4. ACTUALIZACION UI
-    async function actualizarUI() {
-        const { data: res } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
-        if(res) {
-            document.getElementById('txt-pax').innerText = res.length;
-            document.getElementById('txt-plata').innerText = '$' + (res.length * 1000);
-            for(let i=1; i<=4; i++) {
-                const p = document.getElementById('pill'+i);
-                p.className = res.find(r => r.asiento_num == i) ? 'pill active' : 'pill';
-            }
+        estaOnline = document.getElementById('online-toggle').checked;
+        const label = document.getElementById('status-label');
+        if (estaOnline) {
+            label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
+            const ahora = new Date().toISOString();
+            await _s.from('estado_movil').update({ en_servicio: true, fecha_online: ahora }).eq('id', MI_ID_MOVIL);
+            iniciarGPS();
+        } else {
+            label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            await _s.from('estado_movil').update({ en_servicio: false }).eq('id', MI_ID_MOVIL);
         }
     }
 
-    // 5. VACIAR
-    async function vaciarTodo() {
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
-        actualizarUI();
+    function iniciarGPS() {
+        watchId = navigator.geolocation.watchPosition(async p => {
+            if (!estaOnline) return;
+            const pos = [p.coords.latitude, p.coords.longitude];
+            marcadorConductor.setLatLng(pos);
+            await _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1] }).eq('id', MI_ID_MOVIL);
+        }, null, { enableHighAccuracy: true });
     }
 
-    // 6. LISTENERS REALTIME
-    _s.channel('cambios_coche1').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, actualizarUI).subscribe();
-    
-    // GPS REALTIME
-    _s.channel('seguimiento_gps').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: `id=eq.${MI_ID_MOVIL}` }, (p) => {
-        if(p.new.latitud && p.new.longitud) marcadorConductor.setLatLng([p.new.latitud, p.new.longitud]);
-    }).subscribe();
+    async function actualizarDatos() {
+        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
+        
+        markersPax.forEach(m => map.removeLayer(m)); markersDest.forEach(m => map.removeLayer(m));
+        markersPax = []; markersDest = [];
+        
+        for(let i=1; i<=4; i++) document.getElementById('pill'+i).className = 'pill';
 
+        if (reservas) {
+            document.getElementById('txt-pax').innerText = reservas.length;
+            document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
+            reservas.forEach(res => {
+                const pill = document.getElementById('pill' + res.asiento_num);
+                if(pill) pill.className = 'pill active';
+                const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: 'red', radius: 8, fillOpacity: 0.9 }).addTo(map).bindTooltip("Pasajero");
+                markersPax.push(pM);
+                if(paradas[res.destino_idx]) {
+                    const dM = L.marker(paradas[res.destino_idx].c).addTo(map).bindTooltip(`Destino: ${res.nombre_pasajero}`);
+                    markersDest.push(dM);
+                }
+            });
+        }
+    }
+
+    async function vaciarTodo() {
+        if(!confirm("¿Finalizar viaje?")) return;
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
+        actualizarDatos();
+    }
+
+    _s.channel('cambios_coche1').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => actualizarDatos()).subscribe();
 </script>
 </body>
 </html>
