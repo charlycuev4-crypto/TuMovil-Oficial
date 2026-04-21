@@ -1,4 +1,4 @@
-        <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -13,11 +13,10 @@
         
         /* Splash Screen */
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; }
-        .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
+        .splash-logo { font-size: 80px; margin-bottom: 20px; }
         .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
         .loader { width: 30px; height: 30px; border: 3px solid rgba(255,215,0,0.1); border-top: 3px solid #FFD700; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
 
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
@@ -75,7 +74,6 @@
     const MI_ID_MOVIL = 1; 
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // RUTA DEFINIDA
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -94,9 +92,6 @@
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.5 }).addTo(map);
-    paradas.forEach(p => L.circleMarker(p.c, { radius: 6, color: '#000', weight: 3, fillColor: '#FFF', fillOpacity: 1 }).addTo(map));
-
     const marcadorConductor = L.marker(paradas[0].c, { icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] }) }).addTo(map);
 
     let markersPax = [];
@@ -104,69 +99,92 @@
     let watchId = null;
     let estaOnline = false;
 
-    window.onload = async () => {
-        await actualizarDatos();
-        setTimeout(() => {
-            const spl = document.getElementById('splash');
-            if(spl) { spl.style.opacity = '0'; setTimeout(() => spl.style.display = 'none', 800); }
-        }, 1500);
-    };
-
     async function gestionarConexion() {
         estaOnline = document.getElementById('online-toggle').checked;
-        const label = document.getElementById('status-label');
+        document.getElementById('status-label').innerText = estaOnline ? "EN LÍNEA" : "FUERA DE LÍNEA";
+        document.getElementById('status-label').style.color = estaOnline ? "#4cd964" : "white";
+        
         if (estaOnline) {
-            label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
-            const ahora = new Date().toISOString();
-            await _s.from('estado_movil').update({ en_servicio: true, fecha_online: ahora }).eq('id', MI_ID_MOVIL);
             iniciarGPS();
+            await _s.from('estado_movil').update({ en_servicio: true }).eq('id', MI_ID_MOVIL);
         } else {
-            label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
             if (watchId) navigator.geolocation.clearWatch(watchId);
-            await _s.from('estado_movil').update({ en_servicio: false }).eq('id', MI_ID_MOVIL);
+            await _s.from('estado_movil').update({ en_servicio: false, latitud: 0, longitud: 0 }).eq('id', MI_ID_MOVIL);
         }
     }
 
     function iniciarGPS() {
         watchId = navigator.geolocation.watchPosition(async p => {
-            if (!estaOnline) return;
-            const pos = [p.coords.latitude, p.coords.longitude];
-            marcadorConductor.setLatLng(pos);
-            await _s.from('estado_movil').update({ latitud: pos[0], longitud: pos[1] }).eq('id', MI_ID_MOVIL);
+            const myLat = p.coords.latitude; 
+            const myLon = p.coords.longitude;
+            marcadorConductor.setLatLng([myLat, myLon]); 
+            await _s.from('estado_movil').update({ latitud: myLat, longitud: myLon }).eq('id', MI_ID_MOVIL);
         }, null, { enableHighAccuracy: true });
     }
 
     async function actualizarDatos() {
-        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
+        const { data: reservas, error } = await _s.from('reservas_activas')
+            .select('*')
+            .eq('estado', 'en_curso')
+            .eq('id_movil', MI_ID_MOVIL);
         
-        markersPax.forEach(m => map.removeLayer(m)); markersDest.forEach(m => map.removeLayer(m));
+        // Limpieza de marcadores
+        markersPax.forEach(m => map.removeLayer(m));
+        markersDest.forEach(m => map.removeLayer(m));
         markersPax = []; markersDest = [];
         
-        for(let i=1; i<=4; i++) document.getElementById('pill'+i).className = 'pill';
+        // Reseteo pills
+        for(let i=1; i<=4; i++) {
+            const p = document.getElementById('pill'+i);
+            p.className = 'pill'; p.innerText = i;
+        }
 
-        if (reservas) {
+        if (reservas && reservas.length > 0) {
+            console.log("Reservas detectadas:", reservas);
             document.getElementById('txt-pax').innerText = reservas.length;
             document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
+
             reservas.forEach(res => {
-                const pill = document.getElementById('pill' + res.asiento_num);
-                if(pill) pill.className = 'pill active';
-                const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: 'red', radius: 8, fillOpacity: 0.9 }).addTo(map).bindTooltip("Pasajero");
-                markersPax.push(pM);
-                if(paradas[res.destino_idx]) {
-                    const dM = L.marker(paradas[res.destino_idx].c).addTo(map).bindTooltip(`Destino: ${res.nombre_pasajero}`);
+                // Dibujar Pasajero
+                if (res.pasajero_lat && res.pasajero_lon) {
+                    const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: '#FF0000', radius: 10, fillOpacity: 1 }).addTo(map)
+                        .bindTooltip("Pasajero: " + res.nombre_pasajero);
+                    markersPax.push(pM);
+                }
+
+                // Dibujar Destino
+                if (res.destino_idx !== null && paradas[res.destino_idx]) {
+                    const dM = L.marker(paradas[res.destino_idx].c).addTo(map)
+                        .bindTooltip(`Destino: ${res.nombre_pasajero}`);
                     markersDest.push(dM);
                 }
+
+                // Activar Pill
+                const pill = document.getElementById('pill' + res.asiento_num);
+                if(pill) { pill.className = 'pill active'; pill.innerText = "OK"; }
             });
+        } else {
+            document.getElementById('txt-pax').innerText = '0';
+            document.getElementById('txt-plata').innerText = '$0';
         }
+
+        // Ocultar splash
+        const spl = document.getElementById('splash');
+        if(spl) { spl.style.opacity = '0'; setTimeout(() => spl.style.display = 'none', 800); }
     }
 
     async function vaciarTodo() {
-        if(!confirm("¿Finalizar viaje?")) return;
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
         actualizarDatos();
     }
 
-    _s.channel('cambios_coche1').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => actualizarDatos()).subscribe();
+    // Suscripción Realtime
+    _s.channel('cambios_coche1')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, actualizarDatos)
+      .subscribe();
+    
+    // Carga inicial
+    actualizarDatos();
 </script>
 </body>
 </html>
