@@ -10,16 +10,11 @@
     <style>
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
-        
-        /* Monitor de Estado (Discreto) */
-        #monitor { position: absolute; top: 55px; left: 10px; z-index: 2000; background: rgba(0,0,0,0.6); color: #0f0; font-size: 10px; padding: 5px; border-radius: 5px; pointer-events: none; }
-        
+        #monitor { position: absolute; top: 55px; left: 10px; z-index: 2000; background: rgba(0,0,0,0.6); color: #0f0; font-size: 10px; padding: 5px; border-radius: 5px; }
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
         .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
-        
         .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.9); padding: 8px 15px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
-        
         .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
         .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
         .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
@@ -56,7 +51,6 @@
     const MI_ID_MOVIL = 1; 
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    // Paradas (Mismo Array)
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -77,28 +71,30 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.5 }).addTo(map);
     paradas.forEach(p => L.circleMarker(p.c, { radius: 6, color: '#000', weight: 3, fillColor: '#FFF', fillOpacity: 1 }).addTo(map));
-
+    
     const marcadorConductor = L.marker(paradas[0].c, { icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] }) }).addTo(map);
 
     let markersPax = [];
     let markersDest = [];
 
+    async function gestionarConexion() {
+        const estaOnline = document.getElementById('online-toggle').checked;
+        document.getElementById('status-label').innerText = estaOnline ? "EN LÍNEA" : "FUERA DE LÍNEA";
+        await _s.from('estado_movil').update({ online: estaOnline }).eq('id', MI_ID_MOVIL);
+    }
+
     async function actualizarDatos() {
-        const monitor = document.getElementById('monitor');
         try {
-            const { data: reservas, error } = await _s.from('reservas_activas')
+            const { data: reservas } = await _s.from('reservas_activas')
                 .select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
             
-            if (error) throw error;
-
             markersPax.forEach(m => map.removeLayer(m));
             markersDest.forEach(m => map.removeLayer(m));
             markersPax = []; markersDest = [];
             
             for(let i=1; i<=4; i++) document.getElementById('pill'+i).className = 'pill';
 
-            if (reservas && reservas.length > 0) {
-                monitor.innerText = "Estado: OK | Pax: " + reservas.length;
+            if (reservas) {
                 document.getElementById('txt-pax').innerText = reservas.length;
                 document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
 
@@ -106,9 +102,9 @@
                     const pill = document.getElementById('pill' + res.asiento_num);
                     if(pill) pill.className = 'pill active';
                     
-                    // Seguridad: Solo dibujar si hay coordenadas válidas
-                    if (res.pasajero_lat && res.pasajero_lon) {
-                        const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: 'red', radius: 8 }).addTo(map);
+                    // Aseguramos que usa las columnas correctas: 'latitud' y 'longitud'
+                    if (res.latitud && res.longitud) {
+                        const pM = L.circleMarker([res.latitud, res.longitud], { color: 'red', radius: 8 }).addTo(map);
                         markersPax.push(pM);
                     }
                     
@@ -117,13 +113,9 @@
                         markersDest.push(dM);
                     }
                 });
-            } else {
-                monitor.innerText = "Esperando solicitudes...";
-                document.getElementById('txt-pax').innerText = "0";
             }
         } catch (e) {
-            monitor.innerText = "Error de conexión";
-            console.error(e);
+            console.error("Error al actualizar:", e);
         }
     }
 
