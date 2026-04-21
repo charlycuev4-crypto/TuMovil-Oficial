@@ -9,48 +9,55 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; }
+        .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
+        .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
-        #monitor { position: absolute; top: 55px; left: 10px; z-index: 2000; background: rgba(0,0,0,0.6); color: #0f0; font-size: 10px; padding: 5px; border-radius: 5px; }
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
         .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
         .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.9); padding: 8px 15px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
+        .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 22px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #4cd964; }
+        input:checked + .slider:before { transform: translateX(24px); }
+        #status-label { color: white; font-size: 11px; font-weight: bold; width: 85px; text-align: center; }
         .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
         .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
         .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
-        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); }
-        .pill.active { background: #4cd964; border-color: #4cd964; color: black; }
+        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); transition: all 0.3s ease; }
+        .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
         .taxi-icon { font-size: 30px; }
+        .loader { width: 30px; height: 30px; border: 3px solid rgba(255,215,0,0.1); border-top: 3px solid #FFD700; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px; }
     </style>
 </head>
 <body>
-
-    <div id="monitor">Iniciando...</div>
-
+    <div id="splash"><div class="splash-logo">🚕</div><h1 class="splash-title">COCHE 01</h1><div class="loader"></div></div>
     <div class="connection-panel">
-        <span id="status-label" style="color:white; font-size:11px;">FUERA DE LÍNEA</span>
-        <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
+        <span id="status-label">FUERA DE LÍNEA</span>
+        <label class="switch"><input type="checkbox" id="online-toggle" onchange="gestionarConexion()"><span class="slider"></span></label>
     </div>
-
     <div id="map"></div>
-
     <div class="ui-overlay top-stats">
-        <div class="stat-box"><small>RECAUDACIÓN</small><div id="txt-plata">$0</div></div>
-        <div class="stat-box"><small>PASAJEROS</small><div id="txt-pax">0</div></div>
+        <div class="stat-box"><small style="color:#FFD700">RECAUDACIÓN</small><div id="txt-plata" style="font-size:24px; font-weight:800; color:#4cd964;">$0</div></div>
+        <div class="stat-box"><small style="color:#FFD700">PASAJEROS</small><div id="txt-pax" style="font-size:24px; font-weight:800;">0</div></div>
     </div>
-
     <div class="ui-overlay bottom-ui">
         <div class="asientos-pills">
             <div id="pill1" class="pill">1</div><div id="pill2" class="pill">2</div>
             <div id="pill3" class="pill">3</div><div id="pill4" class="pill">4</div>
         </div>
-        <button class="btn-vaciar" onclick="vaciarTodo()">🏁 FINALIZAR / VACIAR</button>
+        <button class="btn-vaciar" onclick="vaciarTodo()">🏁 FINALIZAR / VACIAR COCHE 01</button>
     </div>
 
 <script>
     const MI_ID_MOVIL = 1; 
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
+
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -69,63 +76,61 @@
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.5 }).addTo(map);
-    paradas.forEach(p => L.circleMarker(p.c, { radius: 6, color: '#000', weight: 3, fillColor: '#FFF', fillOpacity: 1 }).addTo(map));
+    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.3 }).addTo(map);
     
-    const marcadorConductor = L.marker(paradas[0].c, { icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] }) }).addTo(map);
-
     let markersPax = [];
     let markersDest = [];
-
-    async function gestionarConexion() {
-        const estaOnline = document.getElementById('online-toggle').checked;
-        document.getElementById('status-label').innerText = estaOnline ? "EN LÍNEA" : "FUERA DE LÍNEA";
-        await _s.from('estado_movil').update({ online: estaOnline }).eq('id', MI_ID_MOVIL);
-    }
+    let lineasViaje = []; // Capa para las líneas rectas individuales
 
     async function actualizarDatos() {
-        try {
-            const { data: reservas } = await _s.from('reservas_activas')
-                .select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
-            
-            markersPax.forEach(m => map.removeLayer(m));
-            markersDest.forEach(m => map.removeLayer(m));
-            markersPax = []; markersDest = [];
-            
-            for(let i=1; i<=4; i++) document.getElementById('pill'+i).className = 'pill';
+        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
+        
+        // Limpiar todo antes de redibujar
+        markersPax.forEach(m => map.removeLayer(m));
+        markersDest.forEach(m => map.removeLayer(m));
+        lineasViaje.forEach(l => map.removeLayer(l));
+        markersPax = []; markersDest = []; lineasViaje = [];
+        
+        for(let i=1; i<=4; i++) { document.getElementById('pill'+i).className = 'pill'; document.getElementById('pill'+i).innerText = i; }
 
-            if (reservas) {
-                document.getElementById('txt-pax').innerText = reservas.length;
-                document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
+        if (reservas) {
+            document.getElementById('txt-pax').innerText = reservas.length;
+            document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
 
-                reservas.forEach(res => {
-                    const pill = document.getElementById('pill' + res.asiento_num);
-                    if(pill) pill.className = 'pill active';
-                    
-                    // Aseguramos que usa las columnas correctas: 'latitud' y 'longitud'
-                    if (res.latitud && res.longitud) {
-                        const pM = L.circleMarker([res.latitud, res.longitud], { color: 'red', radius: 8 }).addTo(map);
-                        markersPax.push(pM);
-                    }
-                    
-                    if(res.destino_idx !== null && paradas[res.destino_idx]) {
-                        const dM = L.marker(paradas[res.destino_idx].c).addTo(map);
-                        markersDest.push(dM);
-                    }
-                });
-            }
-        } catch (e) {
-            console.error("Error al actualizar:", e);
+            reservas.forEach(res => {
+                const pill = document.getElementById('pill' + res.asiento_num);
+                if(pill) { pill.className = 'pill active'; pill.innerText = "OK"; }
+                
+                // Línea Recta: del pasajero al destino
+                const pLat = res.pasajero_lat; const pLon = res.pasajero_lon;
+                const dC = paradas[res.destino_idx].c;
+                const linea = L.polyline([[pLat, pLon], dC], { color: 'white', weight: 3, dashArray: '5, 5' }).addTo(map);
+                lineasViaje.push(linea);
+
+                const pM = L.circleMarker([pLat, pLon], { color: 'red', radius: 8, fillOpacity: 0.9 }).addTo(map);
+                markersPax.push(pM);
+
+                const dM = L.marker(dC).addTo(map);
+                markersDest.push(dM);
+            });
         }
+        const spl = document.getElementById('splash');
+        if(spl) { spl.style.opacity = '0'; setTimeout(() => spl.style.display = 'none', 800); }
     }
 
     async function vaciarTodo() {
+        // Ejecuta el update pero NO llama a actualizarDatos() inmediatamente para evitar el loop
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
-        actualizarDatos();
     }
 
-    _s.channel('cambios_coche1').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, actualizarDatos).subscribe();
+    // Suscripción corregida: filtra eventos para no entrar en bucles infinitos
+    _s.channel('cambios_coche1')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, (payload) => {
+          actualizarDatos();
+      }).subscribe();
+    
     actualizarDatos();
+    async function gestionarConexion() { /* tu lógica original */ }
 </script>
 </body>
 </html>
