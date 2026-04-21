@@ -10,12 +10,18 @@
     <style>
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        
+        /* Splash Screen */
+        #splash-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease; }
+        .logo-text { color: #00d2ff; font-size: 40px; font-weight: bold; letter-spacing: 5px; text-shadow: 0 0 20px #00d2ff; margin-bottom: 20px; }
+        .loader { border: 4px solid #333; border-top: 4px solid #00d2ff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         .top-stats { top: 10px; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 10px; }
         .stat-row { display: flex; justify-content: space-around; width: 100%; }
         .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
         
-        /* Panel de Parada (Reemplaza al Sentido) */
         .parada-panel { background: #222; border: 2px solid #00d2ff; color: #00d2ff; padding: 10px 20px; border-radius: 30px; font-weight: bold; font-size: 18px; cursor: pointer; pointer-events: auto; display: flex; gap: 15px; align-items: center; }
         
         .connection-panel { display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.9); padding: 8px 15px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
@@ -36,6 +42,11 @@
     </style>
 </head>
 <body>
+
+    <div id="splash-screen">
+        <div class="logo-text">TUMOVIL</div>
+        <div class="loader"></div>
+    </div>
 
     <div class="ui-overlay top-stats">
         <div class="connection-panel">
@@ -72,35 +83,49 @@
     const MI_ID_MOVIL = 1; 
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    let indice_parada = 0; // NUEVO: Controlamos la posición con un índice 0-49
-
+    let indice_parada = 0;
     const map = L.map('map', { zoomControl: false }).setView([-34.561264, -58.770506], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
     const marcadorConductor = L.marker([-34.561264, -58.770506], { icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] }) }).addTo(map);
 
-    // --- LOGICA DE POSICION ---
+    // 1. CARGA INICIAL
+    window.onload = async () => {
+        const { data, error } = await _s.from('estado_movil').select('*').eq('id', MI_ID_MOVIL).single();
+        if(data) {
+            indice_parada = data.indice_parada || 0;
+            document.getElementById('txt-parada').innerText = "PARADA: " + indice_parada;
+            if(data.en_servicio) {
+                document.getElementById('online-toggle').checked = true;
+                document.getElementById('status-label').innerText = "EN LÍNEA";
+            }
+            if(data.latitud && data.longitud) marcadorConductor.setLatLng([data.latitud, data.longitud]);
+        }
+        await actualizarUI();
+        setTimeout(() => document.getElementById('splash-screen').style.opacity = '0', 2000);
+        setTimeout(() => document.getElementById('splash-screen').style.display = 'none', 2500);
+    };
+
+    // 2. LOGICA POSICION
     async function cambiarParada(dir) {
         indice_parada += dir;
         if(indice_parada < 0) indice_parada = 49;
         if(indice_parada > 49) indice_parada = 0;
-        
         document.getElementById('txt-parada').innerText = "PARADA: " + indice_parada;
         await _s.from('estado_movil').update({ indice_parada: indice_parada }).eq('id', MI_ID_MOVIL);
     }
 
+    // 3. GESTION CONEXION (FIFO)
     async function gestionarConexion() {
         const estaOnline = document.getElementById('online-toggle').checked;
-        const ahora = new Date().toISOString();
+        const datosAActualizar = { en_servicio: estaOnline };
         
-        await _s.from('estado_movil').update({ 
-            en_servicio: estaOnline,
-            fecha_online: estaOnline ? ahora : null
-        }).eq('id', MI_ID_MOVIL);
+        if(estaOnline) datosAActualizar.fecha_online = new Date().toISOString();
         
+        await _s.from('estado_movil').update(datosAActualizar).eq('id', MI_ID_MOVIL);
         document.getElementById('status-label').innerText = estaOnline ? "EN LÍNEA" : "FUERA DE LÍNEA";
     }
 
+    // 4. ACTUALIZACION UI
     async function actualizarUI() {
         const { data: res } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
         if(res) {
@@ -113,13 +138,20 @@
         }
     }
 
+    // 5. VACIAR
     async function vaciarTodo() {
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
         actualizarUI();
     }
 
-    // Listener para recibir cambios en tiempo real
+    // 6. LISTENERS REALTIME
     _s.channel('cambios_coche1').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, actualizarUI).subscribe();
+    
+    // GPS REALTIME
+    _s.channel('seguimiento_gps').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: `id=eq.${MI_ID_MOVIL}` }, (p) => {
+        if(p.new.latitud && p.new.longitud) marcadorConductor.setLatLng([p.new.latitud, p.new.longitud]);
+    }).subscribe();
+
 </script>
 </body>
 </html>
