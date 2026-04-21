@@ -1,4 +1,4 @@
-        <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -150,7 +150,14 @@
         const destIdx = document.getElementById('destino-select').value;
         if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
         localStorage.setItem('usuario_nombre', nom);
-        const { data: moviles } = await _s.from('estado_movil').select('id').neq('latitud', 0).limit(1);
+        
+        // --- AQUÍ FILTRAMOS SOLO LOS QUE ESTÁN ONLINE ---
+        const { data: moviles } = await _s.from('estado_movil')
+            .select('id')
+            .eq('esta_online', true) 
+            .neq('latitud', 0)
+            .limit(1);
+            
         if (!moviles || moviles.length === 0) { alert("No hay choferes en línea."); return; }
         const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: moviles[0].id, estado: 'en_curso', nombre_pasajero: nom, pasajero_lat: miLat, pasajero_lon: miLon, destino_idx: parseInt(destIdx) }));
         await _s.from('reservas_activas').insert(res);
@@ -163,13 +170,24 @@
         location.reload();
     }
 
-    // --- LÓGICA DE ACTUALIZACIÓN SIN PARPADEO ---
+    // --- LÓGICA DE ACTUALIZACIÓN CON FILTRO ---
     async function actualizarFlota() {
-        const { data: moviles } = await _s.from('estado_movil').select('*').neq('latitud', 0);
+        // --- AQUÍ FILTRAMOS SOLO LOS QUE ESTÁN ONLINE ---
+        const { data: moviles } = await _s.from('estado_movil').select('*').eq('esta_online', true).neq('latitud', 0);
+        
         if (moviles) {
+            // Eliminar marcadores de taxis que ya no están online o no existen
+            const idsOnline = moviles.map(m => m.id.toString());
+            Object.keys(markerTaxis).forEach(id => {
+                if(!idsOnline.includes(id)) {
+                    map.removeLayer(markerTaxis[id]);
+                    delete markerTaxis[id];
+                }
+            });
+
             moviles.forEach(t => {
                 if(markerTaxis[t.id]) {
-                    markerTaxis[t.id].setLatLng([t.latitud, t.longitud]); // Mueve el taxi sin borrar el mapa
+                    markerTaxis[t.id].setLatLng([t.latitud, t.longitud]);
                 } else {
                     markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map);
                 }
@@ -177,12 +195,11 @@
         }
     }
 
-    // Suscripción Realtime (Solo se ejecuta cuando hay cambios en la DB)
     _s.channel('cambios_pasajero')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'estado_movil' }, () => actualizarFlota())
       .subscribe();
 
-    actualizarFlota(); // Carga inicial
+    actualizarFlota();
 </script>
 </body>
 </html>
