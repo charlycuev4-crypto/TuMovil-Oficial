@@ -9,55 +9,51 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
-        
-        /* Mapa */
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         
-        /* --- ESTILOS AMPLIADOS --- */
+        /* Contenedor Superior */
+        .top-ui { top: 10px; display: flex; flex-direction: column; align-items: center; gap: 15px; }
         
-        /* Estadísticas Superiores (Más grandes) */
-        .top-stats { top: 15px; display: flex; flex-direction: column; align-items: center; gap: 15px; padding: 0 15px; }
-        .stat-row { display: flex; justify-content: space-around; width: 100%; gap: 10px; }
-        .stat-box { 
-            background: rgba(0,0,0,0.9); border: 3px solid #FFD700; 
-            border-radius: 16px; padding: 15px; width: 45%; 
-            text-align: center; color: white; pointer-events: auto; 
-        }
-        
-        .sentido-panel { 
-            background: #222; border: 3px solid #00d2ff; color: #00d2ff; 
-            padding: 12px 40px; border-radius: 40px; font-weight: bold; font-size: 18px; 
-            cursor: pointer; pointer-events: auto; 
+        /* Botón IDA/VUELTA Gigante */
+        .btn-sentido { 
+            background: #222; border: 4px solid #00d2ff; color: #00d2ff; 
+            padding: 20px 60px; border-radius: 50px; font-weight: bold; font-size: 24px; 
+            cursor: pointer; pointer-events: auto; box-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
         }
 
-        /* Botón Finalizar (Más grande) */
+        /* Stats Grandes */
+        .stat-row { display: flex; justify-content: space-around; width: 100%; padding: 0 10px; }
+        .stat-box { 
+            background: rgba(0,0,0,0.9); border: 3px solid #FFD700; border-radius: 15px; 
+            padding: 15px; width: 42%; text-align: center; color: white; pointer-events: auto; 
+        }
+
+        /* Bottom UI */
         .bottom-ui { bottom: 30px; display: flex; flex-direction: column; align-items: center; }
-        .btn-vaciar { 
-            background: #ff3b30; color: white; border: none; padding: 20px 50px; 
-            border-radius: 50px; font-weight: bold; font-size: 20px; 
-            pointer-events: auto; box-shadow: 0 6px 20px rgba(255,59,48,0.5);
-        }
-        
-        /* Píldoras de asientos (Más grandes) */
-        .asientos-pills { display: flex; gap: 15px; margin-bottom: 20px; pointer-events: auto; }
+        .asientos-pills { display: flex; gap: 20px; margin-bottom: 25px; pointer-events: auto; }
         .pill { 
-            width: 65px; height: 65px; border: 3px solid #FFD700; border-radius: 15px; 
+            width: 75px; height: 75px; border: 4px solid #FFD700; border-radius: 15px; 
             color: #FFD700; display: flex; align-items: center; justify-content: center; 
-            font-size: 22px; font-weight: bold; background: rgba(0,0,0,0.9); 
+            font-size: 28px; font-weight: bold; background: rgba(0,0,0,0.9); 
         }
-        .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
+        .pill.active { background: #4cd964; border-color: #4cd964; color: black; }
         
-        .taxi-icon { font-size: 30px; }
+        .btn-vaciar { 
+            background: #ff3b30; color: white; border: none; padding: 25px 60px; 
+            border-radius: 50px; font-weight: bold; font-size: 22px; pointer-events: auto;
+        }
+        .taxi-icon { font-size: 35px; }
     </style>
 </head>
 <body>
 
-    <div class="ui-overlay top-stats">
-        <div class="sentido-panel" id="btn-sentido" onclick="cambiarSentido()">SENTIDO: IDA</div>
+    <div class="ui-overlay top-ui">
+        <button class="btn-sentido" id="btn-sentido" onclick="cambiarSentido()">SENTIDO: IDA</button>
+        
         <div class="stat-row">
-            <div class="stat-box"><small style="color:#FFD700; font-size:12px;">RECAUDACIÓN</small><div id="txt-plata" style="font-size:24px; font-weight:800; color:#4cd964;">$0</div></div>
-            <div class="stat-box"><small style="color:#FFD700; font-size:12px;">PASAJEROS</small><div id="txt-pax" style="font-size:24px; font-weight:800;">0</div></div>
+            <div class="stat-box"><small>RECAUDACIÓN</small><div id="txt-plata" style="font-size:28px; font-weight:800;">$0</div></div>
+            <div class="stat-box"><small>PASAJEROS</small><div id="txt-pax" style="font-size:28px; font-weight:800;">0</div></div>
         </div>
     </div>
 
@@ -65,10 +61,8 @@
 
     <div class="ui-overlay bottom-ui">
         <div class="asientos-pills">
-            <div id="pill1" class="pill">1</div>
-            <div id="pill2" class="pill">2</div>
-            <div id="pill3" class="pill">3</div>
-            <div id="pill4" class="pill">4</div>
+            <div id="pill1" class="pill">1</div><div id="pill2" class="pill">2</div>
+            <div id="pill3" class="pill">3</div><div id="pill4" class="pill">4</div>
         </div>
         <button class="btn-vaciar" onclick="vaciarTodo()">🏁 FINALIZAR VIAJE</button>
     </div>
@@ -76,52 +70,39 @@
 <script>
     const MI_ID_MOVIL = 2; 
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-
-    // Mantenemos la lógica intacta
     let esHaciaAdelante = true;
-    const paradas = [
-        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
-        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
-        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
-        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
-        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
-        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
-        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
-        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
-        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
-        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
-        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
-        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
-        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
-    ];
 
-    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
+    // Mapa
+    const map = L.map('map', { zoomControl: false }).setView([-34.588, -58.750], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.5 }).addTo(map);
-    paradas.forEach(p => { L.circleMarker(p.c, { radius: 6, color: '#000', weight: 3, fillColor: '#FFF', fillOpacity: 1 }).addTo(map); });
-    
-    const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
-    const marcadorConductor = L.marker(paradas[0].c, { icon: iconTaxi }).addTo(map);
 
     async function cambiarSentido() {
-        esHaciaAdelante = !esHaciaAdemante;
-        await _s.from('estado_movil').update({ hacia_adelante: esHaciaAdelante }).eq('id', MI_ID_MOVIL);
-        actualizarUI();
-    }
-
-    function actualizarUI() {
+        esHaciaAdelante = !esHaciaAdelante;
         const btn = document.getElementById('btn-sentido');
-        if(esHaciaAdelante) { btn.innerText = "SENTIDO: IDA"; btn.style.color = "#00d2ff"; btn.style.borderColor = "#00d2ff"; } 
-        else { btn.innerText = "SENTIDO: VUELTA"; btn.style.color = "#ffcc00"; btn.style.borderColor = "#ffcc00"; }
+        if(esHaciaAdelante) { 
+            btn.innerText = "SENTIDO: IDA"; 
+            btn.style.color = "#00d2ff"; btn.style.borderColor = "#00d2ff"; 
+        } else { 
+            btn.innerText = "SENTIDO: VUELTA"; 
+            btn.style.color = "#ffcc00"; btn.style.borderColor = "#ffcc00"; 
+        }
+        // Guardamos en BD si quieres persistencia
+        await _s.from('estado_movil').update({ hacia_adelante: esHaciaAdelante }).eq('id', MI_ID_MOVIL);
     }
 
     async function actualizarDatos() {
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
-        for(let i=1; i<=4; i++) { const p = document.getElementById('pill'+i); p.className = 'pill'; p.innerText = i; }
+        
+        // Reset
+        for(let i=1; i<=4; i++) { document.getElementById('pill'+i).className = 'pill'; }
+        
         if (reservas) {
             document.getElementById('txt-pax').innerText = reservas.length;
             document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
-            reservas.forEach(res => { const pill = document.getElementById('pill' + res.asiento_num); if(pill) { pill.className = 'pill active'; pill.innerText = "OK"; } });
+            reservas.forEach(res => {
+                const pill = document.getElementById('pill' + res.asiento_num);
+                if(pill) pill.className = 'pill active';
+            });
         }
     }
 
@@ -131,8 +112,11 @@
         actualizarDatos();
     }
 
-    _s.channel('cambios_coche2').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => { actualizarDatos(); }).subscribe();
-    window.onload = actualizarDatos;
+    _s.channel('cambios_coche2').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => {
+        actualizarDatos();
+    }).subscribe();
+
+    actualizarDatos();
 </script>
 </body>
 </html>
