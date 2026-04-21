@@ -12,7 +12,6 @@
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
         #map { flex-grow: 1; width: 100%; z-index: 1; }
         .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 20px; display: flex; flex-direction: column; gap: 12px; border-radius: 25px 25px 0 0; z-index: 1000; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); }
-        
         .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 10px; text-align: center; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
         .asientos-grid { display: flex; justify-content: space-around; margin: 10px 0; }
@@ -109,16 +108,16 @@
         const nom = document.getElementById('nombre-input').value;
         const idx = parseInt(document.getElementById('destino-select').value);
         if (!nom || isNaN(idx) || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
+        if (miLat === 0) { alert("Esperando ubicación GPS..."); return; }
         
-        // CASCADA FIFO: Obtenemos el líder (el que lleva más tiempo online)
         const { data: choferes, error } = await _s.from('estado_movil')
             .select('id')
             .eq('en_servicio', true)
             .gt('asientos_libres', 0)
-            .order('fecha_online', { ascending: true }) // El más antiguo primero
+            .order('fecha_online', { ascending: true })
             .limit(1);
 
-        if (error || !choferes || choferes.length === 0) { alert("No hay unidades disponibles. Intenta nuevamente."); return; }
+        if (error || !choferes || choferes.length === 0) { alert("No hay unidades disponibles."); return; }
         
         const lider = choferes[0];
         const res = asientosElegidos.map(n => ({ 
@@ -126,12 +125,14 @@
             id_movil: lider.id, 
             estado: 'en_curso', 
             nombre_pasajero: nom, 
-            destino_idx: idx 
+            destino_idx: idx,
+            pasajero_lat: miLat, // <-- SE AGREGARON LAS COORDENADAS
+            pasajero_lon: miLon
         }));
         
         const { error: insertErr } = await _s.from('reservas_activas').insert(res);
         if(!insertErr) { localStorage.setItem('usuario_nombre', nom); location.reload(); }
-        else { alert("Error al asignar el viaje: " + insertErr.message); }
+        else { alert("Error al asignar: " + insertErr.message); }
     }
 
     async function finalizarViaje() {
