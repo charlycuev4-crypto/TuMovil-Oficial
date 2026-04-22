@@ -46,6 +46,12 @@
 
     <div class="bottom-ui">
         <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
+        
+        <select id="sentido-select" onchange="actualizarFlota()">
+            <option value="IDA">Hacia IDA</option>
+            <option value="VUELTA">Hacia VUELTA</option>
+        </select>
+        
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
         <select id="destino-select" onchange="actualizarMapaRuta()">
             <option value="" disabled selected>¿A qué parada vas?</option>
@@ -63,6 +69,7 @@
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
+    // ... (Tu array de paradas se mantiene igual) ...
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -115,6 +122,7 @@
         document.getElementById('btn-cancelar').style.display = 'block';
         document.getElementById('nombre-input').disabled = true;
         document.getElementById('destino-select').disabled = true;
+        document.getElementById('sentido-select').disabled = true; // --- NUEVO: Bloqueo ---
         asientosElegidos.forEach(n => document.getElementById('as-'+n).classList.add('selected'));
     }
 
@@ -148,17 +156,20 @@
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
         const destIdx = document.getElementById('destino-select').value;
+        const sentido = document.getElementById('sentido-select').value; // --- NUEVO: Captura ---
+        
         if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
         localStorage.setItem('usuario_nombre', nom);
         
-        // --- AQUÍ FILTRAMOS SOLO LOS QUE ESTÁN ONLINE ---
+        // --- NUEVO: Filtro en la búsqueda ---
         const { data: moviles } = await _s.from('estado_movil')
             .select('id')
             .eq('esta_online', true) 
+            .eq('sentido_flujo', sentido) // <-- FILTRO CRÍTICO
             .neq('latitud', 0)
             .limit(1);
             
-        if (!moviles || moviles.length === 0) { alert("No hay choferes en línea."); return; }
+        if (!moviles || moviles.length === 0) { alert("No hay choferes en ese sentido actualmente."); return; }
         const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: moviles[0].id, estado: 'en_curso', nombre_pasajero: nom, pasajero_lat: miLat, pasajero_lon: miLon, destino_idx: parseInt(destIdx) }));
         await _s.from('reservas_activas').insert(res);
         location.reload();
@@ -170,14 +181,21 @@
         location.reload();
     }
 
-    // --- LÓGICA DE ACTUALIZACIÓN CON FILTRO ---
+    // --- NUEVO: LÓGICA DE ACTUALIZACIÓN CON FILTRO ---
     async function actualizarFlota() {
-        // --- AQUÍ FILTRAMOS SOLO LOS QUE ESTÁN ONLINE ---
-        const { data: moviles } = await _s.from('estado_movil').select('*').eq('esta_online', true).neq('latitud', 0);
+        const sentidoSeleccionado = document.getElementById('sentido-select').value;
+        
+        // --- FILTRO: Traer solo los que cumplen la condición ---
+        const { data: moviles } = await _s.from('estado_movil')
+            .select('*')
+            .eq('esta_online', true)
+            .eq('sentido_flujo', sentidoSeleccionado)
+            .neq('latitud', 0);
         
         if (moviles) {
-            // Eliminar marcadores de taxis que ya no están online o no existen
             const idsOnline = moviles.map(m => m.id.toString());
+            
+            // Eliminar marcadores que ya no coinciden o no existen
             Object.keys(markerTaxis).forEach(id => {
                 if(!idsOnline.includes(id)) {
                     map.removeLayer(markerTaxis[id]);
@@ -185,6 +203,7 @@
                 }
             });
 
+            // Añadir o actualizar
             moviles.forEach(t => {
                 if(markerTaxis[t.id]) {
                     markerTaxis[t.id].setLatLng([t.latitud, t.longitud]);
