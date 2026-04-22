@@ -17,14 +17,17 @@
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
         .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
-        .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.9); padding: 8px 15px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
+        /* Panel mejorado para incluir el botón de giro */
+        .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.9); padding: 8px 12px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
         .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 22px; }
         .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #4cd964; }
         input:checked + .slider:before { transform: translateX(24px); }
-        #status-label { color: white; font-size: 11px; font-weight: bold; width: 85px; text-align: center; }
+        #status-label { color: white; font-size: 11px; font-weight: bold; width: 70px; text-align: center; }
+        /* Botón de Giro */
+        #btn-sentido { background: #FFD700; color: #000; border: none; padding: 6px 12px; border-radius: 15px; font-weight: 800; font-size: 12px; cursor: pointer; }
         .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
         .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
         .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
@@ -38,13 +41,16 @@
         <div class="splash-logo">🚕</div>
         <h1 class="splash-title">COCHE 01</h1>
     </div>
+    
     <div class="connection-panel">
         <span id="status-label">FUERA DE LÍNEA</span>
         <label class="switch">
             <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
             <span class="slider"></span>
         </label>
+        <button id="btn-sentido" onclick="cambiarSentido()">IDA</button>
     </div>
+
     <div id="map"></div>
     <div class="ui-overlay top-stats">
         <div class="stat-box"><small style="color:#FFD700">RECAUDACIÓN</small><div id="txt-plata" style="font-size:24px; font-weight:800; color:#4cd964;">$0</div></div>
@@ -64,11 +70,25 @@
     const MI_ID_MOVIL = 1; 
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    // --- SEGURIDAD: Apagado automático al cerrar página ---
+    // --- NUEVO: Gestión de Sentido ---
+    let sentidoActual = 'IDA';
+
+    async function cambiarSentido() {
+        sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
+        const btn = document.getElementById('btn-sentido');
+        btn.innerText = sentidoActual;
+        
+        // Actualizamos en Supabase
+        await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL);
+        console.log("Sentido cambiado a:", sentidoActual);
+    }
+    // ---------------------------------
+
     window.addEventListener('beforeunload', async () => {
         await _s.from('estado_movil').update({ esta_online: false, latitud: 0, longitud: 0 }).eq('id', MI_ID_MOVIL);
     });
 
+    // ... (El resto de tus coordenadas de paradas siguen igual) ...
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -99,7 +119,6 @@
         
         if (estaOnline) {
             label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
-            // Actualizamos estado a ONLINE y enviamos coordenadas
             await _s.from('estado_movil').update({ 
                 esta_online: true, 
                 latitud: paradas[0].c[0], 
@@ -109,7 +128,6 @@
         } else {
             label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
             if (watchId) navigator.geolocation.clearWatch(watchId);
-            // Actualizamos estado a OFFLINE y reseteamos coordenadas
             await _s.from('estado_movil').update({ 
                 esta_online: false, 
                 latitud: 0, 
@@ -128,6 +146,7 @@
     }
 
     async function actualizarDatos() {
+        // ... (Tu lógica existente de actualización sigue igual) ...
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
         markersPax.forEach(m => map.removeLayer(m)); markersDest.forEach(m => map.removeLayer(m));
         markersPax = []; markersDest = [];
@@ -152,7 +171,6 @@
 
     async function vaciarTodo() {
         if(!confirm("¿Finalizar el viaje y vaciar el Coche 01?")) return;
-        // Al vaciar, también nos aseguramos de no quedar en línea por error
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
         actualizarDatos();
     }
