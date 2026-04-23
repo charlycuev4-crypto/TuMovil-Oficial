@@ -1,200 +1,130 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TuMovil - Request Ride</title>
+    <title>TuMovil - Prueba Master</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <style>
-        /* [Tu CSS permanece igual] */
+        :root { --primary: #00e5ff; --bg: #121212; --accent: #ffca28; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: white; display: flex; flex-direction: column; height: 100vh; }
+        
+        #map { height: 35vh; width: 100%; border-bottom: 2px solid var(--primary); }
+        .container { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        
+        h2 { color: var(--primary); text-align: center; margin: 5px 0; font-size: 1.2rem; }
+        .banner { border: 1px solid var(--accent); padding: 10px; text-align: center; color: var(--accent); border-radius: 8px; font-weight: bold; background: rgba(255, 202, 40, 0.1); }
+        
+        select, input { background: #2c2c2c; border: 1px solid #444; color: white; padding: 12px; border-radius: 8px; width: 100%; font-size: 16px; }
+        
+        .asientos-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+        .asiento-btn { padding: 15px 0; background: #2c2c2c; border: 2px solid #444; border-radius: 10px; text-align: center; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .asiento-btn.active { border-color: var(--accent); background: #3d3d00; color: var(--accent); }
+        
+        .btn-enviar { background: #d32f2f; color: white; border: none; padding: 18px; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .btn-enviar:disabled { background: #444; color: #888; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
-    <div id="splash">
-        <div class="splash-logo">🚕</div>
-        <h1 class="splash-title">TuMovil</h1>
-        <p class="splash-subtitle">Digital Shared Taxi</p>
-    </div>
+    <div id="map"></div>
 
-    <div id="toast-container"></div>
+    <div class="container">
+        <h2>SOLICITAR VIAJE</h2>
+        <div class="banner" id="status-distancia">Calculando distancia...</div>
+        
+        <input type="text" id="nombre-usuario" placeholder="Tu nombre">
+        
+        <select id="select-parada">
+            <option value="Murillo y Güiraldes">Murillo y Güiraldes</option>
+            <option value="Parada 8">Parada 8</option>
+        </select>
 
-    <div class="header">
-        <h1>🚕 TuMovil</h1>
-        <p>Digital Shared Taxi</p>
-    </div>
-
-    <div class="content">
-
-        <div id="paso-detectando" class="detectando">
-            <div class="detectando-icon">📍</div>
-            <h2>Detecting your stop...</h2>
-            <p>We are using your GPS location to find your stop.</p>
-            <div class="spinner"></div>
-            <p style="color:#666; font-size:12px; margin-top:10px;">Make sure GPS is enabled</p>
+        <div class="asientos-grid" id="grid-asientos">
+            <div class="asiento-btn" onclick="seleccionarAsiento(1)" id="a1">1</div>
+            <div class="asiento-btn" onclick="seleccionarAsiento(2)" id="a2">2</div>
+            <div class="asiento-btn" onclick="seleccionarAsiento(3)" id="a3">3</div>
+            <div class="asiento-btn" onclick="seleccionarAsiento(4)" id="a4">4</div>
         </div>
 
-        <div id="paso-formulario" class="hidden">
+        <button class="btn-enviar" id="btn-accion" onclick="enviarSolicitud()" disabled>
+            BUSCANDO UBICACIÓN...
+        </button>
+    </div>
+
+    <script>
+        // CONFIGURACIÓN
+        const supabase = supabase.createClient('TU_URL', 'TU_KEY');
+        const LIMITE_PRUEBA_KM = 5; // <--- Aquí está tu umbral de 5km
+        
+        const PARADAS = {
+            "Murillo y Güiraldes": { lat: -34.5500, lng: -58.7000 },
+            "Parada 8": { lat: -34.5510, lng: -58.7010 }
+        };
+
+        let asientoElegido = 0;
+        
+        // --- LÓGICA DE DISTANCIA ---
+        function getDistanciaKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        function verificarUbicacion() {
+            const btn = document.getElementById('btn-accion');
+            const statusBanner = document.getElementById('status-distancia');
+            const parada = document.getElementById('select-parada').value;
             
-            <div class="parada-info">
-                <div class="label">📍 Pickup Stop</div>
-                <div class="nombre" id="parada-origen-nombre">--</div>
-                <div class="numero" id="parada-origen-numero">--</div>
-            </div>
-
-            <div class="input-group">
-                <label for="nombre">What is your name?</label>
-                <input 
-                    type="text" 
-                    id="nombre" 
-                    placeholder="Enter your name" 
-                    maxlength="30"
-                    autocomplete="off"
-                >
-            </div>
-
-            <p style="color:#888; font-size:14px; margin-bottom:15px; padding:0 20px;">
-                Where are you heading?
-            </p>
-            <div class="sentido-options">
-                <div class="sentido-card" onclick="seleccionarSentido('IDA')" id="card-ida">
-                    <div class="icon">➡️</div>
-                    <div class="label">OUTBOUND</div>
-                    <div class="desc">To downtown</div>
-                </div>
-                <div class="sentido-card" onclick="seleccionarSentido('VUELTA')" id="card-vuelta">
-                    <div class="icon">⬅️</div>
-                    <div class="label">INBOUND</div>
-                    <div class="desc">To start</div>
-                </div>
-            </div>
-
-            <div id="seccion-asientos" class="hidden">
-                <p style="color:#888; font-size:14px; margin-bottom:15px; padding:0 20px;">
-                    How many seats do you need?
-                </p>
-                <div class="asientos-options">
-                    <div class="asiento-btn" onclick="seleccionarAsientos(1)" id="btn-asiento-1">
-                        <div class="num">1</div>
-                        <div class="precio">$1.000</div>
-                    </div>
-                    <div class="asiento-btn" onclick="seleccionarAsientos(2)" id="btn-asiento-2">
-                        <div class="num">2</div>
-                        <div class="precio">$2.000</div>
-                    </div>
-                    <div class="asiento-btn" onclick="seleccionarAsientos(3)" id="btn-asiento-3">
-                        <div class="num">3</div>
-                        <div class="precio">$3.000</div>
-                    </div>
-                    <div class="asiento-btn" onclick="seleccionarAsientos(4)" id="btn-asiento-4">
-                        <div class="num">4</div>
-                        <div class="precio">$4.000</div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="seccion-destino" class="hidden">
-                <p style="color:#888; font-size:14px; margin-bottom:15px; padding:0 20px;">
-                    Where are you getting off?
-                </p>
-                <div id="lista-paradas"></div>
-            </div>
-
-            <button class="btn btn-primary hidden" id="btn-enviar" onclick="enviarSolicitud()" disabled>
-                🚕 Request Ride
-            </button>
-
-            <button class="btn btn-secondary hidden" id="btn-cambiar-parada" onclick="cambiarParadaManual()">
-                📍 Not my stop
-            </button>
-        </div>
-
-        <div id="paso-esperando" class="hidden" style="text-align:center; padding:60px 20px;">
-            <div style="font-size:60px; margin-bottom:20px;">⏳</div>
-            <h2 style="color:#FFD700; margin-bottom:10px;">Finding mobile...</h2>
-            <p style="color:#888; font-size:14px;">
-                We are assigning your seat in the first available vehicle.
-            </p>
-            <div class="spinner" style="margin:30px auto; display:block; border-color:#333; border-top-color:#FFD700;"></div>
-            <p style="color:#666; font-size:12px;">This usually takes a few seconds</p>
-        </div>
-
-        <div id="paso-ticket" class="hidden">
-            <div class="ticket">
-                <div class="ticket-icon">🎫</div>
-                <div class="ticket-label">YOUR SEAT</div>
-                <div class="ticket-asiento" id="ticket-numero">--</div>
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const dist = getDistanciaKm(pos.coords.latitude, pos.coords.longitude, PARADAS[parada].lat, PARADAS[parada].lng);
                 
-                <div class="precio-total">
-                    <div class="label">TOTAL TO PAY</div>
-                    <div class="monto" id="ticket-precio">$1.000</div>
-                </div>
+                // Si la distancia es menor a 5km, habilitamos para la prueba
+                if (dist <= LIMITE_PRUEBA_KM) {
+                    btn.disabled = false;
+                    btn.innerText = "SOLICITAR VIAJE";
+                    statusBanner.innerText = "PARADA A " + dist.toFixed(2) + " KM - ¡PUEDES PROBAR!";
+                } else {
+                    btn.disabled = true;
+                    btn.innerText = "FUERA DE RANGO (MÁS DE 5KM)";
+                    statusBanner.innerText = "ESTÁS A " + dist.toFixed(2) + " KM DE LA PARADA";
+                }
+            }, (err) => {
+                statusBanner.innerText = "ERROR DE GPS";
+            }, { enableHighAccuracy: true });
+        }
 
-                <div class="ticket-info">
-                    <div class="ticket-row">
-                        <span class="ticket-row-label">Passenger</span>
-                        <span class="ticket-row-value" id="ticket-nombre">--</span>
-                    </div>
-                    <div class="ticket-row">
-                        <span class="ticket-row-label">Vehicle</span>
-                        <span class="ticket-row-value" id="ticket-movil">--</span>
-                    </div>
-                    <div class="ticket-row">
-                        <span class="ticket-row-label">Seats</span>
-                        <span class="ticket-row-value" id="ticket-asientos">--</span>
-                    </div>
-                    <div class="ticket-row">
-                        <span class="ticket-row-label">Pickup</span>
-                        <span class="ticket-row-value" id="ticket-origen">--</span>
-                    </div>
-                    <div class="ticket-row">
-                        <span class="ticket-row-label">Drop-off</span>
-                        <span class="ticket-row-value" id="ticket-destino">--</span>
-                    </div>
-                    <div class="ticket-row">
-                        <span class="ticket-row-label">Direction</span>
-                        <span class="ticket-row-value" id="ticket-sentido">--</span>
-                    </div>
-                </div>
+        function seleccionarAsiento(num) {
+            asientoElegido = num;
+            document.querySelectorAll('.asiento-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('a' + num).classList.add('active');
+        }
 
-                <div class="ticket-aviso">
-                    <p>💵 Pay in cash upon exiting the vehicle</p>
-                </div>
+        async function enviarSolicitud() {
+            if(asientoElegido === 0) { alert("Selecciona un asiento"); return; }
+            
+            // Aquí se envía a Supabase
+            const { data, error } = await supabase.from('viajes').insert([{
+                nombre: document.getElementById('nombre-usuario').value,
+                parada: document.getElementById('select-parada').value,
+                asientos: asientoElegido,
+                status: 'pendiente'
+            }]);
 
-                <div class="ticket-show">
-                    <p>👆 SHOW THIS TO THE DRIVER</p>
-                    <div class="numero-grande" id="ticket-numero-big">--</div>
-                </div>
+            if(error) alert("Error: " + error.message);
+            else alert("Solicitud enviada. ¡Verifica el panel del conductor!");
+        }
 
-                <button class="btn btn-primary" onclick="nuevoViaje()" style="width:100%; margin:0;">
-                    🔄 New Trip
-                </button>
-            </div>
-        </div>
-
-        <div id="paso-error" class="hidden" style="text-align:center; padding:60px 20px;">
-            <div style="font-size:60px; margin-bottom:20px;">😕</div>
-            <h2 style="color:#ff3b30; margin-bottom:10px;">No vehicles available</h2>
-            <p style="color:#888; font-size:14px; margin-bottom:30px;">
-                There are no vehicles with free seats nearby at the moment.
-            </p>
-            <button class="btn btn-primary" onclick="reintentar()">
-                🔄 Retry
-            </button>
-            <button class="btn btn-secondary" onclick="nuevoViaje()">
-                Change details
-            </button>
-        </div>
-
-    </div>
-
-    <div class="footer">
-        TuMovil © 2026 - Digital Shared Taxi
-    </div>
-
-<script>
-    // [El código JavaScript mantiene su lógica original]
-    // Solo actualiza los mensajes de error en las funciones mostrarToast si lo deseas.
-</script>
+        // Ejecutar verificación constante para la prueba
+        setInterval(verificarUbicacion, 3000); 
+        verificarUbicacion();
+    </script>
 </body>
 </html>
