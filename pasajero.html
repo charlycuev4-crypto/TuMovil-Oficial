@@ -31,13 +31,6 @@
         .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; }
         .btn-pedir:disabled { background: #444; color: #888; }
         .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
-        
-        /* Toast notifications */
-        .toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 99999; padding: 12px 24px; border-radius: 25px; font-weight: bold; font-size: 14px; animation: slideDown 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.5); max-width: 90%; text-align: center; }
-        .toast.success { background: #4cd964; color: #000; }
-        .toast.error { background: #ff3b30; color: #fff; }
-        .toast.info { background: var(--amarillo); color: #000; }
-        @keyframes slideDown { from { transform: translate(-50%, -20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -76,6 +69,7 @@
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
+    // ... (Tu array de paradas se mantiene igual) ...
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -109,16 +103,6 @@
     const selDest = document.getElementById('destino-select');
     paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
 
-    function mostrarToast(mensaje, tipo = 'info') {
-        const existing = document.querySelector('.toast');
-        if (existing) existing.remove();
-        const toast = document.createElement('div');
-        toast.className = `toast ${tipo}`;
-        toast.innerText = mensaje;
-        document.body.appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
-    }
-
     window.onload = async () => {
         const nombreGuardado = localStorage.getItem('usuario_nombre');
         if(nombreGuardado) {
@@ -138,7 +122,7 @@
         document.getElementById('btn-cancelar').style.display = 'block';
         document.getElementById('nombre-input').disabled = true;
         document.getElementById('destino-select').disabled = true;
-        document.getElementById('sentido-select').disabled = true;
+        document.getElementById('sentido-select').disabled = true; // --- NUEVO: Bloqueo ---
         asientosElegidos.forEach(n => document.getElementById('as-'+n).classList.add('selected'));
     }
 
@@ -169,115 +153,26 @@
         else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
     }
 
-    // ============================================================
-    // ✅ FUNCIÓN CORREGIDA - Validación doble antes de reservar
-    // ============================================================
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
         const destIdx = document.getElementById('destino-select').value;
-        const sentido = document.getElementById('sentido-select').value;
+        const sentido = document.getElementById('sentido-select').value; // --- NUEVO: Captura ---
         
-        if (!nom || destIdx === "" || asientosElegidos.length === 0) { 
-            mostrarToast("Completa todos tus datos y selecciona al menos un asiento.", "error");
-            return; 
-        }
+        if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
         localStorage.setItem('usuario_nombre', nom);
         
-        // Deshabilitar botón mientras procesa
-        const btn = document.getElementById('btn-pedir');
-        btn.disabled = true;
-        btn.innerText = "⏳ Buscando chofer...";
-        
-        try {
-            // PASO 1: Buscar móviles disponibles (online + en servicio + con asientos)
-            const { data: moviles, error: errBusqueda } = await _s
-                .from('estado_movil')
-                .select('*')
-                .eq('esta_online', true)
-                .eq('en_servicio', true)           // ← NUEVO: debe estar en servicio
-                .eq('sentido_flujo', sentido)
-                .gt('asientos_libres', 0)          // ← NUEVO: debe tener asientos libres
-                .neq('latitud', 0)
-                .order('ultima_actualizacion', { ascending: false })
-                .limit(1);
-                
-            if (errBusqueda) throw new Error("Error buscando choferes");
+        // --- NUEVO: Filtro en la búsqueda ---
+        const { data: moviles } = await _s.from('estado_movil')
+            .select('id')
+            .eq('esta_online', true) 
+            .eq('sentido_flujo', sentido) // <-- FILTRO CRÍTICO
+            .neq('latitud', 0)
+            .limit(1);
             
-            if (!moviles || moviles.length === 0) { 
-                mostrarToast("No hay choferes disponibles en este momento. Intenta en unos minutos.", "error");
-                btn.disabled = false;
-                btn.innerText = "🏁 SOLICITAR MI VIAJE";
-                return; 
-            }
-            
-            const movilElegido = moviles[0];
-            
-            // PASO 2: Verificar que los asientos elegidos siguen libres
-            // (evita que 2 pasajeros reserven el mismo asiento simultáneamente)
-            const { data: reservasExistentes, error: errReservas } = await _s
-                .from('reservas_activas')
-                .select('asiento_num')
-                .eq('id_movil', movilElegido.id)
-                .eq('estado', 'en_curso');
-                
-            if (errReservas) throw new Error("Error verificando asientos");
-            
-            const asientosOcupados = reservasExistentes ? reservasExistentes.map(r => r.asiento_num) : [];
-            const asientosDisponibles = asientosElegidos.filter(n => !asientosOcupados.includes(n));
-            
-            if (asientosDisponibles.length === 0) {
-                mostrarToast("Los asientos que elegiste ya fueron reservados por otro pasajero.", "error");
-                btn.disabled = false;
-                btn.innerText = "🏁 SOLICITAR MI VIAJE";
-                return;
-            }
-            
-            if (asientosDisponibles.length !== asientosElegidos.length) {
-                const ocupados = asientosElegidos.filter(n => asientosOcupados.includes(n));
-                mostrarToast(`Asiento(s) ${ocupados.join(', ')} ocupado(s). Elige otros.`, "error");
-                btn.disabled = false;
-                btn.innerText = "🏁 SOLICITAR MI VIAJE";
-                return;
-            }
-            
-            // PASO 3: Insertar la reserva
-            const reservasAInsertar = asientosElegidos.map(n => ({ 
-                asiento_num: n, 
-                id_movil: movilElegido.id,
-                estado: 'en_curso', 
-                nombre_pasajero: nom, 
-                pasajero_lat: miLat, 
-                pasajero_lon: miLon, 
-                destino_idx: parseInt(destIdx),
-                creado_at: new Date().toISOString()
-            }));
-            
-            const { error: errInsert } = await _s
-                .from('reservas_activas')
-                .insert(reservasAInsertar);
-            
-            if (errInsert) {
-                // Si el trigger de PostgreSQL rechazó la inserción (chofer se desconectó en el último segundo)
-                if (errInsert.message && errInsert.message.includes('El móvil')) {
-                    mostrarToast("El chofer se desconectó justo ahora. Intenta de nuevo.", "error");
-                } else {
-                    throw errInsert;
-                }
-                btn.disabled = false;
-                btn.innerText = "🏁 SOLICITAR MI VIAJE";
-                return;
-            }
-            
-            // ✅ Éxito
-            mostrarToast("¡Viaje reservado con éxito! 🚕", "success");
-            setTimeout(() => location.reload(), 1500);
-            
-        } catch (err) {
-            console.error("Error en confirmarViajePasajero:", err);
-            mostrarToast("Error al reservar: " + (err.message || "Intenta de nuevo"), "error");
-            btn.disabled = false;
-            btn.innerText = "🏁 SOLICITAR MI VIAJE";
-        }
+        if (!moviles || moviles.length === 0) { alert("No hay choferes en ese sentido actualmente."); return; }
+        const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: moviles[0].id, estado: 'en_curso', nombre_pasajero: nom, pasajero_lat: miLat, pasajero_lon: miLon, destino_idx: parseInt(destIdx) }));
+        await _s.from('reservas_activas').insert(res);
+        location.reload();
     }
 
     async function finalizarViaje() {
@@ -286,16 +181,14 @@
         location.reload();
     }
 
-    // ============================================================
-    // ✅ actualizarFlota() también filtra por en_servicio
-    // ============================================================
+    // --- NUEVO: LÓGICA DE ACTUALIZACIÓN CON FILTRO ---
     async function actualizarFlota() {
         const sentidoSeleccionado = document.getElementById('sentido-select').value;
         
+        // --- FILTRO: Traer solo los que cumplen la condición ---
         const { data: moviles } = await _s.from('estado_movil')
             .select('*')
             .eq('esta_online', true)
-            .eq('en_servicio', true)        // ← NUEVO: solo en servicio
             .eq('sentido_flujo', sentidoSeleccionado)
             .neq('latitud', 0);
         
