@@ -152,9 +152,15 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.6 }).addTo(map);
     
+    // PARADAS CON CÍRCULO CELESTE Y BORDE NEGRO
     paradas.forEach((p, idx) => { 
-        L.circleMarker(p.c, { radius: 6, color: '#000', weight: 2, fillColor: idx === 0 ? '#FFD700' : '#FFF', fillOpacity: 1 })
-         .addTo(map).bindTooltip(`${idx + 1}. ${p.n}`, { permanent: false });
+        L.circleMarker(p.c, { 
+            radius: 6, 
+            color: '#000000',      // Borde negro
+            weight: 2, 
+            fillColor: '#00d2ff',  // Celeste
+            fillOpacity: 1 
+        }).addTo(map).bindTooltip(`${idx + 1}. ${p.n}`, { permanent: false });
     });
     
     const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
@@ -221,12 +227,18 @@
                 const parada = encontrarParadaMasCercana(pos.coords.latitude, pos.coords.longitude);
                 paradaActualIdx = parada.idx;
                 
-                const { error } = await _s.from('estado_movil').update({ 
-                    esta_online: true, en_servicio: true,
-                    latitud: pos.coords.latitude, longitud: pos.coords.longitude,
-                    disponible_desde: paradaActualIdx, asientos_libres: asientosLibres,
+                // UPSERT - Crea o actualiza el registro
+                const { error } = await _s.from('estado_movil').upsert({ 
+                    id: MI_ID_MOVIL,
+                    esta_online: true, 
+                    en_servicio: true,
+                    latitud: pos.coords.latitude, 
+                    longitud: pos.coords.longitude,
+                    disponible_desde: paradaActualIdx, 
+                    asientos_libres: asientosLibres,
+                    sentido_flujo: sentidoActual,
                     ultima_actualizacion: new Date().toISOString()
-                }).eq('id', MI_ID_MOVIL);
+                }, { onConflict: 'id' });
                 
                 if (error) throw error;
                 
@@ -240,8 +252,11 @@
                 if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
                 
                 const { error } = await _s.from('estado_movil').update({ 
-                    esta_online: false, en_servicio: false,
-                    latitud: 0, longitud: 0, disponible_desde: 0, asientos_libres: 4,
+                    esta_online: false, 
+                    en_servicio: false,
+                    latitud: 0, 
+                    longitud: 0, 
+                    asientos_libres: 4,
                     ultima_actualizacion: new Date().toISOString()
                 }).eq('id', MI_ID_MOVIL);
                 
@@ -254,7 +269,8 @@
         } catch (err) {
             console.error("Error en gestionarConexion:", err);
             mostrarToast('Error de conexión: ' + err.message, 'error');
-            toggle.checked = !estaOnline; estaOnline = !estaOnline;
+            toggle.checked = !estaOnline; 
+            estaOnline = !estaOnline;
         }
     }
 
@@ -273,7 +289,8 @@
             if (now - lastGpsUpdate < GPS_UPDATE_INTERVAL) return;
             lastGpsUpdate = now;
             
-            const myLat = p.coords.latitude; const myLon = p.coords.longitude;
+            const myLat = p.coords.latitude; 
+            const myLon = p.coords.longitude;
             const parada = encontrarParadaMasCercana(myLat, myLon);
             
             if (parada.distancia < DISTANCIA_MINIMA_PARADA && parada.idx !== paradaActualIdx) {
@@ -282,16 +299,24 @@
                 mostrarToast(`📍 Pasando: ${paradas[paradaActualIdx].n}`, 'info');
             }
             
-            marcadorConductor.setLatLng([myLat, myLon]); map.panTo([myLat, myLon]);
+            marcadorConductor.setLatLng([myLat, myLon]); 
+            map.panTo([myLat, myLon]);
             
             try {
                 await _s.from('estado_movil').update({ 
-                    latitud: myLat, longitud: myLon, disponible_desde: paradaActualIdx,
+                    latitud: myLat, 
+                    longitud: myLon, 
+                    disponible_desde: paradaActualIdx,
                     ultima_actualizacion: new Date().toISOString()
                 }).eq('id', MI_ID_MOVIL);
-            } catch (err) { console.error("Error actualizando GPS:", err); }
+            } catch (err) { 
+                console.error("Error actualizando GPS:", err); 
+            }
             
-        }, (err) => { console.error("Error geolocalización:", err); mostrarToast('Error GPS: ' + err.message, 'error'); }, 
+        }, (err) => { 
+            console.error("Error geolocalización:", err); 
+            mostrarToast('Error GPS: ' + err.message, 'error'); 
+        }, 
         { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 });
     }
 
@@ -300,12 +325,15 @@
         const btn = document.getElementById('btn-sentido');
         btn.innerText = sentidoActual;
         
-        if (sentidoActual === 'VUELTA') { rutaLine.setStyle({ color: '#ff6b6b' }); }
-        else { rutaLine.setStyle({ color: '#00d4ff' }); }
+        if (sentidoActual === 'VUELTA') { 
+            rutaLine.setStyle({ color: '#ff6b6b' }); 
+        } else { 
+            rutaLine.setStyle({ color: '#00d4ff' }); 
+        }
         
         try {
             const { error } = await _s.from('estado_movil').update({ 
-                sentido_flujo: sentidoActual, hacia_adelante: sentidoActual === 'IDA',
+                sentido_flujo: sentidoActual, 
                 disponible_desde: sentidoActual === 'IDA' ? 0 : paradas.length - 1,
                 ultima_actualizacion: new Date().toISOString()
             }).eq('id', MI_ID_MOVIL);
@@ -324,7 +352,8 @@
         try {
             markersPax.forEach(m => map.removeLayer(m));
             markersDest.forEach(m => map.removeLayer(m));
-            markersPax = []; markersDest = [];
+            markersPax = []; 
+            markersDest = [];
 
             const { data: reservas, error } = await _s
                 .from('reservas_activas')
@@ -336,7 +365,8 @@
 
             for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
                 const p = document.getElementById('pill' + i);
-                p.className = 'pill'; p.innerText = i;
+                p.className = 'pill'; 
+                p.innerText = i;
             }
 
             let recaudacion = 0;
@@ -344,21 +374,20 @@
             
             if (reservas && reservas.length > 0) {
                 reservas.forEach(res => {
-                    const cantidadAsientos = res.cantidad_asientos || 1;
-                    paxCount += cantidadAsientos;
-                    recaudacion += cantidadAsientos * PRECIO_POR_ASIENTO;
+                    paxCount += 1;
+                    recaudacion += PRECIO_POR_ASIENTO;
                     
                     const pill = document.getElementById('pill' + res.asiento_num);
                     if (pill) {
                         pill.className = 'pill active';
-                        pill.innerText = cantidadAsientos > 1 ? `${res.asiento_num}-${res.asiento_num + cantidadAsientos - 1}` : '✓';
+                        pill.innerText = '✓';
                     }
 
                     if (res.pasajero_lat && res.pasajero_lon) {
                         const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], 
                             { color: '#ff3b30', radius: 10, fillColor: '#ff3b30', fillOpacity: 0.3, weight: 2 })
                             .addTo(map)
-                            .bindPopup(`<b>${res.nombre_pasajero || "Pasajero"}</b><br>Asientos: ${cantidadAsientos}<br>Subida: ${paradas[res.parada_origen]?.n || '?'}`);
+                            .bindPopup(`<b>${res.nombre_pasajero || "Pasajero"}</b>`);
                         markersPax.push(pM);
                     }
 
@@ -366,7 +395,7 @@
                         const dM = L.marker(paradas[res.destino_idx].c, {
                             icon: L.divIcon({ html: '📍', className: 'destino-icon', iconAnchor: [12, 24] })
                         }).addTo(map)
-                         .bindTooltip(`⬇️ ${res.nombre_pasajero || 'Pasajero'} (${cantidadAsientos} asiento${cantidadAsientos > 1 ? 's' : ''})`, 
+                         .bindTooltip(`⬇️ ${res.nombre_pasajero || 'Pasajero'}`, 
                             { permanent: true, direction: 'top', offset: [0, -10] });
                         markersDest.push(dM);
                     }
@@ -424,8 +453,7 @@
             
             if (err2) throw err2;
             
-            const cantidadAsientos = reserva.cantidad_asientos || 1;
-            asientosLibres += cantidadAsientos;
+            asientosLibres += 1;
             
             pill.className = 'pill libre';
             pill.innerText = 'LIBRE';
@@ -464,7 +492,8 @@
             
             for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
                 const p = document.getElementById('pill' + i);
-                p.className = 'pill'; p.innerText = i;
+                p.className = 'pill'; 
+                p.innerText = i;
             }
             
             mostrarToast('🏁 Viaje finalizado. Coche vacío.', 'success');
@@ -485,8 +514,7 @@
           actualizarDatos();
           if (payload.eventType === 'INSERT') {
               const res = payload.new;
-              const cantidad = res.cantidad_asientos || 1;
-              mostrarToast(`🙋 ¡Nuevo pasajero! ${res.nombre_pasajero || 'Pasajero'} - ${cantidad} asiento${cantidad > 1 ? 's' : ''}`, 'success');
+              mostrarToast(`🙋 ¡Nuevo pasajero! ${res.nombre_pasajero || 'Pasajero'}`, 'success');
               if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
           }
       })
@@ -506,13 +534,19 @@
 
     window.addEventListener('beforeunload', async (e) => {
         if (estaOnline) {
-            e.preventDefault(); e.returnValue = '¿Estás seguro? Estás en línea.';
+            e.preventDefault(); 
+            e.returnValue = '¿Estás seguro? Estás en línea.';
             try {
                 await _s.from('estado_movil').update({ 
-                    esta_online: false, en_servicio: false,
-                    latitud: 0, longitud: 0, ultima_actualizacion: new Date().toISOString()
+                    esta_online: false, 
+                    en_servicio: false,
+                    latitud: 0, 
+                    longitud: 0, 
+                    ultima_actualizacion: new Date().toISOString()
                 }).eq('id', MI_ID_MOVIL);
-            } catch (err) { console.error("Error al desconectar:", err); }
+            } catch (err) { 
+                console.error("Error al desconectar:", err); 
+            }
         }
     });
 </script>
