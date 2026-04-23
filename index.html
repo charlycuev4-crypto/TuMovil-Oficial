@@ -3,174 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CONDUCTOR 01 - TuMovil</title>
+    <title>CONDUCTOR 01</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
+        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        #map { flex-grow: 1; width: 100%; background: #121212; z-index: 1; }
         
-        /* SPLASH SCREEN */
-        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s ease; }
-        .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
-        .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        .top-ui { position: absolute; top: 10px; width: 100%; z-index: 1000; padding: 0 10px; }
+        .stats-row { display: flex; gap: 10px; justify-content: center; }
+        .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 10px; flex: 1; text-align: center; color: #FFD700; font-weight: bold; }
         
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
-        .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
+        .control-row { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 10px; background: rgba(0,0,0,0.9); padding: 10px; border-radius: 30px; border: 1px solid #FFD700; }
         
-        .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
-        .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
-        .stat-label { color: #FFD700; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
-        .stat-value { font-size: 24px; font-weight: 800; margin-top: 4px; }
-        .stat-value.green { color: #4cd964; }
+        .bottom-ui { position: absolute; bottom: 20px; width: 100%; z-index: 1000; padding: 0 20px; }
+        .asientos-grid { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; }
+        .asiento-btn { width: 60px; height: 60px; border: 2px solid #FFD700; border-radius: 15px; background: #000; color: #FFD700; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; }
+        .asiento-btn.active { background: #4cd964; color: #000; border-color: #4cd964; }
         
-        .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.9); padding: 8px 12px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
-        .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
+        .btn-finalizar { width: 100%; padding: 20px; background: #ff3b30; color: white; border: none; border-radius: 15px; font-weight: bold; font-size: 18px; }
+        
+        /* Switch */
+        .switch { position: relative; display: inline-block; width: 50px; height: 25px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 22px; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; border-radius: 25px; transition: .4s; }
+        .slider:before { position: absolute; content: ""; height: 19px; width: 19px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: .4s; }
         input:checked + .slider { background-color: #4cd964; }
-        input:checked + .slider:before { transform: translateX(24px); }
-        #status-label { color: white; font-size: 11px; font-weight: bold; width: 70px; text-align: center; }
-        
-        #btn-sentido { background: #FFD700; color: #000; border: none; padding: 6px 12px; border-radius: 15px; font-weight: 800; font-size: 12px; cursor: pointer; }
-        #parada-actual { position: absolute; top: 140px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(0,0,0,0.9); color: #FFD700; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid #FFD700; pointer-events: auto; display: none; }
-        
-        #net-status { position: absolute; top: 175px; left: 50%; transform: translateX(-50%); z-index: 1001; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; transition: all 0.3s; }
-        .net-online { background: #4cd964; color: #000; }
-        .net-offline { background: #ff3b30; color: #fff; }
-        
-        .toast { position: fixed; top: 200px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 12px 24px; border-radius: 25px; font-weight: bold; font-size: 14px; animation: slideDown 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.5); max-width: 90%; text-align: center; }
-        .toast.success { background: #4cd964; color: #000; }
-        .toast.error { background: #ff3b30; color: #fff; }
-        
-        .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
-        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
-        .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
-        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); transition: all 0.3s ease; cursor: pointer; }
-        .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
+        input:checked + .slider:before { transform: translateX(25px); }
     </style>
 </head>
 <body>
-    <div id="splash">
-        <div class="splash-logo">🚕</div>
-        <h1 class="splash-title">COCHE 01</h1>
-    </div>
-    
-    <div class="connection-panel">
-        <span id="status-label">FUERA DE LÍNEA</span>
-        <label class="switch">
-            <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
-            <span class="slider"></span>
-        </label>
-        <button id="btn-sentido" onclick="cambiarSentido()">IDA</button>
-    </div>
-
-    <div id="parada-actual">📍 <span id="txt-parada">--</span></div>
-    <div id="net-status" class="net-offline">⚠️ SIN RED</div>
 
     <div id="map"></div>
-    <div class="ui-overlay top-stats">
-        <div class="stat-box"><div class="stat-label">RECAUDACIÓN</div><div id="txt-plata" class="stat-value green">$0</div></div>
-        <div class="stat-box"><div class="stat-label">PASAJEROS</div><div id="txt-pax" class="stat-value">0</div></div>
-    </div>
-    <div class="ui-overlay bottom-ui">
-        <div class="asientos-pills">
-            <div id="pill1" class="pill" onclick="liberarAsiento(1)">1</div>
-            <div id="pill2" class="pill" onclick="liberarAsiento(2)">2</div>
-            <div id="pill3" class="pill" onclick="liberarAsiento(3)">3</div>
-            <div id="pill4" class="pill" onclick="liberarAsiento(4)">4</div>
+
+    <div class="top-ui">
+        <div class="stats-row">
+            <div class="stat-box">RECAUDACIÓN<br><span id="txt-plata" style="font-size: 20px;">$0</span></div>
+            <div class="stat-box">PASAJEROS<br><span id="txt-pax" style="font-size: 20px;">0</span></div>
         </div>
-        <button class="btn-vaciar" onclick="confirmarVaciar()">🏁 FINALIZAR / VACIAR</button>
+        <div style="display:flex; justify-content:center; margin-top:10px;">
+            <div class="control-row">
+                <span id="label-online" style="color:white; font-size:12px;">OFFLINE</span>
+                <label class="switch"><input type="checkbox" id="check-online" onchange="toggleOnline()"> <span class="slider"></span></label>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-ui">
+        <div class="asientos-grid">
+            <div class="asiento-btn" id="p1">1</div>
+            <div class="asiento-btn" id="p2">2</div>
+            <div class="asiento-btn" id="p3">3</div>
+            <div class="asiento-btn" id="p4">4</div>
+        </div>
+        <button class="btn-finalizar" onclick="finalizarViaje()">🏁 FINALIZAR / VACIAR COCHE 01</button>
     </div>
 
 <script>
-    const MI_ID_MOVIL = 1; 
+    const MI_ID = 1;
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
-    let estaOnline = false;
-    let watchId = null;
+    let map, isOnline = false;
 
-    // --- 1. Lógica del Splash y Carga ---
-    function ocultarSplash() {
-        const spl = document.getElementById('splash');
-        if (spl) spl.style.opacity = '0';
-        setTimeout(() => { if(spl) spl.style.display = 'none'; }, 500);
-    }
-
-    async function actualizarDatos() {
-        try {
-            const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
-            
-            // Reset visual
-            for (let i = 1; i <= 4; i++) {
-                document.getElementById('pill' + i).className = 'pill';
-                document.getElementById('pill' + i).innerText = i;
-            }
-
-            let recaudacion = 0;
-            if (reservas) {
-                reservas.forEach(res => {
-                    recaudacion += 1000;
-                    const p = document.getElementById('pill' + res.asiento_num);
-                    if(p) { p.className = 'pill active'; p.innerText = '✓'; }
-                });
-            }
-            document.getElementById('txt-plata').innerText = '$' + recaudacion;
-            document.getElementById('txt-pax').innerText = reservas ? reservas.length : 0;
-            
-            ocultarSplash(); // Quitamos el splash al terminar carga
-        } catch (e) { ocultarSplash(); }
-    }
-
-    // --- 2. Portero: Filtro de Seguridad ---
-    _s.channel('coche_' + MI_ID_MOVIL)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas', filter: `id_movil=eq.${MI_ID_MOVIL}` }, (payload) => {
-          // SI NO ESTÁS ONLINE, EL CÓDIGO SE DETIENE AQUÍ Y NO HACE NADA
-          if (!estaOnline) {
-              console.log("Ignorado: Conductor offline");
-              return; 
-          }
-          actualizarDatos();
-          if (payload.eventType === 'INSERT') {
-              if (navigator.vibrate) navigator.vibrate(200);
-          }
-      })
-      .subscribe();
-
-    // --- 3. Conexión ---
-    async function gestionarConexion() {
-        estaOnline = document.getElementById('online-toggle').checked;
-        const label = document.getElementById('status-label');
+    // 1. Inicialización del Mapa (Solo cuando el HTML está listo)
+    document.addEventListener('DOMContentLoaded', () => {
+        map = L.map('map', { zoomControl: false }).setView([-34.56, -58.77], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         
-        if (estaOnline) {
-            label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
-            document.getElementById('parada-actual').style.display = 'block';
-            actualizarBDOnline(true);
-        } else {
-            label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
-            document.getElementById('parada-actual').style.display = 'none';
-            actualizarBDOnline(false);
-        }
-    }
-
-    async function actualizarBDOnline(estado) {
-        await _s.from('estado_movil').update({ esta_online: estado }).eq('id', MI_ID_MOVIL);
-    }
-
-    async function confirmarVaciar() {
-        if(!confirm("¿Finalizar viaje?")) return;
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
-        actualizarDatos();
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-        actualizarDatos();
-        // SALVAVIDAS: Si el splash no se quitó en 3 seg, se quita a la fuerza
-        setTimeout(ocultarSplash, 3000);
+        actualizarDatos(); // Carga inicial
     });
+
+    // 2. Función de estado Online/Offline
+    async function toggleOnline() {
+        isOnline = document.getElementById('check-online').checked;
+        document.getElementById('label-online').innerText = isOnline ? "ONLINE" : "OFFLINE";
+        await _s.from('estado_movil').update({ esta_online: isOnline }).eq('id', MI_ID);
+    }
+
+    // 3. Lógica principal (Backend)
+    async function actualizarDatos() {
+        const { data } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID);
+        
+        // Reset botones
+        for(let i=1; i<=4; i++) document.getElementById('p'+i).className = 'asiento-btn';
+        
+        let rec = 0;
+        if(data) {
+            data.forEach(d => {
+                rec += 1000;
+                document.getElementById('p'+d.asiento_num).className = 'asiento-btn active';
+            });
+            document.getElementById('txt-pax').innerText = data.length;
+        } else {
+            document.getElementById('txt-pax').innerText = 0;
+        }
+        document.getElementById('txt-plata').innerText = '$' + rec;
+    }
+
+    // 4. "PORTERO": Escucha de cambios
+    _s.channel('coche_'+MI_ID)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas', filter: `id_movil=eq.${MI_ID}` }, (payload) => {
+          if (!isOnline) return; // Si no estás online, ignorás todo
+          actualizarDatos();
+      }).subscribe();
+
+    // 5. Finalizar
+    async function finalizarViaje() {
+        if(!confirm("¿Vaciar todos los asientos?")) return;
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID);
+        actualizarDatos();
+    }
 </script>
 </body>
 </html>
