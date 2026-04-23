@@ -2,95 +2,75 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pasajero - TuMovil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        /* MANTENGO TU DISEÑO ORIGINAL, SOLO LIMPIÉ LA LÓGICA */
-        body { margin: 0; background: #121212; color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
-        #map { flex-grow: 1; }
-        .bottom-ui { background: #1e1e1e; padding: 20px; border-radius: 20px 20px 0 0; }
-        .asiento-btn { width: 50px; height: 50px; border: 2px solid #00d2ff; border-radius: 12px; background: transparent; color: #00d2ff; cursor: pointer; }
-        .asiento-btn.selected { background: #ffcc00; color: #000; }
-        .btn-pedir { width: 100%; padding: 15px; background: #28a745; border: none; border-radius: 10px; color: white; font-weight: bold; }
+        body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
+        .asiento-btn { padding: 15px; border: 2px solid #00d2ff; display: inline-block; cursor: pointer; border-radius: 8px; margin: 5px; }
+        .selected { background: #ffcc00; color: black; }
+        .btn-pedir { width: 100%; padding: 15px; background: #28a745; border: none; color: white; font-weight: bold; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div class="bottom-ui">
-        <input type="text" id="nombre-input" placeholder="Tu Nombre">
-        <select id="destino-select">
-            <option value="">Seleccioná destino...</option>
-        </select>
-        <div class="asientos-grid" style="display:flex; gap:10px; margin: 10px 0;">
-            <div class="asiento-btn" onclick="toggleAsiento(1)" id="as-1">1</div>
-            <div class="asiento-btn" onclick="toggleAsiento(2)" id="as-2">2</div>
-        </div>
-        <button class="btn-pedir" onclick="solicitarViaje()">SOLICITAR VIAJE</button>
+    <h1>TuMovil - Pasajero</h1>
+    <input type="text" id="nombre-input" placeholder="Tu Nombre">
+    
+    <div id="asientos-grid">
+        <div class="asiento-btn" onclick="toggleAsiento(1)" id="as-1">1</div>
+        <div class="asiento-btn" onclick="toggleAsiento(2)" id="as-2">2</div>
     </div>
 
-<script>
-    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    let asientosElegidos = [];
-    
-    // MAPA BÁSICO
-    const map = L.map('map', { zoomControl: false }).setView([-34.56, -58.77], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    <button class="btn-pedir" onclick="solicitarViaje()">SOLICITAR VIAJE</button>
 
-    function toggleAsiento(num) {
-        const btn = document.getElementById('as-'+num);
-        if(asientosElegidos.includes(num)) {
-            asientosElegidos = asientosElegidos.filter(a => a !== num);
-            btn.classList.remove('selected');
-        } else {
-            asientosElegidos.push(num);
-            btn.classList.add('selected');
+    <script>
+        const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+        let asientosElegidos = [];
+
+        function toggleAsiento(num) {
+            const btn = document.getElementById('as-'+num);
+            if(asientosElegidos.includes(num)) {
+                asientosElegidos = asientosElegidos.filter(a => a !== num);
+                btn.classList.remove('selected');
+            } else {
+                asientosElegidos.push(num);
+                btn.classList.add('selected');
+            }
         }
-    }
 
-    async function solicitarViaje() {
-        const nombre = document.getElementById('nombre-input').value;
-        const destino = document.getElementById('destino-select').value;
-        
-        if(!nombre || asientosElegidos.length === 0) return alert("Faltan datos");
+        async function solicitarViaje() {
+            const nombre = document.getElementById('nombre-input').value;
+            if(!nombre || asientosElegidos.length === 0) return alert("Faltan datos");
 
-        // 1. BUSCAR UN MÓVIL DISPONIBLE (Solo lectura)
-        const { data: moviles } = await _s.from('estado_movil')
-            .select('*')
-            .eq('esta_online', true)
-            .gte('asientos_libres', asientosElegidos.length);
+            // Buscar móvil online
+            const { data: moviles } = await _s.from('estado_movil')
+                .select('*')
+                .eq('esta_online', true);
 
-        if(!moviles || moviles.length === 0) return alert("No hay móviles disponibles.");
+            if(!moviles || moviles.length === 0) return alert("No hay móviles disponibles.");
 
-        // 2. INSERTAR RESERVA (Acción única)
-        const movil = moviles[0];
-        const reservas = asientosElegidos.map(n => ({ 
-            id_movil: movil.id,
-            asiento_num: n, 
-            nombre_pasajero: nombre, 
-            estado: 'en_curso',
-            destino_idx: parseInt(destino)
-        }));
+            const movil = moviles[0];
+            
+            // Insertar reserva
+            const reservas = asientosElegidos.map(n => ({ 
+                id_movil: movil.id,
+                asiento_num: n, 
+                nombre_pasajero: nombre, 
+                estado: 'en_curso'
+            }));
 
-        const { error } = await _s.from('reservas_activas').insert(reservas);
-        
-        if(error) {
-            alert("Error al reservar: " + error.message);
-        } else {
-            alert("¡Viaje solicitado al móvil " + movil.id + "!");
-            localStorage.setItem('usuario_nombre', nombre);
+            const { error } = await _s.from('reservas_activas').insert(reservas);
+            
+            if(error) {
+                alert("Error: " + error.message);
+            } else {
+                alert("¡Viaje solicitado al móvil " + movil.id + "!");
+                // AQUÍ NO USAMOS location.reload()
+                // Solo limpiamos los botones visualmente
+                asientosElegidos = [];
+                document.querySelectorAll('.asiento-btn').forEach(b => b.classList.remove('selected'));
+            }
         }
-    }
-
-    // LISTENER PASIVO: Solo actualiza el mapa, no toca la base de datos
-    _s.channel('public:estado_movil')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil' }, payload => {
-          console.log("Móvil actualizado, actualizando mapa...");
-          // Solo refrescar markers aquí
-      })
-      .subscribe();
-</script>
+    </script>
 </body>
 </html>
