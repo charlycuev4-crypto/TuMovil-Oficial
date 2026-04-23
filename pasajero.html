@@ -3,173 +3,661 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CONDUCTOR 01 - TuMovil</title>
+    <title>TuMovil - Solicitar Viaje</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         
-        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: #000; 
+            color: #fff; 
+            min-height: 100vh; 
+            overflow-x: hidden;
+        }
+
+        /* ===== SPLASH ===== */
+        #splash { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: #000; 
+            z-index: 9999; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            transition: opacity 0.8s ease-out; 
+        }
         .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
-        .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
+        .splash-title { color: #FFD700; font-size: 36px; font-weight: 900; letter-spacing: 3px; }
+        .splash-subtitle { color: #666; margin-top: 10px; font-size: 14px; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
-        .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
-        
-        .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
-        .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
-        .stat-label { color: #FFD700; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
-        .stat-value { font-size: 24px; font-weight: 800; margin-top: 4px; }
-        .stat-value.green { color: #4cd964; }
-        
-        .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.9); padding: 8px 12px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
-        .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 22px; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #4cd964; }
-        input:checked + .slider:before { transform: translateX(24px); }
-        #status-label { color: white; font-size: 11px; font-weight: bold; width: 70px; text-align: center; }
-        
-        #btn-sentido { background: #FFD700; color: #000; border: none; padding: 6px 12px; border-radius: 15px; font-weight: 800; font-size: 12px; cursor: pointer; }
-        
-        #parada-actual { position: absolute; top: 140px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(0,0,0,0.9); color: #FFD700; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid #FFD700; pointer-events: auto; display: none; }
-        
-        #net-status { position: absolute; top: 175px; left: 50%; transform: translateX(-50%); z-index: 1001; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; transition: all 0.3s; }
-        .net-online { background: #4cd964; color: #000; }
-        .net-offline { background: #ff3b30; color: #fff; }
-        
-        .toast { position: fixed; top: 200px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 12px 24px; border-radius: 25px; font-weight: bold; font-size: 14px; animation: slideDown 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.5); max-width: 90%; text-align: center; }
+
+        /* ===== TOAST ===== */
+        .toast { 
+            position: fixed; 
+            top: 20px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            z-index: 9999; 
+            padding: 14px 28px; 
+            border-radius: 25px; 
+            font-weight: bold; 
+            font-size: 14px; 
+            animation: slideDown 0.3s ease; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5); 
+            max-width: 90%; 
+            text-align: center;
+        }
         .toast.success { background: #4cd964; color: #000; }
         .toast.error { background: #ff3b30; color: #fff; }
         .toast.info { background: #FFD700; color: #000; }
-        @keyframes slideDown { from { transform: translate(-50%, -20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
-        
-        .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
-        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
-        .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
-        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); transition: all 0.3s ease; cursor: pointer; }
-        .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
-        .pill.libre { background: #FFD700; border-color: #FFD700; color: #000; animation: pulse-libre 1.5s infinite; }
-        @keyframes pulse-libre { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,215,0,0.7); } 50% { box-shadow: 0 0 20px 5px rgba(255,215,0,0); } }
-        .taxi-icon { font-size: 30px; }
-        
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9998; display: none; justify-content: center; align-items: center; }
-        .modal { background: #1a1a1a; border: 2px solid #FFD700; border-radius: 20px; padding: 24px; width: 90%; max-width: 350px; text-align: center; color: white; }
-        .modal h3 { color: #FFD700; margin-top: 0; }
-        .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
-        .modal-btn { flex: 1; padding: 12px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
-        .modal-btn.confirm { background: #ff3b30; color: white; }
-        .modal-btn.cancel { background: #333; color: white; }
+        @keyframes slideDown { from { transform: translate(-50%, -30px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+        /* ===== HEADER ===== */
+        .header { 
+            background: #111; 
+            padding: 20px; 
+            text-align: center; 
+            border-bottom: 2px solid #FFD700; 
+            position: sticky; 
+            top: 0; 
+            z-index: 100;
+        }
+        .header h1 { color: #FFD700; font-size: 24px; font-weight: 900; }
+        .header p { color: #888; font-size: 12px; margin-top: 4px; }
+
+        /* ===== DETECTANDO PARADA ===== */
+        .detectando { 
+            text-align: center; 
+            padding: 40px 20px;
+        }
+        .detectando-icon { font-size: 60px; margin-bottom: 20px; animation: pulse 1.5s infinite; }
+        .detectando h2 { color: #FFD700; margin-bottom: 10px; }
+        .detectando p { color: #888; font-size: 14px; }
+        .spinner { 
+            display: inline-block; 
+            width: 40px; 
+            height: 40px; 
+            border: 4px solid #333; 
+            border-radius: 50%; 
+            border-top-color: #FFD700; 
+            animation: spin 1s linear infinite; 
+            margin: 20px auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ===== PARADA DETECTADA ===== */
+        .parada-info { 
+            background: rgba(255,215,0,0.1); 
+            border: 2px solid #FFD700; 
+            border-radius: 16px; 
+            padding: 20px; 
+            margin: 20px; 
+            text-align: center;
+        }
+        .parada-info .label { color: #FFD700; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
+        .parada-info .nombre { color: #fff; font-size: 22px; font-weight: 800; margin-top: 8px; }
+        .parada-info .numero { color: #888; font-size: 14px; margin-top: 4px; }
+
+        /* ===== INPUTS ===== */
+        .input-group { margin-bottom: 20px; padding: 0 20px; }
+        .input-group label { 
+            display: block; 
+            color: #FFD700; 
+            font-size: 12px; 
+            font-weight: 700; 
+            letter-spacing: 1px; 
+            margin-bottom: 8px; 
+            text-transform: uppercase;
+        }
+        .input-group input, .input-group select { 
+            width: 100%; 
+            padding: 16px; 
+            border: 2px solid #333; 
+            border-radius: 12px; 
+            background: #111; 
+            color: #fff; 
+            font-size: 16px; 
+            outline: none; 
+            transition: border-color 0.3s;
+        }
+        .input-group input:focus, .input-group select:focus { border-color: #FFD700; }
+        .input-group input::placeholder { color: #555; }
+
+        /* ===== SENTIDO ===== */
+        .sentido-options { 
+            display: flex; 
+            gap: 12px; 
+            margin-bottom: 20px; 
+            padding: 0 20px;
+        }
+        .sentido-card { 
+            flex: 1; 
+            padding: 20px; 
+            border: 2px solid #333; 
+            border-radius: 16px; 
+            text-align: center; 
+            cursor: pointer; 
+            transition: all 0.3s; 
+            background: #111;
+        }
+        .sentido-card:hover { border-color: #FFD700; }
+        .sentido-card.selected { 
+            border-color: #FFD700; 
+            background: rgba(255,215,0,0.1); 
+        }
+        .sentido-card .icon { font-size: 40px; margin-bottom: 8px; }
+        .sentido-card .label { font-weight: bold; font-size: 16px; }
+        .sentido-card .desc { font-size: 11px; color: #888; margin-top: 4px; }
+
+        /* ===== ASIENTOS ===== */
+        .asientos-options { 
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 20px; 
+            padding: 0 20px;
+        }
+        .asiento-btn { 
+            flex: 1; 
+            padding: 15px 10px; 
+            border: 2px solid #333; 
+            border-radius: 12px; 
+            text-align: center; 
+            cursor: pointer; 
+            transition: all 0.3s; 
+            background: #111;
+        }
+        .asiento-btn:hover { border-color: #FFD700; }
+        .asiento-btn.selected { 
+            border-color: #FFD700; 
+            background: rgba(255,215,0,0.1); 
+        }
+        .asiento-btn .num { font-size: 28px; font-weight: 900; }
+        .asiento-btn .precio { font-size: 12px; color: #888; margin-top: 4px; }
+
+        /* ===== PARADAS DESTINO ===== */
+        .parada-card { 
+            display: flex; 
+            align-items: center; 
+            padding: 14px 16px; 
+            border: 2px solid #333; 
+            border-radius: 12px; 
+            margin-bottom: 10px; 
+            margin-left: 20px; 
+            margin-right: 20px;
+            cursor: pointer; 
+            transition: all 0.3s; 
+            background: #111;
+        }
+        .parada-card:hover { border-color: #FFD700; }
+        .parada-card.selected { 
+            border-color: #FFD700; 
+            background: rgba(255,215,0,0.1); 
+        }
+        .parada-num { 
+            width: 36px; 
+            height: 36px; 
+            border-radius: 50%; 
+            background: #222; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: bold; 
+            font-size: 14px; 
+            margin-right: 12px; 
+            flex-shrink: 0;
+        }
+        .parada-card.selected .parada-num { background: #FFD700; color: #000; }
+        .parada-info-card { flex: 1; }
+        .parada-nombre { font-weight: 600; font-size: 15px; }
+        .parada-distancia { font-size: 12px; color: #888; margin-top: 2px; }
+
+        /* ===== BOTONES ===== */
+        .btn { 
+            width: calc(100% - 40px); 
+            margin: 0 20px;
+            padding: 18px; 
+            border: none; 
+            border-radius: 50px; 
+            font-size: 16px; 
+            font-weight: 800; 
+            cursor: pointer; 
+            transition: all 0.3s; 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+        }
+        .btn-primary { 
+            background: #FFD700; 
+            color: #000; 
+            box-shadow: 0 4px 20px rgba(255,215,0,0.3);
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 25px rgba(255,215,0,0.4); }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-primary:disabled { 
+            background: #333; 
+            color: #666; 
+            box-shadow: none; 
+            cursor: not-allowed;
+        }
+        .btn-secondary { 
+            background: transparent; 
+            color: #FFD700; 
+            border: 2px solid #FFD700; 
+            margin-top: 10px;
+        }
+
+        /* ===== TICKET ===== */
+        .ticket { 
+            background: #111; 
+            border: 2px solid #FFD700; 
+            border-radius: 20px; 
+            padding: 30px; 
+            text-align: center; 
+            margin: 20px;
+        }
+        .ticket-icon { font-size: 60px; margin-bottom: 15px; }
+        .ticket-asiento { 
+            font-size: 80px; 
+            font-weight: 900; 
+            color: #FFD700; 
+            line-height: 1; 
+            margin: 10px 0;
+        }
+        .ticket-label { 
+            color: #888; 
+            font-size: 12px; 
+            text-transform: uppercase; 
+            letter-spacing: 2px; 
+            margin-bottom: 20px;
+        }
+        .ticket-info { 
+            background: rgba(255,215,0,0.05); 
+            border-radius: 12px; 
+            padding: 16px; 
+            margin-bottom: 20px; 
+            text-align: left;
+        }
+        .ticket-row { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 8px 0; 
+            border-bottom: 1px solid #222;
+        }
+        .ticket-row:last-child { border-bottom: none; }
+        .ticket-row-label { color: #888; font-size: 13px; }
+        .ticket-row-value { color: #fff; font-weight: 600; font-size: 14px; }
+
+        .ticket-aviso { 
+            background: rgba(76,217,100,0.1); 
+            border: 1px solid #4cd964; 
+            border-radius: 12px; 
+            padding: 14px; 
+            margin-bottom: 20px;
+        }
+        .ticket-aviso p { color: #4cd964; font-size: 13px; font-weight: 600; }
+
+        .ticket-show { 
+            background: #111; 
+            border: 3px dashed #FFD700; 
+            border-radius: 16px; 
+            padding: 30px; 
+            margin-bottom: 20px;
+        }
+        .ticket-show p { color: #FFD700; font-size: 14px; font-weight: bold; margin-bottom: 10px; letter-spacing: 1px; }
+        .ticket-show .numero-grande { color: #fff; font-size: 56px; font-weight: 900; }
+
+        .precio-total { 
+            background: rgba(255,215,0,0.1); 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin-bottom: 20px;
+        }
+        .precio-total .label { color: #FFD700; font-size: 12px; font-weight: bold; }
+        .precio-total .monto { color: #fff; font-size: 36px; font-weight: 900; }
+
+        /* ===== ANIMACIONES ===== */
+        .fade-in { animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ===== FOOTER ===== */
+        .footer { 
+            text-align: center; 
+            padding: 20px; 
+            color: #444; 
+            font-size: 11px;
+        }
+
+        /* ===== OCULTAR ===== */
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
+
+    <!-- ===== SPLASH ===== -->
     <div id="splash">
         <div class="splash-logo">🚕</div>
-        <h1 class="splash-title">COCHE 01</h1>
-    </div>
-    
-    <div class="connection-panel">
-        <span id="status-label">FUERA DE LÍNEA</span>
-        <label class="switch">
-            <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
-            <span class="slider"></span>
-        </label>
-        <button id="btn-sentido" onclick="cambiarSentido()">IDA</button>
+        <h1 class="splash-title">TuMovil</h1>
+        <p class="splash-subtitle">Taxi Colectivo Digital</p>
     </div>
 
-    <div id="parada-actual">📍 Parada: <span id="txt-parada">--</span></div>
-    <div id="net-status" class="net-offline">⚠️ SIN RED</div>
+    <!-- ===== TOAST CONTAINER ===== -->
+    <div id="toast-container"></div>
 
-    <div id="map"></div>
-    <div class="ui-overlay top-stats">
-        <div class="stat-box">
-            <div class="stat-label">RECAUDACIÓN</div>
-            <div id="txt-plata" class="stat-value green">$0</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-label">PASAJEROS</div>
-            <div id="txt-pax" class="stat-value">0</div>
-        </div>
-    </div>
-    <div class="ui-overlay bottom-ui">
-        <div class="asientos-pills">
-            <div id="pill1" class="pill" onclick="liberarAsiento(1)">1</div>
-            <div id="pill2" class="pill" onclick="liberarAsiento(2)">2</div>
-            <div id="pill3" class="pill" onclick="liberarAsiento(3)">3</div>
-            <div id="pill4" class="pill" onclick="liberarAsiento(4)">4</div>
-        </div>
-        <button class="btn-vaciar" onclick="mostrarModalVaciar()">🏁 FINALIZAR / VACIAR COCHE 01</button>
+    <!-- ===== HEADER ===== -->
+    <div class="header">
+        <h1>🚕 TuMovil</h1>
+        <p>Taxi Colectivo Digital</p>
     </div>
 
-    <div class="modal-overlay" id="modal-vaciar">
-        <div class="modal">
-            <h3>⚠️ Finalizar Viaje</h3>
-            <p>¿Estás seguro de que quieres finalizar el viaje y vaciar todos los asientos?</p>
-            <div class="modal-buttons">
-                <button class="modal-btn cancel" onclick="cerrarModal()">Cancelar</button>
-                <button class="modal-btn confirm" onclick="confirmarVaciar()">Sí, Finalizar</button>
+    <!-- ===== CONTENIDO ===== -->
+    <div class="content">
+
+        <!-- ===== PASO 0: DETECTANDO PARADA ===== -->
+        <div id="paso-detectando" class="detectando">
+            <div class="detectando-icon">📍</div>
+            <h2>Detectando tu parada...</h2>
+            <p>Estamos usando tu ubicación GPS para saber en qué parada estás.</p>
+            <div class="spinner"></div>
+            <p style="color:#666; font-size:12px; margin-top:10px;">Asegúrate de tener el GPS activado</p>
+        </div>
+
+        <!-- ===== PASO 1: FORMULARIO ===== -->
+        <div id="paso-formulario" class="hidden">
+            
+            <!-- Parada detectada -->
+            <div class="parada-info">
+                <div class="label">📍 Parada de subida</div>
+                <div class="nombre" id="parada-origen-nombre">--</div>
+                <div class="numero" id="parada-origen-numero">--</div>
+            </div>
+
+            <!-- Nombre -->
+            <div class="input-group">
+                <label for="nombre">¿Cómo te llamas?</label>
+                <input 
+                    type="text" 
+                    id="nombre" 
+                    placeholder="Escribe tu nombre" 
+                    maxlength="30"
+                    autocomplete="off"
+                >
+            </div>
+
+            <!-- Sentido -->
+            <p style="color:#888; font-size:14px; margin-bottom:15px; padding:0 20px;">
+                ¿Hacia dónde vas?
+            </p>
+            <div class="sentido-options">
+                <div class="sentido-card" onclick="seleccionarSentido('IDA')" id="card-ida">
+                    <div class="icon">➡️</div>
+                    <div class="label">IDA</div>
+                    <div class="desc">Hacia el centro</div>
+                </div>
+                <div class="sentido-card" onclick="seleccionarSentido('VUELTA')" id="card-vuelta">
+                    <div class="icon">⬅️</div>
+                    <div class="label">VUELTA</div>
+                    <div class="desc">Hacia el inicio</div>
+                </div>
+            </div>
+
+            <!-- Cantidad de asientos -->
+            <div id="seccion-asientos" class="hidden">
+                <p style="color:#888; font-size:14px; margin-bottom:15px; padding:0 20px;">
+                    ¿Cuántos asientos necesitas?
+                </p>
+                <div class="asientos-options">
+                    <div class="asiento-btn" onclick="seleccionarAsientos(1)" id="btn-asiento-1">
+                        <div class="num">1</div>
+                        <div class="precio">$1.000</div>
+                    </div>
+                    <div class="asiento-btn" onclick="seleccionarAsientos(2)" id="btn-asiento-2">
+                        <div class="num">2</div>
+                        <div class="precio">$2.000</div>
+                    </div>
+                    <div class="asiento-btn" onclick="seleccionarAsientos(3)" id="btn-asiento-3">
+                        <div class="num">3</div>
+                        <div class="precio">$3.000</div>
+                    </div>
+                    <div class="asiento-btn" onclick="seleccionarAsientos(4)" id="btn-asiento-4">
+                        <div class="num">4</div>
+                        <div class="precio">$4.000</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Destino -->
+            <div id="seccion-destino" class="hidden">
+                <p style="color:#888; font-size:14px; margin-bottom:15px; padding:0 20px;">
+                    ¿Dónde te bajas?
+                </p>
+                <div id="lista-paradas"></div>
+            </div>
+
+            <!-- Botón enviar -->
+            <button class="btn btn-primary hidden" id="btn-enviar" onclick="enviarSolicitud()" disabled>
+                🚕 Solicitar viaje
+            </button>
+
+            <button class="btn btn-secondary hidden" id="btn-cambiar-parada" onclick="cambiarParadaManual()">
+                📍 No es mi parada
+            </button>
+        </div>
+
+        <!-- ===== PASO 2: ESPERANDO ===== -->
+        <div id="paso-esperando" class="hidden" style="text-align:center; padding:60px 20px;">
+            <div style="font-size:60px; margin-bottom:20px;">⏳</div>
+            <h2 style="color:#FFD700; margin-bottom:10px;">Buscando móvil...</h2>
+            <p style="color:#888; font-size:14px;">
+                Estamos asignando tu asiento en el primer móvil disponible.
+            </p>
+            <div class="spinner" style="margin:30px auto; display:block; border-color:#333; border-top-color:#FFD700;"></div>
+            <p style="color:#666; font-size:12px;">Esto suele tomar unos segundos</p>
+        </div>
+
+        <!-- ===== PASO 3: TICKET ===== -->
+        <div id="paso-ticket" class="hidden">
+            <div class="ticket">
+                <div class="ticket-icon">🎫</div>
+                <div class="ticket-label">TU ASIENTO</div>
+                <div class="ticket-asiento" id="ticket-numero">--</div>
+                
+                <div class="precio-total">
+                    <div class="label">TOTAL A PAGAR</div>
+                    <div class="monto" id="ticket-precio">$1.000</div>
+                </div>
+
+                <div class="ticket-info">
+                    <div class="ticket-row">
+                        <span class="ticket-row-label">Pasajero</span>
+                        <span class="ticket-row-value" id="ticket-nombre">--</span>
+                    </div>
+                    <div class="ticket-row">
+                        <span class="ticket-row-label">Móvil</span>
+                        <span class="ticket-row-value" id="ticket-movil">--</span>
+                    </div>
+                    <div class="ticket-row">
+                        <span class="ticket-row-label">Asientos</span>
+                        <span class="ticket-row-value" id="ticket-asientos">--</span>
+                    </div>
+                    <div class="ticket-row">
+                        <span class="ticket-row-label">Subida</span>
+                        <span class="ticket-row-value" id="ticket-origen">--</span>
+                    </div>
+                    <div class="ticket-row">
+                        <span class="ticket-row-label">Bajada</span>
+                        <span class="ticket-row-value" id="ticket-destino">--</span>
+                    </div>
+                    <div class="ticket-row">
+                        <span class="ticket-row-label">Sentido</span>
+                        <span class="ticket-row-value" id="ticket-sentido">--</span>
+                    </div>
+                </div>
+
+                <div class="ticket-aviso">
+                    <p>💵 Paga en efectivo al bajar del móvil</p>
+                </div>
+
+                <div class="ticket-show">
+                    <p>👆 MUESTRA ESTO AL CONDUCTOR</p>
+                    <div class="numero-grande" id="ticket-numero-big">--</div>
+                </div>
+
+                <button class="btn btn-primary" onclick="nuevoViaje()" style="width:100%; margin:0;">
+                    🔄 Nuevo Viaje
+                </button>
             </div>
         </div>
+
+        <!-- ===== ERROR ===== -->
+        <div id="paso-error" class="hidden" style="text-align:center; padding:60px 20px;">
+            <div style="font-size:60px; margin-bottom:20px;">😕</div>
+            <h2 style="color:#ff3b30; margin-bottom:10px;">Sin móviles disponibles</h2>
+            <p style="color:#888; font-size:14px; margin-bottom:30px;">
+                No hay móviles cercanos con asientos libres en este momento.
+            </p>
+            <button class="btn btn-primary" onclick="reintentar()">
+                🔄 Reintentar
+            </button>
+            <button class="btn btn-secondary" onclick="nuevoViaje()">
+                Cambiar datos
+            </button>
+        </div>
+
+    </div>
+
+    <!-- ===== FOOTER ===== -->
+    <div class="footer">
+        TuMovil © 2026 - Taxi Colectivo Digital
     </div>
 
 <script>
-    const MI_ID_MOVIL = 1; 
-    const PRECIO_POR_ASIENTO = 1000;
-    const TOTAL_ASIENTOS = 4;
-    
-    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
-    let sentidoActual = 'IDA';
-    let estaOnline = false;
-    let watchId = null;
-    let paradaActualIdx = 0;
-    let asientosLibres = 4;
-    let lastGpsUpdate = 0;
-    const GPS_UPDATE_INTERVAL = 5000;
-    const DISTANCIA_MINIMA_PARADA = 50;
+    // ==================== CONFIGURACIÓN ====================
+    const SUPABASE_URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE';
+    const _s = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    const PRECIO_POR_ASIENTO = 1000;
+
+    // ==================== ESTADO ====================
+    let pasajeroData = {
+        nombre: '',
+        sentido: '',
+        asientos: 1,
+        origenIdx: null,
+        origenNombre: '',
+        destinoIdx: null,
+        destinoNombre: '',
+        lat: null,
+        lon: null
+    };
+
+    // ==================== PARADAS ====================
     const paradas = [
-        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
-        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
-        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
-        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
-        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
-        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
-        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
-        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
-        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
-        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
-        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
-        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
+        {n:'Miguel Cané', c:[-34.561264, -58.770506]},
+        {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
+        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]},
+        {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
+        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]},
+        {n:'Murillo 601', c:[-34.565342, -58.772061]},
+        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]},
+        {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
+        {n:'A. Prado 2555', c:[-34.571016, -58.764443]},
+        {n:'Prado y Payró', c:[-34.571956, -58.763201]},
+        {n:'Prado 1744', c:[-34.577371, -58.755909]},
+        {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
+        {n:'Caveri y Azara', c:[-34.579296, -58.755864]},
+        {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
+        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]},
+        {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
+        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]},
+        {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
+        {n:'Libertador y Aero', c:[-34.585554, -58.749812]},
+        {n:'Libertador 7300', c:[-34.586494, -58.750574]},
+        {n:'Libertador 7200', c:[-34.588041, -58.751542]},
+        {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
+        {n:'Maza y Albatros', c:[-34.588771, -58.750804]},
+        {n:'Maternidad', c:[-34.588244, -58.749877]},
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.6 }).addTo(map);
-    
-    paradas.forEach((p, idx) => { 
-        L.circleMarker(p.c, { radius: 6, color: '#000', weight: 2, fillColor: idx === 0 ? '#FFD700' : '#FFF', fillOpacity: 1 })
-         .addTo(map).bindTooltip(`${idx + 1}. ${p.n}`, { permanent: false });
-    });
-    
-    const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
-    const marcadorConductor = L.marker(paradas[0].c, { icon: iconTaxi }).addTo(map);
-    let markersPax = []; 
-    let markersDest = [];
-
+    // ==================== TOAST ====================
     function mostrarToast(mensaje, tipo = 'info') {
-        const existing = document.querySelector('.toast');
+        const container = document.getElementById('toast-container');
+        const existing = container.querySelector('.toast');
         if (existing) existing.remove();
+
         const toast = document.createElement('div');
         toast.className = `toast ${tipo}`;
         toast.innerText = mensaje;
-        document.body.appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
+    }
+
+    // ==================== NAVEGACIÓN ====================
+    function mostrarPaso(id) {
+        ['paso-detectando', 'paso-formulario', 'paso-esperando', 'paso-ticket', 'paso-error'].forEach(p => {
+            document.getElementById(p).classList.add('hidden');
+        });
+        document.getElementById(`paso-${id}`).classList.remove('hidden');
+        document.getElementById(`paso-${id}`).classList.add('fade-in');
+    }
+
+    // ==================== DETECTAR PARADA POR GPS ====================
+    async function detectarParada() {
+        try {
+            const pos = await new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 60000
+                });
+            });
+
+            pasajeroData.lat = pos.coords.latitude;
+            pasajeroData.lon = pos.coords.longitude;
+
+            let minDist = Infinity;
+            let paradaIdx = 0;
+
+            paradas.forEach((p, idx) => {
+                const dist = calcularDistancia(
+                    [pasajeroData.lat, pasajeroData.lon], 
+                    p.c
+                );
+                if (dist < minDist) {
+                    minDist = dist;
+                    paradaIdx = idx;
+                }
+            });
+
+            if (minDist > 200) {
+                mostrarToast('No estás cerca de ninguna parada. Acércate y reintenta.', 'error');
+                mostrarPaso('error');
+                return;
+            }
+
+            pasajeroData.origenIdx = paradaIdx;
+            pasajeroData.origenNombre = paradas[paradaIdx].n;
+
+            document.getElementById('parada-origen-nombre').innerText = paradas[paradaIdx].n;
+            document.getElementById('parada-origen-numero').innerText = `Parada ${paradaIdx + 1} de ${paradas.length}`;
+
+            mostrarPaso('formulario');
+            document.getElementById('nombre').focus();
+
+        } catch (err) {
+            console.error('Error GPS:', err);
+            mostrarToast('Error al obtener ubicación. Verifica que el GPS esté activado.', 'error');
+            mostrarSelectorParadaManual();
+        }
     }
 
     function calcularDistancia(coord1, coord2) {
@@ -183,337 +671,281 @@
         return R * c;
     }
 
-    function encontrarParadaMasCercana(lat, lon) {
-        let minDist = Infinity;
-        let paradaIdx = 0;
-        paradas.forEach((parada, idx) => {
-            const dist = calcularDistancia([lat, lon], parada.c);
-            if (dist < minDist) { minDist = dist; paradaIdx = idx; }
+    // ==================== SELECTOR MANUAL ====================
+    function mostrarSelectorParadaManual() {
+        const container = document.createElement('div');
+        container.id = 'selector-manual';
+        container.innerHTML = `
+            <div style="padding:20px; text-align:center;">
+                <h3 style="color:#FFD700; margin-bottom:15px;">Selecciona tu parada</h3>
+                <p style="color:#888; font-size:13px; margin-bottom:20px;">No pudimos detectar tu ubicación automáticamente</p>
+            </div>
+        `;
+        
+        paradas.forEach((p, idx) => {
+            const card = document.createElement('div');
+            card.className = 'parada-card';
+            card.style.margin = '0 20px 10px';
+            card.onclick = () => {
+                pasajeroData.origenIdx = idx;
+                pasajeroData.origenNombre = p.n;
+                document.getElementById('parada-origen-nombre').innerText = p.n;
+                document.getElementById('parada-origen-numero').innerText = `Parada ${idx + 1} de ${paradas.length}`;
+                container.remove();
+                mostrarPaso('formulario');
+            };
+            card.innerHTML = `
+                <div class="parada-num">${idx + 1}</div>
+                <div class="parada-info-card">
+                    <div class="parada-nombre">${p.n}</div>
+                </div>
+            `;
+            container.appendChild(card);
         });
-        return { idx: paradaIdx, distancia: minDist };
+
+        document.querySelector('.content').appendChild(container);
+        mostrarPaso('formulario');
     }
 
-    function initNetworkMonitor() {
-        const indicator = document.getElementById('net-status');
-        const updateStatus = () => {
-            if (navigator.onLine) {
-                indicator.className = 'net-online';
-                indicator.innerText = '📶 ONLINE';
-            } else {
-                indicator.className = 'net-offline';
-                indicator.innerText = '⚠️ SIN RED';
-            }
-        };
-        updateStatus();
-        window.addEventListener('online', () => { updateStatus(); mostrarToast('Conexión restaurada', 'success'); actualizarDatos(); });
-        window.addEventListener('offline', () => { updateStatus(); mostrarToast('Sin conexión a internet', 'error'); });
+    function cambiarParadaManual() {
+        const existing = document.getElementById('selector-manual');
+        if (existing) existing.remove();
+        mostrarSelectorParadaManual();
     }
 
-    async function gestionarConexion() {
-        const toggle = document.getElementById('online-toggle');
-        estaOnline = toggle.checked;
-        const label = document.getElementById('status-label');
+    // ==================== SENTIDO ====================
+    function seleccionarSentido(sentido) {
+        pasajeroData.sentido = sentido;
         
-        try {
-            if (estaOnline) {
-                label.innerText = "CONECTANDO..."; label.style.color = "#FFD700";
-                const pos = await obtenerPosicionActual();
-                const parada = encontrarParadaMasCercana(pos.coords.latitude, pos.coords.longitude);
-                paradaActualIdx = parada.idx;
-                
-                const { error } = await _s.from('estado_movil').update({ 
-                    esta_online: true, en_servicio: true,
-                    latitud: pos.coords.latitude, longitud: pos.coords.longitude,
-                    disponible_desde: paradaActualIdx, asientos_libres: asientosLibres,
-                    ultima_actualizacion: new Date().toISOString()
-                }).eq('id', MI_ID_MOVIL);
-                
-                if (error) throw error;
-                
-                label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
-                document.getElementById('parada-actual').style.display = 'block';
-                document.getElementById('txt-parada').innerText = `${paradaActualIdx + 1}. ${paradas[paradaActualIdx].n}`;
-                mostrarToast('🚕 En línea y listo para recibir pasajeros', 'success');
-                iniciarGPS();
-            } else {
-                label.innerText = "DESCONECTANDO...";
-                if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-                
-                const { error } = await _s.from('estado_movil').update({ 
-                    esta_online: false, en_servicio: false,
-                    latitud: 0, longitud: 0, disponible_desde: 0, asientos_libres: 4,
-                    ultima_actualizacion: new Date().toISOString()
-                }).eq('id', MI_ID_MOVIL);
-                
-                if (error) throw error;
-                
-                label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
-                document.getElementById('parada-actual').style.display = 'none';
-                mostrarToast('Desconectado', 'info');
-            }
-        } catch (err) {
-            console.error("Error en gestionarConexion:", err);
-            mostrarToast('Error de conexión: ' + err.message, 'error');
-            toggle.checked = !estaOnline; estaOnline = !estaOnline;
+        document.getElementById('card-ida').classList.remove('selected');
+        document.getElementById('card-vuelta').classList.remove('selected');
+        document.getElementById(`card-${sentido.toLowerCase()}`).classList.add('selected');
+
+        document.getElementById('seccion-asientos').classList.remove('hidden');
+        document.getElementById('seccion-asientos').classList.add('fade-in');
+    }
+
+    // ==================== ASIENTOS ====================
+    function seleccionarAsientos(cantidad) {
+        pasajeroData.asientos = cantidad;
+        
+        for (let i = 1; i <= 4; i++) {
+            document.getElementById(`btn-asiento-${i}`).classList.remove('selected');
         }
+        document.getElementById(`btn-asiento-${cantidad}`).classList.add('selected');
+
+        cargarParadasDestino();
+        document.getElementById('seccion-destino').classList.remove('hidden');
+        document.getElementById('seccion-destino').classList.add('fade-in');
     }
 
-    function obtenerPosicionActual() {
-        return new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
-        });
-    }
+    // ==================== CARGAR PARADAS DESTINO ====================
+    function cargarParadasDestino() {
+        const container = document.getElementById('lista-paradas');
+        container.innerHTML = '';
 
-    function iniciarGPS() {
-        if (watchId) navigator.geolocation.clearWatch(watchId);
+        let paradasMostrar = [];
         
-        watchId = navigator.geolocation.watchPosition(async (p) => {
-            if (!estaOnline) return;
-            const now = Date.now();
-            if (now - lastGpsUpdate < GPS_UPDATE_INTERVAL) return;
-            lastGpsUpdate = now;
-            
-            const myLat = p.coords.latitude; const myLon = p.coords.longitude;
-            const parada = encontrarParadaMasCercana(myLat, myLon);
-            
-            if (parada.distancia < DISTANCIA_MINIMA_PARADA && parada.idx !== paradaActualIdx) {
-                paradaActualIdx = parada.idx;
-                document.getElementById('txt-parada').innerText = `${paradaActualIdx + 1}. ${paradas[paradaActualIdx].n}`;
-                mostrarToast(`📍 Pasando: ${paradas[paradaActualIdx].n}`, 'info');
+        if (pasajeroData.sentido === 'IDA') {
+            for (let i = pasajeroData.origenIdx + 1; i < paradas.length; i++) {
+                paradasMostrar.push({ idx: i, ...paradas[i] });
             }
-            
-            marcadorConductor.setLatLng([myLat, myLon]); map.panTo([myLat, myLon]);
-            
-            try {
-                await _s.from('estado_movil').update({ 
-                    latitud: myLat, longitud: myLon, disponible_desde: paradaActualIdx,
-                    ultima_actualizacion: new Date().toISOString()
-                }).eq('id', MI_ID_MOVIL);
-            } catch (err) { console.error("Error actualizando GPS:", err); }
-            
-        }, (err) => { console.error("Error geolocalización:", err); mostrarToast('Error GPS: ' + err.message, 'error'); }, 
-        { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 });
-    }
-
-    async function cambiarSentido() {
-        sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
-        const btn = document.getElementById('btn-sentido');
-        btn.innerText = sentidoActual;
-        
-        if (sentidoActual === 'VUELTA') { rutaLine.setStyle({ color: '#ff6b6b' }); }
-        else { rutaLine.setStyle({ color: '#00d4ff' }); }
-        
-        try {
-            const { error } = await _s.from('estado_movil').update({ 
-                sentido_flujo: sentidoActual, hacia_adelante: sentidoActual === 'IDA',
-                disponible_desde: sentidoActual === 'IDA' ? 0 : paradas.length - 1,
-                ultima_actualizacion: new Date().toISOString()
-            }).eq('id', MI_ID_MOVIL);
-            
-            if (error) throw error;
-            mostrarToast(`Sentido cambiado a: ${sentidoActual}`, 'success');
-        } catch (err) {
-            console.error("Error cambiando sentido:", err);
-            mostrarToast('Error al cambiar sentido', 'error');
-            sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
-            btn.innerText = sentidoActual;
+        } else {
+            for (let i = pasajeroData.origenIdx - 1; i >= 0; i--) {
+                paradasMostrar.push({ idx: i, ...paradas[i] });
+            }
         }
-    }
 
-    async function actualizarDatos() {
-        try {
-            markersPax.forEach(m => map.removeLayer(m));
-            markersDest.forEach(m => map.removeLayer(m));
-            markersPax = []; markersDest = [];
-
-            const { data: reservas, error } = await _s
-                .from('reservas_activas')
-                .select('*')
-                .eq('estado', 'en_curso')
-                .eq('id_movil', MI_ID_MOVIL);
-
-            if (error) throw error;
-
-            for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
-                const p = document.getElementById('pill' + i);
-                p.className = 'pill'; p.innerText = i;
-            }
-
-            let recaudacion = 0;
-            let paxCount = 0;
-            
-            if (reservas && reservas.length > 0) {
-                reservas.forEach(res => {
-                    const cantidadAsientos = res.cantidad_asientos || 1;
-                    paxCount += cantidadAsientos;
-                    recaudacion += cantidadAsientos * PRECIO_POR_ASIENTO;
-                    
-                    const pill = document.getElementById('pill' + res.asiento_num);
-                    if (pill) {
-                        pill.className = 'pill active';
-                        pill.innerText = cantidadAsientos > 1 ? `${res.asiento_num}-${res.asiento_num + cantidadAsientos - 1}` : '✓';
-                    }
-
-                    if (res.pasajero_lat && res.pasajero_lon) {
-                        const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], 
-                            { color: '#ff3b30', radius: 10, fillColor: '#ff3b30', fillOpacity: 0.3, weight: 2 })
-                            .addTo(map)
-                            .bindPopup(`<b>${res.nombre_pasajero || "Pasajero"}</b><br>Asientos: ${cantidadAsientos}<br>Subida: ${paradas[res.parada_origen]?.n || '?'}`);
-                        markersPax.push(pM);
-                    }
-
-                    if (paradas[res.destino_idx]) {
-                        const dM = L.marker(paradas[res.destino_idx].c, {
-                            icon: L.divIcon({ html: '📍', className: 'destino-icon', iconAnchor: [12, 24] })
-                        }).addTo(map)
-                         .bindTooltip(`⬇️ ${res.nombre_pasajero || 'Pasajero'} (${cantidadAsientos} asiento${cantidadAsientos > 1 ? 's' : ''})`, 
-                            { permanent: true, direction: 'top', offset: [0, -10] });
-                        markersDest.push(dM);
-                    }
-                });
-            }
-
-            document.getElementById('txt-pax').innerText = paxCount;
-            document.getElementById('txt-plata').innerText = '$' + recaudacion.toLocaleString('es-AR');
-            
-            asientosLibres = TOTAL_ASIENTOS - paxCount;
-            
-            if (estaOnline) {
-                await _s.from('estado_movil').update({ asientos_libres: asientosLibres }).eq('id', MI_ID_MOVIL);
-            }
-
-            const spl = document.getElementById('splash');
-            if (spl && spl.style.display !== 'none') {
-                spl.style.opacity = '0';
-                setTimeout(() => spl.style.display = 'none', 800);
-            }
-
-        } catch (err) {
-            console.error("Error en actualizarDatos:", err);
-            mostrarToast('Error al sincronizar datos', 'error');
-        }
-    }
-
-    async function liberarAsiento(numAsiento) {
-        const pill = document.getElementById('pill' + numAsiento);
-        if (!pill.classList.contains('active')) {
-            mostrarToast(`Asiento ${numAsiento} ya está libre`, 'info');
+        if (paradasMostrar.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center; padding:30px; color:#888;">
+                    <p>No hay paradas disponibles en este sentido.</p>
+                </div>
+            `;
             return;
         }
-        
-        if (!confirm(`¿Liberar asiento ${numAsiento}?`)) return;
-        
-        try {
-            const { data: reserva, error: err1 } = await _s
-                .from('reservas_activas')
-                .select('*')
-                .eq('id_movil', MI_ID_MOVIL)
-                .eq('asiento_num', numAsiento)
-                .eq('estado', 'en_curso')
-                .single();
-            
-            if (err1 || !reserva) {
-                mostrarToast('No se encontró reserva para este asiento', 'error');
-                return;
-            }
-            
-            const { error: err2 } = await _s
-                .from('reservas_activas')
-                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
-                .eq('id', reserva.id);
-            
-            if (err2) throw err2;
-            
-            const cantidadAsientos = reserva.cantidad_asientos || 1;
-            asientosLibres += cantidadAsientos;
-            
-            pill.className = 'pill libre';
-            pill.innerText = 'LIBRE';
-            
-            mostrarToast(`🎉 Asiento ${numAsiento} liberado`, 'success');
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-            setTimeout(actualizarDatos, 1000);
-            
-        } catch (err) {
-            console.error("Error liberando asiento:", err);
-            mostrarToast('Error al liberar asiento', 'error');
+
+        paradasMostrar.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'parada-card';
+            card.onclick = () => seleccionarDestino(p.idx, p.n, card);
+            card.innerHTML = `
+                <div class="parada-num">${p.idx + 1}</div>
+                <div class="parada-info-card">
+                    <div class="parada-nombre">${p.n}</div>
+                    <div class="parada-distancia">${Math.abs(p.idx - pasajeroData.origenIdx)} paradas de distancia</div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function seleccionarDestino(idx, nombre, cardElement) {
+        pasajeroData.destinoIdx = idx;
+        pasajeroData.destinoNombre = nombre;
+
+        document.querySelectorAll('.parada-card').forEach(c => c.classList.remove('selected'));
+        cardElement.classList.add('selected');
+
+        const btn = document.getElementById('btn-enviar');
+        btn.classList.remove('hidden');
+        btn.disabled = !document.getElementById('nombre').value.trim();
+    }
+
+    // ==================== VALIDAR NOMBRE ====================
+    document.getElementById('nombre').addEventListener('input', (e) => {
+        const btn = document.getElementById('btn-enviar');
+        if (pasajeroData.destinoIdx !== null) {
+            btn.disabled = !e.target.value.trim();
         }
-    }
-
-    function mostrarModalVaciar() {
-        document.getElementById('modal-vaciar').style.display = 'flex';
-    }
-    
-    function cerrarModal() {
-        document.getElementById('modal-vaciar').style.display = 'none';
-    }
-    
-    async function confirmarVaciar() {
-        cerrarModal();
-        
-        try {
-            const { error } = await _s
-                .from('reservas_activas')
-                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
-                .eq('estado', 'en_curso')
-                .eq('id_movil', MI_ID_MOVIL);
-            
-            if (error) throw error;
-            
-            asientosLibres = TOTAL_ASIENTOS;
-            
-            for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
-                const p = document.getElementById('pill' + i);
-                p.className = 'pill'; p.innerText = i;
-            }
-            
-            mostrarToast('🏁 Viaje finalizado. Coche vacío.', 'success');
-            actualizarDatos();
-            
-        } catch (err) {
-            console.error("Error finalizando viaje:", err);
-            mostrarToast('Error al finalizar viaje', 'error');
-        }
-    }
-
-    _s.channel('coche_' + MI_ID_MOVIL)
-      .on('postgres_changes', { 
-          event: '*', schema: 'public', table: 'reservas_activas', 
-          filter: `id_movil=eq.${MI_ID_MOVIL}` 
-      }, (payload) => {
-          console.log("Cambio en reservas:", payload);
-          actualizarDatos();
-          if (payload.eventType === 'INSERT') {
-              const res = payload.new;
-              const cantidad = res.cantidad_asientos || 1;
-              mostrarToast(`🙋 ¡Nuevo pasajero! ${res.nombre_pasajero || 'Pasajero'} - ${cantidad} asiento${cantidad > 1 ? 's' : ''}`, 'success');
-              if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-          }
-      })
-      .subscribe();
-
-    window.addEventListener('DOMContentLoaded', () => {
-        initNetworkMonitor();
-        actualizarDatos();
-        setTimeout(() => {
-            const spl = document.getElementById('splash');
-            if (spl && spl.style.display !== 'none') {
-                spl.style.opacity = '0';
-                setTimeout(() => spl.style.display = 'none', 800);
-            }
-        }, 8000);
     });
 
-    window.addEventListener('beforeunload', async (e) => {
-        if (estaOnline) {
-            e.preventDefault(); e.returnValue = '¿Estás seguro? Estás en línea.';
-            try {
-                await _s.from('estado_movil').update({ 
-                    esta_online: false, en_servicio: false,
-                    latitud: 0, longitud: 0, ultima_actualizacion: new Date().toISOString()
-                }).eq('id', MI_ID_MOVIL);
-            } catch (err) { console.error("Error al desconectar:", err); }
+    document.getElementById('nombre').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && pasajeroData.destinoIdx !== null) {
+            enviarSolicitud();
         }
+    });
+
+    // ==================== ENVIAR SOLICITUD ====================
+    async function enviarSolicitud() {
+        const nombre = document.getElementById('nombre').value.trim();
+        
+        if (!nombre || nombre.length < 2) {
+            mostrarToast('Por favor, escribe tu nombre', 'error');
+            document.getElementById('nombre').focus();
+            return;
+        }
+
+        pasajeroData.nombre = nombre;
+
+        mostrarPaso('esperando');
+
+        try {
+            const { data, error } = await _s
+                .from('solicitudes_viaje')
+                .insert({
+                    pasajero_nombre: pasajeroData.nombre,
+                    origen: pasajeroData.origenNombre,
+                    destino: pasajeroData.destinoNombre,
+                    sentido: pasajeroData.sentido,
+                    cantidad_asientos: pasajeroData.asientos,
+                    pasajero_lat: pasajeroData.lat,
+                    pasajero_lon: pasajeroData.lon,
+                    parada_origen_idx: pasajeroData.origenIdx,
+                    parada_destino_idx: pasajeroData.destinoIdx,
+                    estado: 'pendiente',
+                    creado_at: new Date().toISOString()
+                })
+                .select();
+
+            if (error) throw error;
+
+            const solicitud = data[0];
+            esperarAsignacion(solicitud.id, 0);
+
+        } catch (err) {
+            console.error('Error enviando solicitud:', err);
+            mostrarToast('Error al enviar: ' + err.message, 'error');
+            mostrarPaso('error');
+        }
+    }
+
+    // ==================== ESPERAR ASIGNACIÓN ====================
+    async function esperarAsignacion(solicitudId, intentos) {
+        const MAX_INTENTOS = 20;
+
+        if (intentos >= MAX_INTENTOS) {
+            mostrarPaso('error');
+            mostrarToast('Tiempo de espera agotado', 'error');
+            return;
+        }
+
+        try {
+            const { data, error } = await _s
+                .from('solicitudes_viaje')
+                .select('*')
+                .eq('id', solicitudId)
+                .single();
+
+            if (error) throw data;
+
+            if (data.estado === 'asignado') {
+                mostrarTicket(data);
+                return;
+            }
+
+            setTimeout(() => esperarAsignacion(solicitudId, intentos + 1), 2000);
+
+        } catch (err) {
+            console.error('Error consultando:', err);
+            setTimeout(() => esperarAsignacion(solicitudId, intentos + 1), 2000);
+        }
+    }
+
+    // ==================== MOSTRAR TICKET ====================
+    function mostrarTicket(data) {
+        mostrarPaso('ticket');
+
+        const precioTotal = (data.cantidad_asientos || 1) * PRECIO_POR_ASIENTO;
+
+        document.getElementById('ticket-numero').innerText = data.asiento_asignado;
+        document.getElementById('ticket-numero-big').innerText = data.asiento_asignado;
+        document.getElementById('ticket-precio').innerText = '$' + precioTotal.toLocaleString('es-AR');
+        document.getElementById('ticket-nombre').innerText = pasajeroData.nombre;
+        document.getElementById('ticket-movil').innerText = data.numero_unidad || `Coche 0${data.id_movil_asignado}`;
+        document.getElementById('ticket-asientos').innerText = (data.cantidad_asientos || 1) + ' asiento(s)';
+        document.getElementById('ticket-origen').innerText = pasajeroData.origenNombre;
+        document.getElementById('ticket-destino').innerText = pasajeroData.destinoNombre;
+        document.getElementById('ticket-sentido').innerText = pasajeroData.sentido;
+
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+        
+        mostrarToast('¡Móvil asignado!', 'success');
+    }
+
+    // ==================== ACCIONES ====================
+    function reintentar() {
+        enviarSolicitud();
+    }
+
+    function nuevoViaje() {
+        pasajeroData = {
+            nombre: '',
+            sentido: '',
+            asientos: 1,
+            origenIdx: pasajeroData.origenIdx,
+            origenNombre: pasajeroData.origenNombre,
+            destinoIdx: null,
+            destinoNombre: '',
+            lat: pasajeroData.lat,
+            lon: pasajeroData.lon
+        };
+
+        document.getElementById('nombre').value = '';
+        document.getElementById('card-ida').classList.remove('selected');
+        document.getElementById('card-vuelta').classList.remove('selected');
+        document.getElementById('seccion-asientos').classList.add('hidden');
+        for (let i = 1; i <= 4; i++) {
+            document.getElementById(`btn-asiento-${i}`).classList.remove('selected');
+        }
+        document.getElementById('seccion-destino').classList.add('hidden');
+        document.getElementById('lista-paradas').innerHTML = '';
+        document.getElementById('btn-enviar').classList.add('hidden');
+        document.getElementById('btn-enviar').disabled = true;
+
+        mostrarPaso('formulario');
+        document.getElementById('nombre').focus();
+    }
+
+    // ==================== INICIALIZACIÓN ====================
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            const splash = document.getElementById('splash');
+            splash.style.opacity = '0';
+            setTimeout(() => splash.style.display = 'none', 800);
+        }, 1500);
+
+        setTimeout(detectarParada, 2000);
     });
 </script>
 </body>
