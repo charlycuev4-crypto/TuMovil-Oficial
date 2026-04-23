@@ -80,6 +80,33 @@
         .notificacion.show { display: block; }
         .notificacion-icono { font-size: 30px; margin-bottom: 5px; }
         .notificacion-texto { color: white; font-size: 14px; font-weight: 600; }
+        
+        .flota-info { 
+            background: rgba(0,0,0,0.3); 
+            border-radius: 10px; 
+            padding: 10px; 
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #aaa;
+            text-align: center;
+        }
+        .flota-info .movil-tag {
+            display: inline-block;
+            background: #333;
+            color: var(--celeste);
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin: 2px;
+            font-weight: bold;
+        }
+        .flota-info .movil-tag.libre {
+            background: var(--verde);
+            color: #000;
+        }
+        .flota-info .movil-tag.ocupado {
+            background: var(--rojo);
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -129,6 +156,11 @@
 
         <div class="promo-card" id="tarifa-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
         
+        <div class="flota-info" id="flota-info" style="display:none;">
+            <div>Móviles disponibles en tu ruta:</div>
+            <div id="flota-tags"></div>
+        </div>
+        
         <select id="sentido-select" onchange="actualizarFlota()">
             <option value="IDA">Hacia IDA</option>
             <option value="VUELTA">Hacia VUELTA</option>
@@ -174,7 +206,6 @@
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     
-    // CÍRCULOS CELESTES CON BORDE NEGRO
     paradas.forEach(p => {
         L.circleMarker(p.c, { 
             radius: 8, 
@@ -244,6 +275,7 @@
         document.getElementById('destino-select').disabled = true;
         document.getElementById('sentido-select').disabled = true;
         document.getElementById('tarifa-card').style.display = 'none';
+        document.getElementById('flota-info').style.display = 'none';
         document.getElementById('mi-movil-panel').classList.add('active');
         document.getElementById('header-title').innerText = 'TU VIAJE EN CURSO';
         asientosElegidos.forEach(n => document.getElementById('as-'+n).classList.add('selected'));
@@ -254,13 +286,15 @@
         miLon = p.coords.longitude;
         markerPasajero.setLatLng([miLat, miLon]);
         
-        // Detectar parada más cercana
         const paradaCercana = encontrarParadaMasCercana(miLat, miLon);
         miParadaActual = paradaCercana.idx;
         
         actualizarMapaRuta();
         document.getElementById('btn-pedir').disabled = false;
-        if(!miViajeActivo) document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR MI VIAJE";
+        if(!miViajeActivo) {
+            document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR MI VIAJE";
+            actualizarFlota();
+        }
         
         const s = document.getElementById('splash'); 
         if(s) { s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800); }
@@ -301,7 +335,7 @@
     }
 
     // ============================================
-    // EFECTO CASCADA - SIN parada_origen NI cantidad_asientos
+    // CASCADA PERFECTA - Con verificación de posición
     // ============================================
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value.trim();
@@ -314,7 +348,8 @@
 
         localStorage.setItem('usuario_nombre', nom);
         
-        // EFECTO CASCADA: Buscar móviles disponibles
+        const paradaPasajero = miParadaActual !== null ? miParadaActual : encontrarParadaMasCercana(miLat, miLon).idx;
+        
         const { data: moviles, error: errMoviles } = await _s.from('estado_movil')
             .select('*')
             .eq('esta_online', true)
@@ -328,24 +363,43 @@
         }
         
         let movilAsignado = null;
+        let movilesRechazados = [];
         
         for (const movil of moviles) {
             const asientosLibres = movil.asientos_libres || 0;
+            const paradaMovil = movil.disponible_desde || 0;
             
-            // Verificar capacidad
-            if (asientosLibres < asientosElegidos.length) continue;
+            if (asientosLibres < asientosElegidos.length) {
+                movilesRechazados.push({ id: movil.id, razon: 'Sin asientos' });
+                continue;
+            }
             
-            // ¡Móvil válido encontrado!
+            let puedeRecoger = false;
+            
+            if (sentido === 'IDA') {
+                puedeRecoger = paradaMovil <= paradaPasajero;
+            } else {
+                puedeRecoger = paradaMovil >= paradaPasajero;
+            }
+            
+            if (!puedeRecoger) {
+                movilesRechazados.push({ 
+                    id: movil.id, 
+                    razon: `Ya pasó (parada ${paradaMovil + 1}, vos estás en ${paradaPasajero + 1})` 
+                });
+                continue;
+            }
+            
             movilAsignado = movil;
             break;
         }
         
         if (!movilAsignado) {
-            alert("No hay móviles disponibles con suficientes asientos libres. Intentá en unos minutos.");
+            console.log("Móviles rechazados:", movilesRechazados);
+            alert("No hay móviles disponibles que pasen por tu parada. Intentá en unos minutos o cambiá de sentido.");
             return;
         }
         
-        // Crear reserva EXACTAMENTE como tu original (sin parada_origen ni cantidad_asientos)
         const reservas = asientosElegidos.map(n => ({ 
             asiento_num: n, 
             id_movil: movilAsignado.id, 
@@ -353,7 +407,9 @@
             nombre_pasajero: nom, 
             pasajero_lat: miLat, 
             pasajero_lon: miLon, 
-            destino_idx: parseInt(destIdx) 
+            destino_idx: parseInt(destIdx),
+            parada_origen: paradaPasajero,
+            cantidad_asientos: asientosElegidos.length
         }));
         
         const { error: errInsert } = await _s.from('reservas_activas').insert(reservas);
@@ -414,6 +470,10 @@
         document.getElementById('mi-movil-asientos').innerText = `${4 - (movil.asientos_libres || 0)}/4`;
         document.getElementById('mi-movil-parada').innerText = `${(movil.disponible_desde || 0) + 1}`;
         
+        if (miReservaData && miReservaData.parada_origen !== undefined) {
+            document.getElementById('mi-movil-mi-parada').innerText = `${miReservaData.parada_origen + 1}`;
+        }
+        
         if (movil.latitud && movil.longitud && miLat && miLon) {
             const dist = calcularDistancia([miLat, miLon], [movil.latitud, movil.longitud]);
             document.getElementById('mi-movil-distancia').innerText = `${Math.round(dist)}m`;
@@ -465,17 +525,44 @@
         return R * c;
     }
 
+    // ============================================
+    // FINALIZAR VIAJE - CORREGIDO PARA LIMPIAR TODO
+    // ============================================
     async function finalizarViaje() {
         const nom = document.getElementById('nombre-input').value;
         if (!confirm('¿Terminar tu viaje?')) return;
         
-        await _s.from('reservas_activas')
-            .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
-            .eq('nombre_pasajero', nom)
-            .eq('estado', 'en_curso');
+        try {
+            // Actualizar reservas a finalizado
+            const { error } = await _s.from('reservas_activas')
+                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
+                .eq('nombre_pasajero', nom)
+                .eq('estado', 'en_curso');
+                
+            if (error) {
+                console.error("Error finalizando viaje:", error);
+                alert("Error al finalizar. Intentá de nuevo.");
+                return;
+            }
             
-        localStorage.removeItem('usuario_nombre');
-        location.reload();
+            // Limpiar todo el estado local
+            localStorage.removeItem('usuario_nombre');
+            
+            // Limpiar marcadores del mapa
+            if (markerMiMovil) {
+                map.removeLayer(markerMiMovil);
+                markerMiMovil = null;
+            }
+            guiaDestino.setLatLngs([]);
+            if (markerDestinoFlecha) map.removeLayer(markerDestinoFlecha);
+            
+            // Recargar la página para resetear todo
+            location.reload();
+            
+        } catch (err) {
+            console.error("Error en finalizarViaje:", err);
+            alert("Error de red. Intentá de nuevo.");
+        }
     }
 
     async function actualizarFlota() {
@@ -497,17 +584,50 @@
                 }
             });
 
-            moviles.forEach(t => {
-                if (t.id === miMovilAsignado) return;
+            if (!miViajeActivo && miParadaActual !== null) {
+                const flotaInfo = document.getElementById('flota-info');
+                const flotaTags = document.getElementById('flota-tags');
+                flotaInfo.style.display = 'block';
+                flotaTags.innerHTML = '';
                 
-                if(markersOtrosMoviles[t.id]) {
-                    markersOtrosMoviles[t.id].setLatLng([t.latitud, t.longitud]);
-                } else {
-                    markersOtrosMoviles[t.id] = L.marker([t.latitud, t.longitud], { 
-                        icon: L.divIcon({ html: `<span style="font-size:20px; opacity:0.5;">🚕</span>`, iconAnchor: [10, 10] })
-                    }).addTo(map);
-                }
-            });
+                moviles.forEach(t => {
+                    if (t.id === miMovilAsignado) return;
+                    
+                    const paradaMovil = t.disponible_desde || 0;
+                    let puedeRecoger = false;
+                    
+                    if (sentidoSeleccionado === 'IDA') {
+                        puedeRecoger = paradaMovil <= miParadaActual;
+                    } else {
+                        puedeRecoger = paradaMovil >= miParadaActual;
+                    }
+                    
+                    const tag = document.createElement('span');
+                    tag.className = 'movil-tag';
+                    
+                    if (puedeRecoger && (t.asientos_libres || 0) > 0) {
+                        tag.className += ' libre';
+                        tag.innerText = `#${t.id} ✓`;
+                    } else if ((t.asientos_libres || 0) === 0) {
+                        tag.className += ' ocupado';
+                        tag.innerText = `#${t.id} ✕`;
+                    } else {
+                        tag.innerText = `#${t.id} →`;
+                    }
+                    
+                    flotaTags.appendChild(tag);
+                    
+                    if(markersOtrosMoviles[t.id]) {
+                        markersOtrosMoviles[t.id].setLatLng([t.latitud, t.longitud]);
+                    } else {
+                        markersOtrosMoviles[t.id] = L.marker([t.latitud, t.longitud], { 
+                            icon: L.divIcon({ html: `<span style="font-size:20px; opacity:0.5;">🚕</span>`, iconAnchor: [10, 10] })
+                        }).addTo(map);
+                    }
+                });
+            } else {
+                document.getElementById('flota-info').style.display = 'none';
+            }
         }
     }
 
