@@ -64,6 +64,25 @@
         .modal-btn { flex: 1; padding: 12px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
         .modal-btn.confirm { background: #ff3b30; color: white; }
         .modal-btn.cancel { background: #333; color: white; }
+        
+        /* Botón de limpieza de emergencia */
+        .btn-emergencia { 
+            position: absolute; 
+            top: 220px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            z-index: 1002; 
+            background: #ff3b30; 
+            color: white; 
+            border: 2px solid white; 
+            padding: 8px 16px; 
+            border-radius: 20px; 
+            font-size: 11px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            pointer-events: auto;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -83,6 +102,9 @@
 
     <div id="parada-actual">📍 Parada: <span id="txt-parada">--</span></div>
     <div id="net-status" class="net-offline">⚠️ SIN RED</div>
+    
+    <!-- BOTÓN DE EMERGENCIA PARA LIMPIEZA MANUAL -->
+    <button class="btn-emergencia" id="btn-limpiar" onclick="limpiezaNuclear()">🧹 LIMPIAR FANTASMAS</button>
 
     <div id="map"></div>
     <div class="ui-overlay top-stats">
@@ -129,8 +151,10 @@
     let paradaActualIdx = 0;
     let asientosLibres = 4;
     let lastGpsUpdate = 0;
+    let pollingInterval = null;
     const GPS_UPDATE_INTERVAL = 5000;
     const DISTANCIA_MINIMA_PARADA = 50;
+    const POLLING_INTERVAL = 2000; // Consultar cada 2 segundos
 
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
@@ -215,21 +239,38 @@
         window.addEventListener('offline', () => { updateStatus(); mostrarToast('Sin conexión a internet', 'error'); });
     }
 
-    // ========== LIMPIEZA AGRESIVA DE TODO ==========
-    function limpiarTodo() {
-        // Limpiar marcadores de pasajeros
+    // ========== LIMPIEZA NUCLEAR - BORRA TODO ABSOLUTAMENTE TODO ==========
+    function limpiezaNuclear() {
+        console.log('💥 LIMPIEZA NUCLEAR ejecutada');
+        
+        // 1. Borrar marcadores de pasajeros
         markersPax.forEach(m => { 
-            try { map.removeLayer(m); } catch(e) {} 
+            try { 
+                if (m && map.hasLayer(m)) {
+                    m.unbindPopup();
+                    map.removeLayer(m); 
+                }
+            } catch(e) {} 
         });
         markersPax = [];
         
-        // Limpiar marcadores de destino
+        // 2. Borrar marcadores de destino y sus tooltips
         markersDest.forEach(m => { 
-            try { map.removeLayer(m); } catch(e) {} 
+            try { 
+                if (m && map.hasLayer(m)) {
+                    m.unbindTooltip();
+                    m.unbindPopup();
+                    map.removeLayer(m); 
+                }
+            } catch(e) {} 
         });
         markersDest = [];
         
-        // Resetear pills visualmente
+        // 3. BORRAR TODOS LOS TOOLTIPS FANTASMA DEL DOM
+        document.querySelectorAll('.leaflet-tooltip').forEach(el => el.remove());
+        document.querySelectorAll('.leaflet-popup').forEach(el => el.remove());
+        
+        // 4. Resetear pills
         for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
             const p = document.getElementById('pill' + i);
             if (p) {
@@ -238,10 +279,30 @@
             }
         }
         
-        // Resetear stats
+        // 5. Resetear stats
         document.getElementById('txt-pax').innerText = '0';
         document.getElementById('txt-plata').innerText = '$0';
         asientosLibres = TOTAL_ASIENTOS;
+        
+        mostrarToast('🧹 Limpieza nuclear completada', 'success');
+    }
+
+    // ========== INICIAR POLLING ==========
+    function iniciarPolling() {
+        if (pollingInterval) clearInterval(pollingInterval);
+        pollingInterval = setInterval(() => {
+            if (estaOnline) {
+                console.log('🔄 Polling: consultando reservas...');
+                actualizarDatos();
+            }
+        }, POLLING_INTERVAL);
+    }
+
+    function detenerPolling() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
     }
 
     async function gestionarConexion() {
@@ -256,8 +317,11 @@
                 const parada = encontrarParadaMasCercana(pos.coords.latitude, pos.coords.longitude);
                 paradaActualIdx = parada.idx;
                 
-                // LIMPIAR TODO antes de conectar
-                limpiarTodo();
+                // LIMPIEZA NUCLEAR antes de conectar
+                limpiezaNuclear();
+                
+                // Mostrar botón de emergencia
+                document.getElementById('btn-limpiar').style.display = 'block';
                 
                 // UPSERT - Crea o actualiza el registro
                 const { error } = await _s.from('estado_movil').upsert({ 
@@ -279,15 +343,19 @@
                 document.getElementById('txt-parada').innerText = `${paradaActualIdx + 1}. ${paradas[paradaActualIdx].n}`;
                 mostrarToast('🚕 En línea y listo para recibir pasajeros', 'success');
                 iniciarGPS();
+                iniciarPolling();
                 
-                // Forzar actualización de datos limpia
                 setTimeout(actualizarDatos, 500);
             } else {
                 label.innerText = "DESCONECTANDO...";
                 if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+                detenerPolling();
                 
-                // LIMPIAR TODO al desconectar
-                limpiarTodo();
+                // LIMPIEZA NUCLEAR al desconectar
+                limpiezaNuclear();
+                
+                // Ocultar botón de emergencia
+                document.getElementById('btn-limpiar').style.display = 'none';
                 
                 const { error } = await _s.from('estado_movil').update({ 
                     esta_online: false, 
@@ -309,6 +377,7 @@
             mostrarToast('Error de conexión: ' + err.message, 'error');
             toggle.checked = !estaOnline; 
             estaOnline = !estaOnline;
+            detenerPolling();
         }
     }
 
@@ -387,16 +456,32 @@
     }
 
     async function actualizarDatos() {
-        // ========== LIMPIEZA AGRESIVA AL INICIO ==========
+        console.log('📊 Actualizando datos...');
+        
+        // ========== LIMPIEZA COMPLETA AL INICIO ==========
         markersPax.forEach(m => { 
-            try { map.removeLayer(m); } catch(e) {} 
+            try { 
+                if (m && map.hasLayer(m)) {
+                    m.unbindPopup();
+                    map.removeLayer(m); 
+                }
+            } catch(e) {} 
         });
         markersPax = [];
         
         markersDest.forEach(m => { 
-            try { map.removeLayer(m); } catch(e) {} 
+            try { 
+                if (m && map.hasLayer(m)) {
+                    m.unbindTooltip();
+                    m.unbindPopup();
+                    map.removeLayer(m); 
+                }
+            } catch(e) {} 
         });
         markersDest = [];
+        
+        // BORRAR TOOLTIPS FANTASMA DEL DOM
+        document.querySelectorAll('.leaflet-tooltip').forEach(el => el.remove());
 
         // Resetear pills ANTES de procesar
         for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
@@ -408,7 +493,6 @@
         }
 
         try {
-            // Consulta estricta: solo en_curso
             const { data: reservas, error } = await _s
                 .from('reservas_activas')
                 .select('*')
@@ -417,13 +501,17 @@
 
             if (error) throw error;
 
+            console.log('Reservas encontradas:', reservas ? reservas.length : 0);
+
             let recaudacion = 0;
             let paxCount = 0;
             
             if (reservas && reservas.length > 0) {
                 reservas.forEach(res => {
-                    // Solo procesar si realmente está en_curso (doble verificación)
-                    if (res.estado !== 'en_curso') return;
+                    if (res.estado !== 'en_curso') {
+                        console.log('⚠️ Reserva ignorada, no está en_curso:', res.id, res.estado);
+                        return;
+                    }
                     
                     paxCount += 1;
                     recaudacion += PRECIO_POR_ASIENTO;
@@ -445,9 +533,11 @@
                     if (paradas[res.destino_idx]) {
                         const dM = L.marker(paradas[res.destino_idx].c, {
                             icon: L.divIcon({ html: '📍', className: 'destino-icon', iconAnchor: [12, 24] })
-                        }).addTo(map)
-                         .bindTooltip(`⬇️ ${res.nombre_pasajero || 'Pasajero'}`, 
+                        }).addTo(map);
+                        
+                        dM.bindTooltip(`⬇️ ${res.nombre_pasajero || 'Pasajero'}`, 
                             { permanent: true, direction: 'top', offset: [0, -10] });
+                        
                         markersDest.push(dM);
                     }
                 });
@@ -476,6 +566,10 @@
 
     async function liberarAsiento(numAsiento) {
         const pill = document.getElementById('pill' + numAsiento);
+        
+        // Forzar actualización de datos primero
+        await actualizarDatos();
+        
         if (!pill.classList.contains('active')) {
             mostrarToast(`Asiento ${numAsiento} ya está libre`, 'info');
             return;
@@ -494,7 +588,7 @@
             
             if (err1 || !reserva) {
                 mostrarToast('No se encontró reserva para este asiento', 'error');
-                // Forzar limpieza visual del asiento aunque no haya reserva
+                // Forzar limpieza visual
                 pill.className = 'pill libre';
                 pill.innerText = 'LIBRE';
                 setTimeout(() => {
@@ -519,7 +613,6 @@
             mostrarToast(`🎉 Asiento ${numAsiento} liberado`, 'success');
             if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
             
-            // Forzar actualización limpia después de liberar
             setTimeout(() => {
                 actualizarDatos();
             }, 500);
@@ -542,7 +635,6 @@
         cerrarModal();
         
         try {
-            // Finalizar TODAS las reservas en_curso de este móvil
             const { error } = await _s
                 .from('reservas_activas')
                 .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
@@ -551,12 +643,11 @@
             
             if (error) throw error;
             
-            // LIMPIAR TODO INMEDIATAMENTE
-            limpiarTodo();
+            // LIMPIEZA NUCLEAR INMEDIATA
+            limpiezaNuclear();
             
             mostrarToast('🏁 Viaje finalizado. Coche vacío.', 'success');
             
-            // Forzar actualización limpia
             setTimeout(() => {
                 actualizarDatos();
             }, 500);
@@ -567,30 +658,26 @@
         }
     }
 
-    // ========== SUSCRIPCIÓN REALTIME CON FILTRO ESTRICTO ==========
-    _s.channel('coche_' + MI_ID_MOVIL)
+    // ========== SUSCRIPCIÓN REALTIME ==========
+    const channel = _s.channel('coche_' + MI_ID_MOVIL)
       .on('postgres_changes', { 
           event: '*', schema: 'public', table: 'reservas_activas', 
           filter: `id_movil=eq.${MI_ID_MOVIL}` 
       }, (payload) => {
-          console.log("Cambio en reservas:", payload);
-          
-          // Solo reaccionar si es INSERT o UPDATE a en_curso
-          if (payload.eventType === 'INSERT' && payload.new.estado === 'en_curso') {
-              mostrarToast(`🙋 ¡Nuevo pasajero! ${payload.new.nombre_pasajero || 'Pasajero'}`, 'success');
-              if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-          }
-          
-          // Siempre actualizar datos, pero con limpieza
-          setTimeout(actualizarDatos, 300);
+          console.log("📡 Realtime - Cambio detectado:", payload);
+          setTimeout(() => {
+              actualizarDatos();
+          }, 300);
       })
-      .subscribe();
+      .subscribe((status) => {
+          console.log('📡 Realtime status:', status);
+      });
 
     window.addEventListener('DOMContentLoaded', () => {
         initNetworkMonitor();
         
-        // LIMPIAR TODO al cargar la página (evita fantasmas al refrescar)
-        limpiarTodo();
+        // LIMPIEZA NUCLEAR al cargar
+        limpiezaNuclear();
         
         actualizarDatos();
         setTimeout(() => {
