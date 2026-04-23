@@ -132,7 +132,7 @@
     const GPS_UPDATE_INTERVAL = 5000;
     const DISTANCIA_MINIMA_PARADA = 50;
 
-    // 🆕 ESTADO LOCAL ROBUSTO - Fuente de verdad primaria
+    // ESTADO LOCAL ROBUSTO - Fuente de verdad primaria
     let estadoLocal = {
         recaudacion: 0,
         pasajeros: 0,
@@ -145,7 +145,7 @@
         recaudacionHistorica: 0 // Acumulado que no se pierde nunca
     };
 
-    // 🆕 COLA DE SINCRONIZACIÓN PENDIENTE
+    // COLA DE SINCRONIZACIÓN PENDIENTE
     let colaSync = [];
     let syncEnProceso = false;
 
@@ -169,12 +169,13 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.6 }).addTo(map);
     
+    // PARADAS CON CÍRCULO CELESTE Y BORDE NEGRO
     paradas.forEach((p, idx) => { 
         L.circleMarker(p.c, { 
             radius: 6, 
-            color: '#000000',
+            color: '#000000',      // Borde negro
             weight: 2, 
-            fillColor: '#00d2ff',
+            fillColor: '#00d2ff',  // Celeste
             fillOpacity: 1 
         }).addTo(map).bindTooltip(`${idx + 1}. ${p.n}`, { permanent: false });
     });
@@ -243,6 +244,7 @@
                 const parada = encontrarParadaMasCercana(pos.coords.latitude, pos.coords.longitude);
                 paradaActualIdx = parada.idx;
                 
+                // UPSERT - Crea o actualiza el registro
                 const { error } = await _s.from('estado_movil').upsert({ 
                     id: MI_ID_MOVIL,
                     esta_online: true, 
@@ -295,6 +297,7 @@
         });
     }
 
+    // ✅ CORREGIDO: iniciarGPS ahora actualiza disponible_desde en tiempo real
     function iniciarGPS() {
         if (watchId) navigator.geolocation.clearWatch(watchId);
         
@@ -308,6 +311,7 @@
             const myLon = p.coords.longitude;
             const parada = encontrarParadaMasCercana(myLat, myLon);
             
+            // Si cambió de parada (y está cerca de una parada)
             if (parada.distancia < DISTANCIA_MINIMA_PARADA && parada.idx !== paradaActualIdx) {
                 paradaActualIdx = parada.idx;
                 document.getElementById('txt-parada').innerText = `${paradaActualIdx + 1}. ${paradas[paradaActualIdx].n}`;
@@ -318,10 +322,11 @@
             map.panTo([myLat, myLon]);
             
             try {
+                // ✅ AHORA SÍ: Actualizamos disponible_desde en cada tick de GPS
                 await _s.from('estado_movil').update({ 
                     latitud: myLat, 
                     longitud: myLon, 
-                    disponible_desde: paradaActualIdx,
+                    disponible_desde: paradaActualIdx,  // ← ESTO FALTABA, AHORA SÍ ESTÁ
                     ultima_actualizacion: new Date().toISOString()
                 }).eq('id', MI_ID_MOVIL);
             } catch (err) { 
@@ -363,7 +368,7 @@
         }
     }
 
-    // 🆕 FUNCIÓN AUXILIAR: Actualizar UI desde estado local
+    // FUNCIÓN AUXILIAR: Actualizar UI desde estado local
     function actualizarUI() {
         let paxCount = 0;
         let recaudacion = 0;
@@ -407,7 +412,7 @@
 
             if (error) throw error;
 
-            // 🆕 SINCRONIZAR ESTADO LOCAL CON SERVIDOR
+            // SINCRONIZAR ESTADO LOCAL CON SERVIDOR
             if (reservas && reservas.length > 0) {
                 reservas.forEach(res => {
                     const idx = res.asiento_num - 1;
@@ -456,12 +461,12 @@
 
         } catch (err) {
             console.error("Error en actualizarDatos:", err);
-            // 🆕 NO mostrar error al usuario - usar estado local
+            // NO mostrar error al usuario - usar estado local
             actualizarUI();
         }
     }
 
-    // 🆕 FUNCIÓN ROBUSTA: Liberar asiento con fuerza bruta
+    // ✅ FUNCIÓN ROBUSTA: Liberar asiento con fuerza bruta
     async function liberarAsiento(numAsiento) {
         const idx = numAsiento - 1;
         const asiento = estadoLocal.asientos[idx];
@@ -515,7 +520,7 @@
         }
     }
 
-    // 🆕 FUNCIÓN ROBUSTA: Finalizar/vaciar con fuerza bruta total
+    // ✅ FUNCIÓN ROBUSTA: Finalizar/vaciar con fuerza bruta total
     async function confirmarVaciar() {
         cerrarModal();
         
@@ -587,7 +592,7 @@
         }
     }
 
-    // 🆕 SISTEMA DE COLA DE SINCRONIZACIÓN
+    // SISTEMA DE COLA DE SINCRONIZACIÓN
     function agregarAColaSync(tipo, datos) {
         colaSync.push({ tipo, datos, timestamp: Date.now(), intentos: 0 });
         console.log("Agregado a cola sync:", { tipo, datos });
@@ -646,7 +651,7 @@
         setTimeout(procesarColaSync, 500);
     }
 
-    // 🆕 PROCESAR COLA PERIÓDICAMENTE
+    // PROCESAR COLA PERIÓDICAMENTE
     setInterval(() => {
         if (colaSync.length > 0 && !syncEnProceso && navigator.onLine) {
             procesarColaSync();
@@ -668,7 +673,7 @@
       }, (payload) => {
           console.log("Cambio en reservas:", payload);
           
-          // 🆕 SI ES INSERT, actualizar estado local inmediatamente
+          // SI ES INSERT, actualizar estado local inmediatamente
           if (payload.eventType === 'INSERT') {
               const res = payload.new;
               const idx = res.asiento_num - 1;
