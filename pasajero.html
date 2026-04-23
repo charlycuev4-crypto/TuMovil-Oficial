@@ -159,13 +159,21 @@
             <div class="asiento-btn" onclick="toggleAsiento(4)" id="as-4">4</div>
         </div>
         
-        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ BUSCANDO GPS...</button>
+        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ ESPERANDO GPS...</button>
         <button class="btn-cancelar" id="btn-cancelar" onclick="finalizarViaje()">TERMINAR MI VIAJE</button>
     </div>
 
 <script>
-    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    // ============================================
+    // CONFIGURACIÓN SUPABASE
+    // ============================================
+    const SUPABASE_URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE';
+    const _s = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    // ============================================
+    // PARADAS
+    // ============================================
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -182,13 +190,15 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
+    // ============================================
+    // MAPA
+    // ============================================
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d2ff' }).addTo(map));
 
     const iconP = L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] });
     const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', className: 'dest-arrow', iconAnchor: [10, 11] });
-    const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
     const iconMiT = L.divIcon({ html: '<div style="font-size:35px; filter: drop-shadow(0 0 10px #00d2ff);">🚕</div>', iconAnchor: [17, 17] });
 
     let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
@@ -197,10 +207,16 @@
     let markerMiMovil = null;
     let markersOtrosMoviles = {};
     
+    // ============================================
+    // VARIABLES GLOBALES
+    // ============================================
     let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
     let miMovilAsignado = null;
     let miReservaData = null;
 
+    // ============================================
+    // INICIALIZAR SELECTS
+    // ============================================
     const selOrigen = document.getElementById('parada-origen');
     const selDest = document.getElementById('destino-select');
     
@@ -216,6 +232,9 @@
         selDest.appendChild(opt2);
     });
 
+    // ============================================
+    // INICIO - VERIFICAR VIAJE ACTIVO
+    // ============================================
     window.onload = async () => {
         const nombreGuardado = localStorage.getItem('usuario_nombre');
         if(nombreGuardado) {
@@ -225,20 +244,24 @@
     };
 
     async function verificarViajeActivo(nombre) {
-        const { data } = await _s.from('reservas_activas')
-            .select('*')
-            .eq('nombre_pasajero', nombre)
-            .eq('estado', 'en_curso');
-            
-        if(data && data.length > 0) {
-            miViajeActivo = true;
-            miReservaData = data[0];
-            miMovilAsignado = data[0].id_movil;
-            asientosElegidos = data.map(r => r.asiento_num);
-            document.getElementById('destino-select').value = data[0].destino_idx;
-            document.getElementById('parada-origen').value = data[0].parada_origen;
-            bloquearPanelParaViajeActivo();
-            iniciarSeguimientoMovil();
+        try {
+            const { data } = await _s.from('reservas_activas')
+                .select('*')
+                .eq('nombre_pasajero', nombre)
+                .eq('estado', 'en_curso');
+                
+            if(data && data.length > 0) {
+                miViajeActivo = true;
+                miReservaData = data[0];
+                miMovilAsignado = data[0].id_movil;
+                asientosElegidos = data.map(r => r.asiento_num);
+                document.getElementById('destino-select').value = data[0].destino_idx;
+                document.getElementById('parada-origen').value = data[0].parada_origen;
+                bloquearPanelParaViajeActivo();
+                iniciarSeguimientoMovil();
+            }
+        } catch (err) {
+            console.error("Error verificando viaje activo:", err);
         }
     }
 
@@ -255,17 +278,54 @@
         asientosElegidos.forEach(n => document.getElementById('as-'+n).classList.add('selected'));
     }
 
-    navigator.geolocation.watchPosition(p => {
-        miLat = p.coords.latitude; 
-        miLon = p.coords.longitude;
-        markerPasajero.setLatLng([miLat, miLon]);
-        actualizarMapaRuta();
-        document.getElementById('btn-pedir').disabled = false;
-        if(!miViajeActivo) document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR MI VIAJE";
-        const s = document.getElementById('splash'); 
-        if(s) { s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800); }
-    }, null, { enableHighAccuracy: true });
+    // ============================================
+    // GPS - CON MANEJO DE ERRORES
+    // ============================================
+    function iniciarGPS() {
+        if (!navigator.geolocation) {
+            console.error("Geolocalización no soportada");
+            document.getElementById('btn-pedir').disabled = false;
+            document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR MI VIAJE";
+            ocultarSplash();
+            return;
+        }
 
+        navigator.geolocation.watchPosition(
+            (p) => {
+                miLat = p.coords.latitude; 
+                miLon = p.coords.longitude;
+                markerPasajero.setLatLng([miLat, miLon]);
+                actualizarMapaRuta();
+                
+                document.getElementById('btn-pedir').disabled = false;
+                if(!miViajeActivo) document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR MI VIAJE";
+                
+                ocultarSplash();
+            }, 
+            (err) => {
+                console.error("Error GPS:", err);
+                document.getElementById('btn-pedir').disabled = false;
+                document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR MI VIAJE";
+                ocultarSplash();
+            }, 
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        );
+    }
+
+    function ocultarSplash() {
+        const s = document.getElementById('splash'); 
+        if(s && s.style.visibility !== 'hidden') {
+            s.style.opacity = '0'; 
+            setTimeout(() => s.style.visibility = 'hidden', 800);
+        }
+    }
+
+    // Iniciar GPS al cargar
+    iniciarGPS();
+
+    // ============================================
+    // MAPA Y RUTA
+    // ============================================
     function actualizarMapaRuta() {
         const valDest = document.getElementById('destino-select').value;
         const valOrigen = document.getElementById('parada-origen').value;
@@ -279,6 +339,9 @@
         }
     }
 
+    // ============================================
+    // SELECCIÓN DE ASIENTOS
+    // ============================================
     function toggleAsiento(num) {
         if(miViajeActivo) return;
         const i = asientosElegidos.indexOf(num);
@@ -292,6 +355,9 @@
         }
     }
 
+    // ============================================
+    // EFECTO CASCADA - SOLICITAR VIAJE
+    // ============================================
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value.trim();
         const destIdx = document.getElementById('destino-select').value;
@@ -302,6 +368,7 @@
         if (!origenIdx) { alert("Seleccioná en qué parada estás."); return; }
         if (!destIdx) { alert("Seleccioná a qué parada vas."); return; }
         if (asientosElegidos.length === 0) { alert("Seleccioná al menos un asiento."); return; }
+        
         if (parseInt(destIdx) <= parseInt(origenIdx) && sentido === 'IDA') {
             alert("El destino debe ser después de tu parada de origen en sentido IDA."); return;
         }
@@ -314,6 +381,7 @@
         const cantidadAsientos = asientosElegidos.length;
         const paradaOrigen = parseInt(origenIdx);
         
+        // EFECTO CASCADA: Buscar móviles disponibles
         const { data: moviles, error: errMoviles } = await _s.from('estado_movil')
             .select('*')
             .eq('esta_online', true)
@@ -332,8 +400,10 @@
             const asientosLibres = movil.asientos_libres || 0;
             const paradaActual = movil.disponible_desde || 0;
             
+            // Verificar capacidad
             if (asientosLibres < cantidadAsientos) continue;
             
+            // Verificar que no haya pasado la parada del pasajero
             let pasoLaParada = false;
             if (sentido === 'IDA') {
                 pasoLaParada = paradaActual > paradaOrigen;
@@ -343,6 +413,7 @@
             
             if (pasoLaParada) continue;
             
+            // ¡Móvil válido encontrado!
             movilAsignado = movil;
             break;
         }
@@ -352,6 +423,7 @@
             return;
         }
         
+        // Crear reserva
         const primerAsiento = asientosElegidos[0];
         const reserva = {
             asiento_num: primerAsiento,
@@ -376,6 +448,9 @@
         location.reload();
     }
 
+    // ============================================
+    // NOTIFICACIONES
+    // ============================================
     function mostrarNotificacion(icono, texto) {
         const notif = document.getElementById('notificacion');
         document.getElementById('notif-icon').innerText = icono;
@@ -384,9 +459,13 @@
         setTimeout(() => notif.classList.remove('show'), 5000);
     }
 
+    // ============================================
+    // SEGUIMIENTO DEL MÓVIL ASIGNADO
+    // ============================================
     async function iniciarSeguimientoMovil() {
         if (!miMovilAsignado) return;
         
+        // Escuchar cambios en el móvil asignado
         _s.channel('mi_movil_' + miMovilAsignado)
             .on('postgres_changes', { 
                 event: '*', 
@@ -398,6 +477,7 @@
             })
             .subscribe();
             
+        // Escuchar notificaciones
         const nombre = localStorage.getItem('usuario_nombre');
         _s.channel('notif_' + nombre)
             .on('postgres_changes', { 
@@ -421,6 +501,7 @@
             })
             .subscribe();
             
+        // Cargar datos iniciales
         const { data: movil } = await _s.from('estado_movil')
             .select('*')
             .eq('id', miMovilAsignado)
@@ -428,6 +509,7 @@
             
         if (movil) actualizarPanelMiMovil(movil);
         
+        // Actualizar cada 5 segundos
         setInterval(async () => {
             const { data } = await _s.from('estado_movil')
                 .select('*')
@@ -437,6 +519,9 @@
         }, 5000);
     }
 
+    // ============================================
+    // ACTUALIZAR PANEL "MI MÓVIL"
+    // ============================================
     async function actualizarPanelMiMovil(movil) {
         if (!movil || !miViajeActivo) return;
         
@@ -453,24 +538,27 @@
             document.getElementById('distancia-fill').style.width = `${porcentaje}%`;
             
             const distEl = document.getElementById('mi-movil-distancia');
+            const estadoEl = document.getElementById('mi-movil-estado');
+            
             if (dist < 200) {
                 distEl.className = 'info-value verde';
-                document.getElementById('mi-movil-estado').className = 'mi-movil-estado estado-llegando';
-                document.getElementById('mi-movil-estado').innerText = '¡LLEGANDO!';
+                estadoEl.className = 'mi-movil-estado estado-llegando';
+                estadoEl.innerText = '¡LLEGANDO!';
             } else if (dist < 800) {
                 distEl.className = 'info-value amarillo';
-                document.getElementById('mi-movil-estado').className = 'mi-movil-estado estado-camino';
-                document.getElementById('mi-movil-estado').innerText = 'EN CAMINO';
+                estadoEl.className = 'mi-movil-estado estado-camino';
+                estadoEl.innerText = 'EN CAMINO';
             } else {
                 distEl.className = 'info-value';
-                document.getElementById('mi-movil-estado').className = 'mi-movil-estado estado-camino';
-                document.getElementById('mi-movil-estado').innerText = 'EN CAMINO';
+                estadoEl.className = 'mi-movil-estado estado-camino';
+                estadoEl.innerText = 'EN CAMINO';
             }
             
             document.getElementById('debug-info').innerText = 
                 `Móvil en parada ${(movil.disponible_desde || 0) + 1} • ${movil.asientos_libres} asientos libres`;
         }
         
+        // Actualizar marcador en el mapa
         if (movil.latitud && movil.longitud) {
             if (!markerMiMovil) {
                 markerMiMovil = L.marker([movil.latitud, movil.longitud], { icon: iconMiT }).addTo(map);
@@ -485,6 +573,9 @@
         }
     }
 
+    // ============================================
+    // UTILIDADES
+    // ============================================
     function calcularDistancia(coord1, coord2) {
         const R = 6371e3;
         const φ1 = coord1[0] * Math.PI / 180;
@@ -509,6 +600,9 @@
         location.reload();
     }
 
+    // ============================================
+    // MOSTRAR OTROS MÓVILES EN EL MAPA
+    // ============================================
     async function actualizarFlota() {
         const sentidoSeleccionado = document.getElementById('sentido-select').value;
         
@@ -532,4 +626,26 @@
                 if (t.id === miMovilAsignado) return;
                 
                 if(markersOtrosMoviles[t.id]) {
-                    markersOtrosMoviles
+                    markersOtrosMoviles[t.id].setLatLng([t.latitud, t.longitud]);
+                } else {
+                    markersOtrosMoviles[t.id] = L.marker([t.latitud, t.longitud], { 
+                        icon: L.divIcon({ html: `<span style="font-size:20px; opacity:0.5;">🚕</span>`, iconAnchor: [10, 10] })
+                    }).addTo(map);
+                }
+            });
+        }
+    }
+
+    // ============================================
+    // SUSCRIPCIONES REALTIME
+    // ============================================
+    _s.channel('cambios_pasajero')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'estado_movil' }, () => actualizarFlota())
+      .subscribe();
+
+    // Cargar flota inicial
+    actualizarFlota();
+
+</script>
+</body>
+</html>
