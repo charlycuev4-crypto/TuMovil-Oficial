@@ -1,124 +1,89 @@
-<!DOCTYPE html>
+            <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TuMovil - Master Cascada</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pasajero - TuMovil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
-        body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
-        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 15px; text-align: center; }
-        .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
-        #map { flex-grow: 1; width: 100%; }
-        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 20px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 10px; }
-        select, input { width: 100%; padding: 12px; border-radius: 10px; background: #2a2a2a; border: 1px solid #444; color: white; box-sizing: border-box; }
-        .asientos-grid { display: flex; justify-content: space-around; margin: 10px 0; }
-        .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center; }
-        .asiento-btn.selected { background: var(--amarillo); border-color: var(--amarillo); color: #000; }
-        .btn-pedir { background: #28a745; width: 100%; padding: 16px; border-radius: 12px; color: white; font-weight: bold; border: none; font-size: 16px; }
+        body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
+        .box { background: #1e1e1e; padding: 20px; border-radius: 15px; border: 1px solid #00d2ff; }
+        .btn-accion { width: 100%; padding: 15px; margin-top: 10px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .btn-solicitar { background: #28a745; color: white; }
+        .btn-cancelar { background: #ff4444; color: white; }
+        .asiento-btn { display: inline-block; width: 45px; height: 45px; margin: 5px; border: 2px solid #00d2ff; border-radius: 10px; text-align: center; line-height: 45px; cursor: pointer; }
+        .selected { background: #ffcc00; color: #000; border-color: #ffcc00; }
     </style>
 </head>
 <body>
 
-    <div class="header"><h1>TUMOVIL - MASTER</h1></div>
-    <div id="map"></div>
-
-    <div class="bottom-ui">
-        <select id="sentido-select">
-            <option value="IDA">IDA (1 al 25)</option>
-            <option value="VUELTA">VUELTA (25 al 1)</option>
-        </select>
+    <div class="box">
+        <h3>Solicitar Viaje</h3>
+        <input type="text" id="nombre" placeholder="Nombre Pasajero" style="width: 100%; padding: 10px; margin-bottom: 10px;">
         
-        <input type="text" id="nombre-input" placeholder="Nombre Pasajero">
-        
-        <select id="destino-select">
-            <option value="" disabled selected>Selecciona tu destino</option>
-        </select>
-        
-        <div class="asientos-grid">
-            <div class="asiento-btn" onclick="toggleAsiento(1)" id="as-1">1</div>
-            <div class="asiento-btn" onclick="toggleAsiento(2)" id="as-2">2</div>
-            <div class="asiento-btn" onclick="toggleAsiento(3)" id="as-3">3</div>
-            <div class="asiento-btn" onclick="toggleAsiento(4)" id="as-4">4</div>
+        <p>Selecciona la cantidad de asientos:</p>
+        <div id="grid-asientos">
+            <div class="asiento-btn" onclick="seleccionar(1)" id="as-1">1</div>
+            <div class="asiento-btn" onclick="seleccionar(2)" id="as-2">2</div>
+            <div class="asiento-btn" onclick="seleccionar(3)" id="as-3">3</div>
+            <div class="asiento-btn" onclick="seleccionar(4)" id="as-4">4</div>
         </div>
-        
-        <button class="btn-pedir" onclick="confirmarViajeCascada()">SOLICITAR VIAJE</button>
+
+        <button class="btn-accion btn-solicitar" onclick="confirmarReserva()">SOLICITAR VIAJE</button>
+        <button class="btn-accion btn-cancelar" onclick="cancelarReserva()">CANCELAR / FINALIZAR VIAJE</button>
     </div>
 
 <script>
-    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
-    const paradas = [
-        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
-        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
-        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
-        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
-        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
-        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
-        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
-        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
-        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
-        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
-        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
-        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
-        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
-    ];
+    const _s = supabase.createClient('https://TU_URL_SUPABASE', 'TU_KEY_SUPABASE');
+    let seleccionados = 0;
+    let idMovilAsignado = null; // Guardamos el ID para poder cancelar
 
-    const map = L.map('map').setView([-34.57, -58.76], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    // Renderizar paradas: Círculos celestes con BORDE NEGRO
-    paradas.forEach((p, i) => {
-        L.circleMarker(p.c, { 
-            radius: 8, 
-            color: '#000000',      // Borde Negro exigido
-            fillColor: '#00d2ff',  // Relleno Celeste
-            fillOpacity: 1, 
-            weight: 2 
-        }).addTo(map).bindPopup(p.n);
-
-        const opt = document.createElement('option');
-        opt.value = i; opt.innerText = p.n;
-        document.getElementById('destino-select').appendChild(opt);
-    });
-
-    let asientosElegidos = [];
-    function toggleAsiento(num) {
-        const i = asientosElegidos.indexOf(num);
-        if(i > -1) { asientosElegidos.splice(i, 1); document.getElementById('as-'+num).classList.remove('selected'); }
-        else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
+    function seleccionar(num) {
+        seleccionados = num;
+        document.querySelectorAll('.asiento-btn').forEach(b => b.classList.remove('selected'));
+        for(let i=1; i<=num; i++) document.getElementById('as-'+i).classList.add('selected');
     }
 
-    // --- LA LÓGICA DE CASCADA INTELIGENTE ---
-    async function confirmarViajeCascada() {
-        const sentido = document.getElementById('sentido-select').value;
-        const nombre = document.getElementById('nombre-input').value;
-        const destino = document.getElementById('destino-select').value;
+    async function confirmarReserva() {
+        const nombre = document.getElementById('nombre').value;
+        if(seleccionados === 0 || !nombre) { alert("Selecciona asientos y nombre"); return; }
 
-        if(!nombre || !destino || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
-
-        // Aquí está el filtro inteligente: solo conductores online, en ese sentido, y con asientos libres > 0
-        const { data: choferes, error } = await _s.from('estado_movil')
-            .select('id')
+        // 1. Buscamos conductor con espacio suficiente
+        const { data: choferes } = await _s.from('estado_movil')
+            .select('id, asientos_libres')
             .eq('esta_online', true)
-            .eq('sentido_flujo', sentido)
-            .gt('asientos_libres', 0) // El filtro de cascada
-            .order('asientos_libres', { ascending: false }) // Prioriza el que tiene más espacio
+            .gte('asientos_libres', seleccionados) // Solo los que tienen cupo para lo que pidió
             .limit(1);
 
-        if (error || !choferes || choferes.length === 0) { alert("No hay móviles con espacio disponible en este sentido."); return; }
+        if(!choferes || choferes.length === 0) { alert("No hay móviles con espacio suficiente."); return; }
+        
+        idMovilAsignado = choferes[0].id;
 
-        await _s.from('reservas_activas').insert({
-            nombre_pasajero: nombre,
-            id_movil: choferes[0].id,
-            asiento_num: asientosElegidos[0],
-            estado: 'en_curso',
-            destino_idx: destino
-        });
-        alert("Viaje solicitado al móvil asignado automáticamente.");
+        // 2. Actualizamos el estado del conductor (Restamos los asientos)
+        await _s.from('estado_movil')
+            .update({ asientos_libres: choferes[0].asientos_libres - seleccionados })
+            .eq('id', idMovilAsignado);
+
+        alert("¡Viaje solicitado! Reservaste " + seleccionados + " asientos.");
+    }
+
+    async function cancelarReserva() {
+        if(!idMovilAsignado) { alert("No tienes viaje activo."); return; }
+
+        // 1. Recuperamos los asientos del conductor
+        const { data: chofer } = await _s.from('estado_movil')
+            .select('asientos_libres')
+            .eq('id', idMovilAsignado)
+            .single();
+
+        // 2. Devolvemos los asientos al conductor (Sumamos)
+        await _s.from('estado_movil')
+            .update({ asientos_libres: chofer.asientos_libres + seleccionados })
+            .eq('id', idMovilAsignado);
+        
+        alert("Viaje cancelado. Asientos liberados.");
+        idMovilAsignado = null;
+        seleccionados = 0;
     }
 </script>
 </body>
