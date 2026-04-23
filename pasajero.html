@@ -1,4 +1,4 @@
-                    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -337,26 +337,21 @@
 </head>
 <body>
 
-    <!-- ===== SPLASH ===== -->
     <div id="splash">
         <div class="splash-logo">🚕</div>
         <h1 class="splash-title">TuMovil</h1>
         <p class="splash-subtitle">Taxi Colectivo Digital</p>
     </div>
 
-    <!-- ===== TOAST CONTAINER ===== -->
     <div id="toast-container"></div>
 
-    <!-- ===== HEADER ===== -->
     <div class="header">
         <h1>🚕 TuMovil</h1>
         <p>Taxi Colectivo Digital</p>
     </div>
 
-    <!-- ===== CONTENIDO ===== -->
     <div class="content">
 
-        <!-- ===== PASO 0: DETECTANDO PARADA ===== -->
         <div id="paso-detectando" class="detectando">
             <div class="detectando-icon">📍</div>
             <h2>Detectando tu parada...</h2>
@@ -365,17 +360,14 @@
             <p style="color:#666; font-size:12px; margin-top:10px;">Asegúrate de tener el GPS activado</p>
         </div>
 
-        <!-- ===== PASO 1: FORMULARIO ===== -->
         <div id="paso-formulario" class="hidden">
             
-            <!-- Parada detectada -->
             <div class="parada-info">
                 <div class="label">📍 Parada de subida</div>
                 <div class="nombre" id="parada-origen-nombre">--</div>
                 <div class="numero" id="parada-origen-numero">--</div>
             </div>
 
-            <!-- Nombre -->
             <div class="input-group">
                 <label for="nombre">¿Cómo te llamas?</label>
                 <input 
@@ -387,7 +379,6 @@
                 >
             </div>
 
-            <!-- Sentido -->
             <p style="color:#888; font-size:14px; margin-bottom:15px; padding:0 20px;">
                 ¿Hacia dónde vas?
             </p>
@@ -404,7 +395,6 @@
                 </div>
             </div>
 
-            <!-- Cantidad de asientos -->
             <div id="seccion-asientos" class="hidden">
                 <p style="color:#888; font-size:14px; margin-bottom:15px; padding:0 20px;">
                     ¿Cuántos asientos necesitas?
@@ -429,7 +419,6 @@
                 </div>
             </div>
 
-            <!-- Destino -->
             <div id="seccion-destino" class="hidden">
                 <p style="color:#888; font-size:14px; margin-bottom:15px; padding:0 20px;">
                     ¿Dónde te bajas?
@@ -437,7 +426,6 @@
                 <div id="lista-paradas"></div>
             </div>
 
-            <!-- Botón enviar -->
             <button class="btn btn-primary hidden" id="btn-enviar" onclick="enviarSolicitud()" disabled>
                 🚕 Solicitar viaje
             </button>
@@ -447,7 +435,6 @@
             </button>
         </div>
 
-        <!-- ===== PASO 2: ESPERANDO ===== -->
         <div id="paso-esperando" class="hidden" style="text-align:center; padding:60px 20px;">
             <div style="font-size:60px; margin-bottom:20px;">⏳</div>
             <h2 style="color:#FFD700; margin-bottom:10px;">Buscando móvil...</h2>
@@ -458,7 +445,6 @@
             <p style="color:#666; font-size:12px;">Esto suele tomar unos segundos</p>
         </div>
 
-        <!-- ===== PASO 3: TICKET ===== -->
         <div id="paso-ticket" class="hidden">
             <div class="ticket">
                 <div class="ticket-icon">🎫</div>
@@ -512,7 +498,6 @@
             </div>
         </div>
 
-        <!-- ===== ERROR ===== -->
         <div id="paso-error" class="hidden" style="text-align:center; padding:60px 20px;">
             <div style="font-size:60px; margin-bottom:20px;">😕</div>
             <h2 style="color:#ff3b30; margin-bottom:10px;">Sin móviles disponibles</h2>
@@ -529,7 +514,6 @@
 
     </div>
 
-    <!-- ===== FOOTER ===== -->
     <div class="footer">
         TuMovil © 2026 - Taxi Colectivo Digital
     </div>
@@ -638,8 +622,9 @@
                 }
             });
 
-            if (minDist > 200) {
-                mostrarToast('No estás cerca de ninguna parada. Acércate y reintenta.', 'error');
+            // MODIFICACIÓN DE PRUEBA: Ampliado a 5000 metros (5km)
+            if (minDist > 5000) { 
+                mostrarToast('Fuera de rango (Estás a ' + Math.round(minDist) + 'm de la parada más cercana)', 'error');
                 mostrarPaso('error');
                 return;
             }
