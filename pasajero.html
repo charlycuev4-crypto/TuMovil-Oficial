@@ -11,7 +11,6 @@
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --azul-gps: #007AFF; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
         
-        /* Splash */
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
         .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
@@ -22,10 +21,8 @@
         #map { flex-grow: 1; width: 100%; }
         
         .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 45vh; overflow-y: auto; }
-        
         .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
-        
         .asientos-grid { display: flex; justify-content: space-around; margin: 5px 0; }
         .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center; }
         .asiento-btn.selected { background: var(--amarillo); border-color: var(--amarillo); color: #000; box-shadow: 0 0 15px var(--amarillo); }
@@ -33,7 +30,6 @@
 
         .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; }
         .btn-pedir:disabled { background: #444; color: #888; }
-        
         .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
     </style>
 </head>
@@ -42,7 +38,7 @@
     <div id="splash">
         <div class="anillo"><span style="font-size: 60px;">🚕</span></div>
         <h2 style="color: var(--celeste); margin-top: 20px;">TUMOVIL</h2>
-        <p style="color: white; font-size: 12px;">Recuperando conexión...</p>
+        <p style="color: white; font-size: 12px;">Conectando al sistema...</p>
     </div>
 
     <div class="header"><h1>SOLICITAR VIAJE</h1></div>
@@ -51,19 +47,21 @@
     <div class="bottom-ui">
         <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
         
-        <input type="text" id="nombre-input" placeholder="Tu Nombre">
+        <select id="sentido-select" onchange="actualizarFlota()">
+            <option value="IDA">Hacia IDA</option>
+            <option value="VUELTA">Hacia VUELTA</option>
+        </select>
         
+        <input type="text" id="nombre-input" placeholder="Tu Nombre">
         <select id="destino-select" onchange="actualizarMapaRuta()">
             <option value="" disabled selected>¿A qué parada vas?</option>
         </select>
-
         <div class="asientos-grid">
             <div class="asiento-btn" onclick="toggleAsiento(1)" id="as-1">1</div>
             <div class="asiento-btn" onclick="toggleAsiento(2)" id="as-2">2</div>
             <div class="asiento-btn" onclick="toggleAsiento(3)" id="as-3">3</div>
             <div class="asiento-btn" onclick="toggleAsiento(4)" id="as-4">4</div>
         </div>
-
         <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ BUSCANDO GPS...</button>
         <button class="btn-cancelar" id="btn-cancelar" onclick="finalizarViaje()">TERMINAR MI VIAJE</button>
     </div>
@@ -71,6 +69,7 @@
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
+    // ... (Tu array de paradas se mantiene igual) ...
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -101,11 +100,9 @@
     let markerTaxis = {};
     let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
 
-    // Selector
     const selDest = document.getElementById('destino-select');
     paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
 
-    // RECUERDA AL PASAJERO
     window.onload = async () => {
         const nombreGuardado = localStorage.getItem('usuario_nombre');
         if(nombreGuardado) {
@@ -125,6 +122,7 @@
         document.getElementById('btn-cancelar').style.display = 'block';
         document.getElementById('nombre-input').disabled = true;
         document.getElementById('destino-select').disabled = true;
+        document.getElementById('sentido-select').disabled = true; // --- NUEVO: Bloqueo ---
         asientosElegidos.forEach(n => document.getElementById('as-'+n).classList.add('selected'));
     }
 
@@ -158,12 +156,20 @@
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
         const destIdx = document.getElementById('destino-select').value;
+        const sentido = document.getElementById('sentido-select').value; // --- NUEVO: Captura ---
+        
         if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
-        
         localStorage.setItem('usuario_nombre', nom);
-        const { data: moviles } = await _s.from('estado_movil').select('id').neq('latitud', 0).limit(1);
-        if (!moviles || moviles.length === 0) { alert("No hay choferes en línea."); return; }
         
+        // --- NUEVO: Filtro en la búsqueda ---
+        const { data: moviles } = await _s.from('estado_movil')
+            .select('id')
+            .eq('esta_online', true) 
+            .eq('sentido_flujo', sentido) // <-- FILTRO CRÍTICO
+            .neq('latitud', 0)
+            .limit(1);
+            
+        if (!moviles || moviles.length === 0) { alert("No hay choferes en ese sentido actualmente."); return; }
         const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: moviles[0].id, estado: 'en_curso', nombre_pasajero: nom, pasajero_lat: miLat, pasajero_lon: miLon, destino_idx: parseInt(destIdx) }));
         await _s.from('reservas_activas').insert(res);
         location.reload();
@@ -175,23 +181,44 @@
         location.reload();
     }
 
+    // --- NUEVO: LÓGICA DE ACTUALIZACIÓN CON FILTRO ---
     async function actualizarFlota() {
-        const { data: moviles } = await _s.from('estado_movil').select('*').neq('latitud', 0).limit(1);
-        Object.keys(markerTaxis).forEach(id => map.removeLayer(markerTaxis[id]));
-        if (moviles && moviles.length > 0) {
-            const t = moviles[0];
-            markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map);
-            const { data: ocup } = await _s.from('reservas_activas').select('asiento_num, nombre_pasajero').eq('id_movil', t.id).eq('estado', 'en_curso');
-            document.querySelectorAll('.asiento-btn').forEach(b => b.classList.remove('occupied'));
-            if(ocup) {
-                const miNom = document.getElementById('nombre-input').value;
-                ocup.forEach(o => {
-                    if(o.nombre_pasajero !== miNom) document.getElementById('as-' + o.asiento_num).classList.add('occupied');
-                });
-            }
+        const sentidoSeleccionado = document.getElementById('sentido-select').value;
+        
+        // --- FILTRO: Traer solo los que cumplen la condición ---
+        const { data: moviles } = await _s.from('estado_movil')
+            .select('*')
+            .eq('esta_online', true)
+            .eq('sentido_flujo', sentidoSeleccionado)
+            .neq('latitud', 0);
+        
+        if (moviles) {
+            const idsOnline = moviles.map(m => m.id.toString());
+            
+            // Eliminar marcadores que ya no coinciden o no existen
+            Object.keys(markerTaxis).forEach(id => {
+                if(!idsOnline.includes(id)) {
+                    map.removeLayer(markerTaxis[id]);
+                    delete markerTaxis[id];
+                }
+            });
+
+            // Añadir o actualizar
+            moviles.forEach(t => {
+                if(markerTaxis[t.id]) {
+                    markerTaxis[t.id].setLatLng([t.latitud, t.longitud]);
+                } else {
+                    markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map);
+                }
+            });
         }
     }
-    setInterval(actualizarFlota, 5000); actualizarFlota();
+
+    _s.channel('cambios_pasajero')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'estado_movil' }, () => actualizarFlota())
+      .subscribe();
+
+    actualizarFlota();
 </script>
 </body>
 </html>
