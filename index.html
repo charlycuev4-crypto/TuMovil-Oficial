@@ -132,6 +132,23 @@
     const GPS_UPDATE_INTERVAL = 5000;
     const DISTANCIA_MINIMA_PARADA = 50;
 
+    // 🆕 ESTADO LOCAL ROBUSTO - Fuente de verdad primaria
+    let estadoLocal = {
+        recaudacion: 0,
+        pasajeros: 0,
+        asientos: [
+            { id: 1, ocupado: false, reservaId: null },
+            { id: 2, ocupado: false, reservaId: null },
+            { id: 3, ocupado: false, reservaId: null },
+            { id: 4, ocupado: false, reservaId: null }
+        ],
+        recaudacionHistorica: 0 // Acumulado que no se pierde nunca
+    };
+
+    // 🆕 COLA DE SINCRONIZACIÓN PENDIENTE
+    let colaSync = [];
+    let syncEnProceso = false;
+
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -152,13 +169,12 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.6 }).addTo(map);
     
-    // PARADAS CON CÍRCULO CELESTE Y BORDE NEGRO
     paradas.forEach((p, idx) => { 
         L.circleMarker(p.c, { 
             radius: 6, 
-            color: '#000000',      // Borde negro
+            color: '#000000',
             weight: 2, 
-            fillColor: '#00d2ff',  // Celeste
+            fillColor: '#00d2ff',
             fillOpacity: 1 
         }).addTo(map).bindTooltip(`${idx + 1}. ${p.n}`, { permanent: false });
     });
@@ -227,7 +243,6 @@
                 const parada = encontrarParadaMasCercana(pos.coords.latitude, pos.coords.longitude);
                 paradaActualIdx = parada.idx;
                 
-                // UPSERT - Crea o actualiza el registro
                 const { error } = await _s.from('estado_movil').upsert({ 
                     id: MI_ID_MOVIL,
                     esta_online: true, 
@@ -348,6 +363,35 @@
         }
     }
 
+    // 🆕 FUNCIÓN AUXILIAR: Actualizar UI desde estado local
+    function actualizarUI() {
+        let paxCount = 0;
+        let recaudacion = 0;
+        
+        for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
+            const asiento = estadoLocal.asientos[i - 1];
+            const pill = document.getElementById('pill' + i);
+            
+            if (asiento.ocupado) {
+                paxCount++;
+                recaudacion += PRECIO_POR_ASIENTO;
+                pill.className = 'pill active';
+                pill.innerText = '✓';
+            } else {
+                pill.className = 'pill';
+                pill.innerText = i;
+            }
+        }
+        
+        estadoLocal.pasajeros = paxCount;
+        estadoLocal.recaudacion = recaudacion;
+        
+        document.getElementById('txt-pax').innerText = paxCount;
+        document.getElementById('txt-plata').innerText = '$' + (estadoLocal.recaudacionHistorica + recaudacion).toLocaleString('es-AR');
+        
+        asientosLibres = TOTAL_ASIENTOS - paxCount;
+    }
+
     async function actualizarDatos() {
         try {
             markersPax.forEach(m => map.removeLayer(m));
@@ -363,26 +407,24 @@
 
             if (error) throw error;
 
-            for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
-                const p = document.getElementById('pill' + i);
-                p.className = 'pill'; 
-                p.innerText = i;
-            }
-
-            let recaudacion = 0;
-            let paxCount = 0;
-            
+            // 🆕 SINCRONIZAR ESTADO LOCAL CON SERVIDOR
             if (reservas && reservas.length > 0) {
                 reservas.forEach(res => {
-                    paxCount += 1;
-                    recaudacion += PRECIO_POR_ASIENTO;
-                    
-                    const pill = document.getElementById('pill' + res.asiento_num);
-                    if (pill) {
-                        pill.className = 'pill active';
-                        pill.innerText = '✓';
+                    const idx = res.asiento_num - 1;
+                    if (idx >= 0 && idx < TOTAL_ASIENTOS) {
+                        estadoLocal.asientos[idx] = {
+                            id: res.asiento_num,
+                            ocupado: true,
+                            reservaId: res.id
+                        };
                     }
+                });
+            }
 
+            actualizarUI();
+
+            if (reservas && reservas.length > 0) {
+                reservas.forEach(res => {
                     if (res.pasajero_lat && res.pasajero_lon) {
                         const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], 
                             { color: '#ff3b30', radius: 10, fillColor: '#ff3b30', fillOpacity: 0.3, weight: 2 })
@@ -402,11 +444,6 @@
                 });
             }
 
-            document.getElementById('txt-pax').innerText = paxCount;
-            document.getElementById('txt-plata').innerText = '$' + recaudacion.toLocaleString('es-AR');
-            
-            asientosLibres = TOTAL_ASIENTOS - paxCount;
-            
             if (estaOnline) {
                 await _s.from('estado_movil').update({ asientos_libres: asientosLibres }).eq('id', MI_ID_MOVIL);
             }
@@ -419,54 +456,202 @@
 
         } catch (err) {
             console.error("Error en actualizarDatos:", err);
-            mostrarToast('Error al sincronizar datos', 'error');
+            // 🆕 NO mostrar error al usuario - usar estado local
+            actualizarUI();
         }
     }
 
+    // 🆕 FUNCIÓN ROBUSTA: Liberar asiento con fuerza bruta
     async function liberarAsiento(numAsiento) {
-        const pill = document.getElementById('pill' + numAsiento);
-        if (!pill.classList.contains('active')) {
+        const idx = numAsiento - 1;
+        const asiento = estadoLocal.asientos[idx];
+        
+        // 1. SI YA ESTÁ LIBRE LOCALMENTE, solo informar
+        if (!asiento.ocupado) {
             mostrarToast(`Asiento ${numAsiento} ya está libre`, 'info');
             return;
         }
         
         if (!confirm(`¿Liberar asiento ${numAsiento}?`)) return;
         
-        try {
-            const { data: reserva, error: err1 } = await _s
-                .from('reservas_activas')
-                .select('*')
-                .eq('id_movil', MI_ID_MOVIL)
-                .eq('asiento_num', numAsiento)
-                .eq('estado', 'en_curso')
-                .single();
-            
-            if (err1 || !reserva) {
-                mostrarToast('No se encontró reserva para este asiento', 'error');
-                return;
+        // 🚀 2. LIMPIAR ESTADO LOCAL INMEDIATAMENTE (sin esperar al servidor)
+        const reservaId = asiento.reservaId;
+        estadoLocal.asientos[idx] = { id: numAsiento, ocupado: false, reservaId: null };
+        actualizarUI();
+        
+        // Feedback inmediato al usuario
+        mostrarToast(`🎉 Asiento ${numAsiento} liberado`, 'success');
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        
+        // 🚀 3. INTENTAR SINCRONIZAR EN SEGUNDO PLANO (no bloqueante)
+        if (reservaId) {
+            try {
+                const { error } = await _s
+                    .from('reservas_activas')
+                    .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
+                    .eq('id', reservaId);
+                
+                if (error) {
+                    console.error("Error sync liberar asiento:", error);
+                    // Agregar a cola para retry
+                    agregarAColaSync('liberar', { reservaId, asientoNum: numAsiento });
+                }
+            } catch (err) {
+                console.error("Error red liberar asiento:", err);
+                agregarAColaSync('liberar', { reservaId, asientoNum: numAsiento });
             }
-            
-            const { error: err2 } = await _s
-                .from('reservas_activas')
-                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
-                .eq('id', reserva.id);
-            
-            if (err2) throw err2;
-            
-            asientosLibres += 1;
-            
-            pill.className = 'pill libre';
-            pill.innerText = 'LIBRE';
-            
-            mostrarToast(`🎉 Asiento ${numAsiento} liberado`, 'success');
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-            setTimeout(actualizarDatos, 1000);
-            
-        } catch (err) {
-            console.error("Error liberando asiento:", err);
-            mostrarToast('Error al liberar asiento', 'error');
+        }
+        
+        // Actualizar Supabase estado_movil
+        if (estaOnline) {
+            try {
+                await _s.from('estado_movil').update({ 
+                    asientos_libres: asientosLibres,
+                    ultima_actualizacion: new Date().toISOString()
+                }).eq('id', MI_ID_MOVIL);
+            } catch (e) { 
+                console.error("Error actualizando asientos libres:", e); 
+            }
         }
     }
+
+    // 🆕 FUNCIÓN ROBUSTA: Finalizar/vaciar con fuerza bruta total
+    async function confirmarVaciar() {
+        cerrarModal();
+        
+        // 💾 1. GUARDAR RECAUDACIÓN ANTES DE LIMPIAR (no se pierde el dinero)
+        const recaudacionViajeActual = estadoLocal.recaudacion;
+        estadoLocal.recaudacionHistorica += recaudacionViajeActual;
+        
+        // 🚀 2. LIMPIAR TODO EL ESTADO LOCAL INMEDIATAMENTE
+        const reservasIds = estadoLocal.asientos
+            .filter(a => a.ocupado && a.reservaId)
+            .map(a => a.reservaId);
+        
+        estadoLocal.asientos = [
+            { id: 1, ocupado: false, reservaId: null },
+            { id: 2, ocupado: false, reservaId: null },
+            { id: 3, ocupado: false, reservaId: null },
+            { id: 4, ocupado: false, reservaId: null }
+        ];
+        estadoLocal.pasajeros = 0;
+        estadoLocal.recaudacion = 0;
+        asientosLibres = TOTAL_ASIENTOS;
+        
+        actualizarUI();
+        
+        // Limpiar marcadores del mapa
+        markersPax.forEach(m => map.removeLayer(m));
+        markersDest.forEach(m => map.removeLayer(m));
+        markersPax = []; 
+        markersDest = [];
+        
+        // Feedback inmediato
+        mostrarToast(`🏁 Viaje finalizado. Recaudado: $${recaudacionViajeActual.toLocaleString('es-AR')}`, 'success');
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+        
+        // 🚀 3. INTENTAR SINCRONIZAR CON SERVIDOR (silencioso, no bloqueante)
+        try {
+            // Finalizar todas las reservas activas en Supabase
+            const { error } = await _s
+                .from('reservas_activas')
+                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
+                .eq('estado', 'en_curso')
+                .eq('id_movil', MI_ID_MOVIL);
+            
+            if (error) {
+                console.error("Error sync vaciar:", error);
+                // Agregar IDs individuales a cola
+                reservasIds.forEach(id => {
+                    agregarAColaSync('liberar', { reservaId: id });
+                });
+            }
+        } catch (err) {
+            console.error("Error red vaciar:", err);
+            // Agregar todo a cola de sync
+            reservasIds.forEach(id => {
+                agregarAColaSync('liberar', { reservaId: id });
+            });
+        }
+        
+        // Actualizar estado_movil
+        if (estaOnline) {
+            try {
+                await _s.from('estado_movil').update({ 
+                    asientos_libres: TOTAL_ASIENTOS,
+                    ultima_actualizacion: new Date().toISOString()
+                }).eq('id', MI_ID_MOVIL);
+            } catch (e) { 
+                console.error("Error actualizando estado movil:", e); 
+            }
+        }
+    }
+
+    // 🆕 SISTEMA DE COLA DE SINCRONIZACIÓN
+    function agregarAColaSync(tipo, datos) {
+        colaSync.push({ tipo, datos, timestamp: Date.now(), intentos: 0 });
+        console.log("Agregado a cola sync:", { tipo, datos });
+        
+        // Intentar procesar cola
+        if (!syncEnProceso) {
+            procesarColaSync();
+        }
+    }
+
+    async function procesarColaSync() {
+        if (colaSync.length === 0) {
+            syncEnProceso = false;
+            return;
+        }
+        
+        syncEnProceso = true;
+        const item = colaSync[0];
+        
+        // Si ya intentó 5 veces, descartar
+        if (item.intentos >= 5) {
+            console.log("Descartando item de cola por max intentos:", item);
+            colaSync.shift();
+            syncEnProceso = false;
+            setTimeout(procesarColaSync, 1000);
+            return;
+        }
+        
+        item.intentos++;
+        
+        try {
+            if (item.tipo === 'liberar' && item.datos.reservaId) {
+                const { error } = await _s
+                    .from('reservas_activas')
+                    .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
+                    .eq('id', item.datos.reservaId);
+                
+                if (error) throw error;
+                
+                // Éxito: remover de cola
+                colaSync.shift();
+                console.log("Sync exitoso:", item);
+            }
+        } catch (err) {
+            console.error("Error en sync cola, reintentando...", err);
+            // Reintentar en 5 segundos
+            setTimeout(() => {
+                syncEnProceso = false;
+                procesarColaSync();
+            }, 5000);
+            return;
+        }
+        
+        syncEnProceso = false;
+        // Procesar siguiente
+        setTimeout(procesarColaSync, 500);
+    }
+
+    // 🆕 PROCESAR COLA PERIÓDICAMENTE
+    setInterval(() => {
+        if (colaSync.length > 0 && !syncEnProceso && navigator.onLine) {
+            procesarColaSync();
+        }
+    }, 10000); // Revisar cada 10 segundos
 
     function mostrarModalVaciar() {
         document.getElementById('modal-vaciar').style.display = 'flex';
@@ -475,35 +660,6 @@
     function cerrarModal() {
         document.getElementById('modal-vaciar').style.display = 'none';
     }
-    
-    async function confirmarVaciar() {
-        cerrarModal();
-        
-        try {
-            const { error } = await _s
-                .from('reservas_activas')
-                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
-                .eq('estado', 'en_curso')
-                .eq('id_movil', MI_ID_MOVIL);
-            
-            if (error) throw error;
-            
-            asientosLibres = TOTAL_ASIENTOS;
-            
-            for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
-                const p = document.getElementById('pill' + i);
-                p.className = 'pill'; 
-                p.innerText = i;
-            }
-            
-            mostrarToast('🏁 Viaje finalizado. Coche vacío.', 'success');
-            actualizarDatos();
-            
-        } catch (err) {
-            console.error("Error finalizando viaje:", err);
-            mostrarToast('Error al finalizar viaje', 'error');
-        }
-    }
 
     _s.channel('coche_' + MI_ID_MOVIL)
       .on('postgres_changes', { 
@@ -511,12 +667,24 @@
           filter: `id_movil=eq.${MI_ID_MOVIL}` 
       }, (payload) => {
           console.log("Cambio en reservas:", payload);
-          actualizarDatos();
+          
+          // 🆕 SI ES INSERT, actualizar estado local inmediatamente
           if (payload.eventType === 'INSERT') {
               const res = payload.new;
+              const idx = res.asiento_num - 1;
+              if (idx >= 0 && idx < TOTAL_ASIENTOS) {
+                  estadoLocal.asientos[idx] = {
+                      id: res.asiento_num,
+                      ocupado: true,
+                      reservaId: res.id
+                  };
+                  actualizarUI();
+              }
               mostrarToast(`🙋 ¡Nuevo pasajero! ${res.nombre_pasajero || 'Pasajero'}`, 'success');
               if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
           }
+          
+          actualizarDatos();
       })
       .subscribe();
 
