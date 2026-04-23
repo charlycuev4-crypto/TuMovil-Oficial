@@ -158,6 +158,8 @@
     
     const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
     const marcadorConductor = L.marker(paradas[0].c, { icon: iconTaxi }).addTo(map);
+    let markersPax = []; 
+    let markersDest = [];
 
     function mostrarToast(mensaje, tipo = 'info') {
         const existing = document.querySelector('.toast');
@@ -169,15 +171,31 @@
         setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
     }
 
+    function initNetworkMonitor() {
+        const indicator = document.getElementById('net-status');
+        const updateStatus = () => {
+            if (navigator.onLine) {
+                indicator.className = 'net-online';
+                indicator.innerText = '📶 ONLINE';
+            } else {
+                indicator.className = 'net-offline';
+                indicator.innerText = '⚠️ SIN RED';
+            }
+        };
+        updateStatus();
+        window.addEventListener('online', () => { updateStatus(); mostrarToast('Conexión restaurada', 'success'); actualizarDatos(); });
+        window.addEventListener('offline', () => { updateStatus(); mostrarToast('Sin conexión a internet', 'error'); });
+    }
+
     async function gestionarConexion() {
         const toggle = document.getElementById('online-toggle');
         estaOnline = toggle.checked;
         const label = document.getElementById('status-label');
         try {
             if (estaOnline) {
-                label.innerText = "CONECTANDO..."; 
-                const { data: { session } } = await _s.auth.getSession();
-                const { error } = await _s.from('estado_movil').upsert({ id: MI_ID_MOVIL, esta_online: true, en_servicio: true }, { onConflict: 'id' });
+                label.innerText = "CONECTANDO...";
+                const pos = await obtenerPosicionActual();
+                const { error } = await _s.from('estado_movil').upsert({ id: MI_ID_MOVIL, esta_online: true, en_servicio: true, latitud: pos.coords.latitude, longitud: pos.coords.longitude }, { onConflict: 'id' });
                 if (error) throw error;
                 label.innerText = "EN LÍNEA";
                 iniciarGPS();
@@ -189,58 +207,87 @@
         } catch (err) { console.error(err); toggle.checked = !estaOnline; }
     }
 
-    // --- CORRECCIÓN CRÍTICA 1 ---
+    function obtenerPosicionActual() {
+        return new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
+        });
+    }
+
+    function iniciarGPS() {
+        if (watchId) navigator.geolocation.clearWatch(watchId);
+        watchId = navigator.geolocation.watchPosition(async (p) => {
+            if (!estaOnline) return;
+            marcadorConductor.setLatLng([p.coords.latitude, p.coords.longitude]);
+            await _s.from('estado_movil').update({ latitud: p.coords.latitude, longitud: p.coords.longitude }).eq('id', MI_ID_MOVIL);
+        }, null, { enableHighAccuracy: true });
+    }
+
+    async function cambiarSentido() {
+        sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
+        document.getElementById('btn-sentido').innerText = sentidoActual;
+        await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL);
+    }
+
+    async function actualizarDatos() {
+        try {
+            markersPax.forEach(m => map.removeLayer(m));
+            markersDest.forEach(m => map.removeLayer(m));
+            markersPax = []; markersDest = [];
+
+            const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
+            
+            for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
+                const p = document.getElementById('pill' + i);
+                p.className = 'pill'; p.innerText = i;
+            }
+
+            let recaudacion = 0; let paxCount = 0;
+            if (reservas) {
+                reservas.forEach(res => {
+                    paxCount++; recaudacion += PRECIO_POR_ASIENTO;
+                    const pill = document.getElementById('pill' + res.asiento_num);
+                    if (pill) { pill.className = 'pill active'; pill.innerText = '✓'; }
+                });
+            }
+            document.getElementById('txt-pax').innerText = paxCount;
+            document.getElementById('txt-plata').innerText = '$' + recaudacion;
+        } catch (err) { console.error(err); }
+    }
+
     async function liberarAsiento(numAsiento) {
         const pill = document.getElementById('pill' + numAsiento);
         if (!pill.classList.contains('active')) return;
         if (!confirm(`¿Liberar asiento ${numAsiento}?`)) return;
         
         try {
-            const { data: reserva } = await _s.from('reservas_activas').select('id').eq('id_movil', MI_ID_MOVIL).eq('asiento_num', numAsiento).eq('estado', 'en_curso').single();
-            if (!reserva) return mostrarToast('No se encontró reserva activa', 'error');
+            const { data: reserva } = await _s.from('reservas_activas').select('id').eq('id_movil', MI_ID_MOVIL).eq('asiento_num', numAsiento).single();
+            if (!reserva) return;
             
-            // ACTUALIZACIÓN ROBUSTA: Sin filtros innecesarios de estado
-            const { error } = await _s.from('reservas_activas')
-                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
-                .eq('id', reserva.id);
-            
+            // CORRECCIÓN: Quitamos el filtro de estado para que siempre finalice
+            const { error } = await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', reserva.id);
             if (error) throw error;
-            mostrarToast(`🎉 Asiento ${numAsiento} liberado`, 'success');
+            mostrarToast('Asiento liberado', 'success');
             actualizarDatos();
-        } catch (err) {
-            console.error(err);
-            mostrarToast('Error al liberar', 'error');
-        }
+        } catch (err) { mostrarToast('Error', 'error'); }
     }
 
-    // --- CORRECCIÓN CRÍTICA 2 ---
+    function mostrarModalVaciar() { document.getElementById('modal-vaciar').style.display = 'flex'; }
+    function cerrarModal() { document.getElementById('modal-vaciar').style.display = 'none'; }
+    
     async function confirmarVaciar() {
         cerrarModal();
         try {
-            // ACTUALIZACIÓN ROBUSTA: Solo filtramos por id_movil para que limpie TODO
-            const { error } = await _s.from('reservas_activas')
-                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
-                .eq('id_movil', MI_ID_MOVIL); // Eliminamos el filtro de estado para evitar bloqueos
-            
+            // CORRECCIÓN: Quitamos el filtro de estado para que finalice todo sin bloqueos
+            const { error } = await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL);
             if (error) throw error;
-            mostrarToast('🏁 Viaje finalizado. Coche vacío.', 'success');
+            mostrarToast('Coche vacío', 'success');
             actualizarDatos();
-        } catch (err) {
-            console.error(err);
-            mostrarToast('Error al finalizar', 'error');
-        }
+        } catch (err) { mostrarToast('Error al vaciar', 'error'); }
     }
 
-    async function actualizarDatos() {
-        try {
-            const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
-            // ... lógica de UI que tenías antes ...
-            // (He omitido el código largo de UI aquí para que copies este bloque y lo integres en tu archivo)
-        } catch (err) { console.error(err); }
-    }
+    _s.channel('coche_' + MI_ID_MOVIL).on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => actualizarDatos()).subscribe();
 
-    // ... (Mantén aquí el resto de tus funciones: iniciarGPS, cambiarSentido, initNetworkMonitor, etc.) ...
-
+    window.onload = () => { initNetworkMonitor(); actualizarDatos(); setTimeout(() => document.getElementById('splash').style.opacity = '0', 2000); };
 </script>
 </body>
 </html>
