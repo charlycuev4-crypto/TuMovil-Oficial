@@ -88,7 +88,7 @@
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     
-    // ✅ PARADAS CON CÍRCULO CELESTE Y BORDE NEGRO
+    // ✅ PARADAS CON CÍRCULO CELESTE Y BORDE NEGRO (igual que conductor)
     paradas.forEach((p, idx) => { 
         L.circleMarker(p.c, { 
             radius: 6, 
@@ -162,6 +162,9 @@
         else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
     }
 
+    // ============================================================
+    // ✅ FUNCIÓN CORREGIDA - Exactamente como la que funcionaba
+    // ============================================================
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
         const destIdx = document.getElementById('destino-select').value;
@@ -170,6 +173,7 @@
         if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
         localStorage.setItem('usuario_nombre', nom);
         
+        // --- PASO 1: Buscar móvil disponible en el sentido correcto ---
         const { data: moviles } = await _s.from('estado_movil')
             .select('*')
             .eq('esta_online', true)
@@ -177,13 +181,15 @@
             .neq('latitud', 0)
             .limit(1);
             
+        // --- ✅ VALIDACIÓN: Si no hay móviles online, mostrar mensaje ---
         if (!moviles || moviles.length === 0) { 
             alert("🚫 No hay autos disponibles en este momento. Intenta más tarde."); 
             return; 
         }
         
+        // --- PASO 2: Verificar que el móvil sigue online ANTES de reservar ---
+        // (doble validación para evitar race condition)
         const movilId = moviles[0].id;
-        
         const { data: verificacion } = await _s.from('estado_movil')
             .select('esta_online')
             .eq('id', movilId)
@@ -194,6 +200,7 @@
             return; 
         }
         
+        // --- PASO 3: Crear la reserva (igual que antes) ---
         const res = asientosElegidos.map(n => ({ 
             asiento_num: n, 
             id_movil: movilId, 
