@@ -10,7 +10,7 @@
     <style>
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --azul-gps: #007AFF; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
-
+        
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
         .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
@@ -19,7 +19,7 @@
         .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
 
         #map { flex-grow: 1; width: 100%; }
-
+        
         .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 45vh; overflow-y: auto; }
         .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
@@ -31,22 +31,6 @@
         .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; }
         .btn-pedir:disabled { background: #444; color: #888; }
         .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
-
-        #alerta-offline { 
-            display: none; 
-            background: #dc3545; 
-            color: white; 
-            text-align: center; 
-            padding: 10px; 
-            font-weight: bold; 
-            position: fixed; 
-            top: 50px; 
-            left: 0; 
-            right: 0; 
-            z-index: 9999; 
-            animation: slideDown 0.3s ease;
-        }
-        @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -57,19 +41,17 @@
         <p style="color: white; font-size: 12px;">Conectando al sistema...</p>
     </div>
 
-    <div id="alerta-offline">⚠️ TU CONDUCTOR SE DESCONECTÓ - El viaje fue cancelado</div>
-
     <div class="header"><h1>SOLICITAR VIAJE</h1></div>
     <div id="map"></div>
 
     <div class="bottom-ui">
         <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
-
+        
         <select id="sentido-select" onchange="actualizarFlota()">
-            <option value="IDA">🚕 Hacia el Cruce</option>
-            <option value="VUELTA">🚕 Hacia Miguel Cané</option>
+            <option value="IDA">Hacia IDA</option>
+            <option value="VUELTA">Hacia VUELTA</option>
         </select>
-
+        
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
         <select id="destino-select" onchange="actualizarMapaRuta()">
             <option value="" disabled selected>¿A qué parada vas?</option>
@@ -105,10 +87,7 @@
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    paradas.forEach((p, idx) => { 
-        L.circleMarker(p.c, { radius: 6, color: '#000000', weight: 2, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map).bindTooltip(`${idx + 1}. ${p.n}`, { permanent: false });
-    });
+    paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d2ff' }).addTo(map));
 
     const iconP = L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] });
     const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', className: 'dest-arrow', iconAnchor: [10, 11] });
@@ -119,7 +98,6 @@
     let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
     let markerTaxis = {};
     let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
-    let miMovilId = null;
 
     const selDest = document.getElementById('destino-select');
     paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
@@ -132,11 +110,10 @@
             if(data && data.length > 0) {
                 miViajeActivo = true;
                 asientosElegidos = data.map(r => r.asiento_num);
-                miMovilId = data[0].id_movil;
                 document.getElementById('destino-select').value = data[0].destino_idx;
+                // FIX: Recuperar sentido al recargar
                 if(data[0].sentido) { document.getElementById('sentido-select').value = data[0].sentido; }
                 bloquearPanelParaViajeActivo();
-                monitorearConductor();
             }
         }
     };
@@ -146,29 +123,8 @@
         document.getElementById('btn-cancelar').style.display = 'block';
         document.getElementById('nombre-input').disabled = true;
         document.getElementById('destino-select').disabled = true;
-        document.getElementById('sentido-select').disabled = true;
+        document.getElementById('sentido-select').disabled = true; 
         asientosElegidos.forEach(n => document.getElementById('as-'+n).classList.add('selected'));
-    }
-
-    function monitorearConductor() {
-        if (!miMovilId) return;
-        _s.channel('monitoreo_conductor_' + miMovilId)
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.' + miMovilId }, (payload) => {
-              if (payload.new.esta_online === false) { mostrarAlertaOffline(); cancelarViajePorDesconexion(); }
-          }).subscribe();
-    }
-
-    function mostrarAlertaOffline() {
-        const alerta = document.getElementById('alerta-offline');
-        alerta.style.display = 'block';
-        setTimeout(() => { alerta.style.display = 'none'; }, 5000);
-    }
-
-    async function cancelarViajePorDesconexion() {
-        const nom = document.getElementById('nombre-input').value;
-        await _s.from('reservas_activas').update({ estado: 'cancelado_por_offline', motivo: 'conductor_desconectado' }).eq('nombre_pasajero', nom).eq('estado', 'en_curso');
-        miViajeActivo = false; miMovilId = null;
-        setTimeout(() => location.reload(), 3000);
     }
 
     navigator.geolocation.watchPosition(p => {
@@ -198,76 +154,37 @@
         else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
     }
 
-    // --- CÓDIGO CORREGIDO Y MÁS ROBUSTO ---
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
         const destIdx = document.getElementById('destino-select').value;
         const sentido = document.getElementById('sentido-select').value;
-
-        if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
         
-        const btnPedir = document.getElementById('btn-pedir');
-        btnPedir.disabled = true;
-        btnPedir.innerText = "PROCESANDO...";
-
-        try {
-            localStorage.setItem('usuario_nombre', nom);
-
-            // 1. Buscar un móvil disponible
-            const { data: moviles, error: errBusqueda } = await _s.from('estado_movil')
-                .select('id')
-                .eq('esta_online', true) 
-                .eq('sentido_flujo', sentido)
-                .neq('latitud', 0)
-                .limit(1);
-
-            if (errBusqueda || !moviles || moviles.length === 0) { 
-                alert("🚫 No hay autos disponibles. Intenta de nuevo."); 
-                btnPedir.disabled = false;
-                btnPedir.innerText = "🏁 SOLICITAR MI VIAJE";
-                return; 
-            }
+        if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
+        localStorage.setItem('usuario_nombre', nom);
+        
+        const { data: moviles } = await _s.from('estado_movil')
+            .select('id')
+            .eq('esta_online', true) 
+            .eq('sentido_flujo', sentido)
+            .neq('latitud', 0)
+            .limit(1);
             
-            const movilId = moviles[0].id;
-
-            // 2. VERIFICACIÓN SEGURA con maybeSingle()
-            const { data: verificacion, error: errVerif } = await _s.from('estado_movil')
-                .select('esta_online, sentido_flujo')
-                .eq('id', movilId)
-                .maybeSingle(); 
-
-            if (errVerif || !verificacion || verificacion.esta_online !== true || verificacion.sentido_flujo !== sentido) {
-                alert("⚠️ El vehículo cambió de estado. Intentando refrescar...");
-                location.reload();
-                return; 
-            }
-
-            // 3. Insertar la reserva
-            const res = asientosElegidos.map(n => ({ 
-                asiento_num: n, 
-                id_movil: movilId, 
-                estado: 'en_curso', 
-                nombre_pasajero: nom, 
-                pasajero_lat: miLat, 
-                pasajero_lon: miLon, 
-                destino_idx: parseInt(destIdx),
-                sentido: sentido
-            }));
-
-            const { error: errInsert } = await _s.from('reservas_activas').insert(res);
-
-            if (errInsert) throw new Error("Error al guardar reserva");
-
-            location.reload();
-
-        } catch (e) {
-            console.error("Error:", e);
-            alert("Error al procesar viaje. Intenta nuevamente.");
-            btnPedir.disabled = false;
-            btnPedir.innerText = "🏁 SOLICITAR MI VIAJE";
-        }
+        if (!moviles || moviles.length === 0) { alert("No hay choferes en ese sentido actualmente."); return; }
+        
+        // FIX: Incluir el sentido en el objeto de inserción
+        const res = asientosElegidos.map(n => ({ 
+            asiento_num: n, 
+            id_movil: moviles[0].id, 
+            estado: 'en_curso', 
+            nombre_pasajero: nom, 
+            pasajero_lat: miLat, 
+            pasajero_lon: miLon, 
+            destino_idx: parseInt(destIdx),
+            sentido: sentido 
+        }));
+        await _s.from('reservas_activas').insert(res);
+        location.reload();
     }
-    // --- FIN CÓDIGO CORREGIDO ---
 
     async function finalizarViaje() {
         const nom = document.getElementById('nombre-input').value;
@@ -282,7 +199,7 @@
             .eq('esta_online', true)
             .eq('sentido_flujo', sentidoSeleccionado)
             .neq('latitud', 0);
-
+        
         if (moviles) {
             const idsOnline = moviles.map(m => m.id.toString());
             Object.keys(markerTaxis).forEach(id => {
