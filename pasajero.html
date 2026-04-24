@@ -20,8 +20,10 @@
 
         #map { flex-grow: 1; width: 100%; }
         
-        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 45vh; overflow-y: auto; }
+        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 48vh; overflow-y: auto; }
         .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
+        #status-capacidad { color: var(--celeste); text-align: center; font-size: 14px; font-weight: bold; margin: 2px 0; }
+        
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
         .asientos-grid { display: flex; justify-content: space-around; margin: 5px 0; }
         .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center; }
@@ -45,6 +47,7 @@
 
     <div class="bottom-ui">
         <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
+        <div id="status-capacidad">Cargando disponibilidad...</div>
         
         <select id="sentido-select" onchange="actualizarFlota()">
             <option value="IDA">Hacia IDA</option>
@@ -98,7 +101,6 @@
     const selDest = document.getElementById('destino-select');
     paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
 
-    // Helper para detectar en qué parada está el usuario (basado en distancia)
     function calcularParadaCercana(lat, lon) {
         let min = 999; let idx = 0;
         paradas.forEach((p, i) => {
@@ -148,7 +150,15 @@
             .eq('sentido_flujo', sentidoSeleccionado)
             .neq('latitud', 0);
         
+        // --- Cálculo de asientos disponibles ---
+        let totalAsientosLibres = 0;
         if (moviles) {
+            moviles.forEach(m => totalAsientosLibres += (m.asientos_libres || 0));
+            document.getElementById('status-capacidad').innerText = moviles.length > 0 
+                ? `Disponibles: ${totalAsientosLibres} asientos en este sentido` 
+                : "No hay móviles operando en este sentido";
+            
+            // Gestión de marcadores
             const idsOnline = moviles.map(m => m.id.toString());
             Object.keys(markerTaxis).forEach(id => { if(!idsOnline.includes(id)) { map.removeLayer(markerTaxis[id]); delete markerTaxis[id]; } });
             moviles.forEach(t => {
@@ -176,7 +186,7 @@
         
         let movilAsignado = null;
         for (const m of moviles) {
-            // LÓGICA DE FILTRO: Solo tomamos móviles que NO hayan pasado nuestra parada (disponible_desde <= miParadaActual)
+            // LÓGICA DE FILTRO: Solo móviles que NO pasaron mi parada
             if ((m.asientos_libres || 0) >= asientosElegidos.length && m.disponible_desde <= miParadaActual) {
                 movilAsignado = m;
                 break;
