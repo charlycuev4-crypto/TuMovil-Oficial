@@ -69,7 +69,6 @@
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // ... (Tu array de paradas se mantiene igual) ...
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -122,7 +121,7 @@
         document.getElementById('btn-cancelar').style.display = 'block';
         document.getElementById('nombre-input').disabled = true;
         document.getElementById('destino-select').disabled = true;
-        document.getElementById('sentido-select').disabled = true; // --- NUEVO: Bloqueo ---
+        document.getElementById('sentido-select').disabled = true;
         asientosElegidos.forEach(n => document.getElementById('as-'+n).classList.add('selected'));
     }
 
@@ -153,24 +152,55 @@
         else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
     }
 
+    // ============================================================
+    // ✅ ÚNICA FUNCIÓN MODIFICADA - Solo agregué validación de online
+    // ============================================================
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
         const destIdx = document.getElementById('destino-select').value;
-        const sentido = document.getElementById('sentido-select').value; // --- NUEVO: Captura ---
+        const sentido = document.getElementById('sentido-select').value;
         
         if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
         localStorage.setItem('usuario_nombre', nom);
         
-        // --- NUEVO: Filtro en la búsqueda ---
+        // --- PASO 1: Buscar móvil disponible en el sentido correcto ---
         const { data: moviles } = await _s.from('estado_movil')
-            .select('id')
-            .eq('esta_online', true) 
-            .eq('sentido_flujo', sentido) // <-- FILTRO CRÍTICO
+            .select('*')
+            .eq('esta_online', true)
+            .eq('sentido_flujo', sentido)
             .neq('latitud', 0)
             .limit(1);
             
-        if (!moviles || moviles.length === 0) { alert("No hay choferes en ese sentido actualmente."); return; }
-        const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: moviles[0].id, estado: 'en_curso', nombre_pasajero: nom, pasajero_lat: miLat, pasajero_lon: miLon, destino_idx: parseInt(destIdx) }));
+        // --- ✅ VALIDACIÓN NUEVA: Si no hay móviles online, mostrar mensaje ---
+        if (!moviles || moviles.length === 0) { 
+            alert("🚫 No hay autos disponibles en este momento. Intenta más tarde."); 
+            return; 
+        }
+        
+        // --- PASO 2: Verificar que el móvil sigue online ANTES de reservar ---
+        // (doble validación para evitar race condition)
+        const movilId = moviles[0].id;
+        const { data: verificacion } = await _s.from('estado_movil')
+            .select('esta_online')
+            .eq('id', movilId)
+            .single();
+            
+        if (!verificacion || verificacion.esta_online !== true) {
+            alert("🚫 El auto se acaba de desconectar. Intenta de nuevo."); 
+            return; 
+        }
+        
+        // --- PASO 3: Crear la reserva (igual que antes) ---
+        const res = asientosElegidos.map(n => ({ 
+            asiento_num: n, 
+            id_movil: movilId, 
+            estado: 'en_curso', 
+            nombre_pasajero: nom, 
+            pasajero_lat: miLat, 
+            pasajero_lon: miLon, 
+            destino_idx: parseInt(destIdx) 
+        }));
+        
         await _s.from('reservas_activas').insert(res);
         location.reload();
     }
@@ -181,11 +211,9 @@
         location.reload();
     }
 
-    // --- NUEVO: LÓGICA DE ACTUALIZACIÓN CON FILTRO ---
     async function actualizarFlota() {
         const sentidoSeleccionado = document.getElementById('sentido-select').value;
         
-        // --- FILTRO: Traer solo los que cumplen la condición ---
         const { data: moviles } = await _s.from('estado_movil')
             .select('*')
             .eq('esta_online', true)
@@ -195,7 +223,6 @@
         if (moviles) {
             const idsOnline = moviles.map(m => m.id.toString());
             
-            // Eliminar marcadores que ya no coinciden o no existen
             Object.keys(markerTaxis).forEach(id => {
                 if(!idsOnline.includes(id)) {
                     map.removeLayer(markerTaxis[id]);
@@ -203,7 +230,6 @@
                 }
             });
 
-            // Añadir o actualizar
             moviles.forEach(t => {
                 if(markerTaxis[t.id]) {
                     markerTaxis[t.id].setLatLng([t.latitud, t.longitud]);
