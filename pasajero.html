@@ -8,49 +8,34 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --azul-gps: #007AFF; }
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
-        
-        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
-        .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
+        .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-
-        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; flex-shrink: 0; }
-        .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
-
+        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; }
+        .header h1 { margin: 0; font-size: 18px; color: var(--celeste); }
         #map { flex-grow: 1; width: 100%; }
-        
-        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 45vh; overflow-y: auto; }
-        .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
-        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
+        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px; display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 1000; }
+        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; width: 100%; box-sizing: border-box; }
         .asientos-grid { display: flex; justify-content: space-around; margin: 5px 0; }
-        .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center; }
-        .asiento-btn.selected { background: var(--amarillo); border-color: var(--amarillo); color: #000; box-shadow: 0 0 15px var(--amarillo); }
-        
-        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; }
-        .btn-pedir:disabled { background: #444; color: #888; }
-        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
+        .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .asiento-btn.selected { background: var(--amarillo); border-color: var(--amarillo); color: #000; }
+        .btn-pedir { background: #28a745; color: white; padding: 15px; border-radius: 12px; font-weight: bold; border: none; }
+        .btn-cancelar { background: #dc3545; color: white; padding: 15px; border-radius: 12px; font-weight: bold; display: none; border: none; }
     </style>
 </head>
 <body>
 
-    <div id="splash">
-        <div class="anillo"><span style="font-size: 60px;">🚕</span></div>
-        <h2 style="color: var(--celeste); margin-top: 20px;">TUMOVIL</h2>
-        <p style="color: white; font-size: 12px;">Conectando al sistema...</p>
-    </div>
-
+    <div id="splash"><div class="anillo"><span style="font-size: 60px;">🚕</span></div></div>
     <div class="header"><h1>SOLICITAR VIAJE</h1></div>
     <div id="map"></div>
 
     <div class="bottom-ui">
-        <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
-        
         <select id="sentido-select" onchange="actualizarFlota()">
             <option value="IDA">Hacia el Cruce</option>
             <option value="VUELTA">Hacia Miguel Cané</option>
         </select>
-        
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
         <select id="destino-select">
             <option value="" disabled selected>¿A qué parada vas?</option>
@@ -61,7 +46,7 @@
             <div class="asiento-btn" onclick="toggleAsiento(3)" id="as-3">3</div>
             <div class="asiento-btn" onclick="toggleAsiento(4)" id="as-4">4</div>
         </div>
-        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ BUSCANDO GPS...</button>
+        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()">SOLICITAR MI VIAJE</button>
         <button class="btn-cancelar" id="btn-cancelar" onclick="finalizarViaje()">TERMINAR MI VIAJE</button>
     </div>
 
@@ -86,13 +71,11 @@
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d2ff' }).addTo(map));
+    paradas.forEach(p => L.circleMarker(p.c, { radius: 6, color: '#00d2ff', fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map));
     
-    let markerTaxis = {};
-    let asientosElegidos = [];
-    let miViajeActivo = false;
+    let markerTaxis = {}, markerUser, lineaDestino, asientosElegidos = [], miViajeActivo = false;
+    let miLat = 0, miLon = 0;
 
-    // Poblar select destino
     const selDest = document.getElementById('destino-select');
     paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
 
@@ -121,15 +104,12 @@
 
     async function actualizarFlota() {
         const sentido = document.getElementById('sentido-select').value;
-        const { data: moviles, error } = await _s.from('estado_movil')
+        const { data: moviles } = await _s.from('estado_movil')
             .select('*')
             .eq('esta_online', true)
             .eq('sentido_flujo', sentido)
             .neq('latitud', 0);
         
-        if (error) console.error("Error al obtener flota:", error);
-        
-        // Limpiar marcadores viejos
         Object.keys(markerTaxis).forEach(id => map.removeLayer(markerTaxis[id]));
         markerTaxis = {};
 
@@ -139,7 +119,24 @@
                 markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map);
             });
         }
+        
+        // Ocultar splash
+        document.getElementById('splash').style.display = 'none';
     }
+
+    // Ubicación del usuario
+    navigator.geolocation.watchPosition(p => {
+        miLat = p.coords.latitude; miLon = p.coords.longitude;
+        if(markerUser) map.removeLayer(markerUser);
+        markerUser = L.marker([miLat, miLon]).addTo(map); // Icono de usuario
+        
+        // Dibujar línea si hay destino seleccionado
+        const destIdx = document.getElementById('destino-select').value;
+        if(destIdx !== "") {
+            if(lineaDestino) map.removeLayer(lineaDestino);
+            lineaDestino = L.polyline([[miLat, miLon], paradas[destIdx].c], {color: 'yellow', dashArray: '5, 10'}).addTo(map);
+        }
+    }, null, { enableHighAccuracy: true });
 
     function toggleAsiento(num) {
         if(miViajeActivo) return;
@@ -149,13 +146,6 @@
         else { asientosElegidos.push(num); el.classList.add('selected'); }
     }
 
-    navigator.geolocation.watchPosition(p => {
-        const btn = document.getElementById('btn-pedir');
-        btn.disabled = false;
-        if(!miViajeActivo) btn.innerText = "🏁 SOLICITAR MI VIAJE";
-        const s = document.getElementById('splash'); if(s) { s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800); }
-    }, null, { enableHighAccuracy: true });
-
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
         const destIdx = document.getElementById('destino-select').value;
@@ -163,7 +153,6 @@
         
         if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
         
-        // Buscar chofer
         const { data: moviles } = await _s.from('estado_movil')
             .select('id')
             .eq('esta_online', true) 
@@ -179,7 +168,7 @@
             localStorage.setItem('usuario_nombre', nom);
             location.reload();
         } else {
-            alert("Error al reservar: " + error.message);
+            alert("Error: " + error.message);
         }
     }
 
