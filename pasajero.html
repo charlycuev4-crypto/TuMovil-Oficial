@@ -111,8 +111,9 @@
                 miViajeActivo = true;
                 asientosElegidos = data.map(r => r.asiento_num);
                 document.getElementById('destino-select').value = data[0].destino_idx;
-                // FIX: Recuperar sentido al recargar
-                if(data[0].sentido) { document.getElementById('sentido-select').value = data[0].sentido; }
+                // --- LINEA NUEVA PARA MANTENER EL SENTIDO AL RECARGAR ---
+                if(data[0].sentido) document.getElementById('sentido-select').value = data[0].sentido;
+                // -------------------------------------------------------
                 bloquearPanelParaViajeActivo();
             }
         }
@@ -171,7 +172,6 @@
             
         if (!moviles || moviles.length === 0) { alert("No hay choferes en ese sentido actualmente."); return; }
         
-        // El objeto de inserción incluye el sentido para persistencia
         const res = asientosElegidos.map(n => ({ 
             asiento_num: n, 
             id_movil: moviles[0].id, 
@@ -180,7 +180,7 @@
             pasajero_lat: miLat, 
             pasajero_lon: miLon, 
             destino_idx: parseInt(destIdx),
-            sentido: sentido 
+            sentido: sentido // Añadimos esto para guardarlo correctamente
         }));
         await _s.from('reservas_activas').insert(res);
         location.reload();
