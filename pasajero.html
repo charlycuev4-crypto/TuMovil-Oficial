@@ -10,7 +10,7 @@
     <style>
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --azul-gps: #007AFF; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
-
+        
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
         .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
@@ -19,7 +19,7 @@
         .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
 
         #map { flex-grow: 1; width: 100%; }
-
+        
         .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 45vh; overflow-y: auto; }
         .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
@@ -31,12 +31,6 @@
         .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; }
         .btn-pedir:disabled { background: #444; color: #888; }
         .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
-
-        .toast { position: fixed; top: 200px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 12px 24px; border-radius: 25px; font-weight: bold; font-size: 14px; animation: slideDown 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.5); max-width: 90%; text-align: center; }
-        .toast.success { background: #4cd964; color: #000; }
-        .toast.error { background: #ff3b30; color: #fff; }
-        .toast.info { background: var(--amarillo); color: #000; }
-        @keyframes slideDown { from { transform: translate(-50%, -20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -52,12 +46,12 @@
 
     <div class="bottom-ui">
         <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
-
+        
         <select id="sentido-select" onchange="actualizarFlota()">
             <option value="IDA">Hacia IDA</option>
             <option value="VUELTA">Hacia VUELTA</option>
         </select>
-
+        
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
         <select id="destino-select" onchange="actualizarMapaRuta()">
             <option value="" disabled selected>¿A qué parada vas?</option>
@@ -75,6 +69,7 @@
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
+    // ... (Tu array de paradas se mantiene igual) ...
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -104,47 +99,9 @@
     let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
     let markerTaxis = {};
     let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
-    let miParadaIdx = -1; // ← NUEVO: Guardar parada actual del pasajero
 
     const selDest = document.getElementById('destino-select');
     paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
-
-    // ============================================================
-    // ✅ NUEVAS FUNCIONES: Calcular distancia y parada más cercana
-    // ============================================================
-    function calcularDistancia(coord1, coord2) {
-        const R = 6371e3;
-        const φ1 = coord1[0] * Math.PI / 180;
-        const φ2 = coord2[0] * Math.PI / 180;
-        const Δφ = (coord2[0] - coord1[0]) * Math.PI / 180;
-        const Δλ = (coord2[1] - coord1[1]) * Math.PI / 180;
-        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + 
-                  Math.cos(φ1) * Math.cos(φ2) * 
-                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
-
-    function encontrarParadaMasCercana(lat, lon) {
-        let minDist = Infinity;
-        let paradaIdx = 0;
-        paradas.forEach((parada, idx) => {
-            const dist = calcularDistancia([lat, lon], parada.c);
-            if (dist < minDist) { minDist = dist; paradaIdx = idx; }
-        });
-        return { idx: paradaIdx, distancia: minDist };
-    }
-
-    function mostrarToast(mensaje, tipo = 'info') {
-        const existing = document.querySelector('.toast');
-        if (existing) existing.remove();
-        const toast = document.createElement('div');
-        toast.className = `toast ${tipo}`;
-        toast.innerText = mensaje;
-        document.body.appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
-    }
-    // ============================================================
 
     window.onload = async () => {
         const nombreGuardado = localStorage.getItem('usuario_nombre');
@@ -165,18 +122,13 @@
         document.getElementById('btn-cancelar').style.display = 'block';
         document.getElementById('nombre-input').disabled = true;
         document.getElementById('destino-select').disabled = true;
-        document.getElementById('sentido-select').disabled = true;
+        document.getElementById('sentido-select').disabled = true; // --- NUEVO: Bloqueo ---
         asientosElegidos.forEach(n => document.getElementById('as-'+n).classList.add('selected'));
     }
 
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
         markerPasajero.setLatLng([miLat, miLon]);
-
-        // ← NUEVO: Actualizar parada actual del pasajero
-        const paradaInfo = encontrarParadaMasCercana(miLat, miLon);
-        miParadaIdx = paradaInfo.idx;
-
         actualizarMapaRuta();
         document.getElementById('btn-pedir').disabled = false;
         if(!miViajeActivo) document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR MI VIAJE";
@@ -201,54 +153,26 @@
         else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
     }
 
-    // ============================================================
-    // ✅ FUNCIÓN CORREGIDA: Con filtro de paradas ya pasadas
-    // ============================================================
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
         const destIdx = document.getElementById('destino-select').value;
-        const sentido = document.getElementById('sentido-select').value;
-
-        if (!nom || !destIdx || asientosElegidos.length === 0) { 
-            mostrarToast("Completa todos tus datos", 'error'); 
-            return; 
-        }
-
-        // ← NUEVO: Verificar que tengamos la parada del pasajero
-        if (miParadaIdx === -1) {
-            mostrarToast("Esperando GPS... intenta de nuevo", 'info');
-            return;
-        }
-
+        const sentido = document.getElementById('sentido-select').value; // --- NUEVO: Captura ---
+        
+        if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
         localStorage.setItem('usuario_nombre', nom);
-
-        // ← NUEVO: Filtro por parada - solo conductores que NO hayan pasado
+        
+        // --- NUEVO: Filtro en la búsqueda ---
         const { data: moviles } = await _s.from('estado_movil')
-            .select('*')
+            .select('id')
             .eq('esta_online', true) 
-            .eq('sentido_flujo', sentido)
-            .gte('disponible_desde', miParadaIdx)  // ← ¡FILTRO CLAVE!
+            .eq('sentido_flujo', sentido) // <-- FILTRO CRÍTICO
             .neq('latitud', 0)
             .limit(1);
-
-        if (!moviles || moviles.length === 0) { 
-            mostrarToast("❌ No hay choferes disponibles. Ya pasaron tu parada o no hay servicio en este sentido.", 'error'); 
-            return; 
-        }
-
-        const res = asientosElegidos.map(n => ({ 
-            asiento_num: n, 
-            id_movil: moviles[0].id, 
-            estado: 'en_curso', 
-            nombre_pasajero: nom, 
-            pasajero_lat: miLat, 
-            pasajero_lon: miLon, 
-            destino_idx: parseInt(destIdx) 
-        }));
-
+            
+        if (!moviles || moviles.length === 0) { alert("No hay choferes en ese sentido actualmente."); return; }
+        const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: moviles[0].id, estado: 'en_curso', nombre_pasajero: nom, pasajero_lat: miLat, pasajero_lon: miLon, destino_idx: parseInt(destIdx) }));
         await _s.from('reservas_activas').insert(res);
-        mostrarToast("✅ ¡Viaje solicitado con éxito!", 'success');
-        setTimeout(() => location.reload(), 1500);
+        location.reload();
     }
 
     async function finalizarViaje() {
@@ -257,18 +181,21 @@
         location.reload();
     }
 
+    // --- NUEVO: LÓGICA DE ACTUALIZACIÓN CON FILTRO ---
     async function actualizarFlota() {
         const sentidoSeleccionado = document.getElementById('sentido-select').value;
-
+        
+        // --- FILTRO: Traer solo los que cumplen la condición ---
         const { data: moviles } = await _s.from('estado_movil')
             .select('*')
             .eq('esta_online', true)
             .eq('sentido_flujo', sentidoSeleccionado)
             .neq('latitud', 0);
-
+        
         if (moviles) {
             const idsOnline = moviles.map(m => m.id.toString());
-
+            
+            // Eliminar marcadores que ya no coinciden o no existen
             Object.keys(markerTaxis).forEach(id => {
                 if(!idsOnline.includes(id)) {
                     map.removeLayer(markerTaxis[id]);
@@ -276,6 +203,7 @@
                 }
             });
 
+            // Añadir o actualizar
             moviles.forEach(t => {
                 if(markerTaxis[t.id]) {
                     markerTaxis[t.id].setLatLng([t.latitud, t.longitud]);
