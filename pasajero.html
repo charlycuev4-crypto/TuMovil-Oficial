@@ -32,7 +32,6 @@
         .btn-pedir:disabled { background: #444; color: #888; }
         .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
 
-        /* NUEVO: Alerta cuando conductor se desconecta durante viaje */
         #alerta-offline { 
             display: none; 
             background: #dc3545; 
@@ -58,7 +57,6 @@
         <p style="color: white; font-size: 12px;">Conectando al sistema...</p>
     </div>
 
-    <!-- NUEVO: Alerta cuando conductor se desconecta durante viaje activo -->
     <div id="alerta-offline">⚠️ TU CONDUCTOR SE DESCONECTÓ - El viaje fue cancelado</div>
 
     <div class="header"><h1>SOLICITAR VIAJE</h1></div>
@@ -67,7 +65,6 @@
     <div class="bottom-ui">
         <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
 
-        <!-- DEL CÓDIGO NUEVO: Nombres descriptivos -->
         <select id="sentido-select" onchange="actualizarFlota()">
             <option value="IDA">🚕 Hacia el Cruce</option>
             <option value="VUELTA">🚕 Hacia Miguel Cané</option>
@@ -90,7 +87,6 @@
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // DEL CÓDIGO VIEJO: Array de paradas original
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -110,15 +106,8 @@
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // DEL CÓDIGO NUEVO: Paradas con círculo celeste, borde negro y tooltip
     paradas.forEach((p, idx) => { 
-        L.circleMarker(p.c, { 
-            radius: 6, 
-            color: '#000000',      // Borde negro
-            weight: 2, 
-            fillColor: '#00d2ff',  // Celeste
-            fillOpacity: 1 
-        }).addTo(map).bindTooltip(`${idx + 1}. ${p.n}`, { permanent: false });
+        L.circleMarker(p.c, { radius: 6, color: '#000000', weight: 2, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map).bindTooltip(`${idx + 1}. ${p.n}`, { permanent: false });
     });
 
     const iconP = L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] });
@@ -130,12 +119,11 @@
     let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
     let markerTaxis = {};
     let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
-    let miMovilId = null; // NUEVO: Guardar ID del móvil asignado para monitoreo
+    let miMovilId = null;
 
     const selDest = document.getElementById('destino-select');
     paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
 
-    // DEL CÓDIGO VIEJO: onload original con mejoras
     window.onload = async () => {
         const nombreGuardado = localStorage.getItem('usuario_nombre');
         if(nombreGuardado) {
@@ -144,20 +132,15 @@
             if(data && data.length > 0) {
                 miViajeActivo = true;
                 asientosElegidos = data.map(r => r.asiento_num);
-                miMovilId = data[0].id_movil; // NUEVO: Guardar móvil asignado
+                miMovilId = data[0].id_movil;
                 document.getElementById('destino-select').value = data[0].destino_idx;
-                // NUEVO: Restaurar sentido si existe en la reserva
-                if(data[0].sentido) {
-                    document.getElementById('sentido-select').value = data[0].sentido;
-                }
+                if(data[0].sentido) { document.getElementById('sentido-select').value = data[0].sentido; }
                 bloquearPanelParaViajeActivo();
-                // NUEVO: Iniciar monitoreo del conductor durante viaje activo
                 monitorearConductor();
             }
         }
     };
 
-    // DEL CÓDIGO VIEJO: bloquearPanelParaViajeActivo original
     function bloquearPanelParaViajeActivo() {
         document.getElementById('btn-pedir').style.display = 'none';
         document.getElementById('btn-cancelar').style.display = 'block';
@@ -167,48 +150,27 @@
         asientosElegidos.forEach(n => document.getElementById('as-'+n).classList.add('selected'));
     }
 
-    // NUEVO: Monitoreo en tiempo real del conductor durante viaje activo
-    // Si el conductor se desconecta, cancela automáticamente el viaje del pasajero
     function monitorearConductor() {
         if (!miMovilId) return;
-
         _s.channel('monitoreo_conductor_' + miMovilId)
-          .on('postgres_changes', { 
-              event: 'UPDATE', 
-              schema: 'public', 
-              table: 'estado_movil',
-              filter: 'id=eq.' + miMovilId
-          }, (payload) => {
-              // Si el conductor se desconecta (esta_online pasa a false)
-              if (payload.new.esta_online === false) {
-                  mostrarAlertaOffline();
-                  cancelarViajePorDesconexion();
-              }
-          })
-          .subscribe();
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'estado_movil', filter: 'id=eq.' + miMovilId }, (payload) => {
+              if (payload.new.esta_online === false) { mostrarAlertaOffline(); cancelarViajePorDesconexion(); }
+          }).subscribe();
     }
 
-    // NUEVO: Mostrar alerta visual cuando conductor se desconecta
     function mostrarAlertaOffline() {
         const alerta = document.getElementById('alerta-offline');
         alerta.style.display = 'block';
         setTimeout(() => { alerta.style.display = 'none'; }, 5000);
     }
 
-    // NUEVO: Cancelar viaje automáticamente si conductor se desconecta durante viaje
     async function cancelarViajePorDesconexion() {
         const nom = document.getElementById('nombre-input').value;
-        await _s.from('reservas_activas')
-            .update({ estado: 'cancelado_por_offline', motivo: 'conductor_desconectado' })
-            .eq('nombre_pasajero', nom)
-            .eq('estado', 'en_curso');
-
-        miViajeActivo = false;
-        miMovilId = null;
+        await _s.from('reservas_activas').update({ estado: 'cancelado_por_offline', motivo: 'conductor_desconectado' }).eq('nombre_pasajero', nom).eq('estado', 'en_curso');
+        miViajeActivo = false; miMovilId = null;
         setTimeout(() => location.reload(), 3000);
     }
 
-    // DEL CÓDIGO VIEJO: watchPosition original
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
         markerPasajero.setLatLng([miLat, miLon]);
@@ -218,7 +180,6 @@
         const s = document.getElementById('splash'); if(s) { s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800); }
     }, null, { enableHighAccuracy: true });
 
-    // DEL CÓDIGO VIEJO: actualizarMapaRuta original
     function actualizarMapaRuta() {
         const val = document.getElementById('destino-select').value;
         if(val !== "" && miLat !== 0) {
@@ -230,7 +191,6 @@
         }
     }
 
-    // DEL CÓDIGO VIEJO: toggleAsiento original
     function toggleAsiento(num) {
         if(miViajeActivo) return;
         const i = asientosElegidos.indexOf(num);
@@ -238,73 +198,85 @@
         else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
     }
 
-    // DEL CÓDIGO VIEJO: confirmarViajePasajero CON MEJORAS DEL NUEVO
+    // --- CÓDIGO CORREGIDO Y MÁS ROBUSTO ---
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
         const destIdx = document.getElementById('destino-select').value;
         const sentido = document.getElementById('sentido-select').value;
 
         if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
-        localStorage.setItem('usuario_nombre', nom);
+        
+        const btnPedir = document.getElementById('btn-pedir');
+        btnPedir.disabled = true;
+        btnPedir.innerText = "PROCESANDO...";
 
-        // DEL CÓDIGO VIEJO: Filtro por online + sentido (lógica original mejorada)
-        const { data: moviles } = await _s.from('estado_movil')
-            .select('id')
-            .eq('esta_online', true) 
-            .eq('sentido_flujo', sentido)
-            .neq('latitud', 0)
-            .limit(1);
+        try {
+            localStorage.setItem('usuario_nombre', nom);
 
-        if (!moviles || moviles.length === 0) { 
-            alert("🚫 No hay autos disponibles en este momento. Intenta más tarde."); 
-            return; 
+            // 1. Buscar un móvil disponible
+            const { data: moviles, error: errBusqueda } = await _s.from('estado_movil')
+                .select('id')
+                .eq('esta_online', true) 
+                .eq('sentido_flujo', sentido)
+                .neq('latitud', 0)
+                .limit(1);
+
+            if (errBusqueda || !moviles || moviles.length === 0) { 
+                alert("🚫 No hay autos disponibles. Intenta de nuevo."); 
+                btnPedir.disabled = false;
+                btnPedir.innerText = "🏁 SOLICITAR MI VIAJE";
+                return; 
+            }
+            
+            const movilId = moviles[0].id;
+
+            // 2. VERIFICACIÓN SEGURA con maybeSingle()
+            const { data: verificacion, error: errVerif } = await _s.from('estado_movil')
+                .select('esta_online, sentido_flujo')
+                .eq('id', movilId)
+                .maybeSingle(); 
+
+            if (errVerif || !verificacion || verificacion.esta_online !== true || verificacion.sentido_flujo !== sentido) {
+                alert("⚠️ El vehículo cambió de estado. Intentando refrescar...");
+                location.reload();
+                return; 
+            }
+
+            // 3. Insertar la reserva
+            const res = asientosElegidos.map(n => ({ 
+                asiento_num: n, 
+                id_movil: movilId, 
+                estado: 'en_curso', 
+                nombre_pasajero: nom, 
+                pasajero_lat: miLat, 
+                pasajero_lon: miLon, 
+                destino_idx: parseInt(destIdx),
+                sentido: sentido
+            }));
+
+            const { error: errInsert } = await _s.from('reservas_activas').insert(res);
+
+            if (errInsert) throw new Error("Error al guardar reserva");
+
+            location.reload();
+
+        } catch (e) {
+            console.error("Error:", e);
+            alert("Error al procesar viaje. Intenta nuevamente.");
+            btnPedir.disabled = false;
+            btnPedir.innerText = "🏁 SOLICITAR MI VIAJE";
         }
-        const movilId = moviles[0].id;
-
-        // NUEVO: Doble verificación atómica antes de insertar
-        const { data: verificacion } = await _s.from('estado_movil')
-            .select('esta_online, sentido_flujo')
-            .eq('id', movilId)
-            .single();
-
-        if (!verificacion || verificacion.esta_online !== true) {
-            alert("🚫 El auto se acaba de desconectar. Intenta de nuevo."); 
-            return; 
-        }
-
-        if (verificacion.sentido_flujo !== sentido) {
-            alert("🚫 El auto cambió de sentido. Intenta de nuevo."); 
-            return; 
-        }
-
-        // DEL CÓDIGO VIEJO: Insert con sentido agregado para recuperar al recargar
-        const res = asientosElegidos.map(n => ({ 
-            asiento_num: n, 
-            id_movil: movilId, 
-            estado: 'en_curso', 
-            nombre_pasajero: nom, 
-            pasajero_lat: miLat, 
-            pasajero_lon: miLon, 
-            destino_idx: parseInt(destIdx),
-            sentido: sentido // NUEVO: Guardar sentido para recuperar al recargar
-        }));
-
-        await _s.from('reservas_activas').insert(res);
-        location.reload();
     }
+    // --- FIN CÓDIGO CORREGIDO ---
 
-    // DEL CÓDIGO VIEJO: finalizarViaje original
     async function finalizarViaje() {
         const nom = document.getElementById('nombre-input').value;
         await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('nombre_pasajero', nom);
         location.reload();
     }
 
-    // DEL CÓDIGO VIEJO: actualizarFlota CON MEJORAS
     async function actualizarFlota() {
         const sentidoSeleccionado = document.getElementById('sentido-select').value;
-
-        // DEL CÓDIGO VIEJO: Filtro por online + sentido
         const { data: moviles } = await _s.from('estado_movil')
             .select('*')
             .eq('esta_online', true)
@@ -313,27 +285,16 @@
 
         if (moviles) {
             const idsOnline = moviles.map(m => m.id.toString());
-
-            // DEL CÓDIGO VIEJO: Eliminar marcadores que ya no coinciden
             Object.keys(markerTaxis).forEach(id => {
-                if(!idsOnline.includes(id)) {
-                    map.removeLayer(markerTaxis[id]);
-                    delete markerTaxis[id];
-                }
+                if(!idsOnline.includes(id)) { map.removeLayer(markerTaxis[id]); delete markerTaxis[id]; }
             });
-
-            // DEL CÓDIGO VIEJO: Añadir o actualizar marcadores
             moviles.forEach(t => {
-                if(markerTaxis[t.id]) {
-                    markerTaxis[t.id].setLatLng([t.latitud, t.longitud]);
-                } else {
-                    markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map);
-                }
+                if(markerTaxis[t.id]) { markerTaxis[t.id].setLatLng([t.latitud, t.longitud]); }
+                else { markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map); }
             });
         }
     }
 
-    // DEL CÓDIGO VIEJO: Canal de cambios original
     _s.channel('cambios_pasajero')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'estado_movil' }, () => actualizarFlota())
       .subscribe();
