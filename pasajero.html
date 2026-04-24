@@ -47,8 +47,8 @@
         <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
         
         <select id="sentido-select" onchange="actualizarFlota()">
-            <option value="IDA">Hacia IDA</option>
-            <option value="VUELTA">Hacia VUELTA</option>
+            <option value="IDA">Hacia el Cruce</option>
+            <option value="VUELTA">Hacia Miguel Cané</option>
         </select>
         
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
@@ -86,6 +86,7 @@
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d2ff' }).addTo(map));
     
     let markerTaxis = {};
     let asientosElegidos = [];
@@ -99,7 +100,6 @@
         const nombreGuardado = localStorage.getItem('usuario_nombre');
         if(nombreGuardado) {
             document.getElementById('nombre-input').value = nombreGuardado;
-            // Verificar si hay viaje activo
             const { data } = await _s.from('reservas_activas').select('*').eq('nombre_pasajero', nombreGuardado).eq('estado', 'en_curso');
             if(data && data.length > 0) {
                 miViajeActivo = true;
@@ -121,11 +121,13 @@
 
     async function actualizarFlota() {
         const sentido = document.getElementById('sentido-select').value;
-        const { data: moviles } = await _s.from('estado_movil')
+        const { data: moviles, error } = await _s.from('estado_movil')
             .select('*')
             .eq('esta_online', true)
             .eq('sentido_flujo', sentido)
             .neq('latitud', 0);
+        
+        if (error) console.error("Error al obtener flota:", error);
         
         // Limpiar marcadores viejos
         Object.keys(markerTaxis).forEach(id => map.removeLayer(markerTaxis[id]));
@@ -161,7 +163,7 @@
         
         if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
         
-        // Buscar chofer disponible en ese sentido
+        // Buscar chofer
         const { data: moviles } = await _s.from('estado_movil')
             .select('id')
             .eq('esta_online', true) 
