@@ -2,71 +2,343 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TuMovil - Versión Estable</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TuMovil - Pasajero Oficial</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: #121212; }
-        #map { height: 60%; width: 100%; }
-        .ui { height: 40%; padding: 20px; color: white; display: flex; flex-direction: column; gap: 10px; }
-        .btn-main { padding: 15px; border-radius: 10px; border: none; font-weight: bold; background: #28a745; color: white; }
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --azul-gps: #007AFF; }
+        body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
+
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
+        .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; flex-shrink: 0; }
+        .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
+
+        #map { flex-grow: 1; width: 100%; }
+
+        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 45vh; overflow-y: auto; }
+        .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
+        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
+        .asientos-grid { display: flex; justify-content: space-around; margin: 5px 0; }
+        .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); font-weight: bold; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+        .asiento-btn.selected { background: var(--amarillo); border-color: var(--amarillo); color: #000; box-shadow: 0 0 15px var(--amarillo); }
+        .asiento-btn.occupied { border-color: #333; color: #333; pointer-events: none; opacity: 0.3; }
+
+        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; }
+        .btn-pedir:disabled { background: #444; color: #888; }
+        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
+
+        /* NUEVO: Alerta cuando conductor se desconecta durante viaje */
+        #alerta-offline { 
+            display: none; 
+            background: #dc3545; 
+            color: white; 
+            text-align: center; 
+            padding: 10px; 
+            font-weight: bold; 
+            position: fixed; 
+            top: 50px; 
+            left: 0; 
+            right: 0; 
+            z-index: 9999; 
+            animation: slideDown 0.3s ease;
+        }
+        @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
     </style>
 </head>
 <body>
 
-<div id="map"></div>
-<div class="ui">
-    <select id="sentido-select">
-        <option value="IDA">IDA</option>
-        <option value="VUELTA">VUELTA</option>
-    </select>
-    <input type="text" id="nombre" placeholder="Nombre">
-    <button class="btn-main" onclick="solicitar()">SOLICITAR VIAJE</button>
-</div>
+    <div id="splash">
+        <div class="anillo"><span style="font-size: 60px;">🚕</span></div>
+        <h2 style="color: var(--celeste); margin-top: 20px;">TUMOVIL</h2>
+        <p style="color: white; font-size: 12px;">Conectando al sistema...</p>
+    </div>
+
+    <!-- NUEVO: Alerta cuando conductor se desconecta durante viaje activo -->
+    <div id="alerta-offline">⚠️ TU CONDUCTOR SE DESCONECTÓ - El viaje fue cancelado</div>
+
+    <div class="header"><h1>SOLICITAR VIAJE</h1></div>
+    <div id="map"></div>
+
+    <div class="bottom-ui">
+        <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
+
+        <!-- DEL CÓDIGO NUEVO: Nombres descriptivos -->
+        <select id="sentido-select" onchange="actualizarFlota()">
+            <option value="IDA">🚕 Hacia el Cruce</option>
+            <option value="VUELTA">🚕 Hacia Miguel Cané</option>
+        </select>
+
+        <input type="text" id="nombre-input" placeholder="Tu Nombre">
+        <select id="destino-select" onchange="actualizarMapaRuta()">
+            <option value="" disabled selected>¿A qué parada vas?</option>
+        </select>
+        <div class="asientos-grid">
+            <div class="asiento-btn" onclick="toggleAsiento(1)" id="as-1">1</div>
+            <div class="asiento-btn" onclick="toggleAsiento(2)" id="as-2">2</div>
+            <div class="asiento-btn" onclick="toggleAsiento(3)" id="as-3">3</div>
+            <div class="asiento-btn" onclick="toggleAsiento(4)" id="as-4">4</div>
+        </div>
+        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ BUSCANDO GPS...</button>
+        <button class="btn-cancelar" id="btn-cancelar" onclick="finalizarViaje()">TERMINAR MI VIAJE</button>
+    </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
-    // Mapa base
-    const map = L.map('map').setView([-34.57, -58.76], 14);
+
+    // DEL CÓDIGO VIEJO: Array de paradas original
+    const paradas = [
+        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
+        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
+        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
+        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
+        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
+        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
+        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
+        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
+        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
+        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
+        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
+        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
+        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+    ];
+
+    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Iconos (Recreación de la versión vieja)
-    const iconP = L.divIcon({ html: '🚶', className: 'p-mark', iconSize: [30, 30] });
-    const iconT = L.divIcon({ html: '🚕', className: 't-mark', iconSize: [30, 30] });
-    
-    let markerP = L.marker([0,0], {icon: iconP}).addTo(map);
-    let guia = L.polyline([], {color: '#ffcc00', dashArray: '8,8'}).addTo(map);
-    let taxis = {};
-
-    // Geolocalización simple
-    navigator.geolocation.watchPosition(pos => {
-        let lat = pos.coords.latitude;
-        let lon = pos.coords.longitude;
-        markerP.setLatLng([lat, lon]);
-        map.setView([lat, lon], 15);
+    // DEL CÓDIGO NUEVO: Paradas con círculo celeste, borde negro y tooltip
+    paradas.forEach((p, idx) => { 
+        L.circleMarker(p.c, { 
+            radius: 6, 
+            color: '#000000',      // Borde negro
+            weight: 2, 
+            fillColor: '#00d2ff',  // Celeste
+            fillOpacity: 1 
+        }).addTo(map).bindTooltip(`${idx + 1}. ${p.n}`, { permanent: false });
     });
 
-    // Cargar taxis (Lógica básica de la versión vieja)
-    async function actualizarTaxis() {
-        const { data } = await _s.from('estado_movil').select('*').eq('esta_online', true);
-        if(!data) return;
-        
-        data.forEach(t => {
-            if(taxis[t.id]) {
-                taxis[t.id].setLatLng([t.latitud, t.longitud]);
-            } else {
-                taxis[t.id] = L.marker([t.latitud, t.longitud], {icon: iconT}).addTo(map);
+    const iconP = L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] });
+    const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', className: 'dest-arrow', iconAnchor: [10, 11] });
+    const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
+
+    let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
+    let markerDestinoFlecha = L.marker([0,0], { icon: iconDest });
+    let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
+    let markerTaxis = {};
+    let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
+    let miMovilId = null; // NUEVO: Guardar ID del móvil asignado para monitoreo
+
+    const selDest = document.getElementById('destino-select');
+    paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
+
+    // DEL CÓDIGO VIEJO: onload original con mejoras
+    window.onload = async () => {
+        const nombreGuardado = localStorage.getItem('usuario_nombre');
+        if(nombreGuardado) {
+            document.getElementById('nombre-input').value = nombreGuardado;
+            const { data } = await _s.from('reservas_activas').select('*').eq('nombre_pasajero', nombreGuardado).eq('estado', 'en_curso');
+            if(data && data.length > 0) {
+                miViajeActivo = true;
+                asientosElegidos = data.map(r => r.asiento_num);
+                miMovilId = data[0].id_movil; // NUEVO: Guardar móvil asignado
+                document.getElementById('destino-select').value = data[0].destino_idx;
+                // NUEVO: Restaurar sentido si existe en la reserva
+                if(data[0].sentido) {
+                    document.getElementById('sentido-select').value = data[0].sentido;
+                }
+                bloquearPanelParaViajeActivo();
+                // NUEVO: Iniciar monitoreo del conductor durante viaje activo
+                monitorearConductor();
             }
-        });
+        }
+    };
+
+    // DEL CÓDIGO VIEJO: bloquearPanelParaViajeActivo original
+    function bloquearPanelParaViajeActivo() {
+        document.getElementById('btn-pedir').style.display = 'none';
+        document.getElementById('btn-cancelar').style.display = 'block';
+        document.getElementById('nombre-input').disabled = true;
+        document.getElementById('destino-select').disabled = true;
+        document.getElementById('sentido-select').disabled = true;
+        asientosElegidos.forEach(n => document.getElementById('as-'+n).classList.add('selected'));
     }
 
-    // Suscripción a cambios
-    _s.channel('any').on('postgres_changes', {event: '*', schema: 'public', table: 'estado_movil'}, actualizarTaxis).subscribe();
-    
-    actualizarTaxis();
+    // NUEVO: Monitoreo en tiempo real del conductor durante viaje activo
+    // Si el conductor se desconecta, cancela automáticamente el viaje del pasajero
+    function monitorearConductor() {
+        if (!miMovilId) return;
+
+        _s.channel('monitoreo_conductor_' + miMovilId)
+          .on('postgres_changes', { 
+              event: 'UPDATE', 
+              schema: 'public', 
+              table: 'estado_movil',
+              filter: 'id=eq.' + miMovilId
+          }, (payload) => {
+              // Si el conductor se desconecta (esta_online pasa a false)
+              if (payload.new.esta_online === false) {
+                  mostrarAlertaOffline();
+                  cancelarViajePorDesconexion();
+              }
+          })
+          .subscribe();
+    }
+
+    // NUEVO: Mostrar alerta visual cuando conductor se desconecta
+    function mostrarAlertaOffline() {
+        const alerta = document.getElementById('alerta-offline');
+        alerta.style.display = 'block';
+        setTimeout(() => { alerta.style.display = 'none'; }, 5000);
+    }
+
+    // NUEVO: Cancelar viaje automáticamente si conductor se desconecta durante viaje
+    async function cancelarViajePorDesconexion() {
+        const nom = document.getElementById('nombre-input').value;
+        await _s.from('reservas_activas')
+            .update({ estado: 'cancelado_por_offline', motivo: 'conductor_desconectado' })
+            .eq('nombre_pasajero', nom)
+            .eq('estado', 'en_curso');
+
+        miViajeActivo = false;
+        miMovilId = null;
+        setTimeout(() => location.reload(), 3000);
+    }
+
+    // DEL CÓDIGO VIEJO: watchPosition original
+    navigator.geolocation.watchPosition(p => {
+        miLat = p.coords.latitude; miLon = p.coords.longitude;
+        markerPasajero.setLatLng([miLat, miLon]);
+        actualizarMapaRuta();
+        document.getElementById('btn-pedir').disabled = false;
+        if(!miViajeActivo) document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR MI VIAJE";
+        const s = document.getElementById('splash'); if(s) { s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800); }
+    }, null, { enableHighAccuracy: true });
+
+    // DEL CÓDIGO VIEJO: actualizarMapaRuta original
+    function actualizarMapaRuta() {
+        const val = document.getElementById('destino-select').value;
+        if(val !== "" && miLat !== 0) {
+            const dest = paradas[val].c;
+            guiaDestino.setLatLngs([[miLat, miLon], dest]);
+            markerDestinoFlecha.setLatLng(dest).addTo(map);
+            const bounds = L.latLngBounds([miLat, miLon], dest);
+            map.fitBounds(bounds, { padding: [80, 80] });
+        }
+    }
+
+    // DEL CÓDIGO VIEJO: toggleAsiento original
+    function toggleAsiento(num) {
+        if(miViajeActivo) return;
+        const i = asientosElegidos.indexOf(num);
+        if(i > -1) { asientosElegidos.splice(i, 1); document.getElementById('as-'+num).classList.remove('selected'); }
+        else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
+    }
+
+    // DEL CÓDIGO VIEJO: confirmarViajePasajero CON MEJORAS DEL NUEVO
+    async function confirmarViajePasajero() {
+        const nom = document.getElementById('nombre-input').value;
+        const destIdx = document.getElementById('destino-select').value;
+        const sentido = document.getElementById('sentido-select').value;
+
+        if (!nom || !destIdx || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
+        localStorage.setItem('usuario_nombre', nom);
+
+        // DEL CÓDIGO VIEJO: Filtro por online + sentido (lógica original mejorada)
+        const { data: moviles } = await _s.from('estado_movil')
+            .select('id')
+            .eq('esta_online', true) 
+            .eq('sentido_flujo', sentido)
+            .neq('latitud', 0)
+            .limit(1);
+
+        if (!moviles || moviles.length === 0) { 
+            alert("🚫 No hay autos disponibles en este momento. Intenta más tarde."); 
+            return; 
+        }
+        const movilId = moviles[0].id;
+
+        // NUEVO: Doble verificación atómica antes de insertar
+        const { data: verificacion } = await _s.from('estado_movil')
+            .select('esta_online, sentido_flujo')
+            .eq('id', movilId)
+            .single();
+
+        if (!verificacion || verificacion.esta_online !== true) {
+            alert("🚫 El auto se acaba de desconectar. Intenta de nuevo."); 
+            return; 
+        }
+
+        if (verificacion.sentido_flujo !== sentido) {
+            alert("🚫 El auto cambió de sentido. Intenta de nuevo."); 
+            return; 
+        }
+
+        // DEL CÓDIGO VIEJO: Insert con sentido agregado para recuperar al recargar
+        const res = asientosElegidos.map(n => ({ 
+            asiento_num: n, 
+            id_movil: movilId, 
+            estado: 'en_curso', 
+            nombre_pasajero: nom, 
+            pasajero_lat: miLat, 
+            pasajero_lon: miLon, 
+            destino_idx: parseInt(destIdx),
+            sentido: sentido // NUEVO: Guardar sentido para recuperar al recargar
+        }));
+
+        await _s.from('reservas_activas').insert(res);
+        location.reload();
+    }
+
+    // DEL CÓDIGO VIEJO: finalizarViaje original
+    async function finalizarViaje() {
+        const nom = document.getElementById('nombre-input').value;
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('nombre_pasajero', nom);
+        location.reload();
+    }
+
+    // DEL CÓDIGO VIEJO: actualizarFlota CON MEJORAS
+    async function actualizarFlota() {
+        const sentidoSeleccionado = document.getElementById('sentido-select').value;
+
+        // DEL CÓDIGO VIEJO: Filtro por online + sentido
+        const { data: moviles } = await _s.from('estado_movil')
+            .select('*')
+            .eq('esta_online', true)
+            .eq('sentido_flujo', sentidoSeleccionado)
+            .neq('latitud', 0);
+
+        if (moviles) {
+            const idsOnline = moviles.map(m => m.id.toString());
+
+            // DEL CÓDIGO VIEJO: Eliminar marcadores que ya no coinciden
+            Object.keys(markerTaxis).forEach(id => {
+                if(!idsOnline.includes(id)) {
+                    map.removeLayer(markerTaxis[id]);
+                    delete markerTaxis[id];
+                }
+            });
+
+            // DEL CÓDIGO VIEJO: Añadir o actualizar marcadores
+            moviles.forEach(t => {
+                if(markerTaxis[t.id]) {
+                    markerTaxis[t.id].setLatLng([t.latitud, t.longitud]);
+                } else {
+                    markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map);
+                }
+            });
+        }
+    }
+
+    // DEL CÓDIGO VIEJO: Canal de cambios original
+    _s.channel('cambios_pasajero')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'estado_movil' }, () => actualizarFlota())
+      .subscribe();
+
+    actualizarFlota();
 </script>
 </body>
 </html>
