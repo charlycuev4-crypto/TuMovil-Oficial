@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TuMovil - Pasajero</title>
+    <title>TuMovil - Pasajero Test</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -31,6 +31,9 @@
         .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; }
         .btn-pedir:disabled { background: #444; color: #888; }
         .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
+        
+        .info-box { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 10px; font-size: 12px; color: #aaa; margin-bottom: 8px; }
+        .info-box b { color: var(--celeste); }
     </style>
 </head>
 <body>
@@ -47,9 +50,13 @@
     <div class="bottom-ui">
         <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
         
+        <div class="info-box">
+            <b>🧪 MODO TEST:</b> Podés probar desde cualquier lado. No necesitás estar en la parada.
+        </div>
+        
         <select id="sentido-select" onchange="actualizarFlota()">
-            <option value="IDA">🚕 Hacia el Cruce</option>
-            <option value="VUELTA">🚕 Hacia Miguel Cané</option>
+            <option value="IDA">Hacia IDA (1 → 25)</option>
+            <option value="VUELTA">Hacia VUELTA (25 → 1)</option>
         </select>
         
         <select id="origen-select">
@@ -94,17 +101,7 @@
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    
-    // ✅ PARADAS CON CÍRCULO CELESTE Y BORDE NEGRO (igual que el conductor)
-    paradas.forEach((p, idx) => { 
-        L.circleMarker(p.c, { 
-            radius: 6, 
-            color: '#000000',      // Borde negro
-            weight: 2, 
-            fillColor: '#00d2ff',  // Celeste
-            fillOpacity: 1 
-        }).addTo(map).bindTooltip(`${idx + 1}. ${p.n}`, { permanent: false });
-    });
+    paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d2ff' }).addTo(map));
 
     const iconP = L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] });
     const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', className: 'dest-arrow', iconAnchor: [10, 11] });
@@ -116,6 +113,7 @@
     let markerTaxis = {};
     let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
 
+    // Llenar selects de paradas
     const selOrigen = document.getElementById('origen-select');
     const selDest = document.getElementById('destino-select');
     
@@ -143,6 +141,7 @@
                 bloquearPanelParaViajeActivo();
             }
         }
+        // Ocultar splash
         const s = document.getElementById('splash');
         if(s) { s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800); }
     };
@@ -165,6 +164,7 @@
             const origen = paradas[origenVal].c;
             const dest = paradas[destVal].c;
             
+            // Mostrar marcador en origen (parada de subida)
             markerPasajero.setLatLng(origen);
             guiaDestino.setLatLngs([origen, dest]);
             markerDestinoFlecha.setLatLng(dest).addTo(map);
@@ -174,6 +174,7 @@
         }
     }
 
+    // Escuchar cambios en selects para actualizar mapa
     document.getElementById('origen-select').addEventListener('change', actualizarMapaRuta);
     document.getElementById('destino-select').addEventListener('change', actualizarMapaRuta);
 
@@ -184,6 +185,9 @@
         else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
     }
 
+    // ============================================================
+    // ✅ FUNCIÓN PRINCIPAL - Asignación tipo colectivo
+    // ============================================================
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value;
         const origenIdx = document.getElementById('origen-select').value;
@@ -195,32 +199,41 @@
             return; 
         }
         
+        // Validar que origen y destino sean diferentes
         if (parseInt(origenIdx) === parseInt(destIdx)) {
             alert("La parada de origen y destino no pueden ser la misma.");
             return;
         }
         
+        // Validar sentido correcto
         if (sentido === 'IDA' && parseInt(destIdx) <= parseInt(origenIdx)) {
-            alert("Para Hacia el Cruce, el destino debe ser después del origen.");
+            alert("Para IDA, el destino debe ser una parada DESPUÉS del origen.");
             return;
         }
         if (sentido === 'VUELTA' && parseInt(destIdx) >= parseInt(origenIdx)) {
-            alert("Para Hacia Miguel Cané, el destino debe ser antes del origen.");
+            alert("Para VUELTA, el destino debe ser una parada ANTES del origen.");
             return;
         }
         
         localStorage.setItem('usuario_nombre', nom);
+        
+        // --- PASO 1: Buscar autos disponibles ---
+        // Filtros:
+        // - esta_online = true
+        // - sentido_flujo = sentido del pasajero
+        // - asientos_libres > 0 (que tenga lugar)
+        // - disponible_desde <= origenIdx (que NO haya pasado la parada del pasajero)
         
         const { data: moviles, error: errBusqueda } = await _s.from('estado_movil')
             .select('*')
             .eq('esta_online', true)
             .eq('en_servicio', true)
             .eq('sentido_flujo', sentido)
-            .gt('asientos_libres', 0)
-            .lte('disponible_desde', parseInt(origenIdx))
+            .gt('asientos_libres', 0)              // ← Que tenga asientos libres
+            .lte('disponible_desde', parseInt(origenIdx)) // ← Que no haya pasado la parada del pasajero
             .neq('latitud', 0)
-            .order('disponible_desde', { ascending: false })
-            .limit(10);
+            .order('disponible_desde', { ascending: false }) // ← El más cercano primero
+            .limit(10); // ← Traemos varios para tener cola
         
         if (errBusqueda) {
             console.error("Error buscando autos:", errBusqueda);
@@ -237,9 +250,12 @@
             return; 
         }
         
+        // --- PASO 2: Verificar asientos disponibles en cada auto ---
+        // (doble verificación por si cambió entre la búsqueda y ahora)
         let autoAsignado = null;
         
         for (const movil of moviles) {
+            // Verificar asientos ocupados de este auto
             const { data: reservas, error: errReservas } = await _s
                 .from('reservas_activas')
                 .select('asiento_num')
@@ -252,8 +268,9 @@
             const asientosDisponibles = asientosElegidos.filter(n => !asientosOcupados.includes(n));
             
             if (asientosDisponibles.length === asientosElegidos.length) {
+                // ✅ Este auto tiene todos los asientos que necesita
                 autoAsignado = movil;
-                break;
+                break; // ← Tomamos el primero que cumpla (el más cercano)
             }
         }
         
@@ -262,6 +279,7 @@
             return;
         }
         
+        // --- PASO 3: Verificar UNA VEZ MÁS que sigue online ---
         const { data: checkFinal } = await _s.from('estado_movil')
             .select('esta_online, asientos_libres')
             .eq('id', autoAsignado.id)
@@ -272,15 +290,16 @@
             return;
         }
         
+        // --- PASO 4: Crear la reserva ---
         const reservasAInsertar = asientosElegidos.map(n => ({ 
             asiento_num: n, 
             id_movil: autoAsignado.id,
             estado: 'en_curso', 
             nombre_pasajero: nom, 
-            pasajero_lat: paradas[origenIdx].c[0],
+            pasajero_lat: paradas[origenIdx].c[0],  // ← Coordenadas de la parada de subida
             pasajero_lon: paradas[origenIdx].c[1],
             destino_idx: parseInt(destIdx),
-            origen_idx: parseInt(origenIdx),
+            origen_idx: parseInt(origenIdx),        // ← NUEVO: guardamos origen
             creado_at: new Date().toISOString()
         }));
         
@@ -294,6 +313,7 @@
             return;
         }
         
+        // ✅ Éxito
         alert(`✅ Viaje reservado!\n\nAuto asignado: Coche ${autoAsignado.id}\nParada de subida: ${paradas[origenIdx].n}\nDestino: ${paradas[destIdx].n}\nAsientos: ${asientosElegidos.join(', ')}`);
         location.reload();
     }
