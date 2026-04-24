@@ -171,7 +171,7 @@
             
         if (!moviles || moviles.length === 0) { alert("No hay choferes en ese sentido actualmente."); return; }
         
-        // FIX: Incluir el sentido en el objeto de inserción
+        // El objeto de inserción incluye el sentido para persistencia
         const res = asientosElegidos.map(n => ({ 
             asiento_num: n, 
             id_movil: moviles[0].id, 
