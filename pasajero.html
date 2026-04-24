@@ -2,117 +2,71 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TuMovil - Pasajero</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TuMovil - Versión Estable</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
-        body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
-        
-        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 99999; transition: opacity 0.5s ease; }
-        .anillo { width: 120px; height: 120px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px var(--celeste); }
-
-        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; }
-        .header h1 { margin: 0; font-size: 18px; color: var(--celeste); }
-
-        #map { flex-grow: 1; width: 100%; }
-        
-        .p-mark { filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); z-index: 1000 !important; }
-        .dest-arrow { z-index: 999 !important; }
-
-        .bottom-ui { background: var(--panel); padding: 15px; border-top: 2px solid var(--celeste); }
-        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; width: 100%; box-sizing: border-box; margin-bottom: 10px; }
-        .asientos-grid { display: flex; justify-content: space-around; margin: 10px 0; }
-        .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); display: flex; align-items: center; justify-content: center; font-weight: bold; }
-        .asiento-btn.selected { background: var(--amarillo); color: #000; }
-        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: #121212; }
+        #map { height: 60%; width: 100%; }
+        .ui { height: 40%; padding: 20px; color: white; display: flex; flex-direction: column; gap: 10px; }
+        .btn-main { padding: 15px; border-radius: 10px; border: none; font-weight: bold; background: #28a745; color: white; }
     </style>
 </head>
 <body>
 
-    <div id="splash">
-        <div class="anillo"><span style="font-size: 50px;">🚕</span></div>
-        <p style="color:white; margin-top:20px;">Conectando...</p>
-    </div>
-
-    <div class="header"><h1>SOLICITAR VIAJE</h1></div>
-    <div id="map"></div>
-
-    <div class="bottom-ui">
-        <select id="sentido-select" onchange="actualizarFlota()">
-            <option value="IDA">Hacia IDA</option>
-            <option value="VUELTA">Hacia VUELTA</option>
-        </select>
-        <input type="text" id="nombre-input" placeholder="Tu Nombre">
-        <select id="destino-select" onchange="actualizarMapaRuta()">
-            <option value="" disabled selected>¿A qué parada vas?</option>
-        </select>
-        <div class="asientos-grid">
-            <div class="asiento-btn" onclick="toggleAsiento(1)" id="as-1">1</div>
-            <div class="asiento-btn" onclick="toggleAsiento(2)" id="as-2">2</div>
-            <div class="asiento-btn" onclick="toggleAsiento(3)" id="as-3">3</div>
-            <div class="asiento-btn" onclick="toggleAsiento(4)" id="as-4">4</div>
-        </div>
-        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()">SOLICITAR VIAJE</button>
-    </div>
+<div id="map"></div>
+<div class="ui">
+    <select id="sentido-select">
+        <option value="IDA">IDA</option>
+        <option value="VUELTA">VUELTA</option>
+    </select>
+    <input type="text" id="nombre" placeholder="Nombre">
+    <button class="btn-main" onclick="solicitar()">SOLICITAR VIAJE</button>
+</div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    // Función para quitar splash screen de forma segura
-    function quitarSplash() {
-        const s = document.getElementById('splash');
-        if (s) { s.style.opacity = '0'; setTimeout(() => s.style.display = 'none', 500); }
-    }
-    // Backup de seguridad: quita el splash a los 5 segundos sí o sí
-    setTimeout(quitarSplash, 5000);
-
-    const paradas = [
-        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
-        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
-        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
-        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
-        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
-        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
-        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
-        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
-        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
-        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
-        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
-        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
-        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
-    ];
-
-    const map = L.map('map', { zoomControl: false }).setView([-34.57, -58.76], 14);
+    // Mapa base
+    const map = L.map('map').setView([-34.57, -58.76], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    let miLat = -34.57, miLon = -58.76;
-    let markerPasajero = L.marker([miLat, miLon], { icon: L.divIcon({ html: '🚶', className: 'p-mark' }) }).addTo(map);
+    // Iconos (Recreación de la versión vieja)
+    const iconP = L.divIcon({ html: '🚶', className: 'p-mark', iconSize: [30, 30] });
+    const iconT = L.divIcon({ html: '🚕', className: 't-mark', iconSize: [30, 30] });
+    
+    let markerP = L.marker([0,0], {icon: iconP}).addTo(map);
+    let guia = L.polyline([], {color: '#ffcc00', dashArray: '8,8'}).addTo(map);
+    let taxis = {};
 
-    // Intentar geolocalizar
-    navigator.geolocation.watchPosition(p => {
-        miLat = p.coords.latitude; miLon = p.coords.longitude;
-        markerPasajero.setLatLng([miLat, miLon]);
-        quitarSplash();
-    }, () => {
-        console.log("GPS no disponible, usando ubicación por defecto.");
-        quitarSplash();
-    }, { enableHighAccuracy: true });
+    // Geolocalización simple
+    navigator.geolocation.watchPosition(pos => {
+        let lat = pos.coords.latitude;
+        let lon = pos.coords.longitude;
+        markerP.setLatLng([lat, lon]);
+        map.setView([lat, lon], 15);
+    });
 
-    // Llenar select
-    const sel = document.getElementById('destino-select');
-    paradas.forEach((p, i) => { const o = document.createElement('option'); o.value = i; o.text = p.n; sel.add(o); });
-
-    function toggleAsiento(num) {
-        document.getElementById('as-'+num).classList.toggle('selected');
+    // Cargar taxis (Lógica básica de la versión vieja)
+    async function actualizarTaxis() {
+        const { data } = await _s.from('estado_movil').select('*').eq('esta_online', true);
+        if(!data) return;
+        
+        data.forEach(t => {
+            if(taxis[t.id]) {
+                taxis[t.id].setLatLng([t.latitud, t.longitud]);
+            } else {
+                taxis[t.id] = L.marker([t.latitud, t.longitud], {icon: iconT}).addTo(map);
+            }
+        });
     }
 
-    async function confirmarViajePasajero() {
-        alert("Solicitando...");
-        // Lógica de Supabase igual que antes...
-    }
+    // Suscripción a cambios
+    _s.channel('any').on('postgres_changes', {event: '*', schema: 'public', table: 'estado_movil'}, actualizarTaxis).subscribe();
+    
+    actualizarTaxis();
 </script>
 </body>
 </html>
