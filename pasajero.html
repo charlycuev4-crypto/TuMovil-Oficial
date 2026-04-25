@@ -3,24 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TuMovil - Pasajero</title>
+    <title>TuMovil - Pasajero Con Paradas</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; width: 100%; display: flex; flex-direction: column; background: #121212; overflow: hidden; }
-        /* El mapa toma el espacio disponible, forzamos altura mínima */
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
+        body { margin: 0; padding: 0; background: var(--dark); height: 100vh; display: flex; flex-direction: column; font-family: sans-serif; overflow: hidden; }
         #map { flex: 1; min-height: 300px; width: 100%; z-index: 1; }
-        .bottom-ui { background: #1e1e1e; border-top: 2px solid #00d2ff; padding: 20px; z-index: 1000; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
-        .asiento-btn { width: 50px; height: 50px; border: 2px solid #00d2ff; border-radius: 12px; background: transparent; color: #00d2ff; display: flex; align-items: center; justify-content: center; }
-        .asiento-btn.selected { background: #ffcc00; color: #000; }
+        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 20px; z-index: 1000; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
+        .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); display: flex; align-items: center; justify-content: center; }
+        .asiento-btn.selected { background: var(--amarillo); color: #000; }
         .btn-pedir { width: 100%; padding: 15px; border-radius: 12px; border: none; font-weight: bold; background: #28a745; color: white; }
         .btn-cancelar { width: 100%; padding: 15px; border-radius: 12px; border: none; font-weight: bold; background: #dc3545; color: white; display: none; }
         input, select { background: #333; color: white; padding: 12px; border-radius: 8px; width: 100%; margin-bottom: 10px; border: none; }
     </style>
 </head>
 <body>
-
     <div id="map"></div>
     <div class="bottom-ui">
         <select id="sentido-select"><option value="IDA">Hacia IDA</option><option value="VUELTA">Hacia VUELTA</option></select>
@@ -34,69 +33,87 @@
             <div class="asiento-btn" onclick="toggleAsiento(3)" id="as-3">3</div>
             <div class="asiento-btn" onclick="toggleAsiento(4)" id="as-4">4</div>
         </div>
-        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViaje()">SOLICITAR MI VIAJE</button>
+        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()">SOLICITAR MI VIAJE</button>
         <button class="btn-cancelar" id="btn-cancelar" onclick="finalizarViaje()">FINALIZAR VIAJE</button>
     </div>
 
 <script>
-    // 1. CONFIGURACIÓN: ASEGÚRATE DE PONER TU URL Y KEY AQUÍ
-    const _s = supabase.createClient('TU_URL_SUPABASE', 'TU_KEY_SUPABASE');
-    
-    // 2. INICIALIZACIÓN DEL MAPA
+    const _s = supabase.createClient('URL_AQUI', 'KEY_AQUI');
+    let asientosElegidos = [];
+    let miParadaActual = 0;
+
+    // 1. Array de coordenadas (El corazón de tu lógica)
+    const paradas = [
+        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
+        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
+        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
+        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
+        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
+        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
+        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
+        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
+        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]}
+    ];
+
     const map = L.map('map').setView([-34.5612, -58.7705], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    // SOLUCIÓN A PANTALLA NEGRA: Forzamos la actualización del mapa al cargar la página
     setTimeout(() => { map.invalidateSize(); }, 500);
 
-    let asientosElegidos = [];
+    // Llenar select de destinos
+    const selDest = document.getElementById('destino-select');
+    paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
 
-    async function confirmarViaje() {
+    // 2. Cálculo matemático de parada
+    function calcularParadaCercana(lat, lon) {
+        let min = 999; let idx = 0;
+        paradas.forEach((p, i) => {
+            const d = Math.hypot(p.c[0] - lat, p.c[1] - lon);
+            if (d < min) { min = d; idx = i; }
+        });
+        return idx;
+    }
+
+    // Geolocalización continua
+    navigator.geolocation.watchPosition(p => {
+        miParadaActual = calcularParadaCercana(p.coords.latitude, p.coords.longitude);
+    });
+
+    async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value.trim();
-        const dest = document.getElementById('destino-select').value;
-        const sentido = document.getElementById('sentido-select').value;
-        
-        if (!nom || asientosElegidos.length === 0) return alert("Completa tu nombre y asientos.");
+        if (!nom || asientosElegidos.length === 0) return alert("Completa tus datos");
 
-        // Bloqueo de UI
-        const btn = document.getElementById('btn-pedir');
-        btn.disabled = true;
-        btn.innerText = "BUSCANDO...";
+        document.getElementById('btn-pedir').disabled = true;
+        document.getElementById('btn-pedir').innerText = "BUSCANDO...";
 
-        // Búsqueda simplificada para no fallar
+        // 3. Búsqueda inteligente: Usamos 'miParadaActual' para filtrar móviles
         const { data: moviles } = await _s.from('estado_movil')
             .select('*')
             .eq('esta_online', true)
-            .eq('sentido_flujo', sentido)
+            .eq('sentido_flujo', document.getElementById('sentido-select').value)
             .gte('asientos_libres', asientosElegidos.length);
+        
+        // Aquí aplicamos la lógica: Buscamos móviles que aún no hayan pasado tu parada
+        let movilAsignado = moviles ? moviles.find(m => m.disponible_desde <= miParadaActual) : null;
 
-        if (!moviles || moviles.length === 0) {
-            alert("No hay móviles disponibles en este momento.");
-            btn.disabled = false;
-            btn.innerText = "SOLICITAR MI VIAJE";
+        if (!movilAsignado) {
+            alert("No hay móviles disponibles que aún no hayan pasado tu parada.");
+            document.getElementById('btn-pedir').disabled = false;
+            document.getElementById('btn-pedir').innerText = "SOLICITAR MI VIAJE";
             return;
         }
 
-        // Insertar reserva
         const res = asientosElegidos.map(n => ({ 
             asiento_num: n, 
-            id_movil: moviles[0].id, 
+            id_movil: movilAsignado.id, 
             estado: 'en_curso', 
-            nombre_pasajero: nom, 
-            destino_idx: parseInt(dest) 
+            nombre_pasajero: nom,
+            destino_idx: parseInt(document.getElementById('destino-select').value) 
         }));
-
-        const { error } = await _s.from('reservas_activas').insert(res);
-
-        if (!error) {
-            alert("¡Viaje confirmado!");
-            document.getElementById('btn-pedir').style.display = 'none';
-            document.getElementById('btn-cancelar').style.display = 'block';
-        } else {
-            alert("Error: " + error.message);
-            btn.disabled = false;
-            btn.innerText = "SOLICITAR MI VIAJE";
-        }
+        
+        await _s.from('reservas_activas').insert(res);
+        alert("¡Viaje solicitado!");
+        document.getElementById('btn-pedir').style.display = 'none';
+        document.getElementById('btn-cancelar').style.display = 'block';
     }
 
     function toggleAsiento(num) {
