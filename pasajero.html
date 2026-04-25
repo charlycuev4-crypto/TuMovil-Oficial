@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TuMovil - Pasajero Oficial (Actualizado)</title>
+    <title>TuMovil - Pasajero Oficial</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -11,42 +11,47 @@
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
         
-        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
-        .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-
-        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; }
-        .header h1 { margin: 0; font-size: 18px; color: var(--celeste); }
-
-        #map { flex-grow: 1; width: 100%; }
+        /* Aseguramos que el mapa no bloquee el resto de la app */
+        #map { flex-grow: 1; width: 100%; z-index: 1; }
         
-        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px; display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 50vh; overflow-y: auto; }
-        
-        /* Nuevo: Estilo para contador de asientos */
+        /* Panel Inferior con alta prioridad de clic */
+        .bottom-ui { 
+            background: var(--panel); 
+            border-top: 2px solid var(--celeste); 
+            padding: 15px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+            border-radius: 25px 25px 0 0; 
+            z-index: 9999; 
+            pointer-events: auto;
+            position: relative;
+            box-shadow: 0 -10px 25px rgba(0,0,0,0.5); 
+            max-height: 50vh; 
+            overflow-y: auto; 
+        }
+
         #status-capacidad { color: var(--celeste); text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 5px; padding: 5px; background: rgba(0,210,255,0.1); border-radius: 8px; }
-        
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; width: 100%; box-sizing: border-box; }
+        
         .asientos-grid { display: flex; justify-content: space-around; margin: 5px 0; }
         .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); font-weight: bold; display: flex; align-items: center; justify-content: center; }
         .asiento-btn.selected { background: var(--amarillo); border-color: var(--amarillo); color: #000; box-shadow: 0 0 10px var(--amarillo); }
 
-        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; }
+        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; }
         .btn-pedir:disabled { background: #444; color: #888; }
-        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; }
+        
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; align-items: center; justify-content: center; z-index: 10000; }
     </style>
 </head>
 <body>
 
-    <div id="splash">
-        <div class="anillo"><span style="font-size: 60px;">🚕</span></div>
-        <h2 style="color: var(--celeste); margin-top: 20px;">TUMOVIL</h2>
-    </div>
+    <div id="splash"><h2>Cargando...</h2></div>
 
-    <div class="header"><h1>SOLICITAR VIAJE</h1></div>
     <div id="map"></div>
 
     <div class="bottom-ui">
-        <div id="status-capacidad">Cargando disponibilidad...</div>
+        <div id="status-capacidad">Escaneando...</div>
         
         <select id="sentido-select" onchange="actualizarFlota()">
             <option value="IDA">Hacia IDA</option>
@@ -64,8 +69,7 @@
             <div class="asiento-btn" onclick="toggleAsiento(3)" id="as-3">3</div>
             <div class="asiento-btn" onclick="toggleAsiento(4)" id="as-4">4</div>
         </div>
-        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ BUSCANDO GPS...</button>
-        <button class="btn-cancelar" id="btn-cancelar" onclick="finalizarViaje()">TERMINAR MI VIAJE</button>
+        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()">SOLICITAR MI VIAJE</button>
     </div>
 
 <script>
@@ -89,7 +93,15 @@
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d2ff' }).addTo(map));
+
+    // Paradas con Borde Negro
+    paradas.forEach(p => L.circleMarker(p.c, { 
+        radius: 7, 
+        color: '#000000',    // Borde negro
+        weight: 3,           // Grosor
+        fillColor: '#00d2ff', 
+        fillOpacity: 1 
+    }).addTo(map));
 
     let markerPasajero = L.marker([0,0], { icon: L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', iconAnchor: [15, 30] }) }).addTo(map);
     let markerTaxis = {};
@@ -103,14 +115,11 @@
         let min = 999; 
         paradas.forEach((p, i) => { const d = Math.hypot(p.c[0] - miLat, p.c[1] - miLon); if (d < min) { min = d; miParadaActual = i; } });
         markerPasajero.setLatLng([miLat, miLon]);
-        document.getElementById('btn-pedir').disabled = false;
-        document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR MI VIAJE";
-        const s = document.getElementById('splash'); if(s) s.style.opacity = '0';
+        document.getElementById('splash').style.display = 'none';
     }, null, { enableHighAccuracy: true });
 
     async function actualizarFlota() {
         const { data: moviles } = await _s.from('estado_movil').select('*').eq('esta_online', true).eq('sentido_flujo', document.getElementById('sentido-select').value);
-        
         let totalLibres = 0;
         if(moviles) {
             moviles.forEach(m => {
@@ -118,7 +127,7 @@
                 if(markerTaxis[m.id]) markerTaxis[m.id].setLatLng([m.latitud, m.longitud]);
                 else markerTaxis[m.id] = L.marker([m.latitud, m.longitud], { icon: L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] }) }).addTo(map);
             });
-            document.getElementById('status-capacidad').innerText = `Disponibles: ${totalLibres} asientos en este sentido`;
+            document.getElementById('status-capacidad').innerText = `Disponibles: ${totalLibres} asientos en ruta`;
         }
     }
 
@@ -129,14 +138,14 @@
         
         const { data: moviles } = await _s.from('estado_movil').select('*').eq('esta_online', true).eq('sentido_flujo', document.getElementById('sentido-select').value);
         
-        // TOLERANCIA GPS: (miParadaActual + 1)
+        // Tolerancia: (miParadaActual + 1)
         const movilAsignado = moviles.find(m => (m.asientos_libres >= asientosElegidos.length) && (m.disponible_desde <= (miParadaActual + 1)));
         
-        if (!movilAsignado) return alert("No hay móviles con espacio suficiente o que aún no hayan pasado tu parada.");
+        if (!movilAsignado) return alert("No hay móviles disponibles que aún no hayan pasado tu parada.");
         
-        localStorage.setItem('usuario_nombre', nom);
         const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: movilAsignado.id, estado: 'en_curso', nombre_pasajero: nom, destino_idx: parseInt(destIdx) }));
         await _s.from('reservas_activas').insert(res);
+        alert("¡Viaje solicitado exitosamente!");
         location.reload();
     }
 
@@ -146,12 +155,8 @@
         else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
     }
 
-    function finalizarViaje() {
-        _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('nombre_pasajero', document.getElementById('nombre-input').value).eq('estado', 'en_curso').then(() => location.reload());
-    }
-
-    _s.channel('cambios_pasajero').on('postgres_changes', { event: '*', schema: 'public', table: 'estado_movil' }, () => actualizarFlota()).subscribe();
     setInterval(actualizarFlota, 5000);
+    actualizarFlota();
 </script>
 </body>
 </html>
