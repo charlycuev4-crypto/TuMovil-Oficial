@@ -8,19 +8,19 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        /* Estilos optimizados para evitar bloqueos táctiles */
-        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
-        body { margin: 0; padding: 0; background: var(--dark); height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
-        #map { flex-grow: 1; z-index: 1; }
-        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 20px; z-index: 1000; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
-        .asiento-btn { width: 50px; height: 50px; border: 2px solid var(--celeste); border-radius: 12px; background: transparent; color: var(--celeste); display: flex; align-items: center; justify-content: center; }
-        .asiento-btn.selected { background: var(--amarillo); color: #000; }
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; display: flex; flex-direction: column; background: #121212; overflow: hidden; }
+        /* El mapa toma el espacio disponible, forzamos altura mínima */
+        #map { flex: 1; min-height: 300px; width: 100%; z-index: 1; }
+        .bottom-ui { background: #1e1e1e; border-top: 2px solid #00d2ff; padding: 20px; z-index: 1000; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
+        .asiento-btn { width: 50px; height: 50px; border: 2px solid #00d2ff; border-radius: 12px; background: transparent; color: #00d2ff; display: flex; align-items: center; justify-content: center; }
+        .asiento-btn.selected { background: #ffcc00; color: #000; }
         .btn-pedir { width: 100%; padding: 15px; border-radius: 12px; border: none; font-weight: bold; background: #28a745; color: white; }
         .btn-cancelar { width: 100%; padding: 15px; border-radius: 12px; border: none; font-weight: bold; background: #dc3545; color: white; display: none; }
         input, select { background: #333; color: white; padding: 12px; border-radius: 8px; width: 100%; margin-bottom: 10px; border: none; }
     </style>
 </head>
 <body>
+
     <div id="map"></div>
     <div class="bottom-ui">
         <select id="sentido-select"><option value="IDA">Hacia IDA</option><option value="VUELTA">Hacia VUELTA</option></select>
@@ -28,68 +28,74 @@
         <select id="destino-select">
             <option value="" disabled selected>¿A qué parada vas?</option>
         </select>
-        <div class="asientos-grid" style="display:flex; justify-content:space-around; margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-around; margin-bottom:10px;">
             <div class="asiento-btn" onclick="toggleAsiento(1)" id="as-1">1</div>
             <div class="asiento-btn" onclick="toggleAsiento(2)" id="as-2">2</div>
             <div class="asiento-btn" onclick="toggleAsiento(3)" id="as-3">3</div>
             <div class="asiento-btn" onclick="toggleAsiento(4)" id="as-4">4</div>
         </div>
-        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()">SOLICITAR MI VIAJE</button>
+        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViaje()">SOLICITAR MI VIAJE</button>
         <button class="btn-cancelar" id="btn-cancelar" onclick="finalizarViaje()">FINALIZAR VIAJE</button>
     </div>
 
 <script>
-    const _s = supabase.createClient('URL_AQUI', 'KEY_AQUI'); // Pon tus credenciales
+    // 1. CONFIGURACIÓN: ASEGÚRATE DE PONER TU URL Y KEY AQUÍ
+    const _s = supabase.createClient('TU_URL_SUPABASE', 'TU_KEY_SUPABASE');
+    
+    // 2. INICIALIZACIÓN DEL MAPA
+    const map = L.map('map').setView([-34.5612, -58.7705], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // SOLUCIÓN A PANTALLA NEGRA: Forzamos la actualización del mapa al cargar la página
+    setTimeout(() => { map.invalidateSize(); }, 500);
+
     let asientosElegidos = [];
-    const paradas = [ /* ... tu array original de paradas ... */ ];
 
-    // LÓGICA DE UI: Cambiar estado sin recargar
-    function setUIState(estado) {
-        const p = document.getElementById('btn-pedir');
-        const c = document.getElementById('btn-cancelar');
-        if(estado === 'en_curso') {
-            p.style.display = 'none';
-            c.style.display = 'block';
-            document.getElementById('nombre-input').disabled = true;
-            document.getElementById('destino-select').disabled = true;
-        } else {
-            p.style.display = 'block';
-            c.style.display = 'none';
-            document.getElementById('nombre-input').disabled = false;
-            document.getElementById('destino-select').disabled = false;
-        }
-    }
-
-    async function confirmarViajePasajero() {
+    async function confirmarViaje() {
         const nom = document.getElementById('nombre-input').value.trim();
-        if (!nom || asientosElegidos.length === 0) return alert("Completa tus datos");
-
-        // 1. Bloqueo visual inmediato (Evita duplicados)
-        document.getElementById('btn-pedir').disabled = true;
-        document.getElementById('btn-pedir').innerText = "PROCESANDO...";
-
-        // 2. Lógica de búsqueda
-        const { data: moviles } = await _s.from('estado_movil').select('*').eq('esta_online', true).eq('sentido_flujo', document.getElementById('sentido-select').value);
+        const dest = document.getElementById('destino-select').value;
+        const sentido = document.getElementById('sentido-select').value;
         
-        let movilAsignado = moviles ? moviles.find(m => (m.asientos_libres >= asientosElegidos.length) && (m.disponible_desde <= 0)) : null;
+        if (!nom || asientosElegidos.length === 0) return alert("Completa tu nombre y asientos.");
 
-        if (!movilAsignado) {
+        // Bloqueo de UI
+        const btn = document.getElementById('btn-pedir');
+        btn.disabled = true;
+        btn.innerText = "BUSCANDO...";
+
+        // Búsqueda simplificada para no fallar
+        const { data: moviles } = await _s.from('estado_movil')
+            .select('*')
+            .eq('esta_online', true)
+            .eq('sentido_flujo', sentido)
+            .gte('asientos_libres', asientosElegidos.length);
+
+        if (!moviles || moviles.length === 0) {
             alert("No hay móviles disponibles en este momento.");
-            document.getElementById('btn-pedir').disabled = false;
-            document.getElementById('btn-pedir').innerText = "SOLICITAR MI VIAJE";
+            btn.disabled = false;
+            btn.innerText = "SOLICITAR MI VIAJE";
             return;
         }
 
-        // 3. Insertar
-        const res = asientosElegidos.map(n => ({ asiento_num: n, id_movil: movilAsignado.id, estado: 'en_curso', nombre_pasajero: nom, destino_idx: parseInt(document.getElementById('destino-select').value) }));
+        // Insertar reserva
+        const res = asientosElegidos.map(n => ({ 
+            asiento_num: n, 
+            id_movil: moviles[0].id, 
+            estado: 'en_curso', 
+            nombre_pasajero: nom, 
+            destino_idx: parseInt(dest) 
+        }));
+
         const { error } = await _s.from('reservas_activas').insert(res);
 
-        if(!error) {
-            setUIState('en_curso');
-            alert("¡Viaje solicitado!");
+        if (!error) {
+            alert("¡Viaje confirmado!");
+            document.getElementById('btn-pedir').style.display = 'none';
+            document.getElementById('btn-cancelar').style.display = 'block';
         } else {
             alert("Error: " + error.message);
-            document.getElementById('btn-pedir').disabled = false;
+            btn.disabled = false;
+            btn.innerText = "SOLICITAR MI VIAJE";
         }
     }
 
