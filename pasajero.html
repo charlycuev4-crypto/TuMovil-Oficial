@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --azul-gps: #007AFF; }
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
         
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
@@ -31,6 +31,10 @@
         .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; }
         .btn-pedir:disabled { background: #444; color: #888; }
         .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
+        
+        /* Spinner para feedback visual */
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -48,8 +52,8 @@
         <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
         
         <select id="sentido-select" onchange="actualizarFlota()">
-            <option value="1">Hacia IDA</option>
-            <option value="2">Hacia VUELTA</option>
+            <option value="IDA">Hacia IDA</option>
+            <option value="VUELTA">Hacia VUELTA</option>
         </select>
         
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
@@ -89,8 +93,12 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d2ff' }).addTo(map));
 
+    const iconP = L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] });
+    const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', className: 'dest-arrow', iconAnchor: [10, 11] });
     const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
-    let markerPasajero = L.marker([0,0], { icon: L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] }) }).addTo(map);
+
+    let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
+    let markerDestinoFlecha = L.marker([0,0], { icon: iconDest });
     let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
     let markerTaxis = {};
     let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
@@ -98,16 +106,29 @@
     const selDest = document.getElementById('destino-select');
     paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
 
+    // ============================================
+    // CARGA INICIAL: Verificar si ya tiene viaje activo
+    // ============================================
     window.onload = async () => {
         const nombreGuardado = localStorage.getItem('usuario_nombre');
         if(nombreGuardado) {
             document.getElementById('nombre-input').value = nombreGuardado;
-            const { data } = await _s.from('reservas_activas').select('*').eq('nombre_pasajero', nombreGuardado).eq('estado', 'en_curso');
-            if(data && data.length > 0) {
-                miViajeActivo = true;
-                asientosElegidos = data.map(r => r.asiento_num);
-                document.getElementById('destino-select').value = data[0].destino_idx;
-                bloquearPanelParaViajeActivo();
+            try {
+                const { data, error } = await _s.from('reservas_activas')
+                    .select('*')
+                    .eq('nombre_pasajero', nombreGuardado)
+                    .eq('estado', 'en_curso');
+                
+                if (error) throw error;
+                
+                if(data && data.length > 0) {
+                    miViajeActivo = true;
+                    asientosElegidos = data.map(r => r.asiento_num);
+                    document.getElementById('destino-select').value = data[0].destino_idx;
+                    bloquearPanelParaViajeActivo();
+                }
+            } catch (err) {
+                console.error("Error al cargar viaje activo:", err);
             }
         }
     };
@@ -121,20 +142,30 @@
         asientosElegidos.forEach(n => document.getElementById('as-'+n).classList.add('selected'));
     }
 
+    // ============================================
+    // GPS: Obtener ubicación del pasajero
+    // ============================================
     navigator.geolocation.watchPosition(p => {
-        miLat = p.coords.latitude; miLon = p.coords.longitude;
+        miLat = p.coords.latitude; 
+        miLon = p.coords.longitude;
         markerPasajero.setLatLng([miLat, miLon]);
         actualizarMapaRuta();
         document.getElementById('btn-pedir').disabled = false;
         if(!miViajeActivo) document.getElementById('btn-pedir').innerText = "🏁 SOLICITAR MI VIAJE";
-        const s = document.getElementById('splash'); if(s) { s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800); }
-    }, null, { enableHighAccuracy: true });
+        
+        const s = document.getElementById('splash'); 
+        if(s) { s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800); }
+    }, (err) => {
+        console.error("GPS Error:", err);
+        document.getElementById('btn-pedir').innerText = "⚠️ GPS NO DISPONIBLE";
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
 
     function actualizarMapaRuta() {
         const val = document.getElementById('destino-select').value;
         if(val !== "" && miLat !== 0) {
             const dest = paradas[val].c;
             guiaDestino.setLatLngs([[miLat, miLon], dest]);
+            markerDestinoFlecha.setLatLng(dest).addTo(map);
             const bounds = L.latLngBounds([miLat, miLon], dest);
             map.fitBounds(bounds, { padding: [80, 80] });
         }
@@ -143,64 +174,189 @@
     function toggleAsiento(num) {
         if(miViajeActivo) return;
         const i = asientosElegidos.indexOf(num);
-        if(i > -1) { asientosElegidos.splice(i, 1); document.getElementById('as-'+num).classList.remove('selected'); }
-        else { asientosElegidos.push(num); document.getElementById('as-'+num).classList.add('selected'); }
+        if(i > -1) { 
+            asientosElegidos.splice(i, 1); 
+            document.getElementById('as-'+num).classList.remove('selected'); 
+        } else { 
+            asientosElegidos.push(num); 
+            document.getElementById('as-'+num).classList.add('selected'); 
+        }
     }
 
-    // --- MAGIA: RPC CASCADA ---
+    // ============================================
+    // LÓGICA DE ASIGNACIÓN INTELIGENTE
+    // Busca chofer del sentido correcto con asientos libres
+    // Si el primero está lleno, pasa al siguiente
+    // ============================================
     async function confirmarViajePasajero() {
-        const nom = document.getElementById('nombre-input').value;
+        const nom = document.getElementById('nombre-input').value.trim();
         const destIdx = parseInt(document.getElementById('destino-select').value);
-        const sentidoVal = parseInt(document.getElementById('sentido-select').value);
+        const sentido = document.getElementById('sentido-select').value; // 'IDA' o 'VUELTA'
         
-        if (!nom || isNaN(destIdx) || asientosElegidos.length === 0) { alert("Completa tus datos."); return; }
+        if (!nom) { alert("Ingresá tu nombre."); return; }
+        if (isNaN(destIdx)) { alert("Seleccioná una parada de destino."); return; }
+        if (asientosElegidos.length === 0) { alert("Seleccioná al menos un asiento."); return; }
         
         const btn = document.getElementById('btn-pedir');
-        btn.innerText = "PROCESANDO...";
         btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>BUSCANDO CHOFER...';
 
-        // Llamada RPC que hace la "cascada" en el servidor
-        const { data, error } = await _s.rpc('reservar_proximo_disponible', {
-            p_sentido_flujo: sentidoVal,
-            p_nombre: nom,
-            p_destino_idx: destIdx
-        });
+        try {
+            // PASO 1: Buscar TODOS los móviles online del sentido correcto
+            const { data: moviles, error: errMoviles } = await _s.from('estado_movil')
+                .select('id, latitud, longitud')
+                .eq('esta_online', true) 
+                .eq('sentido_flujo', sentido)
+                .neq('latitud', 0)
+                .order('id', { ascending: true }); // Ordenar para asignación consistente
 
-        if (error || !data || data[0].exito === false) {
-            alert("No hay unidades disponibles en este momento. Intenta de nuevo.");
-            btn.innerText = "🏁 SOLICITAR MI VIAJE";
-            btn.disabled = false;
-        } else {
+            if (errMoviles) throw errMoviles;
+            
+            if (!moviles || moviles.length === 0) { 
+                throw new Error("No hay choferes en ese sentido actualmente."); 
+            }
+
+            // PASO 2: Para cada móvil, verificar asientos ocupados y buscar uno con lugar
+            let movilAsignado = null;
+            
+            for (const movil of moviles) {
+                // Contar asientos ya reservados en este móvil
+                const { data: ocupados, error: errOcupados } = await _s.from('reservas_activas')
+                    .select('asiento_num')
+                    .eq('id_movil', movil.id)
+                    .eq('estado', 'en_curso');
+                
+                if (errOcupados) continue; // Si falla este móvil, probar el siguiente
+                
+                const asientosOcupados = ocupados ? ocupados.map(r => r.asiento_num) : [];
+                const asientosLibres = asientosElegidos.filter(a => !asientosOcupados.includes(a));
+                
+                // Si hay lugar para TODOS los asientos que quiere, asignar
+                if (asientosLibres.length === asientosElegidos.length) {
+                    movilAsignado = movil;
+                    break; // Encontramos uno, salimos del loop
+                }
+            }
+
+            if (!movilAsignado) {
+                throw new Error("Todos los autos están llenos o no tienen los asientos disponibles.");
+            }
+
+            // PASO 3: Crear las reservas
+            const reservas = asientosElegidos.map(n => ({ 
+                asiento_num: n, 
+                id_movil: movilAsignado.id, 
+                estado: 'en_curso', 
+                nombre_pasajero: nom, 
+                pasajero_lat: miLat, 
+                pasajero_lon: miLon, 
+                destino_idx: destIdx 
+            }));
+
+            const { error: errInsert } = await _s.from('reservas_activas').insert(reservas);
+            if (errInsert) throw errInsert;
+
+            // ÉXITO
             localStorage.setItem('usuario_nombre', nom);
-            alert("¡Viaje reservado con éxito!");
             location.reload();
+
+        } catch (err) {
+            console.error("Error en confirmarViaje:", err);
+            alert(err.message || "Error de conexión. Verificá tu internet.");
+            btn.disabled = false;
+            btn.innerText = "🏁 SOLICITAR MI VIAJE";
         }
     }
 
+    // ============================================
+    // FINALIZAR VIAJE: Corregido para no trabarse
+    // ============================================
     async function finalizarViaje() {
-        const nom = document.getElementById('nombre-input').value;
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('nombre_pasajero', nom);
-        location.reload();
-    }
-
-    async function actualizarFlota() {
-        const sentidoSeleccionado = parseInt(document.getElementById('sentido-select').value);
-        const { data: moviles } = await _s.from('estado_movil')
-            .select('*')
-            .eq('esta_online', true)
-            .eq('sentido_flujo', sentidoSeleccionado)
-            .neq('latitud', 0);
+        const btn = document.getElementById('btn-cancelar');
+        const nom = document.getElementById('nombre-input').value.trim();
         
-        if (moviles) {
-            const idsOnline = moviles.map(m => m.id.toString());
-            Object.keys(markerTaxis).forEach(id => { if(!idsOnline.includes(id)) { map.removeLayer(markerTaxis[id]); delete markerTaxis[id]; } });
-            moviles.forEach(t => {
-                if(markerTaxis[t.id]) markerTaxis[t.id].setLatLng([t.latitud, t.longitud]);
-                else markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map);
-            });
+        // 🔒 Evitar doble clic
+        if (btn.disabled) return;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>FINALIZANDO...';
+
+        if (!nom) {
+            alert("Error: No se encontró tu nombre.");
+            btn.disabled = false;
+            btn.innerText = "TERMINAR MI VIAJE";
+            return;
+        }
+
+        try {
+            const { data, error } = await _s.from('reservas_activas')
+                .update({ estado: 'finalizado' })
+                .eq('nombre_pasajero', nom)
+                .eq('estado', 'en_curso')
+                .select();
+
+            if (error) throw error;
+            
+            if (!data || data.length === 0) {
+                alert("No se encontró viaje activo para finalizar.");
+                btn.disabled = false;
+                btn.innerText = "TERMINAR MI VIAJE";
+                return;
+            }
+
+            // ✅ Confirmado, ahora sí recargar
+            location.reload();
+            
+        } catch (err) {
+            console.error("Error al finalizar:", err);
+            alert("Error de conexión al finalizar. Intentá de nuevo.");
+            btn.disabled = false;
+            btn.innerText = "TERMINAR MI VIAJE";
         }
     }
 
+    // ============================================
+    // MAPA: Mostrar flota filtrada por sentido
+    // ============================================
+    async function actualizarFlota() {
+        const sentidoSeleccionado = document.getElementById('sentido-select').value;
+        
+        try {
+            const { data: moviles, error } = await _s.from('estado_movil')
+                .select('*')
+                .eq('esta_online', true)
+                .eq('sentido_flujo', sentidoSeleccionado)
+                .neq('latitud', 0);
+            
+            if (error) throw error;
+
+            if (moviles) {
+                const idsOnline = moviles.map(m => m.id.toString());
+                
+                // Eliminar marcadores que ya no están
+                Object.keys(markerTaxis).forEach(id => {
+                    if(!idsOnline.includes(id)) {
+                        map.removeLayer(markerTaxis[id]);
+                        delete markerTaxis[id];
+                    }
+                });
+
+                // Añadir o actualizar
+                moviles.forEach(t => {
+                    if(markerTaxis[t.id]) {
+                        markerTaxis[t.id].setLatLng([t.latitud, t.longitud]);
+                    } else {
+                        markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map);
+                    }
+                });
+            }
+        } catch (err) {
+            console.error("Error actualizando flota:", err);
+        }
+    }
+
+    // ============================================
+    // REALTIME: Escuchar cambios en estado_movil
+    // ============================================
     _s.channel('cambios_pasajero')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'estado_movil' }, () => actualizarFlota())
       .subscribe();
