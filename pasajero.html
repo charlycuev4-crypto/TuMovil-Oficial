@@ -1,4 +1,4 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -32,9 +32,11 @@
         .btn-pedir:disabled { background: #444; color: #888; }
         .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
         
-        /* Spinner para feedback visual */
         .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* 🔴 NUEVO: Badge para móviles que ya pasaron */
+        .movil-pasado { opacity: 0.5; filter: grayscale(0.7); }
     </style>
 </head>
 <body>
@@ -96,6 +98,8 @@
     const iconP = L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] });
     const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', className: 'dest-arrow', iconAnchor: [10, 11] });
     const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
+    // 🔴 NUEVO: Icono para móviles que ya pasaron la parada del pasajero (solo visual)
+    const iconTPasado = L.divIcon({ html: '<span style="font-size:25px; opacity:0.4; filter: grayscale(1);">🚕</span>', iconAnchor: [12, 12] });
 
     let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
     let markerDestinoFlecha = L.marker([0,0], { icon: iconDest });
@@ -184,14 +188,25 @@
     }
 
     // ============================================
-    // LÓGICA DE ASIGNACIÓN INTELIGENTE
-    // Busca chofer del sentido correcto con asientos libres
-    // Si el primero está lleno, pasa al siguiente
+    // 🔴 NUEVO: Función para verificar si un móvil puede recoger en una parada
+    // ============================================
+    function movilPuedeRecoger(movilParada, paradaPasajero, sentido) {
+        if (sentido === 'IDA') {
+            // IDA: 0 → 24. El móvil puede recoger si está en parada <= parada del pasajero
+            return movilParada <= paradaPasajero;
+        } else {
+            // VUELTA: 24 → 0. El móvil puede recoger si está en parada >= parada del pasajero
+            return movilParada >= paradaPasajero;
+        }
+    }
+
+    // ============================================
+    // LÓGICA DE ASIGNACIÓN INTELIGENTE (ACTUALIZADA)
     // ============================================
     async function confirmarViajePasajero() {
         const nom = document.getElementById('nombre-input').value.trim();
         const destIdx = parseInt(document.getElementById('destino-select').value);
-        const sentido = document.getElementById('sentido-select').value; // 'IDA' o 'VUELTA'
+        const sentido = document.getElementById('sentido-select').value;
         
         if (!nom) { alert("Ingresá tu nombre."); return; }
         if (isNaN(destIdx)) { alert("Seleccioná una parada de destino."); return; }
@@ -203,12 +218,13 @@
 
         try {
             // PASO 1: Buscar TODOS los móviles online del sentido correcto
+            // 🔴 AHORA TRAEMOS parada_actual TAMBIÉN
             const { data: moviles, error: errMoviles } = await _s.from('estado_movil')
-                .select('id, latitud, longitud')
+                .select('id, parada_actual, latitud, longitud')
                 .eq('esta_online', true) 
                 .eq('sentido_flujo', sentido)
                 .neq('latitud', 0)
-                .order('id', { ascending: true }); // Ordenar para asignación consistente
+                .order('id', { ascending: true });
 
             if (errMoviles) throw errMoviles;
             
@@ -216,30 +232,40 @@
                 throw new Error("No hay choferes en ese sentido actualmente."); 
             }
 
-            // PASO 2: Para cada móvil, verificar asientos ocupados y buscar uno con lugar
+            // 🔴 PASO NUEVO: Separar móviles que pueden recoger vs los que ya pasaron
+            const movilesValidos = moviles.filter(m => movilPuedeRecoger(m.parada_actual, destIdx, sentido));
+            const movilesPasados = moviles.filter(m => !movilPuedeRecoger(m.parada_actual, destIdx, sentido));
+
+            if (movilesValidos.length === 0) {
+                if (movilesPasados.length > 0) {
+                    throw new Error("Todos los autos ya pasaron tu parada. Esperá al siguiente recorrido.");
+                } else {
+                    throw new Error("No hay choferes disponibles en este momento.");
+                }
+            }
+
+            // PASO 2: Para cada móvil válido, verificar asientos ocupados
             let movilAsignado = null;
             
-            for (const movil of moviles) {
-                // Contar asientos ya reservados en este móvil
+            for (const movil of movilesValidos) {
                 const { data: ocupados, error: errOcupados } = await _s.from('reservas_activas')
                     .select('asiento_num')
                     .eq('id_movil', movil.id)
                     .eq('estado', 'en_curso');
                 
-                if (errOcupados) continue; // Si falla este móvil, probar el siguiente
+                if (errOcupados) continue;
                 
                 const asientosOcupados = ocupados ? ocupados.map(r => r.asiento_num) : [];
                 const asientosLibres = asientosElegidos.filter(a => !asientosOcupados.includes(a));
                 
-                // Si hay lugar para TODOS los asientos que quiere, asignar
                 if (asientosLibres.length === asientosElegidos.length) {
                     movilAsignado = movil;
-                    break; // Encontramos uno, salimos del loop
+                    break;
                 }
             }
 
             if (!movilAsignado) {
-                throw new Error("Todos los autos están llenos o no tienen los asientos disponibles.");
+                throw new Error("Todos los autos disponibles están llenos. Intentá en unos minutos.");
             }
 
             // PASO 3: Crear las reservas
@@ -256,7 +282,6 @@
             const { error: errInsert } = await _s.from('reservas_activas').insert(reservas);
             if (errInsert) throw errInsert;
 
-            // ÉXITO
             localStorage.setItem('usuario_nombre', nom);
             location.reload();
 
@@ -268,14 +293,10 @@
         }
     }
 
-    // ============================================
-    // FINALIZAR VIAJE: Corregido para no trabarse
-    // ============================================
     async function finalizarViaje() {
         const btn = document.getElementById('btn-cancelar');
         const nom = document.getElementById('nombre-input').value.trim();
         
-        // 🔒 Evitar doble clic
         if (btn.disabled) return;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner"></span>FINALIZANDO...';
@@ -303,7 +324,6 @@
                 return;
             }
 
-            // ✅ Confirmado, ahora sí recargar
             location.reload();
             
         } catch (err) {
@@ -315,10 +335,11 @@
     }
 
     // ============================================
-    // MAPA: Mostrar flota filtrada por sentido
+    // MAPA: Mostrar TODA la flota (incluidos los que pasaron)
     // ============================================
     async function actualizarFlota() {
         const sentidoSeleccionado = document.getElementById('sentido-select').value;
+        const destIdx = document.getElementById('destino-select').value;
         
         try {
             const { data: moviles, error } = await _s.from('estado_movil')
@@ -332,7 +353,6 @@
             if (moviles) {
                 const idsOnline = moviles.map(m => m.id.toString());
                 
-                // Eliminar marcadores que ya no están
                 Object.keys(markerTaxis).forEach(id => {
                     if(!idsOnline.includes(id)) {
                         map.removeLayer(markerTaxis[id]);
@@ -340,12 +360,21 @@
                     }
                 });
 
-                // Añadir o actualizar
                 moviles.forEach(t => {
+                    // 🔴 NUEVO: Determinar si el móvil ya pasó la parada del pasajero (para visual)
+                    let yaPaso = false;
+                    if (destIdx !== "" && t.parada_actual !== undefined && t.parada_actual !== null) {
+                        yaPaso = !movilPuedeRecoger(t.parada_actual, parseInt(destIdx), sentidoSeleccionado);
+                    }
+
+                    const iconoUsar = yaPaso ? iconTPasado : iconT;
+
                     if(markerTaxis[t.id]) {
                         markerTaxis[t.id].setLatLng([t.latitud, t.longitud]);
+                        // Cambiar icono si cambió el estado (pasó/no pasó)
+                        markerTaxis[t.id].setIcon(iconoUsar);
                     } else {
-                        markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map);
+                        markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconoUsar }).addTo(map);
                     }
                 });
             }
@@ -355,7 +384,7 @@
     }
 
     // ============================================
-    // REALTIME: Escuchar cambios en estado_movil
+    // REALTIME
     // ============================================
     _s.channel('cambios_pasajero')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'estado_movil' }, () => actualizarFlota())
