@@ -22,17 +22,17 @@
         .btn-main:active { transform: scale(0.98); }
         .btn-danger { background: #dc3545; color: white; }
         .btn-warning { background: var(--amarillo); color: black; }
+        .btn-success { background: #28a745; color: white; }
 
-        /* LAYOUT PRINCIPAL - MÓVIL PRIMERO */
+        /* LAYOUT */
         #app-container { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
         
-        /* SIDEBAR */
         #sidebar { 
             position: fixed; 
             top: 0; 
             left: 0; 
             width: 85%; 
-            max-width: 360px; 
+            max-width: 380px; 
             height: 100vh; 
             background: var(--panel); 
             border-right: 1px solid #333; 
@@ -43,7 +43,6 @@
         }
         #sidebar.hidden { transform: translateX(-100%); }
         
-        /* OVERLAY cuando sidebar está abierto */
         #overlay { 
             position: fixed; 
             inset: 0; 
@@ -53,7 +52,6 @@
         }
         #overlay.active { display: block; }
 
-        /* MAPA - SIEMPRE FULL SCREEN */
         #map { 
             flex-grow: 1; 
             height: 100vh; 
@@ -61,7 +59,6 @@
             position: relative; 
         }
 
-        /* BOTÓN HAMBURGUESA FLOTANTE */
         #btn-menu { 
             position: fixed; 
             top: 15px; 
@@ -98,9 +95,8 @@
             min-width: 65px;
         }
         .tab-btn.active { background: var(--celeste); color: black; }
-        .tab-btn.map-btn { background: var(--amarillo); color: black; }
 
-        /* CONTENIDO CON SCROLL */
+        /* CONTENT */
         .content { 
             padding: 15px; 
             overflow-y: auto; 
@@ -127,28 +123,40 @@
         .badge-zona1 { background: #00d2ff33; color: #00d2ff; }
         .badge-zona2 { background: #ffcc0033; color: #ffcc00; }
         .badge-zona3 { background: #ff444433; color: #ff4444; }
-        
         .card-info { font-size: 13px; color: #aaa; line-height: 1.5; }
         .card-price { font-size: 18px; color: var(--amarillo); font-weight: bold; }
 
-        /* ACCIONES RÁPIDAS */
-        .action-bar { 
-            display: flex; 
-            gap: 8px; 
+        /* FORMS */
+        .form-section { 
+            background: #1a1a1a; 
+            padding: 15px; 
+            border-radius: 12px; 
             margin-bottom: 15px; 
-            flex-shrink: 0;
         }
-        .action-bar button { 
-            flex: 1; 
-            padding: 12px; 
-            border: none; 
-            border-radius: 10px; 
+        .form-title { 
             font-size: 12px; 
-            font-weight: bold; 
-            cursor: pointer;
+            color: #888; 
+            margin-bottom: 12px; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px;
         }
+        input, select { 
+            background: #2a2a2a; 
+            border: 1px solid #444; 
+            color: white; 
+            padding: 12px; 
+            border-radius: 10px; 
+            width: 100%; 
+            font-size: 15px; 
+            margin-bottom: 10px; 
+        }
+        input:focus, select:focus { outline: none; border-color: var(--celeste); }
 
-        /* TOTALES */
+        /* ACTION BAR */
+        .action-bar { display: flex; gap: 8px; margin-bottom: 15px; }
+        .action-bar button { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 12px; font-weight: bold; cursor: pointer; }
+
+        /* TOTAL BOX */
         .total-box { 
             background: linear-gradient(135deg, rgba(0,210,255,0.15), rgba(0,210,255,0.05)); 
             padding: 20px; 
@@ -161,17 +169,27 @@
         .total-box .amount { font-size: 36px; color: var(--amarillo); margin: 8px 0; font-weight: bold; }
         .total-box .detail { font-size: 13px; color: #aaa; }
 
-        /* ESTADOS VACÍOS */
+        /* EMPTY STATE */
         .empty-state { text-align: center; padding: 40px 20px; color: #555; }
         .empty-state .icon { font-size: 48px; margin-bottom: 10px; }
 
-        /* MAPA OSCURO */
+        /* MAP */
         .map-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+
+        /* MINI BUTTONS */
+        .mini-btn { 
+            padding: 6px 10px; 
+            border: none; 
+            border-radius: 6px; 
+            font-size: 11px; 
+            cursor: pointer; 
+            flex: 1;
+        }
 
         /* RESPONSIVE DESKTOP */
         @media (min-width: 768px) {
             #app-container { flex-direction: row; }
-            #sidebar { position: relative; width: 380px; transform: none !important; }
+            #sidebar { position: relative; width: 400px; transform: none !important; }
             #sidebar.hidden { transform: none !important; }
             #btn-menu { display: none !important; }
             #overlay { display: none !important; }
@@ -206,11 +224,11 @@
         </div>
 
         <div class="content">
-            <!-- RADAR: PASAJEROS EN VIVO -->
+            <!-- RADAR -->
             <div id="view-radar" class="section active">
                 <div class="action-bar">
-                    <button class="btn-warning" onclick="finalizarTodos()">🧹 LIMPIAR TODO</button>
-                    <button class="btn-danger" onclick="if(confirm('¿Borrar TODOS los viajes?'))finalizarTodos(true)">🗑️ BORRAR</button>
+                    <button class="btn-warning" onclick="finalizarTodos(false)">🧹 FINALIZAR TODO</button>
+                    <button class="btn-danger" onclick="finalizarTodos(true)">🗑️ BORRAR TODO</button>
                 </div>
                 <h4 style="color: var(--celeste); margin: 0 0 12px 0; font-size: 14px;">📡 PASAJEROS EN VIVO</h4>
                 <div id="pax-list"></div>
@@ -235,10 +253,32 @@
 
             <!-- AJUSTES -->
             <div id="view-ajustes" class="section">
-                <h4 style="margin: 0 0 12px 0; font-size: 14px;">⚙️ GESTIÓN DE UNIDADES</h4>
-                <input type="number" id="c-id" placeholder="N° de Coche">
-                <input type="text" id="c-nom" placeholder="Nombre del Chofer">
-                <button class="btn-main" onclick="guardar()" style="margin-bottom: 10px;">ACTUALIZAR DATOS</button>
+                
+                <!-- CHOFER -->
+                <div class="form-section">
+                    <div class="form-title">👤 Datos del Chofer</div>
+                    <input type="number" id="c-id" placeholder="N° de Coche">
+                    <input type="text" id="c-nom" placeholder="Nombre del Chofer">
+                    <button class="btn-main" onclick="guardarChofer()">ACTUALIZAR CHOFER</button>
+                </div>
+
+                <!-- VEHÍCULO -->
+                <div class="form-section">
+                    <div class="form-title">🚗 Datos del Vehículo</div>
+                    <input type="number" id="auto-id" placeholder="N° de Coche">
+                    <input type="text" id="auto-marca" placeholder="Marca (ej: Renault)">
+                    <input type="text" id="auto-modelo" placeholder="Modelo (ej: Clio)">
+                    <input type="text" id="auto-color" placeholder="Color (ej: Azul)">
+                    <input type="text" id="auto-patente" placeholder="Patente (ej: ABC123)" style="text-transform: uppercase;">
+                    <button class="btn-main" onclick="guardarAuto()" style="background: var(--amarillo);">💾 GUARDAR VEHÍCULO</button>
+                </div>
+
+                <!-- LISTA DE COCHES -->
+                <div class="form-section">
+                    <div class="form-title">📋 Coches Registrados</div>
+                    <div id="lista-autos" style="max-height: 250px; overflow-y: auto;"></div>
+                </div>
+
                 <button class="btn-main" style="background: #444; color: white;" onclick="cambiarClave()">🔐 CAMBIAR CONTRASEÑA</button>
             </div>
         </div>
@@ -257,7 +297,10 @@
         const correcta = localStorage.getItem("adminPass") || "1234";
         if(document.getElementById("pass-field").value === correcta) {
             document.getElementById("login-screen").style.display = "none";
+            localStorage.setItem("adminLogueado", "true");
             initMap();
+            cargarInicial();
+            activarRealtime();
         } else {
             document.getElementById("error").style.display = "block";
             setTimeout(() => document.getElementById("error").style.display = "none", 3000);
@@ -265,7 +308,7 @@
     }
 
     // ============================================
-    // SIDEBAR RESPONSIVE
+    // SIDEBAR
     // ============================================
     function toggleSidebar(show) {
         const side = document.getElementById("sidebar");
@@ -289,7 +332,7 @@
         document.getElementById('view-'+s).classList.add('active');
         event.currentTarget.classList.add('active');
         
-        // En móvil, cerrar sidebar al cambiar de tab
+        if(s === 'ajustes') cargarListaAutos();
         if(window.innerWidth < 768) toggleSidebar(false);
     }
 
@@ -316,21 +359,71 @@
         3: { nombre: 'Moreno', color: '#ff4444', precio: 2500 }
     };
 
-    // ============================================
-    // REFRESCAR DATOS
-    // ============================================
-    async function refrescar() {
-        try {
-            const { data: moviles } = await _s.from('estado_movil').select('*').order('id');
-            const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
+    const PARADAS = [
+        'Miguel Cané','Cané y Los Aromos','Los Aromos 11016','Los Aromos 10874',
+        'Los Aromos y Murillo','Murillo 601','Murillo y Güiraldes','Murillo y Watt',
+        'A. Prado 2555','Prado y Payró','Prado 1744','Boulevard Caveri',
+        'Caveri y Azara','Caveri y Vedia','Caveri y Tablada','Caveri y Echeverría',
+        'Caveri y Gálvez','Caveri (Final)','Libertador y Aero','Libertador 7300',
+        'Libertador 7200','Libertador y Maza','Maza y Albatros','Maternidad',
+        'Abasto y Roca','Cruce Castelar','N. Kirchner y Maza','N. Kirchner y Albatros',
+        'Libertador y Gaona','Libertador (Italia)','Córdoba 2879','Nemesio Álvarez',
+        'España 171','Merlo / Mr. Tasty','Estación Moreno'
+    ];
 
-            renderPasajeros(reservas);
-            renderFlota(moviles, reservas);
-            renderCaja(moviles, reservas);
-            actualizarMapa(moviles, reservas);
+    // ============================================
+    // REALTIME + CACHE
+    // ============================================
+    let datosCache = { moviles: [], reservas: [] };
+
+    async function cargarInicial() {
+        try {
+            const [{ data: moviles }, { data: reservas }] = await Promise.all([
+                _s.from('estado_movil').select('*').order('id'),
+                _s.from('reservas_activas').select('*').eq('estado', 'en_curso')
+            ]);
+            
+            datosCache.moviles = moviles || [];
+            datosCache.reservas = reservas || [];
+            renderizarTodo();
         } catch(e) {
-            console.error("Error:", e);
+            console.error("Error carga inicial:", e);
         }
+    }
+
+    function activarRealtime() {
+        _s.channel('admin_moviles')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'estado_movil' }, (payload) => {
+                if(payload.eventType === 'DELETE') {
+                    datosCache.moviles = datosCache.moviles.filter(m => m.id !== payload.old.id);
+                } else {
+                    const idx = datosCache.moviles.findIndex(m => m.id === payload.new.id);
+                    if(idx >= 0) datosCache.moviles[idx] = { ...datosCache.moviles[idx], ...payload.new };
+                    else datosCache.moviles.push(payload.new);
+                }
+                renderizarTodo();
+            })
+            .subscribe();
+
+        _s.channel('admin_reservas')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas', filter: 'estado=eq.en_curso' }, (payload) => {
+                if(payload.eventType === 'DELETE') {
+                    datosCache.reservas = datosCache.reservas.filter(r => r.id !== payload.old.id);
+                } else {
+                    const idx = datosCache.reservas.findIndex(r => r.id === payload.new.id);
+                    if(idx >= 0) datosCache.reservas[idx] = payload.new;
+                    else datosCache.reservas.push(payload.new);
+                }
+                renderizarTodo();
+            })
+            .subscribe();
+    }
+
+    function renderizarTodo() {
+        renderPasajeros(datosCache.reservas);
+        renderFlota(datosCache.moviles, datosCache.reservas);
+        renderCaja(datosCache.moviles, datosCache.reservas);
+        actualizarMapa(datosCache.moviles, datosCache.reservas);
     }
 
     // ============================================
@@ -340,15 +433,10 @@
         const box = document.getElementById('pax-list');
         
         if(!reservas || reservas.length === 0) {
-            box.innerHTML = `
-                <div class="empty-state">
-                    <div class="icon">📭</div>
-                    <div>No hay pasajeros activos</div>
-                </div>`;
+            box.innerHTML = `<div class="empty-state"><div class="icon">📭</div><div>No hay pasajeros activos</div></div>`;
             return;
         }
 
-        // Agrupar por coche
         const porCoche = {};
         reservas.forEach(r => {
             if(!porCoche[r.id_movil]) porCoche[r.id_movil] = [];
@@ -362,7 +450,7 @@
             
             lista.forEach(r => {
                 const zona = ZONAS[r.zona_bajada] || ZONAS[1];
-                const destino = getNombreParada(r.destino_idx);
+                const destino = PARADAS[r.destino_idx] || `Parada ${r.destino_idx}`;
                 
                 html += `
                 <div class="card" style="border-left-color: ${zona.color}">
@@ -382,28 +470,13 @@
         box.innerHTML = html;
     }
 
-    function getNombreParada(idx) {
-        const paradas = [
-            'Miguel Cané','Cané y Los Aromos','Los Aromos 11016','Los Aromos 10874',
-            'Los Aromos y Murillo','Murillo 601','Murillo y Güiraldes','Murillo y Watt',
-            'A. Prado 2555','Prado y Payró','Prado 1744','Boulevard Caveri',
-            'Caveri y Azara','Caveri y Vedia','Caveri y Tablada','Caveri y Echeverría',
-            'Caveri y Gálvez','Caveri (Final)','Libertador y Aero','Libertador 7300',
-            'Libertador 7200','Libertador y Maza','Maza y Albatros','Maternidad',
-            'Abasto y Roca','Cruce Castelar','N. Kirchner y Maza','N. Kirchner y Albatros',
-            'Libertador y Gaona','Libertador (Italia)','Córdoba 2879','Nemesio Álvarez',
-            'España 171','Merlo / Mr. Tasty','Estación Moreno'
-        ];
-        return paradas[idx] || `Parada ${idx}`;
-    }
-
     // ============================================
     // FLOTA
     // ============================================
     function renderFlota(moviles, reservas) {
         const box = document.getElementById('flota-list');
         if(!moviles || moviles.length === 0) {
-            box.innerHTML = '<div class="empty-state"><div class="icon">🚗</div><div>Sin coches registrados</div></div>';
+            box.innerHTML = `<div class="empty-state"><div class="icon">🚗</div><div>Sin coches registrados</div></div>`;
             return;
         }
 
@@ -411,6 +484,7 @@
             const pasajeros = reservas.filter(r => r.id_movil == m.id).length;
             const online = m.esta_online && m.latitud;
             const color = online ? '#28a745' : '#dc3545';
+            const autoInfo = m.patente ? `🚙 ${m.marca || ''} ${m.modelo || ''} · ${m.patente}` : '';
             
             return `
             <div class="card" style="border-left-color: ${color}">
@@ -421,7 +495,8 @@
                     </span>
                 </div>
                 <div class="card-info">
-                    👤 ${m.chofer || 'Sin chofer asignado'}<br>
+                    👤 ${m.chofer || 'Sin chofer'}<br>
+                    ${autoInfo ? autoInfo + '<br>' : ''}
                     🪑 ${pasajeros}/4 asientos ocupados
                 </div>
             </div>`;
@@ -429,14 +504,14 @@
     }
 
     // ============================================
-    // CAJA - RECAUDACIÓN INTELIGENTE
+    // CAJA
     // ============================================
     function renderCaja(moviles, reservas) {
         const box = document.getElementById('caja-list');
         let totalGeneral = 0;
 
         if(!moviles || moviles.length === 0) {
-            box.innerHTML = '<div class="empty-state">Sin datos</div>';
+            box.innerHTML = `<div class="empty-state">Sin datos</div>`;
             document.getElementById('total-general').innerText = '$0';
             document.getElementById('total-detail').innerText = '0 viajes';
             return;
@@ -450,7 +525,7 @@
             return `
             <div class="card">
                 <div class="card-header">
-                    <span class="card-title">💰 Coche ${m.id}</span>
+                    <span class="card-title">💰 Coche ${m.id} ${m.patente ? '('+m.patente+')' : ''}</span>
                     <span class="card-price">$${subtotal.toLocaleString()}</span>
                 </div>
                 <div class="card-info">${delCoche.length} viaje(s) activo(s)</div>
@@ -459,43 +534,45 @@
 
         box.innerHTML = html;
         document.getElementById('total-general').innerText = '$' + totalGeneral.toLocaleString();
-        document.getElementById('total-detail').innerText = `${reservas.length} viaje(s) activo(s) · ${moviles.filter(m=>m.esta_online).length} coche(s) online`;
+        document.getElementById('total-detail').innerText = `${reservas.length} viaje(s) · ${moviles.filter(m=>m.esta_online).length} coche(s) online`;
     }
 
     // ============================================
-    // MAPA - ACTUALIZAR MARCADORES
+    // MAPA
     // ============================================
     function actualizarMapa(moviles, reservas) {
         if(!map) return;
 
-        // Marcadores de coches
         moviles.forEach(m => {
             if(m.latitud && m.longitud) {
-                if(markers['coche_'+m.id]) {
-                    markers['coche_'+m.id].setLatLng([m.latitud, m.longitud]);
+                const key = 'coche_'+m.id;
+                const popup = `🚗 Coche ${m.id}<br>👤 ${m.chofer || 'Sin chofer'}<br>${m.patente ? '🚙 '+m.patente : ''}`;
+                
+                if(markers[key]) {
+                    markers[key].setLatLng([m.latitud, m.longitud]);
+                    markers[key].setPopupContent(popup);
                 } else {
-                    markers['coche_'+m.id] = L.marker([m.latitud, m.longitud], {icon: iconT})
-                        .addTo(map)
-                        .bindPopup(`🚗 Coche ${m.id}<br>👤 ${m.chofer || 'Sin chofer'}`);
+                    markers[key] = L.marker([m.latitud, m.longitud], {icon: iconT})
+                        .addTo(map).bindPopup(popup);
                 }
             }
         });
 
-        // Marcadores de pasajeros
-        reservas.forEach((r, i) => {
+        reservas.forEach(r => {
             if(r.pasajero_lat && r.pasajero_lon) {
                 const key = 'pax_'+r.id;
+                const popup = `👤 ${r.nombre_pasajero}<br>🚗 Coche ${r.id_movil}<br>🪑 Asiento ${r.asiento_num}`;
+                
                 if(markers[key]) {
                     markers[key].setLatLng([r.pasajero_lat, r.pasajero_lon]);
                 } else {
                     markers[key] = L.marker([r.pasajero_lat, r.pasajero_lon], {icon: iconPax})
-                        .addTo(map)
-                        .bindPopup(`👤 ${r.nombre_pasajero}<br>🚗 Coche ${r.id_movil}<br>🪑 Asiento ${r.asiento_num}`);
+                        .addTo(map).bindPopup(popup);
                 }
             }
         });
 
-        // Limpiar marcadores de pasajeros que ya no están
+        // Limpiar pasajeros que ya no están
         Object.keys(markers).forEach(key => {
             if(key.startsWith('pax_')) {
                 const id = parseInt(key.replace('pax_', ''));
@@ -508,24 +585,21 @@
     }
 
     // ============================================
-    // ACCIONES: LIMPIAR / FINALIZAR TODOS
+    // ACCIONES MASIVAS
     // ============================================
-    async function finalizarTodos(borrar = false) {
+    async function finalizarTodos(borrar) {
+        if(!confirm(borrar ? '¿Borrar TODOS los viajes permanentemente?' : '¿Finalizar TODOS los viajes activos?')) return;
+        
         try {
             if(borrar) {
-                const { error } = await _s.from('reservas_activas')
-                    .delete()
-                    .eq('estado', 'en_curso');
-                if(error) throw error;
+                await _s.from('reservas_activas').delete().eq('estado', 'en_curso');
                 alert('🗑️ Todos los viajes fueron eliminados');
             } else {
-                const { error } = await _s.from('reservas_activas')
-                    .update({ estado: 'finalizado' })
-                    .eq('estado', 'en_curso');
-                if(error) throw error;
+                await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso');
                 alert('✅ Todos los viajes fueron finalizados');
             }
-            refrescar();
+            datosCache.reservas = [];
+            renderizarTodo();
         } catch(e) {
             alert('❌ Error: ' + e.message);
         }
@@ -534,21 +608,120 @@
     // ============================================
     // GUARDAR CHOFER
     // ============================================
-    async function guardar() {
+    async function guardarChofer() {
         const id = document.getElementById('c-id').value;
-        const nom = document.getElementById('c-nom').value;
-        if(!id || !nom) { alert('Completá todos los campos'); return; }
+        const nom = document.getElementById('c-nom').value.trim();
+        if(!id || !nom) { alert('Completá N° de coche y nombre'); return; }
+        
+        try {
+            await _s.from('estado_movil').upsert({ id: parseInt(id), chofer: nom });
+            alert('✅ Chofer actualizado');
+            document.getElementById('c-id').value = '';
+            document.getElementById('c-nom').value = '';
+        } catch(e) {
+            alert('❌ Error: ' + e.message);
+        }
+    }
+
+    // ============================================
+    // GUARDAR AUTO (NUEVO)
+    // ============================================
+    async function guardarAuto() {
+        const id = document.getElementById('auto-id').value;
+        const marca = document.getElementById('auto-marca').value.trim();
+        const modelo = document.getElementById('auto-modelo').value.trim();
+        const color = document.getElementById('auto-color').value.trim();
+        const patente = document.getElementById('auto-patente').value.trim().toUpperCase();
+        
+        if(!id) { alert('Ingresá el N° de coche'); return; }
+        if(!marca || !modelo || !color || !patente) { 
+            alert('Completá todos los datos del vehículo'); return; 
+        }
         
         try {
             await _s.from('estado_movil').upsert({ 
-                id: parseInt(id), 
-                chofer: nom,
-                esta_online: false 
+                id: parseInt(id),
+                marca: marca,
+                modelo: modelo,
+                color: color,
+                patente: patente
             });
-            alert('✅ Datos actualizados');
-            document.getElementById('c-id').value = '';
-            document.getElementById('c-nom').value = '';
-            refrescar();
+            
+            alert('✅ Vehículo guardado');
+            
+            // Limpiar
+            document.getElementById('auto-id').value = '';
+            document.getElementById('auto-marca').value = '';
+            document.getElementById('auto-modelo').value = '';
+            document.getElementById('auto-color').value = '';
+            document.getElementById('auto-patente').value = '';
+            
+            cargarListaAutos();
+            
+        } catch(e) {
+            alert('❌ Error: ' + e.message);
+        }
+    }
+
+    // ============================================
+    // LISTA DE AUTOS (NUEVO)
+    // ============================================
+    async function cargarListaAutos() {
+        try {
+            const { data: moviles } = await _s.from('estado_movil').select('*').order('id');
+            const box = document.getElementById('lista-autos');
+            
+            if(!moviles || moviles.length === 0) {
+                box.innerHTML = '<div style="color: #555; text-align: center; padding: 20px;">Sin coches registrados</div>';
+                return;
+            }
+            
+            box.innerHTML = moviles.map(m => `
+                <div class="card" style="border-left-color: ${m.patente ? '#28a745' : '#666'}; padding: 10px;">
+                    <div class="card-header">
+                        <span class="card-title" style="font-size: 14px;">🚗 Coche ${m.id}</span>
+                        ${m.patente ? `<span class="card-badge" style="background: #28a74533; color: #28a745;">${m.patente}</span>` : '<span style="color:#666;font-size:11px;">Sin datos</span>'}
+                    </div>
+                    <div class="card-info" style="font-size: 12px;">
+                        ${m.marca ? `📌 ${m.marca} ${m.modelo}` : ''}
+                        ${m.color ? `· 🎨 ${m.color}` : ''}
+                        ${m.chofer ? `<br>👤 ${m.chofer}` : ''}
+                    </div>
+                    <div style="display: flex; gap: 5px; margin-top: 8px;">
+                        <button onclick="editarAuto(${m.id})" class="mini-btn" style="background: #333; color: white;">✏️ Editar</button>
+                        <button onclick="eliminarAuto(${m.id})" class="mini-btn" style="background: #dc3545; color: white;">🗑️ Eliminar</button>
+                    </div>
+                </div>
+            `).join('');
+            
+        } catch(e) {
+            console.error("Error cargando autos:", e);
+        }
+    }
+
+    async function editarAuto(id) {
+        try {
+            const { data: m } = await _s.from('estado_movil').select('*').eq('id', id).single();
+            if(!m) return;
+            
+            document.getElementById('auto-id').value = m.id;
+            document.getElementById('auto-marca').value = m.marca || '';
+            document.getElementById('auto-modelo').value = m.modelo || '';
+            document.getElementById('auto-color').value = m.color || '';
+            document.getElementById('auto-patente').value = m.patente || '';
+            
+            document.getElementById('auto-id').scrollIntoView({ behavior: 'smooth' });
+        } catch(e) {
+            console.error("Error:", e);
+        }
+    }
+
+    async function eliminarAuto(id) {
+        if(!confirm(`¿Eliminar el coche ${id}?`)) return;
+        try {
+            await _s.from('estado_movil').delete().eq('id', id);
+            alert('🗑️ Coche eliminado');
+            cargarListaAutos();
         } catch(e) {
             alert('❌ Error: ' + e.message);
         }
@@ -562,26 +735,23 @@
         const correcta = localStorage.getItem("adminPass") || "1234";
         if(actual !== correcta) { alert('❌ Incorrecta'); return; }
         
-        const nueva = prompt("Nueva contraseña:");
+        const nueva = prompt("Nueva contraseña (mínimo 4 caracteres):");
         if(nueva && nueva.length >= 4) {
             localStorage.setItem("adminPass", nueva);
             alert('🔐 Contraseña actualizada. Volvé a ingresar.');
+            localStorage.removeItem("adminLogueado");
             location.reload();
-        } else {
-            alert('Mínimo 4 caracteres');
         }
     }
 
     // ============================================
     // INICIAR
     // ============================================
-    setInterval(refrescar, 5000);
-    
-    // Si ya está logueado, iniciar
     if(localStorage.getItem("adminLogueado")) {
         document.getElementById("login-screen").style.display = "none";
         initMap();
-        refrescar();
+        cargarInicial();
+        activarRealtime();
     }
 </script>
 </body>
