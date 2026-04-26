@@ -9,117 +9,277 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #0a0a0a; --panel: #161616; }
-        body { margin: 0; background: var(--dark); color: white; font-family: sans-serif; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--dark); color: white; font-family: -apple-system, BlinkMacSystemFont, sans-serif; height: 100vh; width: 100vw; overflow: hidden; }
 
-        /* PANTALLA DE BIENVENIDA */
-        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); z-index: 9999; display: flex; align-items: center; justify-content: center; }
-        .login-box { text-align: center; width: 85%; max-width: 350px; background: #111; padding: 30px; border-radius: 15px; border: 1px solid var(--celeste); }
+        /* LOGIN */
+        #login-screen { position: fixed; inset: 0; background: var(--dark); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .login-box { text-align: center; width: 90%; max-width: 360px; background: #111; padding: 35px 25px; border-radius: 20px; border: 1px solid var(--celeste); }
+        .login-box h1 { color: var(--celeste); margin: 0 0 25px 0; font-size: 28px; }
+        .login-box input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 15px; border-radius: 12px; width: 100%; font-size: 16px; margin-bottom: 15px; }
+        .login-box input:focus { outline: none; border-color: var(--celeste); }
+        .btn-main { background: var(--celeste); color: black; border: none; padding: 16px; border-radius: 12px; font-weight: bold; width: 100%; font-size: 16px; cursor: pointer; }
+        .btn-main:active { transform: scale(0.98); }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: var(--amarillo); color: black; }
+
+        /* LAYOUT PRINCIPAL - MÓVIL PRIMERO */
+        #app-container { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
         
-        /* SIDEBAR DINÁMICO */
-        #sidebar { width: 320px; min-width: 320px; background: var(--panel); border-right: 1px solid #333; display: flex; flex-direction: column; transition: all 0.3s ease; z-index: 1000; }
-        #sidebar.fullscreen { margin-left: -320px; } /* Esconde el panel */
-
-        #map { flex-grow: 1; height: 100vh; position: relative; z-index: 1; }
-
-        /* BOTON FLOTANTE PARA VOLVER */
-        #btn-back { position: absolute; top: 15px; left: 15px; z-index: 2000; background: var(--celeste); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-
-        /* TABS SUPERIORES */
-        .tabs { display: flex; background: #222; overflow-x: auto; }
-        .tab-btn { flex: 1; padding: 15px 5px; border: none; background: #333; color: #777; font-size: 10px; cursor: pointer; text-transform: uppercase; min-width: 70px; }
-        .tab-btn.active { background: var(--celeste); color: black; font-weight: bold; }
+        /* SIDEBAR */
+        #sidebar { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 85%; 
+            max-width: 360px; 
+            height: 100vh; 
+            background: var(--panel); 
+            border-right: 1px solid #333; 
+            display: flex; 
+            flex-direction: column; 
+            z-index: 1000; 
+            transition: transform 0.3s ease;
+        }
+        #sidebar.hidden { transform: translateX(-100%); }
         
-        /* CONTENIDO */
-        .content { padding: 15px; overflow-y: auto; flex-grow: 1; }
+        /* OVERLAY cuando sidebar está abierto */
+        #overlay { 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(0,0,0,0.6); 
+            z-index: 999; 
+            display: none; 
+        }
+        #overlay.active { display: block; }
+
+        /* MAPA - SIEMPRE FULL SCREEN */
+        #map { 
+            flex-grow: 1; 
+            height: 100vh; 
+            width: 100vw; 
+            position: relative; 
+        }
+
+        /* BOTÓN HAMBURGUESA FLOTANTE */
+        #btn-menu { 
+            position: fixed; 
+            top: 15px; 
+            left: 15px; 
+            z-index: 500; 
+            background: var(--celeste); 
+            border: none; 
+            padding: 12px 14px; 
+            border-radius: 12px; 
+            font-size: 20px; 
+            cursor: pointer; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+
+        /* TABS */
+        .tabs { 
+            display: flex; 
+            background: #222; 
+            overflow-x: auto; 
+            scrollbar-width: none; 
+            flex-shrink: 0;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab-btn { 
+            flex: 1; 
+            padding: 14px 8px; 
+            border: none; 
+            background: #333; 
+            color: #888; 
+            font-size: 11px; 
+            cursor: pointer; 
+            text-transform: uppercase; 
+            font-weight: 600; 
+            min-width: 65px;
+        }
+        .tab-btn.active { background: var(--celeste); color: black; }
+        .tab-btn.map-btn { background: var(--amarillo); color: black; }
+
+        /* CONTENIDO CON SCROLL */
+        .content { 
+            padding: 15px; 
+            overflow-y: auto; 
+            flex-grow: 1; 
+            -webkit-overflow-scrolling: touch;
+        }
         .section { display: none; }
         .section.active { display: block; }
 
-        .card { background: #222; border-radius: 8px; padding: 12px; margin-bottom: 10px; border-left: 4px solid var(--celeste); }
-        input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 5px; width: 100%; margin-bottom: 10px; box-sizing: border-box; }
-        .btn-main { background: var(--celeste); color: black; border: none; padding: 14px; border-radius: 5px; font-weight: bold; width: 100%; cursor: pointer; margin-top: 5px; }
+        /* CARDS */
+        .card { 
+            background: #222; 
+            border-radius: 12px; 
+            padding: 14px; 
+            margin-bottom: 10px; 
+            border-left: 4px solid var(--celeste);
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
         
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .card-title { font-weight: bold; font-size: 15px; }
+        .card-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: bold; }
+        .badge-zona1 { background: #00d2ff33; color: #00d2ff; }
+        .badge-zona2 { background: #ffcc0033; color: #ffcc00; }
+        .badge-zona3 { background: #ff444433; color: #ff4444; }
+        
+        .card-info { font-size: 13px; color: #aaa; line-height: 1.5; }
+        .card-price { font-size: 18px; color: var(--amarillo); font-weight: bold; }
+
+        /* ACCIONES RÁPIDAS */
+        .action-bar { 
+            display: flex; 
+            gap: 8px; 
+            margin-bottom: 15px; 
+            flex-shrink: 0;
+        }
+        .action-bar button { 
+            flex: 1; 
+            padding: 12px; 
+            border: none; 
+            border-radius: 10px; 
+            font-size: 12px; 
+            font-weight: bold; 
+            cursor: pointer;
+        }
+
+        /* TOTALES */
+        .total-box { 
+            background: linear-gradient(135deg, rgba(0,210,255,0.15), rgba(0,210,255,0.05)); 
+            padding: 20px; 
+            border-radius: 16px; 
+            text-align: center; 
+            border: 1px solid var(--celeste); 
+            margin-bottom: 20px;
+        }
+        .total-box .label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .total-box .amount { font-size: 36px; color: var(--amarillo); margin: 8px 0; font-weight: bold; }
+        .total-box .detail { font-size: 13px; color: #aaa; }
+
+        /* ESTADOS VACÍOS */
+        .empty-state { text-align: center; padding: 40px 20px; color: #555; }
+        .empty-state .icon { font-size: 48px; margin-bottom: 10px; }
+
+        /* MAPA OSCURO */
         .map-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+
+        /* RESPONSIVE DESKTOP */
+        @media (min-width: 768px) {
+            #app-container { flex-direction: row; }
+            #sidebar { position: relative; width: 380px; transform: none !important; }
+            #sidebar.hidden { transform: none !important; }
+            #btn-menu { display: none !important; }
+            #overlay { display: none !important; }
+        }
     </style>
 </head>
 <body>
 
+<!-- LOGIN -->
 <div id="login-screen">
     <div class="login-box">
-        <h1 style="color: var(--celeste);">TuMovil 🛰️</h1>
-        <input type="password" id="pass-field" placeholder="Contraseña">
+        <h1>🛰️ TuMovil</h1>
+        <input type="password" id="pass-field" placeholder="Contraseña de administrador" onkeypress="if(event.key==='Enter')validar()">
         <button class="btn-main" onclick="validar()">INGRESAR AL PANEL</button>
-        <p id="error" style="color: #ff4444; font-size: 12px; margin-top: 10px; display: none;">Clave incorrecta</p>
+        <p id="error" style="color: #ff4444; font-size: 13px; margin-top: 12px; display: none;">❌ Clave incorrecta</p>
     </div>
 </div>
 
-<button id="btn-back" onclick="toggleGPS(false)">☰ MOSTRAR MENÚ</button>
+<!-- OVERLAY -->
+<div id="overlay" onclick="toggleSidebar(false)"></div>
 
-<div id="sidebar">
-    <div class="tabs">
-        <button class="tab-btn active" onclick="ver('radar')">RADAR</button>
-        <button class="tab-btn" onclick="ver('flota')">FLOTA</button>
-        <button class="tab-btn" onclick="ver('caja')">CAJA</button>
-        <button class="tab-btn" onclick="ver('ajustes')">AJUSTES</button>
-        <button class="tab-btn" style="background: var(--amarillo); color: black;" onclick="toggleGPS(true)">📍 MAPA</button>
-    </div>
+<!-- BOTÓN MENÚ -->
+<button id="btn-menu" onclick="toggleSidebar(true)">☰</button>
 
-    <div class="content">
-        <div id="view-radar" class="section active">
-            <h4 style="color: var(--celeste);">PASAJEROS EN VIVO</h4>
-            <div id="pax-list">Cargando...</div>
+<div id="app-container">
+    <div id="sidebar" class="hidden">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="ver('radar')">RADAR</button>
+            <button class="tab-btn" onclick="ver('flota')">FLOTA</button>
+            <button class="tab-btn" onclick="ver('caja')">CAJA</button>
+            <button class="tab-btn" onclick="ver('ajustes')">AJUSTES</button>
         </div>
 
-        <div id="view-flota" class="section">
-            <h4>ESTADO DE CONDUCTORES</h4>
-            <div id="flota-list"></div>
-        </div>
-
-        <div id="view-caja" class="section">
-            <div style="background: rgba(0,210,255,0.1); padding: 15px; border-radius: 10px; text-align: center; border: 1px solid var(--celeste);">
-                <small>RECAUDACIÓN ESTIMADA</small>
-                <p id="total-general" style="font-size: 28px; color: var(--amarillo); margin: 5px 0; font-weight: bold;">$0</p>
+        <div class="content">
+            <!-- RADAR: PASAJEROS EN VIVO -->
+            <div id="view-radar" class="section active">
+                <div class="action-bar">
+                    <button class="btn-warning" onclick="finalizarTodos()">🧹 LIMPIAR TODO</button>
+                    <button class="btn-danger" onclick="if(confirm('¿Borrar TODOS los viajes?'))finalizarTodos(true)">🗑️ BORRAR</button>
+                </div>
+                <h4 style="color: var(--celeste); margin: 0 0 12px 0; font-size: 14px;">📡 PASAJEROS EN VIVO</h4>
+                <div id="pax-list"></div>
             </div>
-            <h4 style="margin-top: 20px;">DETALLE POR COCHE</h4>
-            <div id="caja-list"></div>
-        </div>
 
-        <div id="view-ajustes" class="section">
-            <h4>GESTIÓN DE UNIDADES</h4>
-            <input type="number" id="c-id" placeholder="N° de Coche">
-            <input type="text" id="c-nom" placeholder="Nombre Chofer">
-            <button class="btn-main" onclick="guardar()">ACTUALIZAR DATOS</button>
-            <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
-            <button class="btn-main" style="background: #444; color: white;" onclick="cambiarClave()">CAMBIAR CONTRASEÑA</button>
+            <!-- FLOTA -->
+            <div id="view-flota" class="section">
+                <h4 style="margin: 0 0 12px 0; font-size: 14px;">🚗 ESTADO DE CONDUCTORES</h4>
+                <div id="flota-list"></div>
+            </div>
+
+            <!-- CAJA -->
+            <div id="view-caja" class="section">
+                <div class="total-box">
+                    <div class="label">RECAUDACIÓN ESTIMADA</div>
+                    <div class="amount" id="total-general">$0</div>
+                    <div class="detail" id="total-detail">0 viajes activos</div>
+                </div>
+                <h4 style="margin: 0 0 12px 0; font-size: 14px;">💰 DETALLE POR COCHE</h4>
+                <div id="caja-list"></div>
+            </div>
+
+            <!-- AJUSTES -->
+            <div id="view-ajustes" class="section">
+                <h4 style="margin: 0 0 12px 0; font-size: 14px;">⚙️ GESTIÓN DE UNIDADES</h4>
+                <input type="number" id="c-id" placeholder="N° de Coche">
+                <input type="text" id="c-nom" placeholder="Nombre del Chofer">
+                <button class="btn-main" onclick="guardar()" style="margin-bottom: 10px;">ACTUALIZAR DATOS</button>
+                <button class="btn-main" style="background: #444; color: white;" onclick="cambiarClave()">🔐 CAMBIAR CONTRASEÑA</button>
+            </div>
         </div>
     </div>
-</div>
 
-<div id="map"></div>
+    <div id="map"></div>
+</div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
+    // ============================================
+    // LOGIN
+    // ============================================
     function validar() {
         const correcta = localStorage.getItem("adminPass") || "1234";
         if(document.getElementById("pass-field").value === correcta) {
             document.getElementById("login-screen").style.display = "none";
+            initMap();
         } else {
             document.getElementById("error").style.display = "block";
+            setTimeout(() => document.getElementById("error").style.display = "none", 3000);
         }
     }
 
-    // FUNCIÓN PARA VER GPS EN TODA LA PANTALLA
-    function toggleGPS(full) {
+    // ============================================
+    // SIDEBAR RESPONSIVE
+    // ============================================
+    function toggleSidebar(show) {
         const side = document.getElementById("sidebar");
-        const btn = document.getElementById("btn-back");
-        if(full) {
-            side.classList.add("fullscreen");
-            btn.style.display = "block";
-            setTimeout(() => { map.invalidateSize(); }, 300); // Ajusta el mapa al nuevo tamaño
-        } else {
-            side.classList.remove("fullscreen");
+        const over = document.getElementById("overlay");
+        const btn = document.getElementById("btn-menu");
+        
+        if(show) {
+            side.classList.remove("hidden");
+            over.classList.add("active");
             btn.style.display = "none";
-            setTimeout(() => { map.invalidateSize(); }, 300);
+        } else {
+            side.classList.add("hidden");
+            over.classList.remove("active");
+            btn.style.display = "block";
         }
     }
 
@@ -128,55 +288,301 @@
         document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
         document.getElementById('view-'+s).classList.add('active');
         event.currentTarget.classList.add('active');
+        
+        // En móvil, cerrar sidebar al cambiar de tab
+        if(window.innerWidth < 768) toggleSidebar(false);
     }
 
-    const map = L.map('map', { zoomControl: false }).setView([-34.588, -58.750], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { className: 'map-tiles' }).addTo(map);
-
+    // ============================================
+    // MAPA
+    // ============================================
+    let map;
     let markers = {};
-    const iconT = L.divIcon({ html: '🚕', iconSize: [25, 25] });
+    const iconT = L.divIcon({ html: '<div style="font-size:28px;">🚕</div>', iconSize: [30, 30], iconAnchor: [15, 15] });
+    const iconPax = L.divIcon({ html: '<div style="font-size:20px;">🚶</div>', iconSize: [20, 20], iconAnchor: [10, 20] });
 
-    async function refrescar() {
-        const { data: moviles } = await _s.from('estado_movil').select('*').order('id');
-        const { data: reservas } = await _s.from('reservas_activas').select('*');
-
-        const paxBox = document.getElementById('pax-list');
-        paxBox.innerHTML = '';
-        reservas.forEach(r => {
-            paxBox.innerHTML += `<div class="card" style="border-left-color: var(--amarillo)">👤 <b>${r.nombre_pasajero}</b><br><small>Coche ${r.id_movil} | Asiento ${r.asiento}</small></div>`;
-        });
-
-        const fBox = document.getElementById('flota-list');
-        const cBox = document.getElementById('caja-list');
-        fBox.innerHTML = ''; cBox.innerHTML = '';
-        let total = 0;
-
-        moviles.forEach(m => {
-            const g = reservas.filter(r => r.id_movil == m.id).length * 1000;
-            total += g;
-            if(m.latitud) {
-                if(markers[m.id]) markers[m.id].setLatLng([m.latitud, m.longitud]);
-                else markers[m.id] = L.marker([m.latitud, m.longitud], {icon: iconT}).addTo(map);
-            }
-            fBox.innerHTML += `<div class="card" style="border-left-color:${m.latitud ? '#28a745' : '#dc3545'}">🚗 <b>Coche ${m.id}</b><br><small>${m.chofer || 'Sin chofer'}</small></div>`;
-            cBox.innerHTML += `<div class="card">💰 <b>Coche ${m.id}</b>: $${g}</div>`;
-        });
-        document.getElementById('total-general').innerText = "$" + total;
+    function initMap() {
+        map = L.map('map', { zoomControl: false }).setView([-34.588, -58.750], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { className: 'map-tiles' }).addTo(map);
+        setTimeout(() => map.invalidateSize(), 100);
     }
 
+    // ============================================
+    // ZONAS
+    // ============================================
+    const ZONAS = {
+        1: { nombre: 'Barrio', color: '#00d2ff', precio: 1000 },
+        2: { nombre: 'Cruce', color: '#ffcc00', precio: 1500 },
+        3: { nombre: 'Moreno', color: '#ff4444', precio: 2500 }
+    };
+
+    // ============================================
+    // REFRESCAR DATOS
+    // ============================================
+    async function refrescar() {
+        try {
+            const { data: moviles } = await _s.from('estado_movil').select('*').order('id');
+            const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso');
+
+            renderPasajeros(reservas);
+            renderFlota(moviles, reservas);
+            renderCaja(moviles, reservas);
+            actualizarMapa(moviles, reservas);
+        } catch(e) {
+            console.error("Error:", e);
+        }
+    }
+
+    // ============================================
+    // RADAR - PASAJEROS
+    // ============================================
+    function renderPasajeros(reservas) {
+        const box = document.getElementById('pax-list');
+        
+        if(!reservas || reservas.length === 0) {
+            box.innerHTML = `
+                <div class="empty-state">
+                    <div class="icon">📭</div>
+                    <div>No hay pasajeros activos</div>
+                </div>`;
+            return;
+        }
+
+        // Agrupar por coche
+        const porCoche = {};
+        reservas.forEach(r => {
+            if(!porCoche[r.id_movil]) porCoche[r.id_movil] = [];
+            porCoche[r.id_movil].push(r);
+        });
+
+        let html = '';
+        Object.entries(porCoche).forEach(([cocheId, lista]) => {
+            html += `<div style="margin-bottom: 15px;">`;
+            html += `<div style="font-size: 12px; color: #888; margin-bottom: 8px; text-transform: uppercase;">🚗 Coche ${cocheId} — ${lista.length} pasajero(s)</div>`;
+            
+            lista.forEach(r => {
+                const zona = ZONAS[r.zona_bajada] || ZONAS[1];
+                const destino = getNombreParada(r.destino_idx);
+                
+                html += `
+                <div class="card" style="border-left-color: ${zona.color}">
+                    <div class="card-header">
+                        <span class="card-title">👤 ${r.nombre_pasajero}</span>
+                        <span class="card-badge badge-zona${r.zona_bajada || 1}">${zona.nombre}</span>
+                    </div>
+                    <div class="card-info">
+                        🪑 Asiento <b>${r.asiento_num}</b> | 💰 <span class="card-price">$${r.precio_pagado || 1000}</span><br>
+                        📍 Destino: <b>${destino}</b>
+                    </div>
+                </div>`;
+            });
+            html += `</div>`;
+        });
+        
+        box.innerHTML = html;
+    }
+
+    function getNombreParada(idx) {
+        const paradas = [
+            'Miguel Cané','Cané y Los Aromos','Los Aromos 11016','Los Aromos 10874',
+            'Los Aromos y Murillo','Murillo 601','Murillo y Güiraldes','Murillo y Watt',
+            'A. Prado 2555','Prado y Payró','Prado 1744','Boulevard Caveri',
+            'Caveri y Azara','Caveri y Vedia','Caveri y Tablada','Caveri y Echeverría',
+            'Caveri y Gálvez','Caveri (Final)','Libertador y Aero','Libertador 7300',
+            'Libertador 7200','Libertador y Maza','Maza y Albatros','Maternidad',
+            'Abasto y Roca','Cruce Castelar','N. Kirchner y Maza','N. Kirchner y Albatros',
+            'Libertador y Gaona','Libertador (Italia)','Córdoba 2879','Nemesio Álvarez',
+            'España 171','Merlo / Mr. Tasty','Estación Moreno'
+        ];
+        return paradas[idx] || `Parada ${idx}`;
+    }
+
+    // ============================================
+    // FLOTA
+    // ============================================
+    function renderFlota(moviles, reservas) {
+        const box = document.getElementById('flota-list');
+        if(!moviles || moviles.length === 0) {
+            box.innerHTML = '<div class="empty-state"><div class="icon">🚗</div><div>Sin coches registrados</div></div>';
+            return;
+        }
+
+        box.innerHTML = moviles.map(m => {
+            const pasajeros = reservas.filter(r => r.id_movil == m.id).length;
+            const online = m.esta_online && m.latitud;
+            const color = online ? '#28a745' : '#dc3545';
+            
+            return `
+            <div class="card" style="border-left-color: ${color}">
+                <div class="card-header">
+                    <span class="card-title">🚗 Coche ${m.id}</span>
+                    <span class="card-badge" style="background: ${color}33; color: ${color};">
+                        ${online ? '🟢 Online' : '🔴 Offline'}
+                    </span>
+                </div>
+                <div class="card-info">
+                    👤 ${m.chofer || 'Sin chofer asignado'}<br>
+                    🪑 ${pasajeros}/4 asientos ocupados
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // ============================================
+    // CAJA - RECAUDACIÓN INTELIGENTE
+    // ============================================
+    function renderCaja(moviles, reservas) {
+        const box = document.getElementById('caja-list');
+        let totalGeneral = 0;
+
+        if(!moviles || moviles.length === 0) {
+            box.innerHTML = '<div class="empty-state">Sin datos</div>';
+            document.getElementById('total-general').innerText = '$0';
+            document.getElementById('total-detail').innerText = '0 viajes';
+            return;
+        }
+
+        const html = moviles.map(m => {
+            const delCoche = reservas.filter(r => r.id_movil == m.id);
+            const subtotal = delCoche.reduce((sum, r) => sum + (r.precio_pagado || 1000), 0);
+            totalGeneral += subtotal;
+            
+            return `
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">💰 Coche ${m.id}</span>
+                    <span class="card-price">$${subtotal.toLocaleString()}</span>
+                </div>
+                <div class="card-info">${delCoche.length} viaje(s) activo(s)</div>
+            </div>`;
+        }).join('');
+
+        box.innerHTML = html;
+        document.getElementById('total-general').innerText = '$' + totalGeneral.toLocaleString();
+        document.getElementById('total-detail').innerText = `${reservas.length} viaje(s) activo(s) · ${moviles.filter(m=>m.esta_online).length} coche(s) online`;
+    }
+
+    // ============================================
+    // MAPA - ACTUALIZAR MARCADORES
+    // ============================================
+    function actualizarMapa(moviles, reservas) {
+        if(!map) return;
+
+        // Marcadores de coches
+        moviles.forEach(m => {
+            if(m.latitud && m.longitud) {
+                if(markers['coche_'+m.id]) {
+                    markers['coche_'+m.id].setLatLng([m.latitud, m.longitud]);
+                } else {
+                    markers['coche_'+m.id] = L.marker([m.latitud, m.longitud], {icon: iconT})
+                        .addTo(map)
+                        .bindPopup(`🚗 Coche ${m.id}<br>👤 ${m.chofer || 'Sin chofer'}`);
+                }
+            }
+        });
+
+        // Marcadores de pasajeros
+        reservas.forEach((r, i) => {
+            if(r.pasajero_lat && r.pasajero_lon) {
+                const key = 'pax_'+r.id;
+                if(markers[key]) {
+                    markers[key].setLatLng([r.pasajero_lat, r.pasajero_lon]);
+                } else {
+                    markers[key] = L.marker([r.pasajero_lat, r.pasajero_lon], {icon: iconPax})
+                        .addTo(map)
+                        .bindPopup(`👤 ${r.nombre_pasajero}<br>🚗 Coche ${r.id_movil}<br>🪑 Asiento ${r.asiento_num}`);
+                }
+            }
+        });
+
+        // Limpiar marcadores de pasajeros que ya no están
+        Object.keys(markers).forEach(key => {
+            if(key.startsWith('pax_')) {
+                const id = parseInt(key.replace('pax_', ''));
+                if(!reservas.find(r => r.id === id)) {
+                    map.removeLayer(markers[key]);
+                    delete markers[key];
+                }
+            }
+        });
+    }
+
+    // ============================================
+    // ACCIONES: LIMPIAR / FINALIZAR TODOS
+    // ============================================
+    async function finalizarTodos(borrar = false) {
+        try {
+            if(borrar) {
+                const { error } = await _s.from('reservas_activas')
+                    .delete()
+                    .eq('estado', 'en_curso');
+                if(error) throw error;
+                alert('🗑️ Todos los viajes fueron eliminados');
+            } else {
+                const { error } = await _s.from('reservas_activas')
+                    .update({ estado: 'finalizado' })
+                    .eq('estado', 'en_curso');
+                if(error) throw error;
+                alert('✅ Todos los viajes fueron finalizados');
+            }
+            refrescar();
+        } catch(e) {
+            alert('❌ Error: ' + e.message);
+        }
+    }
+
+    // ============================================
+    // GUARDAR CHOFER
+    // ============================================
     async function guardar() {
-        await _s.from('estado_movil').upsert({ id: document.getElementById('c-id').value, chofer: document.getElementById('c-nom').value });
-        alert("¡Datos actualizados!");
+        const id = document.getElementById('c-id').value;
+        const nom = document.getElementById('c-nom').value;
+        if(!id || !nom) { alert('Completá todos los campos'); return; }
+        
+        try {
+            await _s.from('estado_movil').upsert({ 
+                id: parseInt(id), 
+                chofer: nom,
+                esta_online: false 
+            });
+            alert('✅ Datos actualizados');
+            document.getElementById('c-id').value = '';
+            document.getElementById('c-nom').value = '';
+            refrescar();
+        } catch(e) {
+            alert('❌ Error: ' + e.message);
+        }
+    }
+
+    // ============================================
+    // CAMBIAR CLAVE
+    // ============================================
+    function cambiarClave() {
+        const actual = prompt("Contraseña actual:");
+        const correcta = localStorage.getItem("adminPass") || "1234";
+        if(actual !== correcta) { alert('❌ Incorrecta'); return; }
+        
+        const nueva = prompt("Nueva contraseña:");
+        if(nueva && nueva.length >= 4) {
+            localStorage.setItem("adminPass", nueva);
+            alert('🔐 Contraseña actualizada. Volvé a ingresar.');
+            location.reload();
+        } else {
+            alert('Mínimo 4 caracteres');
+        }
+    }
+
+    // ============================================
+    // INICIAR
+    // ============================================
+    setInterval(refrescar, 5000);
+    
+    // Si ya está logueado, iniciar
+    if(localStorage.getItem("adminLogueado")) {
+        document.getElementById("login-screen").style.display = "none";
+        initMap();
         refrescar();
     }
-
-    function cambiarClave() {
-        let n = prompt("Nueva clave:");
-        if(n) { localStorage.setItem("adminPass", n); alert("Clave actualizada."); location.reload(); }
-    }
-
-    setInterval(refrescar, 5000);
-    refrescar();
 </script>
 </body>
 </html>
