@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+1<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -64,6 +64,7 @@
         .modal-btn { flex: 1; padding: 12px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
         .modal-btn.confirm { background: #ff3b30; color: white; }
         .modal-btn.cancel { background: #333; color: white; }
+        .modal-btn.force { background: #FFD700; color: #000; }
     </style>
 </head>
 <body>
@@ -105,13 +106,26 @@
         <button class="btn-vaciar" onclick="mostrarModalVaciar()">🏁 FINALIZAR / VACIAR COCHE 01</button>
     </div>
 
+    <!-- Modal Vaciar -->
     <div class="modal-overlay" id="modal-vaciar">
         <div class="modal">
             <h3>⚠️ Finalizar Viaje</h3>
             <p>¿Estás seguro de que quieres finalizar el viaje y vaciar todos los asientos?</p>
             <div class="modal-buttons">
-                <button class="modal-btn cancel" onclick="cerrarModal()">Cancelar</button>
+                <button class="modal-btn cancel" onclick="cerrarModal('modal-vaciar')">Cancelar</button>
                 <button class="modal-btn confirm" onclick="confirmarVaciar()">Sí, Finalizar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Forzar Liberación -->
+    <div class="modal-overlay" id="modal-forzar">
+        <div class="modal">
+            <h3>⚠️ No se encontró reserva</h3>
+            <p>El pasajero no finalizó desde su app. ¿Querés forzar la liberación del asiento <span id="forzar-asiento-num">--</span>?</p>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="cerrarModal('modal-forzar')">Cancelar</button>
+                <button class="modal-btn force" onclick="confirmarForzarLiberacion()">Sí, Forzar</button>
             </div>
         </div>
     </div>
@@ -129,6 +143,7 @@
     let paradaActualIdx = 0;
     let asientosLibres = 4;
     let lastGpsUpdate = 0;
+    let asientoPendienteForzar = null;
     const GPS_UPDATE_INTERVAL = 5000;
     const DISTANCIA_MINIMA_PARADA = 50;
 
@@ -463,8 +478,13 @@
         }
     }
 
+    // ============================================================
+    // ✅ FUNCIÓN CORREGIDA - El conductor SIEMPRE puede liberar
+    // ============================================================
     async function liberarAsiento(numAsiento) {
         const pill = document.getElementById('pill' + numAsiento);
+        
+        // Si ya está libre, avisar y salir
         if (!pill.classList.contains('active')) {
             mostrarToast(`Asiento ${numAsiento} ya está libre`, 'info');
             return;
@@ -473,6 +493,7 @@
         if (!confirm(`¿Liberar asiento ${numAsiento}?`)) return;
         
         try {
+            // 1. Buscar reserva activa para este asiento
             const { data: reserva, error: err1 } = await _s
                 .from('reservas_activas')
                 .select('*')
@@ -481,24 +502,31 @@
                 .eq('estado', 'en_curso')
                 .single();
             
-            if (err1 || !reserva) {
-                mostrarToast('No se encontró reserva para este asiento', 'error');
-                return;
+            // 2. Si hay reserva → finalizarla normalmente
+            if (!err1 && reserva) {
+                const { error: err2 } = await _s
+                    .from('reservas_activas')
+                    .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
+                    .eq('id', reserva.id);
+                
+                if (err2) throw err2;
+                
+                mostrarToast(`🎉 Asiento ${numAsiento} liberado`, 'success');
+            } 
+            // 3. Si NO hay reserva → ofrecer FORZAR liberación
+            else {
+                console.log("No se encontró reserva para asiento", numAsiento, "Error:", err1);
+                asientoPendienteForzar = numAsiento;
+                document.getElementById('forzar-asiento-num').innerText = numAsiento;
+                document.getElementById('modal-forzar').style.display = 'flex';
+                return; // Salir sin tocar el pill aún
             }
             
-            const { error: err2 } = await _s
-                .from('reservas_activas')
-                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
-                .eq('id', reserva.id);
-            
-            if (err2) throw err2;
-            
+            // 4. Actualizar UI local
             asientosLibres += 1;
-            
             pill.className = 'pill libre';
             pill.innerText = 'LIBRE';
             
-            mostrarToast(`🎉 Asiento ${numAsiento} liberado`, 'success');
             if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
             setTimeout(actualizarDatos, 1000);
             
@@ -508,16 +536,62 @@
         }
     }
 
+    // ✅ NUEVA FUNCIÓN: Forzar liberación cuando no hay reserva
+    async function confirmarForzarLiberacion() {
+        cerrarModal('modal-forzar');
+        
+        if (!asientoPendienteForzar) return;
+        
+        const numAsiento = asientoPendienteForzar;
+        const pill = document.getElementById('pill' + numAsiento);
+        
+        try {
+            // Intentar finalizar CUALQUIER reserva en_curso para este asiento (sin .single())
+            const { data: reservas, error: errBuscar } = await _s
+                .from('reservas_activas')
+                .select('id')
+                .eq('id_movil', MI_ID_MOVIL)
+                .eq('asiento_num', numAsiento)
+                .eq('estado', 'en_curso');
+            
+            // Si encontramos reservas, marcarlas todas como finalizadas
+            if (!errBuscar && reservas && reservas.length > 0) {
+                for (const res of reservas) {
+                    await _s
+                        .from('reservas_activas')
+                        .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
+                        .eq('id', res.id);
+                }
+            }
+            
+            // Aunque no haya nada en la BD, el conductor puede forzar
+            asientosLibres += 1;
+            pill.className = 'pill libre';
+            pill.innerText = 'LIBRE';
+            
+            mostrarToast(`💪 Asiento ${numAsiento} liberado FORZADO`, 'success');
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            setTimeout(actualizarDatos, 1000);
+            
+        } catch (err) {
+            console.error("Error forzando liberación:", err);
+            mostrarToast('Error al forzar liberación', 'error');
+        } finally {
+            asientoPendienteForzar = null;
+        }
+    }
+
     function mostrarModalVaciar() {
         document.getElementById('modal-vaciar').style.display = 'flex';
     }
     
-    function cerrarModal() {
-        document.getElementById('modal-vaciar').style.display = 'none';
+    function cerrarModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+        if (modalId === 'modal-forzar') asientoPendienteForzar = null;
     }
     
     async function confirmarVaciar() {
-        cerrarModal();
+        cerrarModal('modal-vaciar');
         
         try {
             const { error } = await _s
