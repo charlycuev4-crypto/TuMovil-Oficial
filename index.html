@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -34,7 +34,11 @@
         input:checked + .slider:before { transform: translateX(24px); }
         #status-label { color: white; font-size: 11px; font-weight: bold; width: 70px; text-align: center; }
         
-        #net-status { position: absolute; top: 175px; left: 50%; transform: translateX(-50%); z-index: 1001; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; transition: all 0.3s; pointer-events: auto; }
+        #btn-sentido { background: #FFD700; color: #000; border: none; padding: 6px 12px; border-radius: 15px; font-weight: 800; font-size: 12px; cursor: pointer; }
+        
+        #parada-actual { position: absolute; top: 140px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(0,0,0,0.9); color: #FFD700; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid #FFD700; pointer-events: auto; display: none; }
+        
+        #net-status { position: absolute; top: 175px; left: 50%; transform: translateX(-50%); z-index: 1001; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; transition: all 0.3s; }
         .net-online { background: #4cd964; color: #000; }
         .net-offline { background: #ff3b30; color: #fff; }
         
@@ -42,7 +46,6 @@
         .toast.success { background: #4cd964; color: #000; }
         .toast.error { background: #ff3b30; color: #fff; }
         .toast.info { background: #FFD700; color: #000; }
-        @keyframes slideDown { from { transform: translate(-50%, -20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
         
         .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
         .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
@@ -50,6 +53,13 @@
         .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); transition: all 0.3s ease; cursor: pointer; }
         .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
         .taxi-icon { font-size: 30px; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9998; display: none; justify-content: center; align-items: center; }
+        .modal { background: #1a1a1a; border: 2px solid #FFD700; border-radius: 20px; padding: 24px; width: 90%; max-width: 350px; text-align: center; color: white; }
+        .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-btn { flex: 1; padding: 12px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
+        .modal-btn.confirm { background: #ff3b30; color: white; }
+        .modal-btn.cancel { background: #333; color: white; }
     </style>
 </head>
 <body>
@@ -64,9 +74,10 @@
             <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
             <span class="slider"></span>
         </label>
-        <button id="btn-sentido" onclick="cambiarSentido()" style="background:#FFD700; border:none; padding:6px 12px; border-radius:15px; font-weight:800; cursor:pointer; min-width: 80px;">IDA</button>
+        <button id="btn-sentido" onclick="cambiarSentido()">IDA</button>
     </div>
 
+    <div id="parada-actual">📍 Parada: <span id="txt-parada">--</span></div>
     <div id="net-status" class="net-offline">⚠️ SIN RED</div>
 
     <div id="map"></div>
@@ -87,18 +98,27 @@
             <div id="pill3" class="pill" onclick="liberarAsiento(3)">3</div>
             <div id="pill4" class="pill" onclick="liberarAsiento(4)">4</div>
         </div>
-        <button class="btn-vaciar" onclick="confirmarVaciar()">🏁 VACIAR COCHE 01</button>
+        <button class="btn-vaciar" onclick="mostrarModalVaciar()">🏁 FINALIZAR / VACIAR COCHE 01</button>
+    </div>
+
+    <div class="modal-overlay" id="modal-vaciar">
+        <div class="modal">
+            <h3>⚠️ Finalizar Viaje</h3>
+            <p>¿Estás seguro de que quieres finalizar el viaje y vaciar todos los asientos?</p>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="cerrarModal()">Cancelar</button>
+                <button class="modal-btn confirm" onclick="confirmarVaciar()">Sí, Finalizar</button>
+            </div>
+        </div>
     </div>
 
 <script>
     const MI_ID_MOVIL = 1; 
     const PRECIO_POR_ASIENTO = 1000;
-    
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    let estaOnline = false, watchId = null, sentidoActual = 'IDA';
+    let sentidoActual = 'IDA', estaOnline = false, watchId = null, paradaActualIdx = 0, asientosLibres = 4;
 
-    // Listado completo de 25 paradas (Restaurado)
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -117,25 +137,13 @@
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    // DIBUJAR RUTA Y PARADAS (Restaurado y Mejorado)
-    // 1. Líneas de ruta
-    L.polyline(paradas.map(p => p.c), { color: '#FFD700', dashArray: '10, 10', weight: 2, opacity: 0.5 }).addTo(map); // Discontinua amarilla
-    const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.6 }).addTo(map); // Continua celeste
+    const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.6 }).addTo(map);
     
-    // 2. Paradas con Círculos Celestes con BORDE NEGRO
     paradas.forEach((p, idx) => { 
-        L.circleMarker(p.c, { 
-            radius: 6, 
-            color: '#000000', // Borde negro
-            weight: 2, 
-            fillColor: '#00d2ff', // Relleno celeste
-            fillOpacity: 1 
-        }).addTo(map);
+        L.circleMarker(p.c, { radius: 6, color: '#000', weight: 2, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map);
     });
-
+    
     const marcadorConductor = L.marker(paradas[0].c, { icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] }) }).addTo(map);
-    let markersPax = [], markersDest = [];
 
     function mostrarToast(m, tipo='info') {
         const t = document.createElement('div');
@@ -145,124 +153,120 @@
         setTimeout(() => t.remove(), 3000);
     }
 
-    function checkNetwork() {
-        const indicator = document.getElementById('net-status');
-        if (navigator.onLine) {
-            indicator.className = 'net-online';
-            indicator.innerText = '📶 ONLINE';
-            return true;
-        } else {
-            indicator.className = 'net-offline';
-            indicator.innerText = '⚠️ SIN RED';
-            return false;
-        }
-    }
+    // --- FUNCIÓN LIBERAR ASIENTO (CORREGIDA) ---
+    async function liberarAsiento(num) {
+        const pill = document.getElementById('pill' + num);
+        if (!pill.classList.contains('active')) return;
+        
+        if (!confirm(`¿El pasajero del asiento ${num} ya bajó?`)) return;
+        
+        try {
+            // 1. Buscamos la reserva activa para ese asiento
+            const { data: reserva, error: e1 } = await _s.from('reservas_activas')
+                .select('id').eq('id_movil', MI_ID_MOVIL).eq('asiento_num', num).eq('estado', 'en_curso').single();
+            
+            if (e1 || !reserva) throw new Error("No se halló la reserva");
 
-    async function cambiarSentido() {
-        const btn = document.getElementById('btn-sentido');
-        if (sentidoActual === 'IDA') {
-            sentidoActual = 'VUELTA';
-            btn.innerText = 'VUELTA';
-            btn.style.background = '#FF4500'; 
-            btn.style.color = 'white';
-            rutaLine.setStyle({color: '#ff6b6b'}); // Cambia ruta a rojizo en vuelta
-        } else {
-            sentidoActual = 'IDA';
-            btn.innerText = 'IDA';
-            btn.style.background = '#FFD700'; 
-            btn.style.color = 'black';
-            rutaLine.setStyle({color: '#00d4ff'}); // Restaura ruta a celeste en ida
-        }
-        mostrarToast(`Trayecto: ${sentidoActual}`, 'info');
-        if (estaOnline) {
-            try {
-                await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL);
-            } catch (err) { console.error("Error sincronizando sentido"); }
+            // 2. La finalizamos
+            const { error: e2 } = await _s.from('reservas_activas')
+                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() }).eq('id', reserva.id);
+            
+            if (e2) throw e2;
+
+            mostrarToast(`Asiento ${num} liberado`, 'success');
+            actualizarDatos(); // Sincroniza UI y asientos_libres en BD
+            
+        } catch (err) {
+            console.error(err);
+            mostrarToast("Error al liberar", "error");
         }
     }
 
     async function gestionarConexion() {
         const toggle = document.getElementById('online-toggle');
         const label = document.getElementById('status-label');
-        if (!checkNetwork()) { mostrarToast('Sin conexión a internet', 'error'); toggle.checked = false; return; }
         estaOnline = toggle.checked;
+        
         if (estaOnline) {
             label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
+            document.getElementById('parada-actual').style.display = 'block';
             iniciarGPS();
             await _s.from('estado_movil').upsert({ 
                 id: MI_ID_MOVIL, esta_online: true, en_servicio: true,
                 sentido_flujo: sentidoActual, ultima_actualizacion: new Date().toISOString()
             });
-            mostrarToast('Conectado al sistema', 'success');
         } else {
             label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
+            document.getElementById('parada-actual').style.display = 'none';
             if (watchId) navigator.geolocation.clearWatch(watchId);
             await _s.from('estado_movil').update({ esta_online: false, en_servicio: false }).eq('id', MI_ID_MOVIL);
-            mostrarToast('Desconectado');
         }
     }
 
     function iniciarGPS() {
         watchId = navigator.geolocation.watchPosition(async (p) => {
-            if (!estaOnline) return;
-            const lat = p.coords.latitude, lon = p.coords.longitude;
+            const { latitude: lat, longitude: lon } = p.coords;
             marcadorConductor.setLatLng([lat, lon]);
             map.panTo([lat, lon]);
-            await _s.from('estado_movil').update({ 
-                latitud: lat, longitud: lon, ultima_actualizacion: new Date().toISOString()
-            }).eq('id', MI_ID_MOVIL);
-        }, (err) => mostrarToast('Activa el GPS', 'error'), { enableHighAccuracy: true });
+            if (estaOnline) {
+                await _s.from('estado_movil').update({ latitud: lat, longitud: lon, ultima_actualizacion: new Date().toISOString() }).eq('id', MI_ID_MOVIL);
+            }
+        }, null, { enableHighAccuracy: true });
     }
 
     async function actualizarDatos() {
-        if (!navigator.onLine) return;
         try {
-            const { data: reservas } = await _s.from('reservas_activas')
-                .select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
+            const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
+            
+            // Reset UI
             for (let i = 1; i <= 4; i++) {
                 const p = document.getElementById('pill' + i);
                 p.className = 'pill'; p.innerText = i;
             }
+
+            let pax = 0;
             if (reservas) {
                 reservas.forEach(r => {
                     const pill = document.getElementById('pill' + r.asiento_num);
                     if (pill) { pill.className = 'pill active'; pill.innerText = '✓'; }
+                    pax++;
                 });
-                document.getElementById('txt-pax').innerText = reservas.length;
-                document.getElementById('txt-plata').innerText = '$' + (reservas.length * PRECIO_POR_ASIENTO);
             }
-        } catch (e) { console.log("Error de sincronización"); }
+
+            document.getElementById('txt-pax').innerText = pax;
+            document.getElementById('txt-plata').innerText = '$' + (pax * PRECIO_POR_ASIENTO);
+            asientosLibres = 4 - pax;
+
+            if (estaOnline) {
+                await _s.from('estado_movil').update({ asientos_libres: asientosLibres }).eq('id', MI_ID_MOVIL);
+            }
+        } catch (e) { console.log(e); }
     }
 
-    async function liberarAsiento(n) {
-        if (!confirm(`¿Liberar asiento ${n}?`)) return;
-        await _s.from('reservas_activas').update({ estado: 'finalizado' })
-            .eq('id_movil', MI_ID_MOVIL).eq('asiento_num', n).eq('estado', 'en_curso');
-        actualizarDatos();
+    async function cambiarSentido() {
+        sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
+        document.getElementById('btn-sentido').innerText = sentidoActual;
+        rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#00d4ff' : '#ff6b6b' });
+        if (estaOnline) {
+            await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL);
+        }
     }
 
+    function mostrarModalVaciar() { document.getElementById('modal-vaciar').style.display = 'flex'; }
+    function cerrarModal() { document.getElementById('modal-vaciar').style.display = 'none'; }
+    
     async function confirmarVaciar() {
-        if (!confirm('¿Vaciar todo el coche?')) return;
-        await _s.from('reservas_activas').update({ estado: 'finalizado' })
-            .eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
+        cerrarModal();
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
         actualizarDatos();
     }
 
-    _s.channel('cambios_conductor').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => {
-        actualizarDatos();
-    }).subscribe();
+    _s.channel('cambios').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, actualizarDatos).subscribe();
 
     window.onload = () => {
-        checkNetwork();
         actualizarDatos();
-        setTimeout(() => {
-            document.getElementById('splash').style.opacity = '0';
-            setTimeout(() => document.getElementById('splash').style.display = 'none', 800);
-        }, 2000);
+        setTimeout(() => { document.getElementById('splash').style.display = 'none'; }, 2000);
     };
-
-    window.addEventListener('online', checkNetwork);
-    window.addEventListener('offline', checkNetwork);
 </script>
 </body>
 </html>
