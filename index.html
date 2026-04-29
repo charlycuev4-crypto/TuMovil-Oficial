@@ -239,7 +239,7 @@
                     p_asientos_libres: asientosLibres,
                     p_sentido: sentidoActual
                 });
-                
+
                 if (error || !data?.success) throw new Error(data?.error || error?.message);
                 
                 label.innerText = "EN LÍNEA"; 
@@ -267,9 +267,13 @@
                 const { data, error } = await _s.rpc('conductor_desconectar', {
                     p_id_movil: MI_ID_MOVIL
                 });
-                
+
                 if (error || !data?.success) {
                     throw new Error(data?.error || error?.message);
+                }
+
+                // Placeholder para mantener estructura
+                    throw new Error("La base de datos no cambió a offline");
                 }
                 
                 label.innerText = "FUERA DE LÍNEA"; 
@@ -357,7 +361,7 @@
                 p_sentido: sentidoActual,
                 p_parada_idx: paradaInicio
             });
-            
+
             if (error || !data?.success) throw new Error(data?.error || error?.message);
             mostrarToast(`Sentido cambiado a: ${sentidoActual}`, 'success');
         } catch (err) {
@@ -379,7 +383,7 @@
                 p_id_movil: MI_ID_MOVIL
             });
 
-            if (error || !data?.success) throw new Error(data?.error || error?.message);
+            if (error) throw error;
 
             for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
                 const p = document.getElementById('pill' + i);
@@ -450,66 +454,100 @@
             mostrarToast(`Asiento ${numAsiento} ya está libre`, 'info');
             return;
         }
-
+        
         if (!confirm(`¿Liberar asiento ${numAsiento}?`)) return;
-
+        
         try {
             const { data, error } = await _s.rpc('conductor_liberar_asiento', {
                 p_id_movil: MI_ID_MOVIL,
                 p_asiento_num: numAsiento
             });
-
+            
             if (error || !data?.success) {
                 mostrarToast(data?.error || 'Error al liberar asiento', 'error');
                 return;
             }
-
+            
             asientosLibres += 1;
-
+            
             pill.className = 'pill libre';
             pill.innerText = 'LIBRE';
-
+            
             mostrarToast(`🎉 Asiento ${numAsiento} liberado`, 'success');
             if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
             setTimeout(actualizarDatos, 1000);
-
+            
         } catch (err) {
             console.error("Error liberando asiento:", err);
             mostrarToast('Error al liberar asiento', 'error');
         }
     }
-
-    function mostrarModalVaciar() {
-        document.getElementById('modal-vaciar').style.display = 'flex';
-    }
-    
-    function cerrarModal() {
-        document.getElementById('modal-vaciar').style.display = 'none';
-    }
-    
     async function confirmarVaciar() {
         cerrarModal();
-
+        
         try {
             const { data, error } = await _s.rpc('conductor_vaciar_coche', {
                 p_id_movil: MI_ID_MOVIL
             });
-
+            
             if (error || !data?.success) throw new Error(data?.error || error?.message);
-
+            
             asientosLibres = TOTAL_ASIENTOS;
-
+            
             for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
                 const p = document.getElementById('pill' + i);
                 p.className = 'pill'; 
                 p.innerText = i;
             }
-
+            
             mostrarToast('🏁 Viaje finalizado. Coche vacío.', 'success');
             actualizarDatos();
-
+            
         } catch (err) {
             console.error("Error finalizando viaje:", err);
             mostrarToast('Error al finalizar viaje', 'error');
         }
     }
+    _s.channel('coche_' + MI_ID_MOVIL)
+      .on('postgres_changes', { 
+          event: '*', schema: 'public', table: 'reservas_activas', 
+          filter: `id_movil=eq.${MI_ID_MOVIL}` 
+      }, (payload) => {
+          console.log("Cambio en reservas:", payload);
+          actualizarDatos();
+          if (payload.eventType === 'INSERT') {
+              const res = payload.new;
+              mostrarToast(`🙋 ¡Nuevo pasajero! ${res.nombre_pasajero || 'Pasajero'}`, 'success');
+              if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+          }
+      })
+      .subscribe();
+
+    window.addEventListener('DOMContentLoaded', () => {
+        initNetworkMonitor();
+        actualizarDatos();
+        setTimeout(() => {
+            const spl = document.getElementById('splash');
+            if (spl && spl.style.display !== 'none') {
+                spl.style.opacity = '0';
+                setTimeout(() => spl.style.display = 'none', 800);
+            }
+        }, 8000);
+    });
+
+    window.addEventListener('beforeunload', async (e) => {
+        if (estaOnline) {
+            e.preventDefault(); 
+            e.returnValue = '¿Estás seguro? Estás en línea.';
+            try {
+                await _s.rpc('conductor_desconectar', {
+                    p_id_movil: MI_ID_MOVIL
+                });
+            } catch (err) { 
+                console.error("Error al desconectar:", err); 
+            }
+        }
+    });
+</script>
+</body>
+</html>
