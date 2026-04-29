@@ -231,19 +231,16 @@
                 const parada = encontrarParadaMasCercana(pos.coords.latitude, pos.coords.longitude);
                 paradaActualIdx = parada.idx;
                 
-                const { error } = await _s.from('estado_movil').upsert({ 
-                    id: MI_ID_MOVIL,
-                    esta_online: true, 
-                    en_servicio: true,
-                    latitud: pos.coords.latitude, 
-                    longitud: pos.coords.longitude,
-                    disponible_desde: paradaActualIdx, 
-                    asientos_libres: asientosLibres,
-                    sentido_flujo: sentidoActual,
-                    ultima_actualizacion: new Date().toISOString()
-                }, { onConflict: 'id' });
+                const { data, error } = await _s.rpc('conductor_conectar', {
+                    p_id_movil: MI_ID_MOVIL,
+                    p_lat: pos.coords.latitude,
+                    p_lon: pos.coords.longitude,
+                    p_parada_idx: paradaActualIdx,
+                    p_asientos_libres: asientosLibres,
+                    p_sentido: sentidoActual
+                });
                 
-                if (error) throw error;
+                if (error || !data?.success) throw new Error(data?.error || error?.message);
                 
                 label.innerText = "EN LÍNEA"; 
                 label.style.color = "#4cd964";
@@ -267,30 +264,12 @@
             if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
             
             try {
-                // ✅ Agregado .select() para confirmar que se actualizó
-                const { data, error } = await _s.from('estado_movil').update({ 
-                    esta_online: false, 
-                    en_servicio: false,
-                    latitud: 0, 
-                    longitud: 0, 
-                    asientos_libres: 4,
-                    ultima_actualizacion: new Date().toISOString()
-                }).eq('id', MI_ID_MOVIL)
-                .select(); // ← NUEVO: devuelve el registro actualizado
+                const { data, error } = await _s.rpc('conductor_desconectar', {
+                    p_id_movil: MI_ID_MOVIL
+                });
                 
-                if (error) {
-                    console.error("ERROR SUPABASE UPDATE:", error);
-                    throw new Error("Supabase: " + error.message);
-                }
-                
-                // ✅ Verificar que realmente se actualizó
-                if (!data || data.length === 0) {
-                    throw new Error("No se confirmó la desconexión en la base de datos");
-                }
-                
-                // ✅ Verificar que esta_online es false
-                if (data[0].esta_online !== false) {
-                    throw new Error("La base de datos no cambió a offline");
+                if (error || !data?.success) {
+                    throw new Error(data?.error || error?.message);
                 }
                 
                 label.innerText = "FUERA DE LÍNEA"; 
@@ -343,12 +322,12 @@
             map.panTo([myLat, myLon]);
             
             try {
-                await _s.from('estado_movil').update({ 
-                    latitud: myLat, 
-                    longitud: myLon, 
-                    disponible_desde: paradaActualIdx,
-                    ultima_actualizacion: new Date().toISOString()
-                }).eq('id', MI_ID_MOVIL);
+                await _s.rpc('conductor_actualizar_gps', {
+                    p_id_movil: MI_ID_MOVIL,
+                    p_lat: myLat,
+                    p_lon: myLon,
+                    p_parada_idx: paradaActualIdx
+                });
             } catch (err) { 
                 console.error("Error actualizando GPS:", err); 
             }
@@ -372,13 +351,14 @@
         }
         
         try {
-            const { error } = await _s.from('estado_movil').update({ 
-                sentido_flujo: sentidoActual, 
-                disponible_desde: sentidoActual === 'IDA' ? 0 : paradas.length - 1,
-                ultima_actualizacion: new Date().toISOString()
-            }).eq('id', MI_ID_MOVIL);
+            const paradaInicio = sentidoActual === 'IDA' ? 0 : paradas.length - 1;
+            const { data, error } = await _s.rpc('conductor_cambiar_sentido', {
+                p_id_movil: MI_ID_MOVIL,
+                p_sentido: sentidoActual,
+                p_parada_idx: paradaInicio
+            });
             
-            if (error) throw error;
+            if (error || !data?.success) throw new Error(data?.error || error?.message);
             mostrarToast(`Sentido cambiado a: ${sentidoActual}`, 'success');
         } catch (err) {
             console.error("Error cambiando sentido:", err);
@@ -395,13 +375,11 @@
             markersPax = []; 
             markersDest = [];
 
-            const { data: reservas, error } = await _s
-                .from('reservas_activas')
-                .select('*')
-                .eq('estado', 'en_curso')
-                .eq('id_movil', MI_ID_MOVIL);
+            const { data: reservas, error } = await _s.rpc('conductor_obtener_reservas', {
+                p_id_movil: MI_ID_MOVIL
+            });
 
-            if (error) throw error;
+            if (error || !data?.success) throw new Error(data?.error || error?.message);
 
             for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
                 const p = document.getElementById('pill' + i);
@@ -448,7 +426,10 @@
             asientosLibres = TOTAL_ASIENTOS - paxCount;
             
             if (estaOnline) {
-                await _s.from('estado_movil').update({ asientos_libres: asientosLibres }).eq('id', MI_ID_MOVIL);
+                await _s.rpc('conductor_actualizar_asientos', {
+                    p_id_movil: MI_ID_MOVIL,
+                    p_asientos_libres: asientosLibres
+                });
             }
 
             const spl = document.getElementById('splash');
@@ -469,39 +450,29 @@
             mostrarToast(`Asiento ${numAsiento} ya está libre`, 'info');
             return;
         }
-        
+
         if (!confirm(`¿Liberar asiento ${numAsiento}?`)) return;
-        
+
         try {
-            const { data: reserva, error: err1 } = await _s
-                .from('reservas_activas')
-                .select('*')
-                .eq('id_movil', MI_ID_MOVIL)
-                .eq('asiento_num', numAsiento)
-                .eq('estado', 'en_curso')
-                .single();
-            
-            if (err1 || !reserva) {
-                mostrarToast('No se encontró reserva para este asiento', 'error');
+            const { data, error } = await _s.rpc('conductor_liberar_asiento', {
+                p_id_movil: MI_ID_MOVIL,
+                p_asiento_num: numAsiento
+            });
+
+            if (error || !data?.success) {
+                mostrarToast(data?.error || 'Error al liberar asiento', 'error');
                 return;
             }
-            
-            const { error: err2 } = await _s
-                .from('reservas_activas')
-                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
-                .eq('id', reserva.id);
-            
-            if (err2) throw err2;
-            
+
             asientosLibres += 1;
-            
+
             pill.className = 'pill libre';
             pill.innerText = 'LIBRE';
-            
+
             mostrarToast(`🎉 Asiento ${numAsiento} liberado`, 'success');
             if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
             setTimeout(actualizarDatos, 1000);
-            
+
         } catch (err) {
             console.error("Error liberando asiento:", err);
             mostrarToast('Error al liberar asiento', 'error');
@@ -518,77 +489,27 @@
     
     async function confirmarVaciar() {
         cerrarModal();
-        
+
         try {
-            const { error } = await _s
-                .from('reservas_activas')
-                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
-                .eq('estado', 'en_curso')
-                .eq('id_movil', MI_ID_MOVIL);
-            
-            if (error) throw error;
-            
+            const { data, error } = await _s.rpc('conductor_vaciar_coche', {
+                p_id_movil: MI_ID_MOVIL
+            });
+
+            if (error || !data?.success) throw new Error(data?.error || error?.message);
+
             asientosLibres = TOTAL_ASIENTOS;
-            
+
             for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
                 const p = document.getElementById('pill' + i);
                 p.className = 'pill'; 
                 p.innerText = i;
             }
-            
+
             mostrarToast('🏁 Viaje finalizado. Coche vacío.', 'success');
             actualizarDatos();
-            
+
         } catch (err) {
             console.error("Error finalizando viaje:", err);
             mostrarToast('Error al finalizar viaje', 'error');
         }
     }
-
-    _s.channel('coche_' + MI_ID_MOVIL)
-      .on('postgres_changes', { 
-          event: '*', schema: 'public', table: 'reservas_activas', 
-          filter: `id_movil=eq.${MI_ID_MOVIL}` 
-      }, (payload) => {
-          console.log("Cambio en reservas:", payload);
-          actualizarDatos();
-          if (payload.eventType === 'INSERT') {
-              const res = payload.new;
-              mostrarToast(`🙋 ¡Nuevo pasajero! ${res.nombre_pasajero || 'Pasajero'}`, 'success');
-              if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-          }
-      })
-      .subscribe();
-
-    window.addEventListener('DOMContentLoaded', () => {
-        initNetworkMonitor();
-        actualizarDatos();
-        setTimeout(() => {
-            const spl = document.getElementById('splash');
-            if (spl && spl.style.display !== 'none') {
-                spl.style.opacity = '0';
-                setTimeout(() => spl.style.display = 'none', 800);
-            }
-        }, 8000);
-    });
-
-    window.addEventListener('beforeunload', async (e) => {
-        if (estaOnline) {
-            e.preventDefault(); 
-            e.returnValue = '¿Estás seguro? Estás en línea.';
-            try {
-                await _s.from('estado_movil').update({ 
-                    esta_online: false, 
-                    en_servicio: false,
-                    latitud: 0, 
-                    longitud: 0, 
-                    ultima_actualizacion: new Date().toISOString()
-                }).eq('id', MI_ID_MOVIL);
-            } catch (err) { 
-                console.error("Error al desconectar:", err); 
-            }
-        }
-    });
-</script>
-</body>
-</html>
