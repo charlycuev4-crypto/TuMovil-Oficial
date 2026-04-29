@@ -1,4 +1,4 @@
-1<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -53,18 +53,6 @@
         .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
         .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); transition: all 0.3s ease; cursor: pointer; }
         .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
-        .pill.libre { background: #FFD700; border-color: #FFD700; color: #000; animation: pulse-libre 1.5s infinite; }
-        @keyframes pulse-libre { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,215,0,0.7); } 50% { box-shadow: 0 0 20px 5px rgba(255,215,0,0); } }
-        .taxi-icon { font-size: 30px; }
-        
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9998; display: none; justify-content: center; align-items: center; }
-        .modal { background: #1a1a1a; border: 2px solid #FFD700; border-radius: 20px; padding: 24px; width: 90%; max-width: 350px; text-align: center; color: white; }
-        .modal h3 { color: #FFD700; margin-top: 0; }
-        .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
-        .modal-btn { flex: 1; padding: 12px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
-        .modal-btn.confirm { background: #ff3b30; color: white; }
-        .modal-btn.cancel { background: #333; color: white; }
-        .modal-btn.force { background: #FFD700; color: #000; }
     </style>
 </head>
 <body>
@@ -106,26 +94,13 @@
         <button class="btn-vaciar" onclick="mostrarModalVaciar()">🏁 FINALIZAR / VACIAR COCHE 01</button>
     </div>
 
-    <!-- Modal Vaciar -->
-    <div class="modal-overlay" id="modal-vaciar">
-        <div class="modal">
+    <div class="modal-overlay" id="modal-vaciar" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9998; display: none; justify-content: center; align-items: center;">
+        <div style="background: #1a1a1a; border: 2px solid #FFD700; border-radius: 20px; padding: 24px; width: 90%; max-width: 350px; text-align: center; color: white;">
             <h3>⚠️ Finalizar Viaje</h3>
-            <p>¿Estás seguro de que quieres finalizar el viaje y vaciar todos los asientos?</p>
-            <div class="modal-buttons">
-                <button class="modal-btn cancel" onclick="cerrarModal('modal-vaciar')">Cancelar</button>
-                <button class="modal-btn confirm" onclick="confirmarVaciar()">Sí, Finalizar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Forzar Liberación -->
-    <div class="modal-overlay" id="modal-forzar">
-        <div class="modal">
-            <h3>⚠️ No se encontró reserva</h3>
-            <p>El pasajero no finalizó desde su app. ¿Querés forzar la liberación del asiento <span id="forzar-asiento-num">--</span>?</p>
-            <div class="modal-buttons">
-                <button class="modal-btn cancel" onclick="cerrarModal('modal-forzar')">Cancelar</button>
-                <button class="modal-btn force" onclick="confirmarForzarLiberacion()">Sí, Forzar</button>
+            <p>¿Quieres finalizar el viaje y vaciar todos los asientos?</p>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="cerrarModal('modal-vaciar')" style="flex: 1; padding: 12px; border: none; border-radius: 12px; background: #333; color: white;">Cancelar</button>
+                <button onclick="confirmarVaciar()" style="flex: 1; padding: 12px; border: none; border-radius: 12px; background: #ff3b30; color: white;">Sí, Vaciar</button>
             </div>
         </div>
     </div>
@@ -143,7 +118,6 @@
     let paradaActualIdx = 0;
     let asientosLibres = 4;
     let lastGpsUpdate = 0;
-    let asientoPendienteForzar = null;
     const GPS_UPDATE_INTERVAL = 5000;
     const DISTANCIA_MINIMA_PARADA = 50;
 
@@ -168,501 +142,108 @@
     const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.6 }).addTo(map);
     
     paradas.forEach((p, idx) => { 
-        L.circleMarker(p.c, { 
-            radius: 6, 
-            color: '#000000',
-            weight: 2, 
-            fillColor: '#00d2ff',
-            fillOpacity: 1 
-        }).addTo(map).bindTooltip(`${idx + 1}. ${p.n}`, { permanent: false });
+        L.circleMarker(p.c, { radius: 6, color: '#000', weight: 2, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map);
     });
     
-    const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
-    const marcadorConductor = L.marker(paradas[0].c, { icon: iconTaxi }).addTo(map);
-    let markersPax = []; 
-    let markersDest = [];
+    const marcadorConductor = L.marker(paradas[0].c, { icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] }) }).addTo(map);
+    let markersPax = [], markersDest = [];
 
-    function mostrarToast(mensaje, tipo = 'info') {
-        const existing = document.querySelector('.toast');
-        if (existing) existing.remove();
+    function mostrarToast(m, t = 'info') {
         const toast = document.createElement('div');
-        toast.className = `toast ${tipo}`;
-        toast.innerText = mensaje;
+        toast.className = `toast ${t}`;
+        toast.innerText = m;
         document.body.appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
+        setTimeout(() => toast.remove(), 4000);
     }
 
-    function calcularDistancia(coord1, coord2) {
-        const R = 6371e3;
-        const φ1 = coord1[0] * Math.PI / 180;
-        const φ2 = coord2[0] * Math.PI / 180;
-        const Δφ = (coord2[0] - coord1[0]) * Math.PI / 180;
-        const Δλ = (coord2[1] - coord1[1]) * Math.PI / 180;
-        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
-
-    function encontrarParadaMasCercana(lat, lon) {
-        let minDist = Infinity;
-        let paradaIdx = 0;
-        paradas.forEach((parada, idx) => {
-            const dist = calcularDistancia([lat, lon], parada.c);
-            if (dist < minDist) { minDist = dist; paradaIdx = idx; }
-        });
-        return { idx: paradaIdx, distancia: minDist };
-    }
-
-    function initNetworkMonitor() {
-        const indicator = document.getElementById('net-status');
-        const updateStatus = () => {
-            if (navigator.onLine) {
-                indicator.className = 'net-online';
-                indicator.innerText = '📶 ONLINE';
-            } else {
-                indicator.className = 'net-offline';
-                indicator.innerText = '⚠️ SIN RED';
-            }
-        };
-        updateStatus();
-        window.addEventListener('online', () => { updateStatus(); mostrarToast('Conexión restaurada', 'success'); actualizarDatos(); });
-        window.addEventListener('offline', () => { updateStatus(); mostrarToast('Sin conexión a internet', 'error'); });
-    }
-
-    // ============================================================
-    // ✅ FUNCIÓN CORREGIDA - Mejor manejo de errores al desconectar
-    // ============================================================
     async function gestionarConexion() {
         const toggle = document.getElementById('online-toggle');
         estaOnline = toggle.checked;
         const label = document.getElementById('status-label');
         
         if (estaOnline) {
-            // ========== CONECTAR ==========
-            try {
-                label.innerText = "CONECTANDO..."; 
-                label.style.color = "#FFD700";
-                const pos = await obtenerPosicionActual();
-                const parada = encontrarParadaMasCercana(pos.coords.latitude, pos.coords.longitude);
-                paradaActualIdx = parada.idx;
-                
-                const { error } = await _s.from('estado_movil').upsert({ 
-                    id: MI_ID_MOVIL,
-                    esta_online: true, 
-                    en_servicio: true,
-                    latitud: pos.coords.latitude, 
-                    longitud: pos.coords.longitude,
-                    disponible_desde: paradaActualIdx, 
-                    asientos_libres: asientosLibres,
-                    sentido_flujo: sentidoActual,
-                    ultima_actualizacion: new Date().toISOString()
-                }, { onConflict: 'id' });
-                
-                if (error) throw error;
-                
-                label.innerText = "EN LÍNEA"; 
-                label.style.color = "#4cd964";
-                document.getElementById('parada-actual').style.display = 'block';
-                document.getElementById('txt-parada').innerText = `${paradaActualIdx + 1}. ${paradas[paradaActualIdx].n}`;
-                mostrarToast('🚕 En línea y listo para recibir pasajeros', 'success');
-                iniciarGPS();
-                
-            } catch (err) {
-                console.error("Error al conectar:", err);
-                mostrarToast('❌ Error al conectar: ' + err.message, 'error');
-                toggle.checked = false;
-                estaOnline = false;
-                label.innerText = "FUERA DE LÍNEA";
-                label.style.color = "white";
-            }
-            
+            label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
+            iniciarGPS();
+            await _s.from('estado_movil').upsert({ id: MI_ID_MOVIL, esta_online: true, en_servicio: true, sentido_flujo: sentidoActual });
         } else {
-            // ========== DESCONECTAR ==========
-            label.innerText = "DESCONECTANDO...";
-            if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-            
-            try {
-                // ✅ Agregado .select() para confirmar que se actualizó
-                const { data, error } = await _s.from('estado_movil').update({ 
-                    esta_online: false, 
-                    en_servicio: false,
-                    latitud: 0, 
-                    longitud: 0, 
-                    asientos_libres: 4,
-                    ultima_actualizacion: new Date().toISOString()
-                }).eq('id', MI_ID_MOVIL)
-                .select(); // ← NUEVO: devuelve el registro actualizado
-                
-                if (error) {
-                    console.error("ERROR SUPABASE UPDATE:", error);
-                    throw new Error("Supabase: " + error.message);
-                }
-                
-                // ✅ Verificar que realmente se actualizó
-                if (!data || data.length === 0) {
-                    throw new Error("No se confirmó la desconexión en la base de datos");
-                }
-                
-                // ✅ Verificar que esta_online es false
-                if (data[0].esta_online !== false) {
-                    throw new Error("La base de datos no cambió a offline");
-                }
-                
-                label.innerText = "FUERA DE LÍNEA"; 
-                label.style.color = "white";
-                document.getElementById('parada-actual').style.display = 'none';
-                mostrarToast('✅ Desconectado correctamente', 'info');
-                
-            } catch (err) {
-                console.error("Error al desconectar:", err);
-                mostrarToast('❌ ERROR AL DESCONECTAR: ' + err.message, 'error');
-                mostrarToast('⚠️ Los pasajeros aún pueden verte online', 'error');
-                
-                // ✅ NO revertir el toggle - mantenerlo en "online" para que el usuario lo intente de nuevo
-                toggle.checked = true;
-                estaOnline = true;
-                label.innerText = "EN LÍNEA"; 
-                label.style.color = "#4cd964";
-                // Reintentar iniciar GPS ya que volvimos a online
-                iniciarGPS();
-            }
+            label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            await _s.from('estado_movil').update({ esta_online: false, en_servicio: false }).eq('id', MI_ID_MOVIL);
         }
-    }
-
-    function obtenerPosicionActual() {
-        return new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
-        });
     }
 
     function iniciarGPS() {
-        if (watchId) navigator.geolocation.clearWatch(watchId);
-        
         watchId = navigator.geolocation.watchPosition(async (p) => {
-            if (!estaOnline) return;
-            const now = Date.now();
-            if (now - lastGpsUpdate < GPS_UPDATE_INTERVAL) return;
-            lastGpsUpdate = now;
-            
-            const myLat = p.coords.latitude; 
-            const myLon = p.coords.longitude;
-            const parada = encontrarParadaMasCercana(myLat, myLon);
-            
-            if (parada.distancia < DISTANCIA_MINIMA_PARADA && parada.idx !== paradaActualIdx) {
-                paradaActualIdx = parada.idx;
-                document.getElementById('txt-parada').innerText = `${paradaActualIdx + 1}. ${paradas[paradaActualIdx].n}`;
-                mostrarToast(`📍 Pasando: ${paradas[paradaActualIdx].n}`, 'info');
-            }
-            
-            marcadorConductor.setLatLng([myLat, myLon]); 
+            const myLat = p.coords.latitude, myLon = p.coords.longitude;
+            marcadorConductor.setLatLng([myLat, myLon]);
             map.panTo([myLat, myLon]);
-            
-            try {
-                await _s.from('estado_movil').update({ 
-                    latitud: myLat, 
-                    longitud: myLon, 
-                    disponible_desde: paradaActualIdx,
-                    ultima_actualizacion: new Date().toISOString()
-                }).eq('id', MI_ID_MOVIL);
-            } catch (err) { 
-                console.error("Error actualizando GPS:", err); 
-            }
-            
-        }, (err) => { 
-            console.error("Error geolocalización:", err); 
-            mostrarToast('Error GPS: ' + err.message, 'error'); 
-        }, 
-        { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 });
-    }
-
-    async function cambiarSentido() {
-        sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
-        const btn = document.getElementById('btn-sentido');
-        btn.innerText = sentidoActual;
-        
-        if (sentidoActual === 'VUELTA') { 
-            rutaLine.setStyle({ color: '#ff6b6b' }); 
-        } else { 
-            rutaLine.setStyle({ color: '#00d4ff' }); 
-        }
-        
-        try {
-            const { error } = await _s.from('estado_movil').update({ 
-                sentido_flujo: sentidoActual, 
-                disponible_desde: sentidoActual === 'IDA' ? 0 : paradas.length - 1,
-                ultima_actualizacion: new Date().toISOString()
-            }).eq('id', MI_ID_MOVIL);
-            
-            if (error) throw error;
-            mostrarToast(`Sentido cambiado a: ${sentidoActual}`, 'success');
-        } catch (err) {
-            console.error("Error cambiando sentido:", err);
-            mostrarToast('Error al cambiar sentido', 'error');
-            sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
-            btn.innerText = sentidoActual;
-        }
+            if (estaOnline) await _s.from('estado_movil').update({ latitud: myLat, longitud: myLon }).eq('id', MI_ID_MOVIL);
+        }, null, { enableHighAccuracy: true });
     }
 
     async function actualizarDatos() {
         try {
-            markersPax.forEach(m => map.removeLayer(m));
-            markersDest.forEach(m => map.removeLayer(m));
-            markersPax = []; 
-            markersDest = [];
-
-            const { data: reservas, error } = await _s
-                .from('reservas_activas')
-                .select('*')
-                .eq('estado', 'en_curso')
-                .eq('id_movil', MI_ID_MOVIL);
-
-            if (error) throw error;
-
-            for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
-                const p = document.getElementById('pill' + i);
-                p.className = 'pill'; 
-                p.innerText = i;
+            const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
+            
+            // Reset visual
+            for (let i = 1; i <= 4; i++) {
+                const pill = document.getElementById('pill' + i);
+                pill.className = 'pill'; pill.innerText = i;
             }
 
-            let recaudacion = 0;
-            let paxCount = 0;
-            
-            if (reservas && reservas.length > 0) {
+            let recaudacion = 0, paxCount = 0;
+            markersPax.forEach(m => map.removeLayer(m));
+            markersDest.forEach(m => map.removeLayer(m));
+
+            if (reservas) {
                 reservas.forEach(res => {
-                    paxCount += 1;
-                    recaudacion += PRECIO_POR_ASIENTO;
-                    
+                    paxCount++; recaudacion += PRECIO_POR_ASIENTO;
                     const pill = document.getElementById('pill' + res.asiento_num);
-                    if (pill) {
-                        pill.className = 'pill active';
-                        pill.innerText = '✓';
-                    }
-
-                    if (res.pasajero_lat && res.pasajero_lon) {
-                        const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], 
-                            { color: '#ff3b30', radius: 10, fillColor: '#ff3b30', fillOpacity: 0.3, weight: 2 })
-                            .addTo(map)
-                            .bindPopup(`<b>${res.nombre_pasajero || "Pasajero"}</b>`);
-                        markersPax.push(pM);
-                    }
-
-                    if (paradas[res.destino_idx]) {
-                        const dM = L.marker(paradas[res.destino_idx].c, {
-                            icon: L.divIcon({ html: '📍', className: 'destino-icon', iconAnchor: [12, 24] })
-                        }).addTo(map)
-                         .bindTooltip(`⬇️ ${res.nombre_pasajero || 'Pasajero'}`, 
-                            { permanent: true, direction: 'top', offset: [0, -10] });
-                        markersDest.push(dM);
-                    }
+                    if (pill) { pill.className = 'pill active'; pill.innerText = '✓'; }
                 });
             }
 
             document.getElementById('txt-pax').innerText = paxCount;
-            document.getElementById('txt-plata').innerText = '$' + recaudacion.toLocaleString('es-AR');
-            
-            asientosLibres = TOTAL_ASIENTOS - paxCount;
-            
-            if (estaOnline) {
-                await _s.from('estado_movil').update({ asientos_libres: asientosLibres }).eq('id', MI_ID_MOVIL);
-            }
-
-            const spl = document.getElementById('splash');
-            if (spl && spl.style.display !== 'none') {
-                spl.style.opacity = '0';
-                setTimeout(() => spl.style.display = 'none', 800);
-            }
-
-        } catch (err) {
-            console.error("Error en actualizarDatos:", err);
-            mostrarToast('Error al sincronizar datos', 'error');
-        }
+            document.getElementById('txt-plata').innerText = '$' + recaudacion.toLocaleString();
+            asientosLibres = 4 - paxCount;
+            if (estaOnline) await _s.from('estado_movil').update({ asientos_libres: asientosLibres }).eq('id', MI_ID_MOVIL);
+        } catch (e) { console.error(e); }
     }
 
-    // ============================================================
-    // ✅ FUNCIÓN CORREGIDA - El conductor SIEMPRE puede liberar
-    // ============================================================
+    // CORRECCIÓN: LIBERACIÓN TOTALMENTE SEGURA
     async function liberarAsiento(numAsiento) {
-        const pill = document.getElementById('pill' + numAsiento);
-        
-        // Si ya está libre, avisar y salir
-        if (!pill.classList.contains('active')) {
-            mostrarToast(`Asiento ${numAsiento} ya está libre`, 'info');
-            return;
-        }
-        
         if (!confirm(`¿Liberar asiento ${numAsiento}?`)) return;
-        
         try {
-            // 1. Buscar reserva activa para este asiento
-            const { data: reserva, error: err1 } = await _s
-                .from('reservas_activas')
-                .select('*')
-                .eq('id_movil', MI_ID_MOVIL)
-                .eq('asiento_num', numAsiento)
-                .eq('estado', 'en_curso')
-                .single();
-            
-            // 2. Si hay reserva → finalizarla normalmente
-            if (!err1 && reserva) {
-                const { error: err2 } = await _s
-                    .from('reservas_activas')
-                    .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
-                    .eq('id', reserva.id);
-                
-                if (err2) throw err2;
-                
-                mostrarToast(`🎉 Asiento ${numAsiento} liberado`, 'success');
-            } 
-            // 3. Si NO hay reserva → ofrecer FORZAR liberación
-            else {
-                console.log("No se encontró reserva para asiento", numAsiento, "Error:", err1);
-                asientoPendienteForzar = numAsiento;
-                document.getElementById('forzar-asiento-num').innerText = numAsiento;
-                document.getElementById('modal-forzar').style.display = 'flex';
-                return; // Salir sin tocar el pill aún
-            }
-            
-            // 4. Actualizar UI local
-            asientosLibres += 1;
-            pill.className = 'pill libre';
-            pill.innerText = 'LIBRE';
-            
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-            setTimeout(actualizarDatos, 1000);
-            
-        } catch (err) {
-            console.error("Error liberando asiento:", err);
-            mostrarToast('Error al liberar asiento', 'error');
-        }
-    }
-
-    // ✅ NUEVA FUNCIÓN: Forzar liberación cuando no hay reserva
-    async function confirmarForzarLiberacion() {
-        cerrarModal('modal-forzar');
-        
-        if (!asientoPendienteForzar) return;
-        
-        const numAsiento = asientoPendienteForzar;
-        const pill = document.getElementById('pill' + numAsiento);
-        
-        try {
-            // Intentar finalizar CUALQUIER reserva en_curso para este asiento (sin .single())
-            const { data: reservas, error: errBuscar } = await _s
-                .from('reservas_activas')
-                .select('id')
+            const { error } = await _s.from('reservas_activas')
+                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
                 .eq('id_movil', MI_ID_MOVIL)
                 .eq('asiento_num', numAsiento)
                 .eq('estado', 'en_curso');
-            
-            // Si encontramos reservas, marcarlas todas como finalizadas
-            if (!errBuscar && reservas && reservas.length > 0) {
-                for (const res of reservas) {
-                    await _s
-                        .from('reservas_activas')
-                        .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
-                        .eq('id', res.id);
-                }
-            }
-            
-            // Aunque no haya nada en la BD, el conductor puede forzar
-            asientosLibres += 1;
-            pill.className = 'pill libre';
-            pill.innerText = 'LIBRE';
-            
-            mostrarToast(`💪 Asiento ${numAsiento} liberado FORZADO`, 'success');
-            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-            setTimeout(actualizarDatos, 1000);
-            
-        } catch (err) {
-            console.error("Error forzando liberación:", err);
-            mostrarToast('Error al forzar liberación', 'error');
-        } finally {
-            asientoPendienteForzar = null;
-        }
+
+            if (error) throw error;
+            mostrarToast(`Asiento ${numAsiento} libre`, 'success');
+            actualizarDatos();
+        } catch (err) { mostrarToast('Error al liberar', 'error'); }
     }
 
-    function mostrarModalVaciar() {
-        document.getElementById('modal-vaciar').style.display = 'flex';
-    }
-    
-    function cerrarModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
-        if (modalId === 'modal-forzar') asientoPendienteForzar = null;
-    }
-    
+    function mostrarModalVaciar() { document.getElementById('modal-vaciar').style.display = 'flex'; }
+    function cerrarModal(id) { document.getElementById(id).style.display = 'none'; }
+
     async function confirmarVaciar() {
         cerrarModal('modal-vaciar');
-        
         try {
-            const { error } = await _s
-                .from('reservas_activas')
-                .update({ estado: 'finalizado', finalizado_at: new Date().toISOString() })
-                .eq('estado', 'en_curso')
-                .eq('id_movil', MI_ID_MOVIL);
-            
-            if (error) throw error;
-            
-            asientosLibres = TOTAL_ASIENTOS;
-            
-            for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
-                const p = document.getElementById('pill' + i);
-                p.className = 'pill'; 
-                p.innerText = i;
-            }
-            
-            mostrarToast('🏁 Viaje finalizado. Coche vacío.', 'success');
+            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
             actualizarDatos();
-            
-        } catch (err) {
-            console.error("Error finalizando viaje:", err);
-            mostrarToast('Error al finalizar viaje', 'error');
-        }
+            mostrarToast('Coche vacío', 'success');
+        } catch (e) { mostrarToast('Error', 'error'); }
     }
 
-    _s.channel('coche_' + MI_ID_MOVIL)
-      .on('postgres_changes', { 
-          event: '*', schema: 'public', table: 'reservas_activas', 
-          filter: `id_movil=eq.${MI_ID_MOVIL}` 
-      }, (payload) => {
-          console.log("Cambio en reservas:", payload);
-          actualizarDatos();
-          if (payload.eventType === 'INSERT') {
-              const res = payload.new;
-              mostrarToast(`🙋 ¡Nuevo pasajero! ${res.nombre_pasajero || 'Pasajero'}`, 'success');
-              if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-          }
-      })
-      .subscribe();
-
-    window.addEventListener('DOMContentLoaded', () => {
-        initNetworkMonitor();
+    _s.channel('cambios').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => actualizarDatos()).subscribe();
+    
+    window.onload = () => {
         actualizarDatos();
-        setTimeout(() => {
-            const spl = document.getElementById('splash');
-            if (spl && spl.style.display !== 'none') {
-                spl.style.opacity = '0';
-                setTimeout(() => spl.style.display = 'none', 800);
-            }
-        }, 8000);
-    });
-
-    window.addEventListener('beforeunload', async (e) => {
-        if (estaOnline) {
-            e.preventDefault(); 
-            e.returnValue = '¿Estás seguro? Estás en línea.';
-            try {
-                await _s.from('estado_movil').update({ 
-                    esta_online: false, 
-                    en_servicio: false,
-                    latitud: 0, 
-                    longitud: 0, 
-                    ultima_actualizacion: new Date().toISOString()
-                }).eq('id', MI_ID_MOVIL);
-            } catch (err) { 
-                console.error("Error al desconectar:", err); 
-            }
-        }
-    });
+        setTimeout(() => document.getElementById('splash').style.opacity = '0', 2000);
+    };
 </script>
 </body>
 </html>
