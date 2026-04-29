@@ -41,6 +41,7 @@
         .toast { position: fixed; top: 200px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 12px 24px; border-radius: 25px; font-weight: bold; font-size: 14px; animation: slideDown 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.5); max-width: 90%; text-align: center; }
         .toast.success { background: #4cd964; color: #000; }
         .toast.error { background: #ff3b30; color: #fff; }
+        .toast.info { background: #FFD700; color: #000; }
         
         .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
         .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
@@ -62,7 +63,7 @@
             <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
             <span class="slider"></span>
         </label>
-        <button id="btn-sentido" onclick="cambiarSentido()" style="background:#FFD700; border:none; padding:6px 12px; border-radius:15px; font-weight:800; cursor:pointer;">IDA</button>
+        <button id="btn-sentido" onclick="cambiarSentido()" style="background:#FFD700; border:none; padding:6px 12px; border-radius:15px; font-weight:800; cursor:pointer; min-width: 80px;">IDA</button>
     </div>
 
     <div id="net-status" class="net-offline">⚠️ SIN RED</div>
@@ -90,7 +91,6 @@
 
 <script>
     const MI_ID_MOVIL = 1; 
-    // Asegúrate de usar tus credenciales correctas aquí
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
     let estaOnline = false;
@@ -114,7 +114,6 @@
         setTimeout(() => t.remove(), 3000);
     }
 
-    // Monitor de red mejorado
     function checkNetwork() {
         const indicator = document.getElementById('net-status');
         if (navigator.onLine) {
@@ -128,12 +127,42 @@
         }
     }
 
+    // FUNCIÓN DE CAMBIO DE SENTIDO REFORZADA
+    async function cambiarSentido() {
+        const btn = document.getElementById('btn-sentido');
+        
+        if (sentidoActual === 'IDA') {
+            sentidoActual = 'VUELTA';
+            btn.innerText = 'VUELTA';
+            btn.style.background = '#FF4500'; // Naranja para vuelta
+            btn.style.color = 'white';
+        } else {
+            sentidoActual = 'IDA';
+            btn.innerText = 'IDA';
+            btn.style.background = '#FFD700'; // Amarillo para ida
+            btn.style.color = 'black';
+        }
+
+        mostrarToast(`Trayecto: ${sentidoActual}`, 'info');
+
+        // Actualizar base de datos si está conectado
+        if (estaOnline) {
+            try {
+                await _s.from('estado_movil')
+                    .update({ sentido_flujo: sentidoActual })
+                    .eq('id', MI_ID_MOVIL);
+            } catch (err) {
+                console.error("Error sincronizando sentido");
+            }
+        }
+    }
+
     async function gestionarConexion() {
         const toggle = document.getElementById('online-toggle');
         const label = document.getElementById('status-label');
         
         if (!checkNetwork()) {
-            mostrarToast('No hay internet', 'error');
+            mostrarToast('Sin conexión a internet', 'error');
             toggle.checked = false;
             return;
         }
@@ -148,15 +177,16 @@
                 id: MI_ID_MOVIL, 
                 esta_online: true, 
                 en_servicio: true,
+                sentido_flujo: sentidoActual,
                 ultima_actualizacion: new Date().toISOString()
             });
-            mostrarToast('Servicio iniciado', 'success');
+            mostrarToast('Conectado al sistema', 'success');
         } else {
             label.innerText = "FUERA DE LÍNEA";
             label.style.color = "white";
             if (watchId) navigator.geolocation.clearWatch(watchId);
             await _s.from('estado_movil').update({ esta_online: false, en_servicio: false }).eq('id', MI_ID_MOVIL);
-            mostrarToast('Servicio pausado');
+            mostrarToast('Desconectado');
         }
     }
 
@@ -173,7 +203,7 @@
                 longitud: lon,
                 ultima_actualizacion: new Date().toISOString()
             }).eq('id', MI_ID_MOVIL);
-        }, (err) => mostrarToast('Error GPS: ' + err.message, 'error'), { enableHighAccuracy: true });
+        }, (err) => mostrarToast('Activa el GPS', 'error'), { enableHighAccuracy: true });
     }
 
     async function actualizarDatos() {
@@ -182,7 +212,6 @@
             const { data: reservas } = await _s.from('reservas_activas')
                 .select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
 
-            // Limpiar UI
             for (let i = 1; i <= 4; i++) {
                 const p = document.getElementById('pill' + i);
                 p.className = 'pill'; p.innerText = i;
@@ -196,24 +225,23 @@
                 document.getElementById('txt-pax').innerText = reservas.length;
                 document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
             }
-        } catch (e) { console.log("Error sincronizando"); }
+        } catch (e) { console.log("Error de sincronización"); }
     }
 
     async function liberarAsiento(n) {
-        if (!confirm(`¿Liberar asiento ${n}?`)) return;
+        if (!confirm(`¿El pasajero del asiento ${n} bajó?`)) return;
         await _s.from('reservas_activas').update({ estado: 'finalizado' })
             .eq('id_movil', MI_ID_MOVIL).eq('asiento_num', n).eq('estado', 'en_curso');
         actualizarDatos();
     }
 
     async function confirmarVaciar() {
-        if (!confirm('¿Vaciar todo el coche?')) return;
+        if (!confirm('¿Finalizar todos los viajes actuales?')) return;
         await _s.from('reservas_activas').update({ estado: 'finalizado' })
             .eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
         actualizarDatos();
     }
 
-    // Suscripción en tiempo real
     _s.channel('cambios_conductor').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => {
         actualizarDatos();
     }).subscribe();
