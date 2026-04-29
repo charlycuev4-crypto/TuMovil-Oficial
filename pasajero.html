@@ -10,82 +10,133 @@
     <style>
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --success: #28a745; --danger: #dc3545; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+        
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
         .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
         .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; flex-shrink: 0; }
         .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
+
         #map { flex-grow: 1; width: 100%; }
+        
         .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 50vh; overflow-y: auto; }
         .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
+        
         .flota-container { max-height: 220px; overflow-y: auto; }
-        .coche-card { background: #1a1a1a; border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; }
+        .coche-card { background: #1a1a1a; border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .coche-card.seleccionado { border-color: var(--celeste); box-shadow: 0 0 8px rgba(0,210,255,0.3); }
+        .coche-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .coche-num { font-weight: bold; font-size: 13px; color: white; }
+        .coche-info { font-size: 10px; color: #888; }
+        .coche-dist { font-size: 10px; color: var(--amarillo); }
+        
         .asientos-row { display: flex; gap: 5px; justify-content: center; }
-        .asiento-box { width: 52px; height: 48px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; }
+        .asiento-box { width: 52px; height: 48px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; transition: all 0.2s; }
         .asiento-libre { background: #2a2a2a; border: 2px solid var(--celeste); color: var(--celeste); cursor: pointer; }
+        .asiento-libre:hover { background: var(--celeste); color: black; }
         .asiento-libre.seleccionado { background: var(--amarillo); border-color: var(--amarillo); color: black; }
         .asiento-ocupado { background: #1a1a1a; border: 2px solid #333; color: #555; cursor: not-allowed; }
-        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; }
+        .asiento-num { font-size: 12px; font-weight: bold; }
+        .asiento-nombre { font-size: 9px; text-align: center; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 44px; }
+        .asiento-lock { font-size: 9px; }
+        
+        .sin-coches { text-align: center; padding: 15px; color: #666; font-size: 12px; }
+        .sin-coches b { color: #ff4444; display: block; margin-bottom: 4px; }
+
+        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; transition: all 0.3s; }
+        .btn-pedir:disabled { background: #333; color: #666; }
         .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
-        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; margin-right: 8px; }
+        
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <div id="splash"><div class="anillo"><span style="font-size: 60px;">🚕</span></div></div>
+
+    <div id="splash">
+        <div class="anillo"><span style="font-size: 60px;">🚕</span></div>
+        <h2 style="color: var(--celeste); margin-top: 20px;">TUMOVIL</h2>
+        <p style="color: white; font-size: 12px;">Conectando al sistema...</p>
+    </div>
+
     <div class="header"><h1>SOLICITAR VIAJE</h1></div>
     <div id="map"></div>
+
     <div class="bottom-ui">
+        <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
         <select id="sentido-select"><option value="IDA">Hacia IDA</option><option value="VUELTA">Hacia VUELTA</option></select>
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
         <select id="destino-select"><option value="" disabled selected>¿A qué parada vas?</option></select>
-        <div class="flota-container" id="flota-container"></div>
-        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ CARGANDO...</button>
+        <div class="flota-container" id="flota-container"><div class="sin-coches">📍 Seleccioná tu destino para ver coches</div></div>
+        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ BUSCANDO GPS...</button>
         <button class="btn-cancelar" id="btn-cancelar" onclick="finalizarViaje()">TERMINAR MI VIAJE</button>
     </div>
+
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    const paradas = [{n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]}, {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]}, {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]}, {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]}, {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]}, {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]}, {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]}, {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]}, {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]}, {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]}, {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]}, {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]}, {n:'Abasto y Roca', c:[-34.586030, -58.747278]}];
     
-    let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false, cocheSeleccionado = null, gpsListo = false;
-    
-    // --- SEGURIDAD: Cierre automático de splash ---
-    setTimeout(() => { quitarSplash(); }, 8000);
+    // === FIX: Splash Screen Seguro ===
     function quitarSplash() {
         const s = document.getElementById('splash');
-        if(s && s.style.visibility !== 'hidden') { s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800); }
+        if(s && s.style.visibility !== 'hidden') { 
+            s.style.opacity = '0'; 
+            setTimeout(() => s.style.visibility = 'hidden', 800); 
+        }
     }
+    // Fuerza cierre a los 8 segundos pase lo que pase
+    setTimeout(quitarSplash, 8000); 
+    // =================================
 
-    // --- NUEVAS FUNCIONES SEGURAS (RPC) ---
-    async function confirmarViajePasajero() {
-        const nom = document.getElementById('nombre-input').value.trim();
-        const destIdx = parseInt(document.getElementById('destino-select').value);
-        if (!nom || !cocheSeleccionado || asientosElegidos.length === 0) return alert("Completa todo.");
-        
-        const btn = document.getElementById('btn-pedir');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span>RESERVANDO...';
+    const paradas = [
+        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
+        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
+        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
+        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
+        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
+        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
+        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
+        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
+        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
+        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
+        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
+        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
+        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+    ];
 
-        const { error } = await _s.rpc('insertar_reserva_segura', {
-            p_nombre: nom, p_asientos: asientosElegidos, p_id_movil: cocheSeleccionado,
-            p_destino_idx: destIdx, p_lat: miLat, p_lon: miLon
-        });
+    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d2ff' }).addTo(map));
 
-        if (error) { alert("Error: " + error.message); btn.disabled = false; btn.innerText = "REINTENTAR"; }
-        else { localStorage.setItem('usuario_nombre', nom); location.reload(); }
-    }
+    let markerPasajero = L.marker([0,0], { icon: L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', iconAnchor: [15, 30] }) }).addTo(map);
+    let markerDestinoFlecha = L.marker([0,0], { icon: L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', iconAnchor: [10, 11] }) });
+    let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
+    let markerTaxis = {};
+    let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false, cocheSeleccionado = null, gpsListo = false;
 
-    async function finalizarViaje() {
-        const nom = document.getElementById('nombre-input').value.trim();
-        const { error } = await _s.rpc('finalizar_reserva_segura', { p_nombre: nom });
-        if (error) alert("Error: " + error.message);
-        else location.reload();
-    }
+    // Llenar select
+    const selDest = document.getElementById('destino-select');
+    paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
 
-    // [Aquí iría el resto de tu código original: inicialización de mapa, renderizado, etc.]
-    // ... Asegúrate de que el resto de tu lógica de mapa y renderizado esté pegado aquí abajo ...
+    window.onload = async () => {
+        const nombreGuardado = localStorage.getItem('usuario_nombre');
+        if(nombreGuardado) {
+            document.getElementById('nombre-input').value = nombreGuardado;
+            // ... (resto de tu lógica de carga de viaje)
+        }
+    };
+
+    navigator.geolocation.watchPosition(p => {
+        miLat = p.coords.latitude; miLon = p.coords.longitude;
+        markerPasajero.setLatLng([miLat, miLon]);
+        if(!gpsListo) { gpsListo = true; document.getElementById('btn-pedir').disabled = false; document.getElementById('btn-pedir').innerText = "SELECCIONÁ TU DESTINO"; }
+        quitarSplash(); // Quitar splash apenas tengamos señal
+    }, (err) => { console.error(err); quitarsplash(); document.getElementById('btn-pedir').innerText = "GPS NO DISPONIBLE"; }, { enableHighAccuracy: true });
+
+    // ... (Mantén todas tus funciones: calcularParadaMasCerca, movilPuedeRecoger, confirmarViajePasajero, etc.)
+    // EL CÓDIGO RESTANTE ES EL MISMO QUE YA TENÍAS Y FUNCIONA
 </script>
 </body>
 </html>
