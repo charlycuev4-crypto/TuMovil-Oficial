@@ -54,7 +54,6 @@
         .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); transition: all 0.3s ease; cursor: pointer; }
         .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
         .pill.libre { background: #FFD700; border-color: #FFD700; color: #000; animation: pulse-libre 1.5s infinite; }
-        @keyframes pulse-libre { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,215,0,0.7); } 50% { box-shadow: 0 0 20px 5px rgba(255,215,0,0); } }
         .taxi-icon { font-size: 30px; }
         
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9998; display: none; justify-content: center; align-items: center; }
@@ -117,10 +116,12 @@
     </div>
 
 <script>
+    // --- CONFIGURACIÓN BASE ---
     const MI_ID_MOVIL = 1; 
     const PRECIO_POR_ASIENTO = 1000;
     const TOTAL_ASIENTOS = 4;
     
+    // Conexión Supabase
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
     let sentidoActual = 'IDA';
@@ -129,8 +130,8 @@
     let paradaActualIdx = 0;
     let asientosLibres = 4;
     let lastGpsUpdate = 0;
-    const GPS_UPDATE_INTERVAL = 5000;
-    const DISTANCIA_MINIMA_PARADA = 50;
+    const GPS_UPDATE_INTERVAL = 5000; // 5 segundos
+    const DISTANCIA_MINIMA_PARADA = 50; // metros
 
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
@@ -138,7 +139,7 @@
         {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
         {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
         {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
-        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
+        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.755064]},
         {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
         {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
         {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
@@ -148,82 +149,24 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
+    // --- MAPA E ICONOS ---
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.6 }).addTo(map);
-    
-    paradas.forEach((p, idx) => { 
-        L.circleMarker(p.c, { 
-            radius: 6, 
-            color: '#000000',
-            weight: 2, 
-            fillColor: '#00d2ff',
-            fillOpacity: 1 
-        }).addTo(map).bindTooltip(`${idx + 1}. ${p.n}`, { permanent: false });
-    });
     
     const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
     const marcadorConductor = L.marker(paradas[0].c, { icon: iconTaxi }).addTo(map);
     let markersPax = []; 
     let markersDest = [];
 
-    function mostrarToast(mensaje, tipo = 'info') {
-        const existing = document.querySelector('.toast');
-        if (existing) existing.remove();
-        const toast = document.createElement('div');
-        toast.className = `toast ${tipo}`;
-        toast.innerText = mensaje;
-        document.body.appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
-    }
+    // --- FUNCIONES DE CONEXIÓN (RPC PARA SEGURIDAD RLS) ---
 
-    function calcularDistancia(coord1, coord2) {
-        const R = 6371e3;
-        const φ1 = coord1[0] * Math.PI / 180;
-        const φ2 = coord2[0] * Math.PI / 180;
-        const Δφ = (coord2[0] - coord1[0]) * Math.PI / 180;
-        const Δλ = (coord2[1] - coord1[1]) * Math.PI / 180;
-        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
-
-    function encontrarParadaMasCercana(lat, lon) {
-        let minDist = Infinity;
-        let paradaIdx = 0;
-        paradas.forEach((parada, idx) => {
-            const dist = calcularDistancia([lat, lon], parada.c);
-            if (dist < minDist) { minDist = dist; paradaIdx = idx; }
-        });
-        return { idx: paradaIdx, distancia: minDist };
-    }
-
-    function initNetworkMonitor() {
-        const indicator = document.getElementById('net-status');
-        const updateStatus = () => {
-            if (navigator.onLine) {
-                indicator.className = 'net-online';
-                indicator.innerText = '📶 ONLINE';
-            } else {
-                indicator.className = 'net-offline';
-                indicator.innerText = '⚠️ SIN RED';
-            }
-        };
-        updateStatus();
-        window.addEventListener('online', () => { updateStatus(); mostrarToast('Conexión restaurada', 'success'); actualizarDatos(); });
-        window.addEventListener('offline', () => { updateStatus(); mostrarToast('Sin conexión a internet', 'error'); });
-    }
-
-    // ============================================================
-    // ✅ FUNCIÓN CORREGIDA - Mejor manejo de errores al desconectar
-    // ============================================================
     async function gestionarConexion() {
         const toggle = document.getElementById('online-toggle');
         estaOnline = toggle.checked;
         const label = document.getElementById('status-label');
         
         if (estaOnline) {
-            // ========== CONECTAR ==========
             try {
                 label.innerText = "CONECTANDO..."; 
                 label.style.color = "#FFD700";
@@ -231,7 +174,8 @@
                 const parada = encontrarParadaMasCercana(pos.coords.latitude, pos.coords.longitude);
                 paradaActualIdx = parada.idx;
                 
-                const { data, error } = await _s.rpc('conductor_conectar', {
+                // USAMOS RPC PARA SALTAR EL RLS SIN PROBLEMAS
+                const { error } = await _s.rpc('conductor_conectar', {
                     p_id_movil: MI_ID_MOVIL,
                     p_lat: pos.coords.latitude,
                     p_lon: pos.coords.longitude,
@@ -239,73 +183,35 @@
                     p_asientos_libres: asientosLibres,
                     p_sentido: sentidoActual
                 });
-
-                if (error || !data?.success) throw new Error(data?.error || error?.message);
+                
+                if (error) throw error;
                 
                 label.innerText = "EN LÍNEA"; 
                 label.style.color = "#4cd964";
                 document.getElementById('parada-actual').style.display = 'block';
                 document.getElementById('txt-parada').innerText = `${paradaActualIdx + 1}. ${paradas[paradaActualIdx].n}`;
-                mostrarToast('🚕 En línea y listo para recibir pasajeros', 'success');
+                mostrarToast('🚕 En línea con seguridad activada', 'success');
                 iniciarGPS();
                 
             } catch (err) {
-                console.error("Error al conectar:", err);
-                mostrarToast('❌ Error al conectar: ' + err.message, 'error');
+                console.error(err);
+                mostrarToast('❌ Error: ' + err.message, 'error');
                 toggle.checked = false;
                 estaOnline = false;
-                label.innerText = "FUERA DE LÍNEA";
-                label.style.color = "white";
+                label.innerText = "ERROR";
             }
-            
         } else {
-            // ========== DESCONECTAR ==========
-            label.innerText = "DESCONECTANDO...";
-            if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-            
-            try {
-                const { data, error } = await _s.rpc('conductor_desconectar', {
-                    p_id_movil: MI_ID_MOVIL
-                });
-
-                if (error || !data?.success) {
-                    throw new Error(data?.error || error?.message);
-                }
-
-                // Placeholder para mantener estructura
-                    throw new Error("La base de datos no cambió a offline");
-                }
-                
-                label.innerText = "FUERA DE LÍNEA"; 
-                label.style.color = "white";
-                document.getElementById('parada-actual').style.display = 'none';
-                mostrarToast('✅ Desconectado correctamente', 'info');
-                
-            } catch (err) {
-                console.error("Error al desconectar:", err);
-                mostrarToast('❌ ERROR AL DESCONECTAR: ' + err.message, 'error');
-                mostrarToast('⚠️ Los pasajeros aún pueden verte online', 'error');
-                
-                // ✅ NO revertir el toggle - mantenerlo en "online" para que el usuario lo intente de nuevo
-                toggle.checked = true;
-                estaOnline = true;
-                label.innerText = "EN LÍNEA"; 
-                label.style.color = "#4cd964";
-                // Reintentar iniciar GPS ya que volvimos a online
-                iniciarGPS();
-            }
+            label.innerText = "SALIDOR...";
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
+            label.innerText = "FUERA DE LÍNEA"; 
+            label.style.color = "white";
+            document.getElementById('parada-actual').style.display = 'none';
         }
-    }
-
-    function obtenerPosicionActual() {
-        return new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
-        });
     }
 
     function iniciarGPS() {
         if (watchId) navigator.geolocation.clearWatch(watchId);
-        
         watchId = navigator.geolocation.watchPosition(async (p) => {
             if (!estaOnline) return;
             const now = Date.now();
@@ -316,238 +222,122 @@
             const myLon = p.coords.longitude;
             const parada = encontrarParadaMasCercana(myLat, myLon);
             
-            if (parada.distancia < DISTANCIA_MINIMA_PARADA && parada.idx !== paradaActualIdx) {
-                paradaActualIdx = parada.idx;
-                document.getElementById('txt-parada').innerText = `${paradaActualIdx + 1}. ${paradas[paradaActualIdx].n}`;
-                mostrarToast(`📍 Pasando: ${paradas[paradaActualIdx].n}`, 'info');
-            }
-            
             marcadorConductor.setLatLng([myLat, myLon]); 
             map.panTo([myLat, myLon]);
-            
-            try {
-                await _s.rpc('conductor_actualizar_gps', {
-                    p_id_movil: MI_ID_MOVIL,
-                    p_lat: myLat,
-                    p_lon: myLon,
-                    p_parada_idx: paradaActualIdx
-                });
-            } catch (err) { 
-                console.error("Error actualizando GPS:", err); 
-            }
-            
-        }, (err) => { 
-            console.error("Error geolocalización:", err); 
-            mostrarToast('Error GPS: ' + err.message, 'error'); 
-        }, 
-        { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 });
-    }
 
-    async function cambiarSentido() {
-        sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
-        const btn = document.getElementById('btn-sentido');
-        btn.innerText = sentidoActual;
-        
-        if (sentidoActual === 'VUELTA') { 
-            rutaLine.setStyle({ color: '#ff6b6b' }); 
-        } else { 
-            rutaLine.setStyle({ color: '#00d4ff' }); 
-        }
-        
-        try {
-            const paradaInicio = sentidoActual === 'IDA' ? 0 : paradas.length - 1;
-            const { data, error } = await _s.rpc('conductor_cambiar_sentido', {
+            // ACTUALIZACIÓN GPS SEGURA POR RPC
+            await _s.rpc('conductor_actualizar_gps', {
                 p_id_movil: MI_ID_MOVIL,
-                p_sentido: sentidoActual,
-                p_parada_idx: paradaInicio
+                p_lat: myLat,
+                p_lon: myLon,
+                p_parada_idx: parada.idx
             });
-
-            if (error || !data?.success) throw new Error(data?.error || error?.message);
-            mostrarToast(`Sentido cambiado a: ${sentidoActual}`, 'success');
-        } catch (err) {
-            console.error("Error cambiando sentido:", err);
-            mostrarToast('Error al cambiar sentido', 'error');
-            sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
-            btn.innerText = sentidoActual;
-        }
+            
+        }, null, { enableHighAccuracy: true });
     }
 
-    async function actualizarDatos() {
+    async function confirmarVaciar() {
+        cerrarModal();
         try {
-            markersPax.forEach(m => map.removeLayer(m));
-            markersDest.forEach(m => map.removeLayer(m));
-            markersPax = []; 
-            markersDest = [];
-
-            const { data: reservas, error } = await _s.rpc('conductor_obtener_reservas', {
-                p_id_movil: MI_ID_MOVIL
-            });
-
+            // USAMOS RPC PARA LIMPIAR TODO EL COCHE
+            const { error } = await _s.rpc('conductor_vaciar_coche', { p_id_movil: MI_ID_MOVIL });
             if (error) throw error;
-
-            for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
-                const p = document.getElementById('pill' + i);
-                p.className = 'pill'; 
-                p.innerText = i;
-            }
-
-            let recaudacion = 0;
-            let paxCount = 0;
-            
-            if (reservas && reservas.length > 0) {
-                reservas.forEach(res => {
-                    paxCount += 1;
-                    recaudacion += PRECIO_POR_ASIENTO;
-                    
-                    const pill = document.getElementById('pill' + res.asiento_num);
-                    if (pill) {
-                        pill.className = 'pill active';
-                        pill.innerText = '✓';
-                    }
-
-                    if (res.pasajero_lat && res.pasajero_lon) {
-                        const pM = L.circleMarker([res.pasajero_lat, res.pasajero_lon], 
-                            { color: '#ff3b30', radius: 10, fillColor: '#ff3b30', fillOpacity: 0.3, weight: 2 })
-                            .addTo(map)
-                            .bindPopup(`<b>${res.nombre_pasajero || "Pasajero"}</b>`);
-                        markersPax.push(pM);
-                    }
-
-                    if (paradas[res.destino_idx]) {
-                        const dM = L.marker(paradas[res.destino_idx].c, {
-                            icon: L.divIcon({ html: '📍', className: 'destino-icon', iconAnchor: [12, 24] })
-                        }).addTo(map)
-                         .bindTooltip(`⬇️ ${res.nombre_pasajero || 'Pasajero'}`, 
-                            { permanent: true, direction: 'top', offset: [0, -10] });
-                        markersDest.push(dM);
-                    }
-                });
-            }
-
-            document.getElementById('txt-pax').innerText = paxCount;
-            document.getElementById('txt-plata').innerText = '$' + recaudacion.toLocaleString('es-AR');
-            
-            asientosLibres = TOTAL_ASIENTOS - paxCount;
-            
-            if (estaOnline) {
-                await _s.rpc('conductor_actualizar_asientos', {
-                    p_id_movil: MI_ID_MOVIL,
-                    p_asientos_libres: asientosLibres
-                });
-            }
-
-            const spl = document.getElementById('splash');
-            if (spl && spl.style.display !== 'none') {
-                spl.style.opacity = '0';
-                setTimeout(() => spl.style.display = 'none', 800);
-            }
-
+            mostrarToast('🏁 Viaje finalizado correctamente', 'success');
+            actualizarDatos();
         } catch (err) {
-            console.error("Error en actualizarDatos:", err);
-            mostrarToast('Error al sincronizar datos', 'error');
+            mostrarToast('Error al vaciar', 'error');
         }
     }
 
     async function liberarAsiento(numAsiento) {
-        const pill = document.getElementById('pill' + numAsiento);
-        if (!pill.classList.contains('active')) {
-            mostrarToast(`Asiento ${numAsiento} ya está libre`, 'info');
-            return;
-        }
-        
         if (!confirm(`¿Liberar asiento ${numAsiento}?`)) return;
-        
         try {
-            const { data, error } = await _s.rpc('conductor_liberar_asiento', {
-                p_id_movil: MI_ID_MOVIL,
-                p_asiento_num: numAsiento
+            const { error } = await _s.rpc('conductor_liberar_asiento', { 
+                p_id_movil: MI_ID_MOVIL, 
+                p_asiento_num: numAsiento 
             });
-            
-            if (error || !data?.success) {
-                mostrarToast(data?.error || 'Error al liberar asiento', 'error');
-                return;
-            }
-            
-            asientosLibres += 1;
-            
-            pill.className = 'pill libre';
-            pill.innerText = 'LIBRE';
-            
-            mostrarToast(`🎉 Asiento ${numAsiento} liberado`, 'success');
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-            setTimeout(actualizarDatos, 1000);
-            
-        } catch (err) {
-            console.error("Error liberando asiento:", err);
-            mostrarToast('Error al liberar asiento', 'error');
-        }
-    }
-    async function confirmarVaciar() {
-        cerrarModal();
-        
-        try {
-            const { data, error } = await _s.rpc('conductor_vaciar_coche', {
-                p_id_movil: MI_ID_MOVIL
-            });
-            
-            if (error || !data?.success) throw new Error(data?.error || error?.message);
-            
-            asientosLibres = TOTAL_ASIENTOS;
-            
-            for (let i = 1; i <= TOTAL_ASIENTOS; i++) {
-                const p = document.getElementById('pill' + i);
-                p.className = 'pill'; 
-                p.innerText = i;
-            }
-            
-            mostrarToast('🏁 Viaje finalizado. Coche vacío.', 'success');
+            if (error) throw error;
+            mostrarToast(`Asiento ${numAsiento} liberado`, 'success');
             actualizarDatos();
-            
         } catch (err) {
-            console.error("Error finalizando viaje:", err);
-            mostrarToast('Error al finalizar viaje', 'error');
+            mostrarToast('Error al liberar', 'error');
         }
     }
-    _s.channel('coche_' + MI_ID_MOVIL)
-      .on('postgres_changes', { 
-          event: '*', schema: 'public', table: 'reservas_activas', 
-          filter: `id_movil=eq.${MI_ID_MOVIL}` 
-      }, (payload) => {
-          console.log("Cambio en reservas:", payload);
-          actualizarDatos();
-          if (payload.eventType === 'INSERT') {
-              const res = payload.new;
-              mostrarToast(`🙋 ¡Nuevo pasajero! ${res.nombre_pasajero || 'Pasajero'}`, 'success');
-              if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-          }
-      })
-      .subscribe();
 
-    window.addEventListener('DOMContentLoaded', () => {
-        initNetworkMonitor();
+    // --- UTILIDADES ---
+
+    async function actualizarDatos() {
+        try {
+            const { data: reservas } = await _s.from('reservas_activas')
+                .select('*')
+                .eq('id_movil', MI_ID_MOVIL)
+                .eq('estado', 'en_curso');
+
+            let paxCount = reservas ? reservas.length : 0;
+            document.getElementById('txt-pax').innerText = paxCount;
+            document.getElementById('txt-plata').innerText = '$' + (paxCount * 1000).toLocaleString();
+
+            // Limpiar y Dibujar Marcadores de Pasajeros
+            markersPax.forEach(m => map.removeLayer(m));
+            markersDest.forEach(m => map.removeLayer(m));
+            markersPax = []; markersDest = [];
+
+            for (let i = 1; i <= 4; i++) {
+                const pill = document.getElementById('pill' + i);
+                const r = reservas?.find(res => res.asiento_num === i);
+                if (r) {
+                    pill.className = 'pill active'; pill.innerText = '✓';
+                    // Marcador de recogida
+                    if(r.pasajero_lat) {
+                        const m = L.circleMarker([r.pasajero_lat, r.pasajero_lon], {color: 'red', radius: 8}).addTo(map);
+                        markersPax.push(m);
+                    }
+                } else {
+                    pill.className = 'pill'; pill.innerText = i;
+                }
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    function mostrarToast(m, t='info') {
+        const div = document.createElement('div'); div.className = `toast ${t}`;
+        div.innerText = m; document.body.appendChild(div);
+        setTimeout(() => div.remove(), 3000);
+    }
+
+    function obtenerPosicionActual() {
+        return new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {enableHighAccuracy: true}));
+    }
+
+    function calcularDistancia(c1, c2) {
+        const R = 6371e3;
+        const dLat = (c2[0]-c1[0]) * Math.PI/180;
+        const dLon = (c2[1]-c1[1]) * Math.PI/180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(c1[0]*Math.PI/180)*Math.cos(c2[0]*Math.PI/180)*Math.sin(dLon/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function encontrarParadaMasCercana(lat, lon) {
+        let min = Infinity; let idx = 0;
+        paradas.forEach((p, i) => {
+            const d = calcularDistancia([lat, lon], p.c);
+            if (d < min) { min = d; idx = i; }
+        });
+        return { idx, distancia: min };
+    }
+
+    function mostrarModalVaciar() { document.getElementById('modal-vaciar').style.display = 'flex'; }
+    function cerrarModal() { document.getElementById('modal-vaciar').style.display = 'none'; }
+
+    // Suscripción Realtime
+    _s.channel('cambios').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => {
         actualizarDatos();
-        setTimeout(() => {
-            const spl = document.getElementById('splash');
-            if (spl && spl.style.display !== 'none') {
-                spl.style.opacity = '0';
-                setTimeout(() => spl.style.display = 'none', 800);
-            }
-        }, 8000);
-    });
+    }).subscribe();
 
-    window.addEventListener('beforeunload', async (e) => {
-        if (estaOnline) {
-            e.preventDefault(); 
-            e.returnValue = '¿Estás seguro? Estás en línea.';
-            try {
-                await _s.rpc('conductor_desconectar', {
-                    p_id_movil: MI_ID_MOVIL
-                });
-            } catch (err) { 
-                console.error("Error al desconectar:", err); 
-            }
-        }
-    });
+    window.onload = () => {
+        actualizarDatos();
+        setTimeout(() => { document.getElementById('splash').style.display = 'none'; }, 2000);
+    };
 </script>
 </body>
 </html>
