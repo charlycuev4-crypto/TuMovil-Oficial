@@ -8,20 +8,25 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        /* Mantenemos tu estilo original que está impecable */
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
+        
+        /* Splash Screen */
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; }
         .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
         .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
+        
+        /* UI Overlays */
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
         .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
         .stat-label { color: #FFD700; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
         .stat-value { font-size: 24px; font-weight: 800; margin-top: 4px; }
         .stat-value.green { color: #4cd964; }
+
         .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.9); padding: 8px 12px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
         .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -29,20 +34,29 @@
         .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #4cd964; }
         input:checked + .slider:before { transform: translateX(24px); }
+        
         #status-label { color: white; font-size: 11px; font-weight: bold; width: 70px; text-align: center; }
         #btn-sentido { background: #FFD700; color: #000; border: none; padding: 6px 12px; border-radius: 15px; font-weight: 800; font-size: 12px; cursor: pointer; }
+        
         #parada-actual { position: absolute; top: 140px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(0,0,0,0.9); color: #FFD700; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid #FFD700; pointer-events: auto; display: none; }
         #net-status { position: absolute; top: 175px; left: 50%; transform: translateX(-50%); z-index: 1001; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; transition: all 0.3s; }
         .net-online { background: #4cd964; color: #000; }
         .net-offline { background: #ff3b30; color: #fff; }
-        .toast { position: fixed; top: 200px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 12px 24px; border-radius: 25px; font-weight: bold; font-size: 14px; animation: slideDown 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.5); max-width: 90%; text-align: center; }
-        .toast.success { background: #4cd964; color: #000; }
-        .toast.error { background: #ff3b30; color: #fff; }
+
+        /* Estilo de etiquetas de pasajeros en el mapa */
+        .leaflet-tooltip { background: #000 !important; color: #FFD700 !important; border: 1.5px solid #FFD700 !important; font-weight: bold !important; border-radius: 8px !important; padding: 4px 8px !important; font-size: 13px !important; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
+
         .bottom-ui { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
         .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); margin-top: 10px; }
+        
         .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
         .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); transition: all 0.3s ease; cursor: pointer; }
         .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
+
+        .toast { position: fixed; top: 200px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 12px 24px; border-radius: 25px; font-weight: bold; font-size: 14px; animation: slideDown 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.5); max-width: 90%; text-align: center; }
+        .toast.success { background: #4cd964; color: #000; }
+        .toast.error { background: #ff3b30; color: #fff; }
+
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9998; display: none; justify-content: center; align-items: center; }
         .modal { background: #1a1a1a; border: 2px solid #FFD700; border-radius: 20px; padding: 24px; width: 90%; max-width: 350px; text-align: center; color: white; }
         .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
@@ -70,6 +84,7 @@
     <div id="net-status" class="net-offline">⚠️ SIN RED</div>
 
     <div id="map"></div>
+    
     <div class="ui-overlay top-stats">
         <div class="stat-box">
             <div class="stat-label">RECAUDACIÓN</div>
@@ -104,7 +119,6 @@
 
 <script>
     const MI_ID_MOVIL = 1; 
-    const PRECIO_POR_ASIENTO = 1000;
     const TOTAL_ASIENTOS = 4;
     
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
@@ -115,7 +129,7 @@
     let paradaActualIdx = 0;
     let asientosLibres = 4;
     let lastGpsUpdate = 0;
-    const GPS_UPDATE_INTERVAL = 4000; // Un poco más rápido para mejor fluidez
+    const GPS_UPDATE_INTERVAL = 4000;
 
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
@@ -135,7 +149,7 @@
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.6 }).addTo(map);
+    const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.4 }).addTo(map);
     
     const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
     const marcadorConductor = L.marker(paradas[0].c, { icon: iconTaxi }).addTo(map);
@@ -209,6 +223,7 @@
         }
     }
 
+    // GPS CON AUTO-CENTRADO
     function iniciarGPS() {
         watchId = navigator.geolocation.watchPosition(async (p) => {
             if (!estaOnline) return;
@@ -218,6 +233,9 @@
 
             const lat = p.coords.latitude; const lon = p.coords.longitude;
             marcadorConductor.setLatLng([lat, lon]);
+            
+            // EL MAPA TE SIGUE
+            map.setView([lat, lon], 16, { animate: true });
             
             const parada = encontrarParadaMasCercana(lat, lon);
             paradaActualIdx = parada.idx;
@@ -230,19 +248,16 @@
         }, null, { enableHighAccuracy: true });
     }
 
-    // ==========================================
-    // ✅ REALTIME - CORREGIDO PARA RECIBIR VIAJES
-    // ==========================================
+    // RECUPERAR VIAJES CON NOMBRES VISIBLES
     async function actualizarDatos() {
         const { data: reservas, error } = await _s
             .from('reservas_activas')
-            .select('*')
+            .select('asiento_num, nombre_pasajero, pasajero_lat, pasajero_lon, destino_idx, estado')
             .eq('id_movil', MI_ID_MOVIL)
             .eq('estado', 'en_curso');
 
         if (error) return;
 
-        // Limpiar mapa y UI
         markersPax.forEach(m => map.removeLayer(m));
         markersDest.forEach(m => map.removeLayer(m));
         markersPax = []; markersDest = [];
@@ -254,12 +269,21 @@
             const pill = document.getElementById('pill' + res.asiento_num);
             if (pill) pill.className = 'pill active';
 
+            // PUNTO ROJO DEL PASAJERO
             if (res.pasajero_lat) {
-                const pm = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: 'red', radius: 8 }).addTo(map);
+                const pm = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: 'red', radius: 8, fillOpacity: 0.8 }).addTo(map)
+                .bindTooltip(res.nombre_pasajero, { direction: 'top' });
                 markersPax.push(pm);
             }
+            
+            // MARCADOR DE DONDE BAJA (NOMBRE SIEMPRE VISIBLE)
             if (paradas[res.destino_idx]) {
-                const dm = L.marker(paradas[res.destino_idx].c).addTo(map).bindTooltip("Baja: " + res.nombre_pasajero);
+                const dm = L.marker(paradas[res.destino_idx].c).addTo(map)
+                .bindTooltip(`BAJA: ${res.nombre_pasajero}`, { 
+                    permanent: true, 
+                    direction: 'right',
+                    offset: [10, 0] 
+                });
                 markersDest.push(dm);
             }
         });
@@ -273,22 +297,10 @@
         }
     }
 
-    // Suscripción Realtime Mejorada
     _s.channel('cambios_viajes')
-    .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'reservas_activas',
-        filter: `id_movil=eq.${MI_ID_MOVIL}`
-    }, (payload) => {
-        console.log("Cambio detectado:", payload);
-        if (payload.eventType === 'INSERT') {
-            mostrarToast("🙋 ¡Nueva Reserva!", "success");
-            if (navigator.vibrate) navigator.vibrate(200);
-        }
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas', filter: `id_movil=eq.${MI_ID_MOVIL}` }, () => {
         actualizarDatos();
-    })
-    .subscribe();
+    }).subscribe();
 
     async function cambiarSentido() {
         sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
@@ -301,11 +313,7 @@
 
     async function liberarAsiento(num) {
         if (!confirm(`¿Liberar asiento ${num}?`)) return;
-        await _s.from('reservas_activas')
-            .update({ estado: 'finalizado' })
-            .eq('id_movil', MI_ID_MOVIL)
-            .eq('asiento_num', num)
-            .eq('estado', 'en_curso');
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL).eq('asiento_num', num).eq('estado', 'en_curso');
         actualizarDatos();
     }
 
@@ -323,11 +331,9 @@
         setTimeout(() => document.getElementById('splash').style.display = 'none', 2000);
     };
 
-    // Monitor de Red
     window.addEventListener('online', () => { 
         document.getElementById('net-status').className = 'net-online'; 
         document.getElementById('net-status').innerText = '📶 ONLINE';
-        actualizarDatos();
     });
     window.addEventListener('offline', () => { 
         document.getElementById('net-status').className = 'net-offline'; 
