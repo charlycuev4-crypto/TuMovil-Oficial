@@ -118,7 +118,7 @@
 
 <script>
     const MI_ID_MOVIL = 1; 
-    const NOMBRE_CHOFER = "carlos"; // <--- CAMBIA EL NOMBRE AQUÍ PARA QUE EL PASAJERO LO VEA
+    const NOMBRE_CHOFER = "Carlos"; // Cambiado a Carlos correctamente
     const TOTAL_ASIENTOS = 4;
     
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
@@ -193,12 +193,11 @@
                 const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
                 const parada = encontrarParadaMasCercana(pos.coords.latitude, pos.coords.longitude);
                 
-                // ACTUALIZADO PARA ENVIAR NOMBRE DEL CHOFER
+                // INSTRUCCIÓN CORREGIDA SIN SALTOS DE LÍNEA EXTRAÑOS
                 const { error } = await _s.from('estado_movil').upsert({ 
                     id: MI_ID_MOVIL,
-                    nombre_conductor: NOMBRE_CHOFER, 
-                  
- esta_online: true, 
+                    nombre_conductor: NOMBRE_CHOFER,
+                    esta_online: true, 
                     en_servicio: true,
                     latitud: pos.coords.latitude, 
                     longitud: pos.coords.longitude,
@@ -214,6 +213,7 @@
                 iniciarGPS();
                 mostrarToast('🚕 Conectado como ' + NOMBRE_CHOFER, 'success');
             } catch (err) {
+                console.error(err);
                 toggle.checked = false; estaOnline = false;
                 label.innerText = "ERROR"; mostrarToast('Error GPS/Red', 'error');
             }
