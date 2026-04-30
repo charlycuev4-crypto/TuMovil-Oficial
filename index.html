@@ -27,6 +27,10 @@
         #status-label { color: white; font-size: 11px; font-weight: bold; width: 85px; text-align: center; }
         #btn-sentido { background: #FFD700; border: none; padding: 6px 12px; border-radius: 15px; font-weight: 800; font-size: 12px; }
         #panel-parada { position: absolute; top: 145px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(0,0,0,0.9); color: #FFD700; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid #FFD700; display:none; }
+        
+        /* ESTILO DE LA ETIQUETA DEL PASAJERO */
+        .leaflet-tooltip { background: #000 !important; color: #FFD700 !important; border: 1.5px solid #FFD700 !important; font-weight: bold !important; font-size: 13px !important; }
+
         .bottom-ui { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
         .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; }
         .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
@@ -82,7 +86,10 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.4 }).addTo(map);
     paradas.forEach(p => L.circleMarker(p.c, { radius: 6, color: '#FFD700', fillOpacity: 0.8 }).addTo(map));
+    
     const markerCoche = L.marker(paradas[0].c, { icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] }) }).addTo(map);
+    
+    let markersPax = [], markersDest = [];
 
     function calcularCercana(lat, lon) {
         let min = Infinity, nombre = "";
@@ -101,11 +108,8 @@
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 const lat = pos.coords.latitude, lon = pos.coords.longitude;
                 const datos = { id: MI_ID_MOVIL, esta_online: true, latitud: lat, longitud: lon, sentido_flujo: sentidoActual, ultima_actualizacion: new Date().toISOString(), nombre_conductor: MI_NOMBRE };
-                
-                // Intento 1 con nombre, si falla reintenta sin nombre automáticamente
                 let { error } = await _s.from('estado_movil').upsert(datos);
                 if (error) await _s.from('estado_movil').upsert({ ...datos, nombre_conductor: null });
-
                 label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
                 document.getElementById('panel-parada').style.display = 'block';
                 iniciarGPS();
@@ -131,12 +135,33 @@
     }
 
     async function actualizar() {
-        const { data } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
-        if (data) {
-            document.getElementById('txt-pax').innerText = data.length;
-            document.getElementById('txt-plata').innerText = "$" + (data.length * 1000);
+        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
+        
+        if (reservas) {
+            // LIMPIAR MARCADORES ANTERIORES
+            markersPax.forEach(m => map.removeLayer(m));
+            markersDest.forEach(m => map.removeLayer(m));
+            markersPax = []; markersDest = [];
+
+            document.getElementById('txt-pax').innerText = reservas.length;
+            document.getElementById('txt-plata').innerText = "$" + (reservas.length * 1000);
             for(let i=1; i<=4; i++) document.getElementById('pill'+i).className = 'pill';
-            data.forEach(r => { if(r.asiento_num <= 4) document.getElementById('pill'+r.asiento_num).className = 'pill active'; });
+            
+            reservas.forEach(r => {
+                if(r.asiento_num <= 4) document.getElementById('pill'+r.asiento_num).className = 'pill active';
+                
+                // DIBUJAR PUNTO DEL PASAJERO (ROJO)
+                if (r.pasajero_lat) {
+                    const mp = L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: 'red', radius: 8 }).addTo(map).bindTooltip(r.nombre_pasajero);
+                    markersPax.push(mp);
+                }
+                
+                // DIBUJAR DESTINO CON NOMBRE (LA "FLECHA" QUE PEDISTE)
+                if (paradas[r.destino_idx]) {
+                    const md = L.marker(paradas[r.destino_idx].c).addTo(map).bindTooltip(`BAJA: ${r.nombre_pasajero}`, { permanent: true, direction: 'top' });
+                    markersDest.push(md);
+                }
+            });
         }
     }
 
@@ -161,7 +186,6 @@
     }
 
     setInterval(actualizar, 4000);
-    window.onload = () => { setTimeout(() => { if(estaOnline) document.getElementById('panel-parada').style.display = 'block'; }, 1000); };
 </script>
 </body>
 </html>
