@@ -43,7 +43,6 @@
         .net-online { background: #4cd964; color: #000; }
         .net-offline { background: #ff3b30; color: #fff; }
 
-        /* Estilo de etiquetas de pasajeros en el mapa */
         .leaflet-tooltip { background: #000 !important; color: #FFD700 !important; border: 1.5px solid #FFD700 !important; font-weight: bold !important; border-radius: 8px !important; padding: 4px 8px !important; font-size: 13px !important; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
 
         .bottom-ui { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
@@ -119,6 +118,7 @@
 
 <script>
     const MI_ID_MOVIL = 1; 
+    const NOMBRE_CHOFER = "carlos"; // <--- CAMBIA EL NOMBRE AQUÍ PARA QUE EL PASAJERO LO VEA
     const TOTAL_ASIENTOS = 4;
     
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
@@ -193,9 +193,12 @@
                 const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
                 const parada = encontrarParadaMasCercana(pos.coords.latitude, pos.coords.longitude);
                 
+                // ACTUALIZADO PARA ENVIAR NOMBRE DEL CHOFER
                 const { error } = await _s.from('estado_movil').upsert({ 
                     id: MI_ID_MOVIL,
-                    esta_online: true, 
+                    nombre_conductor: NOMBRE_CHOFER, 
+                  
+ esta_online: true, 
                     en_servicio: true,
                     latitud: pos.coords.latitude, 
                     longitud: pos.coords.longitude,
@@ -209,7 +212,7 @@
                 label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
                 document.getElementById('parada-actual').style.display = 'block';
                 iniciarGPS();
-                mostrarToast('🚕 Conectado correctamente', 'success');
+                mostrarToast('🚕 Conectado como ' + NOMBRE_CHOFER, 'success');
             } catch (err) {
                 toggle.checked = false; estaOnline = false;
                 label.innerText = "ERROR"; mostrarToast('Error GPS/Red', 'error');
@@ -223,7 +226,6 @@
         }
     }
 
-    // GPS CON AUTO-CENTRADO
     function iniciarGPS() {
         watchId = navigator.geolocation.watchPosition(async (p) => {
             if (!estaOnline) return;
@@ -233,8 +235,6 @@
 
             const lat = p.coords.latitude; const lon = p.coords.longitude;
             marcadorConductor.setLatLng([lat, lon]);
-            
-            // EL MAPA TE SIGUE
             map.setView([lat, lon], 16, { animate: true });
             
             const parada = encontrarParadaMasCercana(lat, lon);
@@ -248,7 +248,6 @@
         }, null, { enableHighAccuracy: true });
     }
 
-    // RECUPERAR VIAJES CON NOMBRES VISIBLES
     async function actualizarDatos() {
         const { data: reservas, error } = await _s
             .from('reservas_activas')
@@ -269,14 +268,12 @@
             const pill = document.getElementById('pill' + res.asiento_num);
             if (pill) pill.className = 'pill active';
 
-            // PUNTO ROJO DEL PASAJERO
             if (res.pasajero_lat) {
                 const pm = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: 'red', radius: 8, fillOpacity: 0.8 }).addTo(map)
                 .bindTooltip(res.nombre_pasajero, { direction: 'top' });
                 markersPax.push(pm);
             }
             
-            // MARCADOR DE DONDE BAJA (NOMBRE SIEMPRE VISIBLE)
             if (paradas[res.destino_idx]) {
                 const dm = L.marker(paradas[res.destino_idx].c).addTo(map)
                 .bindTooltip(`BAJA: ${res.nombre_pasajero}`, { 
