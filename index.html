@@ -14,6 +14,7 @@
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
         .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
+        .stat-label { color: #FFD700; font-size: 11px; font-weight: 700; }
         .stat-value { font-size: 24px; font-weight: 800; }
         .green { color: #4cd964; }
         .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.9); padding: 8px 12px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
@@ -27,10 +28,8 @@
         #btn-sentido { background: #FFD700; border: none; padding: 6px 12px; border-radius: 15px; font-weight: 800; font-size: 12px; }
         #panel-parada { position: absolute; top: 145px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(0,0,0,0.9); color: #FFD700; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid #FFD700; display:none; }
         
-        /* ESTILO DE ETIQUETAS */
+        /* ESTILO DE LA ETIQUETA DEL PASAJERO */
         .leaflet-tooltip { background: #000 !important; color: #FFD700 !important; border: 1.5px solid #FFD700 !important; font-weight: bold !important; font-size: 13px !important; }
-        /* ESTILO ESPECIAL PARA TU ETIQUETA (CHOFER) */
-        .tooltip-chofer { background: #FFD700 !important; color: #000 !important; border: 1px solid #000 !important; }
 
         .bottom-ui { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
         .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; }
@@ -63,9 +62,7 @@
 
 <script>
     const MI_ID_MOVIL = 1;
-    // AQUÍ DEFINIMOS TU NOMBRE Y PATENTE PARA EL CARTEL DEL AUTO
-    const MI_IDENTIFICACION = "CARLOS - JCP 478"; 
-    
+    const MI_NOMBRE = "Carlos - Ford Fiesta JCP 478";
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
     let estaOnline = false, watchId = null, sentidoActual = 'IDA';
@@ -90,10 +87,7 @@
     const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.4 }).addTo(map);
     paradas.forEach(p => L.circleMarker(p.c, { radius: 6, color: '#FFD700', fillOpacity: 0.8 }).addTo(map));
     
-    // AQUÍ AGREGAMOS EL CARTEL SOBRE TU AUTO
-    const markerCoche = L.marker(paradas[0].c, { 
-        icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] }) 
-    }).addTo(map).bindTooltip(MI_IDENTIFICACION, { permanent: true, direction: 'top', className: 'tooltip-chofer' });
+    const markerCoche = L.marker(paradas[0].c, { icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] }) }).addTo(map);
     
     let markersPax = [], markersDest = [];
 
@@ -113,8 +107,9 @@
             label.innerText = "CONECTANDO...";
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 const lat = pos.coords.latitude, lon = pos.coords.longitude;
-                // No enviamos nombre a la DB para evitar errores, lo manejamos localmente arriba del auto
-                await _s.from('estado_movil').upsert({ id: MI_ID_MOVIL, esta_online: true, latitud: lat, longitud: lon, sentido_flujo: sentidoActual, ultima_actualizacion: new Date().toISOString() });
+                const datos = { id: MI_ID_MOVIL, esta_online: true, latitud: lat, longitud: lon, sentido_flujo: sentidoActual, ultima_actualizacion: new Date().toISOString(), nombre_conductor: MI_NOMBRE };
+                let { error } = await _s.from('estado_movil').upsert(datos);
+                if (error) await _s.from('estado_movil').upsert({ ...datos, nombre_conductor: null });
                 label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
                 document.getElementById('panel-parada').style.display = 'block';
                 iniciarGPS();
@@ -143,6 +138,7 @@
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
         
         if (reservas) {
+            // LIMPIAR MARCADORES ANTERIORES
             markersPax.forEach(m => map.removeLayer(m));
             markersDest.forEach(m => map.removeLayer(m));
             markersPax = []; markersDest = [];
@@ -153,10 +149,14 @@
             
             reservas.forEach(r => {
                 if(r.asiento_num <= 4) document.getElementById('pill'+r.asiento_num).className = 'pill active';
+                
+                // DIBUJAR PUNTO DEL PASAJERO (ROJO)
                 if (r.pasajero_lat) {
                     const mp = L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: 'red', radius: 8 }).addTo(map).bindTooltip(r.nombre_pasajero);
                     markersPax.push(mp);
                 }
+                
+                // DIBUJAR DESTINO CON NOMBRE (LA "FLECHA" QUE PEDISTE)
                 if (paradas[r.destino_idx]) {
                     const md = L.marker(paradas[r.destino_idx].c).addTo(map).bindTooltip(`BAJA: ${r.nombre_pasajero}`, { permanent: true, direction: 'top' });
                     markersDest.push(md);
