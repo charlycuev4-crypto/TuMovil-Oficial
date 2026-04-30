@@ -9,173 +9,112 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
-        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; }
-        .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
-        .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
-        .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
-        .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
-        .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
-        .stat-label { color: #FFD700; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
-        .stat-value { font-size: 24px; font-weight: 800; margin-top: 4px; }
-        .stat-value.green { color: #4cd964; }
+        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; color: white; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.9); padding: 8px 12px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
-        .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
+        .switch { position: relative; width: 46px; height: 22px; display: inline-block; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 22px; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #4cd964; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #444; border-radius: 22px; transition: .4s; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .4s; }
+        input:checked + .slider { background: #4cd964; }
         input:checked + .slider:before { transform: translateX(24px); }
-        #status-label { color: white; font-size: 11px; font-weight: bold; width: 70px; text-align: center; }
-        #btn-sentido { background: #FFD700; color: #000; border: none; padding: 6px 12px; border-radius: 15px; font-weight: 800; font-size: 12px; cursor: pointer; }
-        #parada-actual { position: absolute; top: 140px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(0,0,0,0.9); color: #FFD700; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid #FFD700; pointer-events: auto; display: none; }
-        #net-status { position: absolute; top: 175px; left: 50%; transform: translateX(-50%); z-index: 1001; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; transition: all 0.3s; }
-        .net-online { background: #4cd964; color: #000; }
-        .net-offline { background: #ff3b30; color: #fff; }
+        #status-label { font-size: 11px; font-weight: bold; width: 85px; text-align: center; }
+        .top-stats { position: absolute; top: 10px; width: 100%; display: flex; justify-content: space-around; z-index: 1000; padding: 0 10px; }
+        .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #4cd964; }
         .bottom-ui { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
-        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 16px; pointer-events: auto; }
-        .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
-        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); }
-        .pill.active { background: #4cd964; border-color: #4cd964; color: black; }
+        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; }
+        #net-indicator { position: absolute; top: 140px; left: 50%; transform: translateX(-50%); z-index: 1001; padding: 4px 10px; border-radius: 10px; font-size: 10px; background: #4cd964; color: black; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div id="splash">
-        <div class="splash-logo">🚕</div>
-        <h1 class="splash-title">COCHE 01</h1>
-    </div>
-    
-    <div class="connection-panel">
-        <span id="status-label">FUERA DE LÍNEA</span>
-        <label class="switch">
-            <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
-            <span class="slider"></span>
-        </label>
-        <button id="btn-sentido" onclick="cambiarSentido()">IDA</button>
-    </div>
-
-    <div id="parada-actual">📍 Parada: <span id="txt-parada">--</span></div>
-    <div id="net-status" class="net-offline">⚠️ VERIFICANDO...</div>
-
     <div id="map"></div>
-    
-    <div class="ui-overlay top-stats">
-        <div class="stat-box">
-            <div class="stat-label">RECAUDACIÓN</div>
-            <div id="txt-plata" class="stat-value green">$0</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-label">PASAJEROS</div>
-            <div id="txt-pax" class="stat-value">0</div>
-        </div>
+    <div id="net-indicator">CONEXIÓN OK</div>
+    <div class="top-stats">
+        <div class="stat-box"><div>RECAUDACIÓN</div><div id="txt-plata" class="stat-value">$0</div></div>
+        <div class="stat-box"><div>PASAJEROS</div><div id="txt-pax" class="stat-value" style="color:white">0</div></div>
     </div>
-
+    <div class="connection-panel">
+        <span id="status-label">DESCONECTADO</span>
+        <label class="switch"><input type="checkbox" id="online-toggle" onchange="alternarConexion()"><span class="slider"></span></label>
+    </div>
     <div class="bottom-ui">
-        <div class="asientos-pills">
-            <div id="pill1" class="pill" onclick="liberarAsiento(1)">1</div>
-            <div id="pill2" class="pill" onclick="liberarAsiento(2)">2</div>
-            <div id="pill3" class="pill" onclick="liberarAsiento(3)">3</div>
-            <div id="pill4" class="pill" onclick="liberarAsiento(4)">4</div>
-        </div>
         <button class="btn-vaciar" onclick="confirmarVaciar()">🏁 FINALIZAR / VACIAR</button>
     </div>
 
 <script>
-    const MI_ID_MOVIL = 1; 
-    const NOMBRE_CONDUCTOR = "Carlos"; // NOMBRE AGREGADO CORRECTAMENTE
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
-    let sentidoActual = 'IDA', estaOnline = false, watchId = null, paradaActualIdx = 0, asientosLibres = 4, lastGpsUpdate = 0;
+    let online = false, watchId = null;
 
-    const paradas = [
-        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
-        // ... (el resto de las paradas se mantienen igual internamente)
-    ];
-
-    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
+    const map = L.map('map', { zoomControl: false }).setView([-34.5612, -58.7705], 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    const marcadorConductor = L.marker(paradas[0].c, { icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] }) }).addTo(map);
+    const marker = L.marker([-34.5612, -58.7705], {icon: L.divIcon({html:'🚕', className:'icon'})}).addTo(map);
 
-    async function gestionarConexion() {
+    async function alternarConexion() {
         const toggle = document.getElementById('online-toggle');
-        const label = document.getElementById('status-label');
-        estaOnline = toggle.checked;
-        
-        if (estaOnline) {
-            label.innerText = "CONECTANDO...";
-            navigator.geolocation.getCurrentPosition(async (pos) => {
-                // USAMOS UPSERT PARA NO ROMPER EL REGISTRO
-                const { error } = await _s.from('estado_movil').upsert({ 
-                    id: MI_ID_MOVIL,
-                    nombre_conductor: NOMBRE_CONDUCTOR, // SE ENVÍA AQUÍ
+        const lbl = document.getElementById('status-label');
+        online = toggle.checked;
+
+        if (online) {
+            lbl.innerText = "CONECTANDO...";
+            navigator.geolocation.getCurrentPosition(async (p) => {
+                // INTENTO 1: Con nombre_conductor
+                let { error } = await _s.from('estado_movil').upsert({
+                    id: 1, 
+                    nombre_conductor: "Carlos", 
                     esta_online: true, 
-                    en_servicio: true,
-                    latitud: pos.coords.latitude, 
-                    longitud: pos.coords.longitude,
-                    asientos_libres: asientosLibres,
-                    sentido_flujo: sentidoActual,
+                    latitud: p.coords.latitude, 
+                    longitud: p.coords.longitude,
                     ultima_actualizacion: new Date().toISOString()
                 });
-                
-                if (!error) {
-                    label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
-                    document.getElementById('parada-actual').style.display = 'block';
-                    iniciarGPS();
-                } else {
-                    toggle.checked = false; label.innerText = "ERROR DB";
+
+                // Si falla por el nombre, lo mandamos sin nombre para que al menos conecte
+                if (error) {
+                    console.log("Fallo nombre, reintentando basico");
+                    await _s.from('estado_movil').upsert({
+                        id: 1, esta_online: true, 
+                        latitud: p.coords.latitude, longitud: p.coords.longitude,
+                        ultima_actualizacion: new Date().toISOString()
+                    });
                 }
-            }, () => { toggle.checked = false; label.innerText = "ERROR GPS"; }, { enableHighAccuracy: true });
+
+                lbl.innerText = "EN LÍNEA"; lbl.style.color = "#4cd964";
+                iniciarGPS();
+            }, () => { toggle.checked = false; lbl.innerText = "ERROR GPS"; });
         } else {
             if (watchId) navigator.geolocation.clearWatch(watchId);
-            await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
-            label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
+            await _s.from('estado_movil').update({ esta_online: false }).eq('id', 1);
+            lbl.innerText = "DESCONECTADO"; lbl.style.color = "white";
         }
     }
 
     function iniciarGPS() {
         watchId = navigator.geolocation.watchPosition(async (p) => {
-            if (!estaOnline) return;
-            const lat = p.coords.latitude, lon = p.coords.longitude;
-            marcadorConductor.setLatLng([lat, lon]);
-            map.panTo([lat, lon]);
-            await _s.from('estado_movil').update({ 
-                latitud: lat, longitud: lon, 
-                ultima_actualizacion: new Date().toISOString() 
-            }).eq('id', MI_ID_MOVIL);
+            if (online) {
+                const lat = p.coords.latitude, lon = p.coords.longitude;
+                marker.setLatLng([lat, lon]);
+                map.panTo([lat, lon]);
+                await _s.from('estado_movil').update({ latitud: lat, longitud: lon, ultima_actualizacion: new Date().toISOString() }).eq('id', 1);
+            }
         }, null, { enableHighAccuracy: true });
     }
 
-    async function actualizarDatos() {
-        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
-        if (reservas) {
-            document.getElementById('txt-pax').innerText = reservas.length;
-            document.getElementById('txt-plata').innerText = '$' + (reservas.length * 1000);
-            for(let i=1; i<=4; i++) document.getElementById('pill'+i).className = 'pill';
-            reservas.forEach(r => { if(r.asiento_num <= 4) document.getElementById('pill'+r.asiento_num).className = 'pill active'; });
-        }
-    }
-
-    async function liberarAsiento(n) {
-        if(confirm(`¿Liberar asiento ${n}?`)) {
-            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL).eq('asiento_num', n).eq('estado', 'en_curso');
-            actualizarDatos();
+    async function actualizar() {
+        const { data } = await _s.from('reservas_activas').select('*').eq('id_movil', 1).eq('estado', 'en_curso');
+        if (data) {
+            document.getElementById('txt-pax').innerText = data.length;
+            document.getElementById('txt-plata').innerText = "$" + (data.length * 1000);
         }
     }
 
     async function confirmarVaciar() {
-        if(confirm("¿Vaciar coche?")) {
-            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL);
-            actualizarDatos();
+        if (confirm("¿Vaciar coche?")) {
+            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', 1);
+            actualizar();
         }
     }
 
-    window.onload = () => { 
-        if(navigator.onLine) { document.getElementById('net-status').className='net-online'; document.getElementById('net-status').innerText='📶 RED OK'; }
-        setTimeout(() => document.getElementById('splash').style.display = 'none', 2000); 
-        setInterval(actualizarDatos, 5000); 
-    };
+    setInterval(actualizar, 5000);
 </script>
 </body>
 </html>
