@@ -9,43 +9,93 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        body { margin: 0; padding: 0; background: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
+        
+        /* Splash Screen */
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; }
+        .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
+        .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
+        
+        /* UI Overlays */
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
         .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
-        .stat-label { color: #FFD700; font-size: 11px; font-weight: 700; }
-        .stat-value { font-size: 24px; font-weight: 800; }
-        .green { color: #4cd964; }
+        .stat-label { color: #FFD700; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+        .stat-value { font-size: 24px; font-weight: 800; margin-top: 4px; }
+        .stat-value.green { color: #4cd964; }
+
         .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.9); padding: 8px 12px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
-        .switch { position: relative; width: 46px; height: 22px; display: inline-block; }
+        .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #444; border-radius: 22px; transition: .4s; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .4s; }
-        input:checked + .slider { background: #4cd964; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 22px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #4cd964; }
         input:checked + .slider:before { transform: translateX(24px); }
-        #status-label { color: white; font-size: 11px; font-weight: bold; width: 85px; text-align: center; }
-        #btn-sentido { background: #FFD700; border: none; padding: 6px 12px; border-radius: 15px; font-weight: 800; font-size: 12px; }
-        #panel-parada { position: absolute; top: 145px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(0,0,0,0.9); color: #FFD700; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid #FFD700; display:none; white-space: nowrap; }
+        
+        #status-label { color: white; font-size: 11px; font-weight: bold; width: 70px; text-align: center; }
+        #btn-sentido { background: #FFD700; color: #000; border: none; padding: 6px 12px; border-radius: 15px; font-weight: 800; font-size: 12px; cursor: pointer; }
+        
+        #parada-actual { position: absolute; top: 140px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(0,0,0,0.9); color: #FFD700; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid #FFD700; pointer-events: auto; display: none; }
+        #net-status { position: absolute; top: 175px; left: 50%; transform: translateX(-50%); z-index: 1001; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; transition: all 0.3s; }
+        .net-online { background: #4cd964; color: #000; }
+        .net-offline { background: #ff3b30; color: #fff; }
+
+        /* Estilo de etiquetas de pasajeros en el mapa */
+        .leaflet-tooltip { background: #000 !important; color: #FFD700 !important; border: 1.5px solid #FFD700 !important; font-weight: bold !important; border-radius: 8px !important; padding: 4px 8px !important; font-size: 13px !important; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
+
         .bottom-ui { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
-        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; }
+        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); margin-top: 10px; }
+        
         .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
-        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); }
-        .pill.active { background: #4cd964; border-color: #4cd964; color: black; }
+        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); transition: all 0.3s ease; cursor: pointer; }
+        .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
+
+        .toast { position: fixed; top: 200px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 12px 24px; border-radius: 25px; font-weight: bold; font-size: 14px; animation: slideDown 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.5); max-width: 90%; text-align: center; }
+        .toast.success { background: #4cd964; color: #000; }
+        .toast.error { background: #ff3b30; color: #fff; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9998; display: none; justify-content: center; align-items: center; }
+        .modal { background: #1a1a1a; border: 2px solid #FFD700; border-radius: 20px; padding: 24px; width: 90%; max-width: 350px; text-align: center; color: white; }
+        .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-btn { flex: 1; padding: 12px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
+        .modal-btn.confirm { background: #ff3b30; color: white; }
+        .modal-btn.cancel { background: #333; color: white; }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div class="ui-overlay top-stats">
-        <div class="stat-box"><div>RECAUDACIÓN</div><div id="txt-plata" class="stat-value green">$0</div></div>
-        <div class="stat-box"><div>PASAJEROS</div><div id="txt-pax" class="stat-value">0</div></div>
+    <div id="splash">
+        <div class="splash-logo">🚕</div>
+        <h1 class="splash-title">COCHE 01</h1>
     </div>
+    
     <div class="connection-panel">
-        <span id="status-label">DESCONECTADO</span>
-        <label class="switch"><input type="checkbox" id="online-toggle" onchange="gestionarConexion()"><span class="slider"></span></label>
+        <span id="status-label">FUERA DE LÍNEA</span>
+        <label class="switch">
+            <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
+            <span class="slider"></span>
+        </label>
         <button id="btn-sentido" onclick="cambiarSentido()">IDA</button>
     </div>
-    <div id="panel-parada">📍 Parada: <span id="txt-parada">Buscando...</span></div>
+
+    <div id="parada-actual">📍 Parada: <span id="txt-parada">--</span></div>
+    <div id="net-status" class="net-offline">⚠️ SIN RED</div>
+
+    <div id="map"></div>
+    
+    <div class="ui-overlay top-stats">
+        <div class="stat-box">
+            <div class="stat-label">RECAUDACIÓN</div>
+            <div id="txt-plata" class="stat-value green">$0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">PASAJEROS</div>
+            <div id="txt-pax" class="stat-value">0</div>
+        </div>
+    </div>
+
     <div class="bottom-ui">
         <div class="asientos-pills">
             <div id="pill1" class="pill" onclick="liberarAsiento(1)">1</div>
@@ -53,14 +103,34 @@
             <div id="pill3" class="pill" onclick="liberarAsiento(3)">3</div>
             <div id="pill4" class="pill" onclick="liberarAsiento(4)">4</div>
         </div>
-        <button class="btn-vaciar" onclick="confirmarVaciar()">🏁 FINALIZAR / VACIAR</button>
+        <button class="btn-vaciar" onclick="mostrarModalVaciar()">🏁 FINALIZAR / VACIAR COCHE 01</button>
+    </div>
+
+    <div class="modal-overlay" id="modal-vaciar">
+        <div class="modal">
+            <h3>⚠️ Finalizar Viaje</h3>
+            <p>¿Estás seguro de que quieres finalizar el viaje y vaciar todos los asientos?</p>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="cerrarModal()">Cancelar</button>
+                <button class="modal-btn confirm" onclick="confirmarVaciar()">Sí, Finalizar</button>
+            </div>
+        </div>
     </div>
 
 <script>
-    const MI_ID_MOVIL = 1;
+    const MI_ID_MOVIL = 1; 
+    const TOTAL_ASIENTOS = 4;
+    
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
-    let estaOnline = false, watchId = null, sentidoActual = 'IDA', asientosLibres = 4;
+    let sentidoActual = 'IDA';
+    let estaOnline = false;
+    let watchId = null;
+    let paradaActualIdx = 0;
+    let asientosLibres = 4;
+    let lastGpsUpdate = 0;
+    const GPS_UPDATE_INTERVAL = 4000;
+
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -79,100 +149,196 @@
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    
-    // RUTA Y PUNTOS DE PARADA
     const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00d4ff', weight: 6, opacity: 0.4 }).addTo(map);
-    paradas.forEach(p => L.circleMarker(p.c, { radius: 6, color: '#FFD700', fillOpacity: 0.8 }).addTo(map));
+    
+    const iconTaxi = L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] });
+    const marcadorConductor = L.marker(paradas[0].c, { icon: iconTaxi }).addTo(map);
+    let markersPax = []; 
+    let markersDest = [];
 
-    const markerCoche = L.marker(paradas[0].c, { icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [15, 15] }) }).addTo(map);
+    function mostrarToast(mensaje, tipo = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${tipo}`;
+        toast.innerText = mensaje;
+        document.body.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+    }
 
-    function calcularCercana(lat, lon) {
-        let min = Infinity, nombre = "";
-        paradas.forEach(p => {
-            let d = Math.sqrt(Math.pow(p.c[0]-lat,2) + Math.pow(p.c[1]-lon,2));
-            if(d < min) { min = d; nombre = p.n; }
+    function calcularDistancia(coord1, coord2) {
+        const R = 6371e3;
+        const dLat = (coord2[0]-coord1[0])*Math.PI/180;
+        const dLon = (coord2[1]-coord1[1])*Math.PI/180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(coord1[0]*Math.PI/180)*Math.cos(coord2[0]*Math.PI/180)*Math.sin(dLon/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function encontrarParadaMasCercana(lat, lon) {
+        let minDist = Infinity;
+        let pIdx = 0;
+        paradas.forEach((p, i) => {
+            const d = calcularDistancia([lat, lon], p.c);
+            if (d < minDist) { minDist = d; pIdx = i; }
         });
-        return nombre;
+        return { idx: pIdx, dist: minDist };
     }
 
     async function gestionarConexion() {
-        const toggle = document.getElementById('online-toggle'), label = document.getElementById('status-label');
+        const toggle = document.getElementById('online-toggle');
+        const label = document.getElementById('status-label');
         estaOnline = toggle.checked;
+        
         if (estaOnline) {
             label.innerText = "CONECTANDO...";
-            navigator.geolocation.getCurrentPosition(async (pos) => {
-                const lat = pos.coords.latitude, lon = pos.coords.longitude;
-                const paradaCercana = calcularCercana(lat, lon);
+            try {
+                const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
+                const parada = encontrarParadaMasCercana(pos.coords.latitude, pos.coords.longitude);
                 
-                const datos = { 
-                    id: MI_ID_MOVIL, esta_online: true, latitud: lat, longitud: lon, 
-                    sentido_flujo: sentidoActual, ultima_actualizacion: new Date().toISOString(),
-                    nombre_conductor: "Carlos" 
-                };
+                const { error } = await _s.from('estado_movil').upsert({ 
+                    id: MI_ID_MOVIL,
+                    esta_online: true, 
+                    en_servicio: true,
+                    latitud: pos.coords.latitude, 
+                    longitud: pos.coords.longitude,
+                    disponible_desde: parada.idx, 
+                    asientos_libres: asientosLibres,
+                    sentido_flujo: sentidoActual,
+                    ultima_actualizacion: new Date().toISOString()
+                });
                 
-                const { error } = await _s.from('estado_movil').upsert(datos);
-                if (error) await _s.from('estado_movil').upsert({ ...datos, nombre_conductor: null });
-
+                if (error) throw error;
                 label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
-                document.getElementById('panel-parada').style.display = 'block';
-                document.getElementById('txt-parada').innerText = paradaCercana;
+                document.getElementById('parada-actual').style.display = 'block';
                 iniciarGPS();
-            }, () => { 
-                toggle.checked = false; 
-                label.innerText = "ERROR GPS"; 
-                alert("Error: Activa el GPS y los permisos.");
-            }, { enableHighAccuracy: true });
+                mostrarToast('🚕 Conectado correctamente', 'success');
+            } catch (err) {
+                toggle.checked = false; estaOnline = false;
+                label.innerText = "ERROR"; mostrarToast('Error GPS/Red', 'error');
+            }
         } else {
             if (watchId) navigator.geolocation.clearWatch(watchId);
-            await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
-            label.innerText = "DESCONECTADO"; label.style.color = "white";
-            document.getElementById('panel-parada').style.display = 'none';
+            label.innerText = "DESCONECTANDO...";
+            await _s.from('estado_movil').update({ esta_online: false, en_servicio: false }).eq('id', MI_ID_MOVIL);
+            label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
+            document.getElementById('parada-actual').style.display = 'none';
         }
     }
 
+    // GPS CON AUTO-CENTRADO
     function iniciarGPS() {
         watchId = navigator.geolocation.watchPosition(async (p) => {
-            const lat = p.coords.latitude, lon = p.coords.longitude;
-            markerCoche.setLatLng([lat, lon]);
-            map.panTo([lat, lon]);
-            document.getElementById('txt-parada').innerText = calcularCercana(lat, lon);
-            if (estaOnline) {
-                await _s.from('estado_movil').update({ latitud: lat, longitud: lon, ultima_actualizacion: new Date().toISOString() }).eq('id', MI_ID_MOVIL);
-            }
+            if (!estaOnline) return;
+            const now = Date.now();
+            if (now - lastGpsUpdate < GPS_UPDATE_INTERVAL) return;
+            lastGpsUpdate = now;
+
+            const lat = p.coords.latitude; const lon = p.coords.longitude;
+            marcadorConductor.setLatLng([lat, lon]);
+            
+            // EL MAPA TE SIGUE
+            map.setView([lat, lon], 16, { animate: true });
+            
+            const parada = encontrarParadaMasCercana(lat, lon);
+            paradaActualIdx = parada.idx;
+            document.getElementById('txt-parada').innerText = `${paradaActualIdx + 1}. ${paradas[paradaActualIdx].n}`;
+
+            await _s.from('estado_movil').update({ 
+                latitud: lat, longitud: lon, disponible_desde: paradaActualIdx,
+                ultima_actualizacion: new Date().toISOString()
+            }).eq('id', MI_ID_MOVIL);
         }, null, { enableHighAccuracy: true });
     }
 
-    async function actualizar() {
-        const { data } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
-        if (data) {
-            document.getElementById('txt-pax').innerText = data.length;
-            document.getElementById('txt-plata').innerText = "$" + (data.length * 1000);
-            for(let i=1; i<=4; i++) document.getElementById('pill'+i).className = 'pill';
-            data.forEach(r => { if(r.asiento_num <= 4) document.getElementById('pill'+r.asiento_num).className = 'pill active'; });
+    // RECUPERAR VIAJES CON NOMBRES VISIBLES
+    async function actualizarDatos() {
+        const { data: reservas, error } = await _s
+            .from('reservas_activas')
+            .select('asiento_num, nombre_pasajero, pasajero_lat, pasajero_lon, destino_idx, estado')
+            .eq('id_movil', MI_ID_MOVIL)
+            .eq('estado', 'en_curso');
+
+        if (error) return;
+
+        markersPax.forEach(m => map.removeLayer(m));
+        markersDest.forEach(m => map.removeLayer(m));
+        markersPax = []; markersDest = [];
+        for(let i=1; i<=4; i++) document.getElementById('pill'+i).className = 'pill';
+
+        let count = 0;
+        reservas.forEach(res => {
+            count++;
+            const pill = document.getElementById('pill' + res.asiento_num);
+            if (pill) pill.className = 'pill active';
+
+            // PUNTO ROJO DEL PASAJERO
+            if (res.pasajero_lat) {
+                const pm = L.circleMarker([res.pasajero_lat, res.pasajero_lon], { color: 'red', radius: 8, fillOpacity: 0.8 }).addTo(map)
+                .bindTooltip(res.nombre_pasajero, { direction: 'top' });
+                markersPax.push(pm);
+            }
+            
+            // MARCADOR DE DONDE BAJA (NOMBRE SIEMPRE VISIBLE)
+            if (paradas[res.destino_idx]) {
+                const dm = L.marker(paradas[res.destino_idx].c).addTo(map)
+                .bindTooltip(`BAJA: ${res.nombre_pasajero}`, { 
+                    permanent: true, 
+                    direction: 'right',
+                    offset: [10, 0] 
+                });
+                markersDest.push(dm);
+            }
+        });
+
+        document.getElementById('txt-pax').innerText = count;
+        document.getElementById('txt-plata').innerText = '$' + (count * 1000);
+        asientosLibres = TOTAL_ASIENTOS - count;
+        
+        if (estaOnline) {
+            await _s.from('estado_movil').update({ asientos_libres: asientosLibres }).eq('id', MI_ID_MOVIL);
         }
     }
 
-    function cambiarSentido() {
+    _s.channel('cambios_viajes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas', filter: `id_movil=eq.${MI_ID_MOVIL}` }, () => {
+        actualizarDatos();
+    }).subscribe();
+
+    async function cambiarSentido() {
         sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
         document.getElementById('btn-sentido').innerText = sentidoActual;
         rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#00d4ff' : '#ff6b6b' });
-    }
-
-    async function liberarAsiento(n) {
-        if(confirm(`¿Liberar asiento ${n}?`)) {
-            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL).eq('asiento_num', n).eq('estado', 'en_curso');
-            actualizar();
+        if (estaOnline) {
+            await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL);
         }
     }
 
+    async function liberarAsiento(num) {
+        if (!confirm(`¿Liberar asiento ${num}?`)) return;
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL).eq('asiento_num', num).eq('estado', 'en_curso');
+        actualizarDatos();
+    }
+
+    function mostrarModalVaciar() { document.getElementById('modal-vaciar').style.display = 'flex'; }
+    function cerrarModal() { document.getElementById('modal-vaciar').style.display = 'none'; }
     async function confirmarVaciar() {
-        if(confirm("¿Vaciar todos los asientos?")) {
-            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL);
-            actualizar();
-        }
+        cerrarModal();
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL);
+        actualizarDatos();
+        mostrarToast("Coche vaciado", "success");
     }
 
-    setInterval(actualizar, 4000);
+    window.onload = () => {
+        actualizarDatos();
+        setTimeout(() => document.getElementById('splash').style.display = 'none', 2000);
+    };
+
+    window.addEventListener('online', () => { 
+        document.getElementById('net-status').className = 'net-online'; 
+        document.getElementById('net-status').innerText = '📶 ONLINE';
+    });
+    window.addEventListener('offline', () => { 
+        document.getElementById('net-status').className = 'net-offline'; 
+        document.getElementById('net-status').innerText = '⚠️ SIN RED';
+    });
 </script>
 </body>
 </html>
