@@ -11,7 +11,6 @@
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
         
-        /* Splash Screen */
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.8s ease-out; }
         .splash-logo { font-size: 80px; margin-bottom: 20px; animation: pulse 2s infinite; }
         .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; letter-spacing: 4px; margin: 0; }
@@ -19,7 +18,6 @@
         
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
         
-        /* UI Overlays */
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
         .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
         .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
@@ -190,7 +188,6 @@
         if (estaOnline) {
             label.innerText = "CONECTANDO...";
             try {
-                // Timeout de 10s para el GPS para que no se quede colgado
                 const pos = await new Promise((res, rej) => {
                     navigator.geolocation.getCurrentPosition(res, rej, { 
                         enableHighAccuracy: true, 
@@ -200,7 +197,6 @@
 
                 const parada = encontrarParadaMasCercana(pos.coords.latitude, pos.coords.longitude);
                 
-                // UPSERT con formato plano para evitar conflictos de RLS
                 const { error } = await _s.from('estado_movil').upsert({ 
                     id: MI_ID_MOVIL,
                     nombre_conductor: NOMBRE_CHOFER,
@@ -212,7 +208,7 @@
                     asientos_libres: asientosLibres,
                     sentido_flujo: sentidoActual,
                     ultima_actualizacion: new Date().toISOString()
-                });
+                }, { onConflict: 'id' });
                 
                 if (error) throw error;
 
@@ -223,9 +219,9 @@
                 document.getElementById('net-status').innerText = '📶 RED OK';
 
                 iniciarGPS();
-                mostrarToast('🚕 Carlos conectado con éxito', 'success');
+                mostrarToast('🚕 ' + NOMBRE_CHOFER + ' conectado con éxito', 'success');
             } catch (err) {
-                console.error("Error técnico:", err);
+                console.error("Fallo:", err);
                 toggle.checked = false; 
                 estaOnline = false;
                 label.innerText = "ERROR GPS"; 
