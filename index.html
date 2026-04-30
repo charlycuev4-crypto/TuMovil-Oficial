@@ -80,7 +80,7 @@
     </div>
 
     <div id="parada-actual">📍 Parada: <span id="txt-parada">--</span></div>
-    <div id="net-status" class="net-offline">⚠️ SIN RED</div>
+    <div id="net-status" class="net-offline">⚠️ VERIFICANDO...</div>
 
     <div id="map"></div>
     
@@ -118,7 +118,7 @@
 
 <script>
     const MI_ID_MOVIL = 1; 
-    const NOMBRE_CHOFER = "Carlos"; // Cambiado a Carlos correctamente
+    const NOMBRE_CHOFER = "Carlos"; 
     const TOTAL_ASIENTOS = 4;
     
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
@@ -190,10 +190,17 @@
         if (estaOnline) {
             label.innerText = "CONECTANDO...";
             try {
-                const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
+                // Timeout de 10s para el GPS para que no se quede colgado
+                const pos = await new Promise((res, rej) => {
+                    navigator.geolocation.getCurrentPosition(res, rej, { 
+                        enableHighAccuracy: true, 
+                        timeout: 10000 
+                    });
+                });
+
                 const parada = encontrarParadaMasCercana(pos.coords.latitude, pos.coords.longitude);
                 
-                // INSTRUCCIÓN CORREGIDA SIN SALTOS DE LÍNEA EXTRAÑOS
+                // UPSERT con formato plano para evitar conflictos de RLS
                 const { error } = await _s.from('estado_movil').upsert({ 
                     id: MI_ID_MOVIL,
                     nombre_conductor: NOMBRE_CHOFER,
@@ -208,20 +215,28 @@
                 });
                 
                 if (error) throw error;
-                label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
+
+                label.innerText = "EN LÍNEA"; 
+                label.style.color = "#4cd964";
                 document.getElementById('parada-actual').style.display = 'block';
+                document.getElementById('net-status').className = 'net-online'; 
+                document.getElementById('net-status').innerText = '📶 RED OK';
+
                 iniciarGPS();
-                mostrarToast('🚕 Conectado como ' + NOMBRE_CHOFER, 'success');
+                mostrarToast('🚕 Carlos conectado con éxito', 'success');
             } catch (err) {
-                console.error(err);
-                toggle.checked = false; estaOnline = false;
-                label.innerText = "ERROR"; mostrarToast('Error GPS/Red', 'error');
+                console.error("Error técnico:", err);
+                toggle.checked = false; 
+                estaOnline = false;
+                label.innerText = "ERROR GPS"; 
+                mostrarToast('Falla GPS o Red: Reintenta', 'error');
             }
         } else {
             if (watchId) navigator.geolocation.clearWatch(watchId);
-            label.innerText = "DESCONECTANDO...";
+            label.innerText = "SALIENDO...";
             await _s.from('estado_movil').update({ esta_online: false, en_servicio: false }).eq('id', MI_ID_MOVIL);
-            label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
+            label.innerText = "FUERA DE LÍNEA"; 
+            label.style.color = "white";
             document.getElementById('parada-actual').style.display = 'none';
         }
     }
@@ -325,12 +340,16 @@
 
     window.onload = () => {
         actualizarDatos();
+        if(navigator.onLine) {
+            document.getElementById('net-status').className = 'net-online'; 
+            document.getElementById('net-status').innerText = '📶 RED OK';
+        }
         setTimeout(() => document.getElementById('splash').style.display = 'none', 2000);
     };
 
     window.addEventListener('online', () => { 
         document.getElementById('net-status').className = 'net-online'; 
-        document.getElementById('net-status').innerText = '📶 ONLINE';
+        document.getElementById('net-status').innerText = '📶 RED OK';
     });
     window.addEventListener('offline', () => { 
         document.getElementById('net-status').className = 'net-offline'; 
