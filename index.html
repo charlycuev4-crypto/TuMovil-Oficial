@@ -30,7 +30,6 @@
         
         .leaflet-tooltip { background: #000 !important; color: #FFD700 !important; border: 1.5px solid #FFD700 !important; font-weight: bold !important; font-size: 13px !important; }
 
-        /* ICONO DE TAXI GIGANTE */
         .taxi-icon { 
             font-size: 60px; 
             text-align: center; 
@@ -40,11 +39,81 @@
         .bottom-ui { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
         .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; }
         .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
-        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); }
+        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); position: relative; }
         .pill.active { background: #4cd964; border-color: #4cd964; color: black; }
+        .pill .nombre-pax { position: absolute; bottom: -18px; font-size: 8px; color: white; white-space: nowrap; background: rgba(0,0,0,0.8); padding: 2px 4px; border-radius: 4px; display: none; }
+        .pill.active .nombre-pax { display: block; }
+
+        /* === ALERTA DE NUEVA RESERVA === */
+        .alerta-reserva {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: linear-gradient(180deg, #ff3b30 0%, #c0392b 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            z-index: 10000;
+            transform: translateY(-100%);
+            transition: transform 0.5s ease;
+            box-shadow: 0 10px 30px rgba(255, 59, 48, 0.5);
+        }
+        .alerta-reserva.mostrar {
+            transform: translateY(0);
+        }
+        .alerta-reserva h2 {
+            margin: 0 0 8px 0;
+            font-size: 22px;
+            animation: pulseText 1s infinite;
+        }
+        .alerta-reserva p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .alerta-reserva .btn-atender {
+            background: white;
+            color: #ff3b30;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 12px;
+            cursor: pointer;
+        }
+        @keyframes pulseText {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        /* Indicador de Wake Lock */
+        .wakelock-indicator {
+            position: absolute;
+            top: 190px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1001;
+            background: rgba(0,0,0,0.8);
+            color: #4cd964;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 10px;
+            display: none;
+            border: 1px solid #4cd964;
+        }
+        .wakelock-indicator.activo {
+            display: block;
+        }
     </style>
 </head>
 <body>
+    <!-- ALERTA DE NUEVA RESERVA -->
+    <div class="alerta-reserva" id="alerta-reserva">
+        <h2>🔔 ¡NUEVA SOLICITUD!</h2>
+        <p id="alerta-texto">Alguien quiere subir a tu coche</p>
+        <button class="btn-atender" onclick="cerrarAlerta()">ATENDER</button>
+    </div>
+
     <div id="map"></div>
     <div class="ui-overlay top-stats">
         <div class="stat-box"><div>RECAUDACIÓN</div><div id="txt-plata" class="stat-value green">$0</div></div>
@@ -56,12 +125,13 @@
         <button id="btn-sentido" onclick="cambiarSentido()">IDA</button>
     </div>
     <div id="panel-parada">📍 Parada: <span id="txt-parada">--</span></div>
+    <div class="wakelock-indicator" id="wakelock-indicator">🔒 Pantalla bloqueada activa</div>
     <div class="bottom-ui">
         <div class="asientos-pills">
-            <div id="pill1" class="pill" onclick="liberarAsiento(1)">1</div>
-            <div id="pill2" class="pill" onclick="liberarAsiento(2)">2</div>
-            <div id="pill3" class="pill" onclick="liberarAsiento(3)">3</div>
-            <div id="pill4" class="pill" onclick="liberarAsiento(4)">4</div>
+            <div id="pill1" class="pill" onclick="liberarAsiento(1)">1<span class="nombre-pax" id="nombre-pax-1"></span></div>
+            <div id="pill2" class="pill" onclick="liberarAsiento(2)">2<span class="nombre-pax" id="nombre-pax-2"></span></div>
+            <div id="pill3" class="pill" onclick="liberarAsiento(3)">3<span class="nombre-pax" id="nombre-pax-3"></span></div>
+            <div id="pill4" class="pill" onclick="liberarAsiento(4)">4<span class="nombre-pax" id="nombre-pax-4"></span></div>
         </div>
         <button class="btn-vaciar" onclick="confirmarVaciar()">🏁 FINALIZAR / VACIAR</button>
     </div>
@@ -72,7 +142,10 @@
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
     
     let estaOnline = false, watchId = null, sentidoActual = 'IDA';
-    let ultimaVezEnviado = 0; // Para el ahorro de datos y batería
+    let ultimaVezEnviado = 0;
+    let ultimaCantidadReservas = 0;
+    let wakeLock = null;
+    let audioContext = null;
 
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
@@ -93,10 +166,8 @@
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     
-    // Trazado de ruta CELESTE fuerte
     const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00BFFF', weight: 8, opacity: 0.7 }).addTo(map);
     
-    // Paradas: Bolitas CELESTES con borde NEGRO
     paradas.forEach(p => L.circleMarker(p.c, { 
         radius: 7, 
         color: '#000000', 
@@ -105,7 +176,6 @@
         fillOpacity: 1 
     }).addTo(map));
     
-    // Taxi TRES veces más grande
     const markerCoche = L.marker(paradas[0].c, { 
         icon: L.divIcon({ 
             html: '🚕', 
@@ -116,6 +186,128 @@
     
     let markersPax = [], markersDest = [];
 
+    // ============================================
+    // WAKE LOCK - Mantiene pantalla encendida
+    // ============================================
+    async function activarWakeLock() {
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+                document.getElementById('wakelock-indicator').classList.add('activo');
+                console.log('Wake Lock activado');
+                
+                wakeLock.addEventListener('release', () => {
+                    console.log('Wake Lock liberado');
+                    document.getElementById('wakelock-indicator').classList.remove('activo');
+                });
+            }
+        } catch (err) {
+            console.error('Error Wake Lock:', err);
+        }
+    }
+
+    async function liberarWakeLock() {
+        if (wakeLock) {
+            await wakeLock.release();
+            wakeLock = null;
+        }
+    }
+
+    // ============================================
+    // SONIDO DE ALARMA - AudioContext
+    // ============================================
+    function inicializarAudio() {
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+    }
+
+    function reproducirAlarma() {
+        inicializarAudio();
+        
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Sonido de alarma tipo "ding-dong" urgente
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5
+        oscillator.frequency.setValueAtTime(1100, audioContext.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(880, audioContext.currentTime + 0.2);
+        oscillator.frequency.setValueAtTime(1100, audioContext.currentTime + 0.3);
+        oscillator.frequency.setValueAtTime(880, audioContext.currentTime + 0.4);
+        
+        gainNode.gain.setValueAtTime(0.8, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+        
+        // Segunda parte de la alarma (más grave)
+        setTimeout(() => {
+            const osc2 = audioContext.createOscillator();
+            const gain2 = audioContext.createGain();
+            osc2.connect(gain2);
+            gain2.connect(audioContext.destination);
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(440, audioContext.currentTime);
+            gain2.gain.setValueAtTime(0.6, audioContext.currentTime);
+            gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.8);
+            osc2.start(audioContext.currentTime);
+            osc2.stop(audioContext.currentTime + 0.8);
+        }, 200);
+    }
+
+    // ============================================
+    // VIBRACIÓN
+    // ============================================
+    function vibrarAlarma() {
+        if ('vibrate' in navigator) {
+            // Patrón: vibración larga, pausa, vibración larga, pausa, vibración larga
+            navigator.vibrate([500, 200, 500, 200, 500, 200, 1000]);
+        }
+    }
+
+    // ============================================
+    // MOSTRAR ALERTA DE NUEVA RESERVA
+    // ============================================
+    function mostrarAlertaReserva(nombrePasajero, asientos) {
+        const alerta = document.getElementById('alerta-reserva');
+        const texto = document.getElementById('alerta-texto');
+        
+        texto.innerText = `${nombrePasajero} reservó ${asientos.length} asiento(s): ${asientos.join(', ')}`;
+        alerta.classList.add('mostrar');
+        
+        // Sonido + vibración
+        reproducirAlarma();
+        vibrarAlarma();
+        
+        // Reproducir alarma cada 3 segundos hasta que atienda
+        window.alertaInterval = setInterval(() => {
+            if (alerta.classList.contains('mostrar')) {
+                reproducirAlarma();
+                vibrarAlarma();
+            }
+        }, 3000);
+    }
+
+    function cerrarAlerta() {
+        const alerta = document.getElementById('alerta-reserva');
+        alerta.classList.remove('mostrar');
+        if (window.alertaInterval) {
+            clearInterval(window.alertaInterval);
+            window.alertaInterval = null;
+        }
+    }
+
+    // ============================================
+    // CALCULAR PARADA CERCANA
+    // ============================================
     function calcularCercana(lat, lon) {
         let min = Infinity, nombre = "";
         paradas.forEach(p => {
@@ -125,11 +317,18 @@
         return nombre;
     }
 
+    // ============================================
+    // CONEXIÓN / GPS
+    // ============================================
     async function gestionarConexion() {
         const toggle = document.getElementById('online-toggle'), label = document.getElementById('status-label');
         estaOnline = toggle.checked;
         if (estaOnline) {
             label.innerText = "CONECTANDO...";
+            
+            // Inicializar audio en el momento del click (requerido por políticas de navegador)
+            inicializarAudio();
+            
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 const lat = pos.coords.latitude, lon = pos.coords.longitude;
                 const datos = { 
@@ -149,6 +348,7 @@
                 } else {
                     label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
                     document.getElementById('panel-parada').style.display = 'block';
+                    activarWakeLock(); // Activar pantalla siempre encendida
                     iniciarGPS();
                 }
             }, (err) => { 
@@ -160,6 +360,8 @@
             await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
             label.innerText = "DESCONECTADO"; label.style.color = "white";
             document.getElementById('panel-parada').style.display = 'none';
+            liberarWakeLock(); // Liberar pantalla
+            cerrarAlerta();
         }
     }
 
@@ -176,7 +378,6 @@
             const paradaActual = calcularCercana(lat, lon);
             document.getElementById('txt-parada').innerText = paradaActual;
 
-            // FILTRO DE 5 SEGUNDOS PARA NO RECALENTAR EL CELULAR
             if (estaOnline && (ahora - ultimaVezEnviado > 5000)) { 
                 ultimaVezEnviado = ahora;
                 
@@ -190,28 +391,60 @@
         }, null, opcionesGPS);
     }
 
+    // ============================================
+    // ACTUALIZAR RESERVAS - CON DETECCIÓN DE NUEVAS
+    // ============================================
     async function actualizar() {
-        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
+        const { data: reservas } = await _s.from('reservas_activas')
+            .select('*')
+            .eq('id_movil', MI_ID_MOVIL)
+            .eq('estado', 'en_curso');
         
         if (reservas) {
+            // Detectar si hay NUEVAS reservas (más que antes)
+            if (reservas.length > ultimaCantidadReservas && estaOnline) {
+                // Hay nueva(s) reserva(s)
+                const nuevasReservas = reservas.slice(ultimaCantidadReservas);
+                const nombresNuevos = nuevasReservas.map(r => r.nombre_pasajero).join(', ');
+                const asientosNuevos = nuevasReservas.map(r => r.asiento_num);
+                
+                mostrarAlertaReserva(nombresNuevos, asientosNuevos);
+            }
+            ultimaCantidadReservas = reservas.length;
+
+            // Limpiar marcadores anteriores
             markersPax.forEach(m => map.removeLayer(m));
             markersDest.forEach(m => map.removeLayer(m));
             markersPax = []; markersDest = [];
 
             document.getElementById('txt-pax').innerText = reservas.length;
             document.getElementById('txt-plata').innerText = "$" + (reservas.length * 1000);
-            for(let i=1; i<=4; i++) document.getElementById('pill'+i).className = 'pill';
+            
+            // Resetear pills y nombres
+            for(let i=1; i<=4; i++) {
+                document.getElementById('pill'+i).className = 'pill';
+                document.getElementById('nombre-pax-'+i).innerText = '';
+            }
             
             reservas.forEach(r => {
-                if(r.asiento_num <= 4) document.getElementById('pill'+r.asiento_num).className = 'pill active';
+                if(r.asiento_num <= 4) {
+                    document.getElementById('pill'+r.asiento_num).className = 'pill active';
+                    document.getElementById('nombre-pax-'+r.asiento_num).innerText = r.nombre_pasajero;
+                }
                 
                 if (r.pasajero_lat) {
-                    const mp = L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: 'red', radius: 8 }).addTo(map).bindTooltip(r.nombre_pasajero);
+                    const mp = L.circleMarker([r.pasajero_lat, r.pasajero_lon], { 
+                        color: 'red', 
+                        radius: 8 
+                    }).addTo(map).bindTooltip(r.nombre_pasajero);
                     markersPax.push(mp);
                 }
                 
                 if (paradas[r.destino_idx]) {
-                    const md = L.marker(paradas[r.destino_idx].c).addTo(map).bindTooltip(`BAJA: ${r.nombre_pasajero}`, { permanent: true, direction: 'top' });
+                    const md = L.marker(paradas[r.destino_idx].c).addTo(map).bindTooltip(
+                        `BAJA: ${r.nombre_pasajero}`, 
+                        { permanent: true, direction: 'top' }
+                    );
                     markersDest.push(md);
                 }
             });
@@ -221,8 +454,6 @@
     async function cambiarSentido() {
         sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
         document.getElementById('btn-sentido').innerText = sentidoActual;
-        
-        // IDA = ROJO, VUELTA = CELESTE
         rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
         
         if (estaOnline) {
@@ -232,17 +463,34 @@
 
     async function liberarAsiento(n) {
         if(confirm(`¿Liberar asiento ${n}?`)) {
-            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL).eq('asiento_num', n).eq('estado', 'en_curso');
+            await _s.from('reservas_activas')
+                .update({ estado: 'finalizado' })
+                .eq('id_movil', MI_ID_MOVIL)
+                .eq('asiento_num', n)
+                .eq('estado', 'en_curso');
             actualizar();
         }
     }
 
     async function confirmarVaciar() {
         if(confirm("¿Vaciar todos los asientos?")) {
-            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL);
+            await _s.from('reservas_activas')
+                .update({ estado: 'finalizado' })
+                .eq('id_movil', MI_ID_MOVIL);
             actualizar();
         }
     }
+
+    // ============================================
+    // REINTENTAR WAKE LOCK SI LA PANTALLA SE PRENDE
+    // ============================================
+    document.addEventListener('visibilitychange', async () => {
+        if (estaOnline && document.visibilityState === 'visible') {
+            if (!wakeLock) {
+                await activarWakeLock();
+            }
+        }
+    });
 
     setInterval(actualizar, 4000);
 </script>
