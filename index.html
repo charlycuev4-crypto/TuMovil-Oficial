@@ -28,7 +28,6 @@
         #btn-sentido { background: #FFD700; border: none; padding: 6px 12px; border-radius: 15px; font-weight: 800; font-size: 12px; }
         #panel-parada { position: absolute; top: 145px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(0,0,0,0.9); color: #FFD700; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid #FFD700; display:none; }
         
-        /* ESTILO DE LA ETIQUETA DEL PASAJERO */
         .leaflet-tooltip { background: #000 !important; color: #FFD700 !important; border: 1.5px solid #FFD700 !important; font-weight: bold !important; font-size: 13px !important; }
 
         .bottom-ui { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
@@ -107,13 +106,32 @@
             label.innerText = "CONECTANDO...";
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 const lat = pos.coords.latitude, lon = pos.coords.longitude;
-                const datos = { id: MI_ID_MOVIL, esta_online: true, latitud: lat, longitud: lon, sentido_flujo: sentidoActual, ultima_actualizacion: new Date().toISOString(), nombre_conductor: MI_NOMBRE };
-                let { error } = await _s.from('estado_movil').upsert(datos);
-                if (error) await _s.from('estado_movil').upsert({ ...datos, nombre_conductor: null });
-                label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
-                document.getElementById('panel-parada').style.display = 'block';
-                iniciarGPS();
-            }, () => { toggle.checked = false; label.innerText = "ERROR GPS"; });
+                // CORRECCIÓN: Nombres de columnas según tu base de datos (chofer en lugar de nombre_conductor)
+                const datos = { 
+                    esta_online: true, 
+                    latitud: lat, 
+                    longitud: lon, 
+                    sentido_flujo: sentidoActual, 
+                    ultima_actualizacion: new Date().toISOString(), 
+                    chofer: MI_NOMBRE 
+                };
+                
+                // Forzamos actualización siempre al ID 1
+                let { error } = await _s.from('estado_movil').update(datos).eq('id', MI_ID_MOVIL);
+                
+                if (error) {
+                    console.error("Error Supabase:", error);
+                    label.innerText = "ERROR DB";
+                    toggle.checked = false;
+                } else {
+                    label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
+                    document.getElementById('panel-parada').style.display = 'block';
+                    iniciarGPS();
+                }
+            }, (err) => { 
+                toggle.checked = false; 
+                label.innerText = "ERROR GPS"; 
+            });
         } else {
             if (watchId) navigator.geolocation.clearWatch(watchId);
             await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
@@ -129,7 +147,12 @@
             map.panTo([lat, lon]);
             document.getElementById('txt-parada').innerText = calcularCercana(lat, lon);
             if (estaOnline) {
-                await _s.from('estado_movil').update({ latitud: lat, longitud: lon, ultima_actualizacion: new Date().toISOString() }).eq('id', MI_ID_MOVIL);
+                // Actualización continua de ubicación en ID 1
+                await _s.from('estado_movil').update({ 
+                    latitud: lat, 
+                    longitud: lon, 
+                    ultima_actualizacion: new Date().toISOString() 
+                }).eq('id', MI_ID_MOVIL);
             }
         }, null, { enableHighAccuracy: true });
     }
@@ -138,7 +161,6 @@
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
         
         if (reservas) {
-            // LIMPIAR MARCADORES ANTERIORES
             markersPax.forEach(m => map.removeLayer(m));
             markersDest.forEach(m => map.removeLayer(m));
             markersPax = []; markersDest = [];
@@ -150,13 +172,11 @@
             reservas.forEach(r => {
                 if(r.asiento_num <= 4) document.getElementById('pill'+r.asiento_num).className = 'pill active';
                 
-                // DIBUJAR PUNTO DEL PASAJERO (ROJO)
                 if (r.pasajero_lat) {
                     const mp = L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: 'red', radius: 8 }).addTo(map).bindTooltip(r.nombre_pasajero);
                     markersPax.push(mp);
                 }
                 
-                // DIBUJAR DESTINO CON NOMBRE (LA "FLECHA" QUE PEDISTE)
                 if (paradas[r.destino_idx]) {
                     const md = L.marker(paradas[r.destino_idx].c).addTo(map).bindTooltip(`BAJA: ${r.nombre_pasajero}`, { permanent: true, direction: 'top' });
                     markersDest.push(md);
@@ -165,10 +185,15 @@
         }
     }
 
-    function cambiarSentido() {
+    async function cambiarSentido() {
         sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
         document.getElementById('btn-sentido').innerText = sentidoActual;
         rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#00d4ff' : '#ff6b6b' });
+        
+        // Sincronizamos el cambio de sentido en la base de datos de inmediato
+        if (estaOnline) {
+            await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL);
+        }
     }
 
     async function liberarAsiento(n) {
