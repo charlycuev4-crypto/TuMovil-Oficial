@@ -24,6 +24,102 @@
         .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
         
+        /* === PANEL VIAJE ACTIVO === */
+        .viaje-activo-panel {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 2px solid var(--celeste);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 10px;
+            animation: slideIn 0.5s ease;
+        }
+        .viaje-activo-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(0, 210, 255, 0.2);
+        }
+        .viaje-activo-icono {
+            width: 50px;
+            height: 50px;
+            background: var(--celeste);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        .viaje-activo-titulo {
+            flex: 1;
+        }
+        .viaje-activo-titulo .coche-numero {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--amarillo);
+            margin: 0;
+        }
+        .viaje-activo-titulo .conductor-nombre {
+            font-size: 14px;
+            color: white;
+            margin: 2px 0 0 0;
+        }
+        .viaje-activo-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .info-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 8px;
+            text-align: center;
+        }
+        .info-box-label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .info-box-valor {
+            font-size: 14px;
+            color: var(--celeste);
+            font-weight: bold;
+            margin-top: 2px;
+        }
+        .viaje-activo-destino {
+            background: rgba(255, 204, 0, 0.1);
+            border: 1px solid var(--amarillo);
+            border-radius: 8px;
+            padding: 8px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--amarillo);
+            margin-bottom: 12px;
+        }
+        .viaje-activo-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--success);
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: blink 1.5s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
         /* === FLOTA CON ASIENTOS === */
         .flota-container { max-height: 220px; overflow-y: auto; }
         .coche-card { background: #1a1a1a; border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; animation: slideIn 0.3s ease; }
@@ -148,6 +244,7 @@
     let ultimaFlotaHTML = '';
     let ultimoEstadoBoton = '';
     let gpsListo = false;
+    let datosViajeActivo = null; // Guarda info del viaje activo
 
     // ============================================
     // SELECT DE PARADAS
@@ -178,38 +275,107 @@
     }
 
     // ============================================
-    // CARGAR VIAJE ACTIVO (al iniciar)
+    // CARGAR VIAJE ACTIVO (al iniciar) - MEJORADO
     // ============================================
     window.onload = async () => {
         const nombreGuardado = localStorage.getItem('usuario_nombre');
         if(nombreGuardado) {
             document.getElementById('nombre-input').value = nombreGuardado;
-            try {
-                const { data, error } = await _s.from('reservas_activas')
-                    .select('*')
-                    .eq('nombre_pasajero', nombreGuardado)
-                    .eq('estado', 'en_curso');
-                
-                if (error) throw error;
-                
-                if(data && data.length > 0) {
-                    miViajeActivo = true;
-                    asientosElegidos = data.map(r => r.asiento_num);
-                    document.getElementById('destino-select').value = data[0].destino_idx;
-                    bloquearPanelParaViajeActivo();
-                }
-            } catch (err) { console.error("Error al cargar viaje activo:", err); }
+            await cargarDatosViajeActivo(nombreGuardado);
         }
     };
 
+    async function cargarDatosViajeActivo(nombre) {
+        try {
+            // Consulta con join a estado_movil para traer datos del conductor
+            const { data, error } = await _s.from('reservas_activas')
+                .select(`
+                    *,
+                    estado_movil:estado_movil(id, chofer, latitud, longitud, sentido_flujo)
+                `)
+                .eq('nombre_pasajero', nombre)
+                .eq('estado', 'en_curso');
+            
+            if (error) throw error;
+            
+            if(data && data.length > 0) {
+                miViajeActivo = true;
+                datosViajeActivo = data;
+                asientosElegidos = data.map(r => r.asiento_num);
+                
+                // Pre-llenar selects con datos del viaje
+                const primerViaje = data[0];
+                if(primerViaje.destino_idx !== undefined) {
+                    document.getElementById('destino-select').value = primerViaje.destino_idx;
+                }
+                if(primerViaje.estado_movil && primerViaje.estado_movil.sentido_flujo) {
+                    document.getElementById('sentido-select').value = primerViaje.estado_movil.sentido_flujo;
+                }
+                
+                // Mostrar ruta en el mapa
+                if(primerViaje.destino_idx !== undefined && miLat !== 0) {
+                    actualizarMapaRuta();
+                }
+                
+                bloquearPanelParaViajeActivo();
+            }
+        } catch (err) { 
+            console.error("Error al cargar viaje activo:", err); 
+        }
+    }
+
     function bloquearPanelParaViajeActivo() {
+        // Ocultar controles de búsqueda
         document.getElementById('btn-pedir').style.display = 'none';
         document.getElementById('btn-cancelar').style.display = 'block';
         document.getElementById('nombre-input').disabled = true;
         document.getElementById('destino-select').disabled = true;
         document.getElementById('sentido-select').disabled = true;
-        document.getElementById('flota-container').innerHTML = 
-            '<div class="sin-coches">✅ Ya tenés un viaje activo</div>';
+        
+        // Generar panel de viaje activo con datos reales
+        const container = document.getElementById('flota-container');
+        
+        if (!datosViajeActivo || datosViajeActivo.length === 0) {
+            container.innerHTML = '<div class="sin-coches">✅ Ya tenés un viaje activo</div>';
+            return;
+        }
+        
+        const viaje = datosViajeActivo[0];
+        const movil = viaje.estado_movil || {};
+        const destino = paradas[viaje.destino_idx] || {n: 'Destino'};
+        const asientos = datosViajeActivo.map(v => v.asiento_num).join(', ');
+        
+        container.innerHTML = `
+            <div class="viaje-activo-panel">
+                <div class="viaje-activo-header">
+                    <div class="viaje-activo-icono">🚗</div>
+                    <div class="viaje-activo-titulo">
+                        <p class="coche-numero">Coche ${viaje.id_movil || '---'}</p>
+                        <p class="conductor-nombre">${movil.chofer || 'Conductor'}</p>
+                    </div>
+                </div>
+                
+                <div class="viaje-activo-info">
+                    <div class="info-box">
+                        <div class="info-box-label">Asiento(s)</div>
+                        <div class="info-box-valor">${asientos}</div>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-box-label">Tarifa</div>
+                        <div class="info-box-valor">$${datosViajeActivo.length * 1000}</div>
+                    </div>
+                </div>
+                
+                <div class="viaje-activo-destino">
+                    📍 Destino: ${destino.n}
+                </div>
+                
+                <div class="viaje-activo-status">
+                    <div class="status-dot"></div>
+                    <span>Conductor en camino...</span>
+                </div>
+            </div>
+        `;
     }
 
     // ============================================
