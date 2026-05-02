@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --celeste: #00BFFF; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --success: #28a745; --danger: #dc3545; }
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --success: #28a745; --danger: #dc3545; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
         
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
@@ -21,26 +21,27 @@
         #map { flex-grow: 1; width: 100%; }
         
         .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 50vh; overflow-y: auto; }
-        .promo-card { background: rgba(0, 191, 255, 0.1); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
+        .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
         
         .flota-container { max-height: 220px; overflow-y: auto; }
         .coche-card { background: #1a1a1a; border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; }
-        .coche-card.seleccionado { border-color: var(--celeste); box-shadow: 0 0 8px rgba(0,191,255,0.3); }
+        .coche-card.seleccionado { border-color: var(--celeste); box-shadow: 0 0 8px rgba(0,210,255,0.3); }
         .coche-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
         .coche-num { font-weight: bold; font-size: 13px; color: white; }
-        .coche-info { font-size: 10px; color: #888; }
         .coche-dist { font-size: 10px; color: var(--amarillo); }
         
         .asientos-row { display: flex; gap: 5px; justify-content: center; }
-        .asiento-box { width: 52px; height: 48px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; }
+        .asiento-box { width: 52px; height: 48px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; transition: all 0.2s; }
         .asiento-libre { background: #2a2a2a; border: 2px solid var(--celeste); color: var(--celeste); cursor: pointer; }
         .asiento-libre.seleccionado { background: var(--amarillo); border-color: var(--amarillo); color: black; }
-        .asiento-ocupado { background: #1a1a1a; border: 2px solid #333; color: #555; }
+        .asiento-ocupado { background: #1a1a1a; border: 2px solid #333; color: #555; cursor: not-allowed; }
         
-        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; }
+        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; transition: all 0.3s; width: 100%; }
         .btn-pedir:disabled { background: #333; color: #666; }
-        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
+        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; width: 100%; }
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -58,8 +59,8 @@
         <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
         
         <select id="sentido-select">
-            <option value="IDA">Hacia IDA (Rojo)</option>
-            <option value="VUELTA" selected>Hacia VUELTA (Celeste)</option>
+            <option value="IDA">Hacia IDA</option>
+            <option value="VUELTA" selected>Hacia VUELTA</option>
         </select>
         
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
@@ -97,75 +98,110 @@
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // RUTA: Celeste con grosor (Igual al conductor)
-    const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00BFFF', weight: 8, opacity: 0.7 }).addTo(map);
-
-    // PARADAS: Círculos Celestes con borde Negro
-    paradas.forEach(p => L.circleMarker(p.c, { 
-        radius: 6, 
-        color: '#000000', 
-        weight: 2, 
-        fillColor: '#00BFFF', 
-        fillOpacity: 1 
-    }).addTo(map));
+    // DIBUJO MAESTRO: Círculos con borde negro
+    paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#000', weight: 2, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map));
 
     const iconP = L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] });
-    
-    // ICONO TAXI: Más grande para que el pasajero te vea bien
-    const iconT = L.divIcon({ html: '<span style="font-size:35px;">🚕</span>', className: 'taxi-icon', iconAnchor: [17, 17] });
-    const iconTPasado = L.divIcon({ html: '<span style="font-size:35px; opacity:0.4; filter: grayscale(1);">🚕</span>', iconAnchor: [17, 17] });
+    // FLECHA AZUL MAESTRA
+    const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', className: 'dest-arrow', iconAnchor: [10, 11] });
+    const iconT = L.divIcon({ html: '<span style="font-size:30px;">🚕</span>', iconAnchor: [15, 15] });
 
     let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
+    let markerDestinoFlecha = L.marker([0,0], { icon: iconDest });
     let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
     let markerTaxis = {};
-
-    let miLat = 0, miLon = 0, gpsListo = false, miViajeActivo = false;
+    let miLat = 0, miLon = 0, gpsListo = false;
     let asientosElegidos = [], cocheSeleccionado = null;
 
-    // Llenar select de paradas
     const selDest = document.getElementById('destino-select');
     paradas.forEach((p, i) => { 
         const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); 
     });
 
-    // GPS Pasajero
+    // GPS WATCHER
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
         markerPasajero.setLatLng([miLat, miLon]);
+        actualizarRutaVisual();
         if(!gpsListo) {
             gpsListo = true;
             document.getElementById('btn-pedir').disabled = false;
             document.getElementById('btn-pedir').innerText = "SELECCIONÁ TU DESTINO";
             const s = document.getElementById('splash'); 
-            s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800);
+            if(s) { s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800); }
         }
     }, null, { enableHighAccuracy: true });
 
-    // Cambiar color de ruta según sentido (Para que el pasajero entienda IDA/VUELTA)
-    document.getElementById('sentido-select').addEventListener('change', (e) => {
-        const color = e.target.value === 'IDA' ? '#FF0000' : '#00BFFF';
-        rutaLine.setStyle({ color: color });
+    function actualizarRutaVisual() {
+        const val = document.getElementById('destino-select').value;
+        if(val !== "" && miLat !== 0) {
+            const dest = paradas[val].c;
+            guiaDestino.setLatLngs([[miLat, miLon], dest]);
+            markerDestinoFlecha.setLatLng(dest).addTo(map);
+            map.fitBounds(L.latLngBounds([miLat, miLon], dest), { padding: [50, 50] });
+        }
+    }
+
+    document.getElementById('destino-select').addEventListener('change', () => {
+        actualizarRutaVisual();
         renderizarFlotaDisponible();
     });
 
-    // ... (El resto de las funciones de lógica: confirmarViajePasajero, finalizarViaje, etc., se mantienen iguales al código que me pasaste) ...
-    // Nota: Para no hacer el mensaje eterno, mantuve la estructura visual. Copiá las funciones de tu archivo original aquí debajo.
-
-    async function actualizarMapaTaxis() {
-        const sentidoSeleccionado = document.getElementById('sentido-select').value;
-        const { data: moviles } = await _s.from('estado_movil').select('*').eq('esta_online', true).eq('sentido_flujo', sentidoSeleccionado);
-        
-        if (moviles) {
-            moviles.forEach(t => {
-                if(markerTaxis[t.id]) {
-                    markerTaxis[t.id].setLatLng([t.latitud, t.longitud]);
-                } else {
-                    markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map);
-                }
-            });
-        }
+    function actualizarBotonMaestro() {
+        const btn = document.getElementById('btn-pedir');
+        const dest = document.getElementById('destino-select').value;
+        if (!dest) { btn.innerText = "SELECCIONÁ TU DESTINO"; btn.disabled = true; }
+        else if (asientosElegidos.length === 0) { btn.innerText = "SELECCIONÁ UN ASIENTO"; btn.disabled = true; }
+        else { btn.innerText = `🏁 RESERVAR ${asientosElegidos.length} ASIENTO(S)`; btn.disabled = false; }
     }
-    setInterval(actualizarMapaTaxis, 15000);
+
+    // Funciones de renderizado y lógica de reserva... (Recuperadas de tu versión estable)
+    async function renderizarFlotaDisponible() {
+        const container = document.getElementById('flota-container');
+        const destIdx = document.getElementById('destino-select').value;
+        if (!destIdx) return;
+        
+        container.innerHTML = '<div class="sin-coches"><span class="spinner"></span>Buscando móviles...</div>';
+        
+        const { data: moviles } = await _s.from('estado_movil').select('*').eq('esta_online', true).eq('sentido_flujo', document.getElementById('sentido-select').value);
+        
+        if (!moviles || moviles.length === 0) {
+            container.innerHTML = '<div class="sin-coches">🚫 No hay móviles disponibles</div>';
+            return;
+        }
+
+        let html = '';
+        moviles.forEach(m => {
+            const estaSeleccionado = cocheSeleccionado === m.id;
+            html += `
+            <div class="coche-card ${estaSeleccionado ? 'seleccionado' : ''}" id="coche-card-${m.id}">
+                <div class="coche-header">
+                    <span class="coche-num">🚗 Coche ${m.id}</span>
+                    <span class="coche-dist">📍 Disponible</span>
+                </div>
+                <div class="asientos-row">
+                    ${[1,2,3,4].map(n => `<div class="asiento-box asiento-libre" id="as-${m.id}-${n}" onclick="seleccionarAsiento(${m.id}, ${n})"><div style="font-weight:bold">${n}</div><div>LIBRE</div></div>`).join('')}
+                </div>
+            </div>`;
+        });
+        container.innerHTML = html;
+        actualizarBotonMaestro();
+    }
+
+    function seleccionarAsiento(id, num) {
+        cocheSeleccionado = id;
+        const el = document.getElementById(`as-${id}-${num}`);
+        if(asientosElegidos.includes(num)) {
+            asientosElegidos = asientosElegidos.filter(a => a !== num);
+            el.classList.remove('seleccionado');
+        } else {
+            if(asientosElegidos.length < 2) {
+                asientosElegidos.push(num);
+                el.classList.add('seleccionado');
+            } else { alert("Máximo 2 asientos"); }
+        }
+        actualizarBotonMaestro();
+    }
 </script>
 </body>
 </html>
