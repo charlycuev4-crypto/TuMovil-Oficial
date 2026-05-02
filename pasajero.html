@@ -24,42 +24,19 @@
         .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
         
-        /* === FLOTA CON ASIENTOS === */
         .flota-container { max-height: 220px; overflow-y: auto; }
-        .coche-card { background: #1a1a1a; border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; animation: slideIn 0.3s ease; }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .coche-card { background: #1a1a1a; border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; }
         .coche-card.seleccionado { border-color: var(--celeste); box-shadow: 0 0 8px rgba(0,210,255,0.3); }
-        .coche-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-        .coche-num { font-weight: bold; font-size: 13px; color: white; }
-        .coche-info { font-size: 10px; color: #888; }
-        .coche-dist { font-size: 10px; color: var(--amarillo); }
-        
-        .asientos-row { display: flex; gap: 5px; justify-content: center; }
-        .asiento-box { 
-            width: 52px; height: 48px; border-radius: 8px; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-size: 10px; transition: all 0.2s;
-        }
-        .asiento-libre { 
-            background: #2a2a2a; border: 2px solid var(--celeste); color: var(--celeste); cursor: pointer;
-        }
-        .asiento-libre:hover { background: var(--celeste); color: black; }
+        .asientos-row { display: flex; gap: 5px; justify-content: center; margin-top: 8px; }
+        .asiento-box { width: 52px; height: 48px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; }
+        .asiento-libre { background: #2a2a2a; border: 2px solid var(--celeste); color: var(--celeste); cursor: pointer; }
         .asiento-libre.seleccionado { background: var(--amarillo); border-color: var(--amarillo); color: black; }
-        .asiento-ocupado { 
-            background: #1a1a1a; border: 2px solid #333; color: #555; cursor: not-allowed;
-        }
-        .asiento-num { font-size: 12px; font-weight: bold; }
-        .asiento-nombre { font-size: 9px; text-align: center; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 44px; }
-        .asiento-lock { font-size: 9px; }
-        
-        .sin-coches { text-align: center; padding: 15px; color: #666; font-size: 12px; }
-        .sin-coches b { color: #ff4444; display: block; margin-bottom: 4px; }
+        .asiento-ocupado { background: #1a1a1a; border: 2px solid #333; color: #555; }
 
-        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; transition: all 0.3s; }
-        .btn-pedir:disabled { background: #333; color: #666; }
-        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
+        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; width: 100%; }
+        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; width: 100%; }
         
-        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; }
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
@@ -68,7 +45,6 @@
     <div id="splash">
         <div class="anillo"><span style="font-size: 60px;">🚕</span></div>
         <h2 style="color: var(--celeste); margin-top: 20px;">TUMOVIL</h2>
-        <p style="color: white; font-size: 12px;">Conectando al sistema...</p>
     </div>
 
     <div class="header"><h1>SOLICITAR VIAJE</h1></div>
@@ -87,24 +63,15 @@
             <option value="" disabled selected>¿A qué parada vas?</option>
         </select>
         
-        <!-- FLOTA CON ASIENTOS VISIBLES -->
-        <div class="flota-container" id="flota-container">
-            <div class="sin-coches">📍 Seleccioná tu destino para ver coches</div>
-        </div>
+        <div class="flota-container" id="flota-container"></div>
         
         <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ BUSCANDO GPS...</button>
         <button class="btn-cancelar" id="btn-cancelar" onclick="finalizarViaje()">TERMINAR MI VIAJE</button>
     </div>
 
 <script>
-    // ============================================
-    // SUPABASE
-    // ============================================
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // ============================================
-    // PARADAS (hardcodeadas - bajo consumo)
-    // ============================================
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -121,536 +88,80 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    // ============================================
-    // MAPA
-    // ============================================
+    // === MAPA CONFIG ===
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#00d2ff' }).addTo(map));
+
+    // Puntos de paradas con borde negro
+    paradas.forEach(p => {
+        L.circleMarker(p.c, { 
+            radius: 6, 
+            color: '#000', 
+            weight: 2, 
+            fillColor: '#00d2ff', 
+            fillOpacity: 1 
+        }).addTo(map);
+    });
 
     const iconP = L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] });
-    const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', className: 'dest-arrow', iconAnchor: [10, 11] });
-    const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
-    const iconTPasado = L.divIcon({ html: '<span style="font-size:25px; opacity:0.4; filter: grayscale(1);">🚕</span>', iconAnchor: [12, 12] });
-
+    // Flecha de destino azul (Css master)
+    const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 5px #007AFF);"></div>', className: 'dest-arrow', iconAnchor: [10, 11] });
+    
     let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
     let markerDestinoFlecha = L.marker([0,0], { icon: iconDest });
     let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
-    let markerTaxis = {};
 
-    // ============================================
-    // VARIABLES GLOBALES
-    // ============================================
-    let miLat = 0, miLon = 0;
-    let asientosElegidos = [];
-    let miViajeActivo = false;
-    let cocheSeleccionado = null;
-    let ultimaFlotaHTML = '';
-    let ultimoEstadoBoton = '';
-    let gpsListo = false;
+    let miLat = 0, miLon = 0, miViajeActivo = false, gpsListo = false;
 
-    // ============================================
-    // SELECT DE PARADAS
-    // ============================================
-    const selDest = document.getElementById('destino-select');
-    paradas.forEach((p, i) => { 
-        const opt = document.createElement('option'); 
-        opt.value = i; 
-        opt.innerText = p.n; 
-        selDest.appendChild(opt); 
-    });
-
-    // ============================================
-    // CALCULAR PARADA MÁS CERCANA
-    // ============================================
-    function calcularParadaMasCerca(lat, lon) {
-        let minDist = Infinity, paradaIdx = -1;
-        paradas.forEach((p, i) => {
-            const dist = Math.sqrt(Math.pow(lat - p.c[0], 2) + Math.pow(lon - p.c[1], 2));
-            if (dist < minDist) { minDist = dist; paradaIdx = i; }
-        });
-        return paradaIdx;
-    }
-
-    function movilPuedeRecoger(movilParada, paradaPasajero, sentido) {
-        if (sentido === 'IDA') return movilParada <= paradaPasajero;
-        return movilParada >= paradaPasajero;
-    }
-
-    // ============================================
-    // CARGAR VIAJE ACTIVO (al iniciar)
-    // ============================================
+    // === INICIALIZACIÓN ===
     window.onload = async () => {
+        const sel = document.getElementById('destino-select');
+        paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; sel.appendChild(opt); });
+
         const nombreGuardado = localStorage.getItem('usuario_nombre');
         if(nombreGuardado) {
             document.getElementById('nombre-input').value = nombreGuardado;
-            try {
-                const { data, error } = await _s.from('reservas_activas')
-                    .select('*')
-                    .eq('nombre_pasajero', nombreGuardado)
-                    .eq('estado', 'en_curso');
-                
-                if (error) throw error;
-                
-                if(data && data.length > 0) {
-                    miViajeActivo = true;
-                    asientosElegidos = data.map(r => r.asiento_num);
-                    document.getElementById('destino-select').value = data[0].destino_idx;
-                    bloquearPanelParaViajeActivo();
-                }
-            } catch (err) { console.error("Error al cargar viaje activo:", err); }
+            const { data } = await _s.from('reservas_activas').select('*').eq('nombre_pasajero', nombreGuardado).eq('estado', 'en_curso');
+            if(data && data.length > 0) {
+                miViajeActivo = true;
+                document.getElementById('destino-select').value = data[0].destino_idx;
+                bloquearPanelParaViajeActivo();
+                actualizarMapaRuta();
+            }
         }
     };
 
-    function bloquearPanelParaViajeActivo() {
-        document.getElementById('btn-pedir').style.display = 'none';
-        document.getElementById('btn-cancelar').style.display = 'block';
-        document.getElementById('nombre-input').disabled = true;
-        document.getElementById('destino-select').disabled = true;
-        document.getElementById('sentido-select').disabled = true;
-        document.getElementById('flota-container').innerHTML = 
-            '<div class="sin-coches">✅ Ya tenés un viaje activo</div>';
-    }
-
-    // ============================================
-    // GPS (watchPosition - solo una vez)
-    // ============================================
-    navigator.geolocation.watchPosition(p => {
-        miLat = p.coords.latitude; 
-        miLon = p.coords.longitude;
-        markerPasajero.setLatLng([miLat, miLon]);
-        actualizarMapaRuta();
-        
-        if(!gpsListo) {
-            gpsListo = true;
-            document.getElementById('btn-pedir').disabled = false;
-            if(!miViajeActivo) document.getElementById('btn-pedir').innerText = "SELECCIONÁ TU DESTINO";
-        }
-        
-        const s = document.getElementById('splash'); 
-        if(s) { s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800); }
-    }, (err) => {
-        console.error("GPS Error:", err);
-        document.getElementById('btn-pedir').innerText = "⚠️ GPS NO DISPONIBLE";
-    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
-
-    // ============================================
-    // MAPA RUTA
-    // ============================================
     function actualizarMapaRuta() {
         const val = document.getElementById('destino-select').value;
         if(val !== "" && miLat !== 0) {
             const dest = paradas[val].c;
             guiaDestino.setLatLngs([[miLat, miLon], dest]);
             markerDestinoFlecha.setLatLng(dest).addTo(map);
-            const bounds = L.latLngBounds([miLat, miLon], dest);
-            map.fitBounds(bounds, { padding: [80, 80] });
         }
     }
 
-    // ============================================
-    // EVENT LISTENERS (solo al cambiar destino/sentido)
-    // ============================================
-    document.getElementById('destino-select').addEventListener('change', () => {
-        actualizarMapaRuta();
-        renderizarFlotaDisponible();
-    });
-    
-    document.getElementById('sentido-select').addEventListener('change', () => {
-        renderizarFlotaDisponible();
-    });
+    document.getElementById('destino-select').addEventListener('change', actualizarMapaRuta);
 
-    // ============================================
-    // SELECCIONAR ASIENTO
-    // ============================================
-    function seleccionarAsiento(cocheId, numAsiento) {
-        if (miViajeActivo) return;
-        
-        // Si cambia de coche, limpiar todo
-        if (cocheSeleccionado && cocheSeleccionado !== cocheId) {
-            asientosElegidos = [];
-            document.querySelectorAll('.asiento-libre').forEach(el => el.classList.remove('seleccionado'));
-            document.querySelectorAll('.coche-card').forEach(el => el.classList.remove('seleccionado'));
-        }
-        
-        cocheSeleccionado = cocheId;
-        
-        const idx = asientosElegidos.indexOf(numAsiento);
-        const el = document.getElementById(`as-${cocheId}-${numAsiento}`);
-        
-        if (idx > -1) {
-            asientosElegidos.splice(idx, 1);
-            if(el) el.classList.remove('seleccionado');
-        } else {
-            if (asientosElegidos.length >= 2) {
-                alert("Máximo 2 asientos por pasajero");
-                return;
-            }
-            asientosElegidos.push(numAsiento);
-            if(el) el.classList.add('seleccionado');
-        }
-        
-        document.querySelectorAll('.coche-card').forEach(el => el.classList.remove('seleccionado'));
-        const card = document.getElementById(`coche-card-${cocheId}`);
-        if(card) card.classList.add('seleccionado');
-        
-        actualizarBoton();
+    function bloquearPanelParaViajeActivo() {
+        document.getElementById('btn-pedir').style.display = 'none';
+        document.getElementById('btn-cancelar').style.display = 'block';
+        document.getElementById('flota-container').innerHTML = '<div style="text-align:center; padding:20px; color:white;">✅ Viaje en curso</div>';
     }
 
-    // ============================================
-    // ACTUALIZAR BOTÓN (sin tocar el DOM si no cambió)
-    // ============================================
-    function actualizarBoton() {
-        const btn = document.getElementById('btn-pedir');
-        let nuevoTexto = '';
-        let nuevoDisabled = true;
-        
-        if (!gpsListo) {
-            nuevoTexto = "⌛ BUSCANDO GPS...";
-        } else if (!document.getElementById('destino-select').value) {
-            nuevoTexto = "SELECCIONÁ TU DESTINO";
-        } else if (asientosElegidos.length > 0) {
-            nuevoTexto = `🏁 RESERVAR ${asientosElegidos.length} ASIENTO(S)`;
-            nuevoDisabled = false;
-        } else {
-            nuevoTexto = "SELECCIONÁ UN ASIENTO";
-        }
-        
-        // Solo actualizar si cambió (evita reflows)
-        if (nuevoTexto !== ultimoEstadoBoton) {
-            btn.innerText = nuevoTexto;
-            btn.disabled = nuevoDisabled;
-            ultimoEstadoBoton = nuevoTexto;
-        }
-    }
+    navigator.geolocation.watchPosition(p => {
+        miLat = p.coords.latitude; miLon = p.coords.longitude;
+        markerPasajero.setLatLng([miLat, miLon]);
+        if(document.getElementById('destino-select').value) actualizarMapaRuta();
+        if(!gpsListo) { gpsListo = true; document.getElementById('btn-pedir').disabled = false; }
+        document.getElementById('splash').style.opacity = '0';
+        setTimeout(() => document.getElementById('splash').style.visibility = 'hidden', 800);
+    }, null, { enableHighAccuracy: true });
 
-    // ============================================
-    // RENDERIZAR FLOTA (principal)
-    // ============================================
-    async function renderizarFlotaDisponible() {
-        if (miViajeActivo) return;
-        
-        const container = document.getElementById('flota-container');
-        const sentido = document.getElementById('sentido-select').value;
-        const destIdx = document.getElementById('destino-select').value;
-        
-        // Sin destino
-        if (!destIdx) {
-            container.innerHTML = '<div class="sin-coches">📍 Seleccioná tu destino para ver coches</div>';
-            ultimaFlotaHTML = '';
-            actualizarBoton();
-            return;
-        }
-        
-        // Sin GPS aún
-        if (!gpsListo) {
-            container.innerHTML = '<div class="sin-coches">⌛ Esperando señal GPS...</div>';
-            ultimaFlotaHTML = '';
-            actualizarBoton();
-            return;
-        }
-        
-        container.innerHTML = '<div class="sin-coches"><span class="spinner"></span>Buscando móviles...</div>';
-        actualizarBoton();
-        
-        try {
-            // ==== CONSULTA ÚNICA A SUPABASE (bajo consumo) ====
-            const { data: moviles, error: errMoviles } = await _s.from('estado_movil')
-                .select('id, latitud, longitud, chofer')
-                .eq('esta_online', true)
-                .eq('sentido_flujo', sentido)
-                .neq('latitud', 0)
-                .order('id');
-            
-            if (errMoviles) throw errMoviles;
-            
-            // ❌ CASO 1: No hay coches online
-            if (!moviles || moviles.length === 0) {
-                const html = '<div class="sin-coches"><b>🚫 No hay móviles en este momento</b><br>Intentá en unos minutos</div>';
-                if (html !== ultimaFlotaHTML) { container.innerHTML = html; ultimaFlotaHTML = html; }
-                ultimoEstadoBoton = ''; actualizarBoton();
-                return;
-            }
-            
-            // Calcular paradas y filtrar
-            const movilesConParada = moviles.map(m => ({
-                ...m,
-                paradaCalculada: calcularParadaMasCerca(m.latitud, m.longitud),
-                distancia: Math.sqrt(Math.pow(miLat - m.latitud, 2) + Math.pow(miLon - m.longitud, 2))
-            }));
-            
-            const movilesValidos = movilesConParada.filter(m => 
-                movilPuedeRecoger(m.paradaCalculada, parseInt(destIdx), sentido)
-            ).sort((a, b) => a.distancia - b.distancia);
-            
-            // ❌ CASO 2: Hay coches pero todos pasaron
-            if (movilesValidos.length === 0) {
-                const html = '<div class="sin-coches"><b>🚫 Todos los autos ya pasaron tu parada</b><br>Esperá al siguiente recorrido</div>';
-                if (html !== ultimaFlotaHTML) { container.innerHTML = html; ultimaFlotaHTML = html; }
-                ultimoEstadoBoton = ''; actualizarBoton();
-                return;
-            }
-            
-            // Verificar asientos de cada coche
-            let hayCochesConLugar = false;
-            let html = '';
-            
-            for (const movil of movilesValidos) {
-                const { data: ocupados } = await _s.from('reservas_activas')
-                    .select('asiento_num, nombre_pasajero')
-                    .eq('id_movil', movil.id)
-                    .eq('estado', 'en_curso');
-                
-                const asientosOcupados = {};
-                if (ocupados) {
-                    ocupados.forEach(r => { asientosOcupados[r.asiento_num] = r.nombre_pasajero; });
-                }
-                
-                const asientosLibres = [1,2,3,4].filter(n => !asientosOcupados[n]);
-                if (asientosLibres.length > 0) hayCochesConLugar = true;
-                
-                const estaSeleccionado = cocheSeleccionado === movil.id;
-                const distanciaKm = (movil.distancia * 111).toFixed(1);
-                
-                html += `
-                <div class="coche-card ${estaSeleccionado ? 'seleccionado' : ''}" id="coche-card-${movil.id}">
-                    <div class="coche-header">
-                        <div>
-                            <span class="coche-num">🚗 Coche ${movil.id}</span>
-                            <div class="coche-info">${movil.chofer || 'Conductor'}</div>
-                        </div>
-                        <div class="coche-dist">📍 ${distanciaKm} km</div>
-                    </div>
-                    <div class="asientos-row">
-                        ${[1,2,3,4].map(num => {
-                            const nombreOcupante = asientosOcupados[num];
-                            const seleccionado = estaSeleccionado && asientosElegidos.includes(num);
-                            
-                            if (nombreOcupante) {
-                                const nombreCorto = nombreOcupante.length > 7 ? nombreOcupante.substring(0,6)+'…' : nombreOcupante;
-                                return `
-                                <div class="asiento-box asiento-ocupado" title="${nombreOcupante}">
-                                    <div class="asiento-num">${num}</div>
-                                    <div class="asiento-nombre">${nombreCorto}</div>
-                                    <div class="asiento-lock">🔒</div>
-                                </div>`;
-                            } else {
-                                return `
-                                <div class="asiento-box asiento-libre ${seleccionado ? 'seleccionado' : ''}" 
-                                     id="as-${movil.id}-${num}"
-                                     onclick="seleccionarAsiento(${movil.id}, ${num})">
-                                    <div class="asiento-num">${num}</div>
-                                    <div style="font-size:9px;">LIBRE</div>
-                                </div>`;
-                            }
-                        }).join('')}
-                    </div>
-                    <div class="coche-info" style="margin-top:4px; text-align:center;">
-                        ${asientosLibres.length === 0 ? '<span style="color:#ff4444;">🚫 LLENO</span>' : 
-                          asientosLibres.length === 4 ? '<span style="color:#28a745;">✅ Todos libres</span>' :
-                          `${asientosLibres.length} libre(s)`}
-                    </div>
-                </div>`;
-            }
-            
-            // ❌ CASO 3: Todos los coches válidos están llenos
-            if (!hayCochesConLugar) {
-                const html = '<div class="sin-coches"><b>🚫 Todos los móviles están llenos</b><br>Intentá en unos minutos</div>';
-                if (html !== ultimaFlotaHTML) { container.innerHTML = html; ultimaFlotaHTML = html; }
-                ultimoEstadoBoton = ''; actualizarBoton();
-                return;
-            }
-            
-            // ✅ CASO 4: Hay coches con lugar
-            if (html !== ultimaFlotaHTML) {
-                container.innerHTML = html;
-                ultimaFlotaHTML = html;
-                
-                // Restaurar selección visual
-                if (cocheSeleccionado) {
-                    const card = document.getElementById(`coche-card-${cocheSeleccionado}`);
-                    if(card) card.classList.add('seleccionado');
-                    asientosElegidos.forEach(n => {
-                        const el = document.getElementById(`as-${cocheSeleccionado}-${n}`);
-                        if(el) el.classList.add('seleccionado');
-                    });
-                }
-            }
-            
-            actualizarBoton();
-            
-        } catch (err) {
-            console.error("Error:", err);
-            const html = '<div class="sin-coches"><b>❌ Error de conexión</b><br>Verificá tu internet</div>';
-            if (html !== ultimaFlotaHTML) { container.innerHTML = html; ultimaFlotaHTML = html; }
-            ultimoEstadoBoton = ''; actualizarBoton();
-        }
-    }
-
-    // ============================================
-    // CONFIRMAR VIAJE
-    // ============================================
-    async function confirmarViajePasajero() {
-        const nom = document.getElementById('nombre-input').value.trim();
-        const destIdx = parseInt(document.getElementById('destino-select').value);
-        
-        if (!nom) { alert("Ingresá tu nombre."); return; }
-        if (isNaN(destIdx)) { alert("Seleccioná una parada de destino."); return; }
-        if (!cocheSeleccionado || asientosElegidos.length === 0) { 
-            alert("Seleccioná un coche y al menos un asiento."); 
-            return; 
-        }
-        
-        const btn = document.getElementById('btn-pedir');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span>RESERVANDO...';
-
-        try {
-            // Verificar que sigue libre
-            const { data: ocupados } = await _s.from('reservas_activas')
-                .select('asiento_num')
-                .eq('id_movil', cocheSeleccionado)
-                .eq('estado', 'en_curso');
-            
-            const asientosOcupados = ocupados ? ocupados.map(r => r.asiento_num) : [];
-            const colision = asientosElegidos.some(a => asientosOcupados.includes(a));
-            
-            if (colision) {
-                alert("❌ Algunos asientos ya fueron tomados. Elegí otros.");
-                asientosElegidos = [];
-                cocheSeleccionado = null;
-                ultimaFlotaHTML = '';
-                renderizarFlotaDisponible();
-                return;
-            }
-            
-            // Crear reservas
-            const reservas = asientosElegidos.map(n => ({ 
-                asiento_num: n, 
-                id_movil: cocheSeleccionado, 
-                estado: 'en_curso', 
-                nombre_pasajero: nom, 
-                pasajero_lat: miLat, 
-                pasajero_lon: miLon, 
-                destino_idx: destIdx 
-            }));
-
-            const { error: errInsert } = await _s.from('reservas_activas').insert(reservas);
-            if (errInsert) throw errInsert;
-
-            localStorage.setItem('usuario_nombre', nom);
-            location.reload();
-
-        } catch (err) {
-            console.error("Error:", err);
-            alert(err.message || "Error de conexión.");
-            btn.disabled = false;
-            btn.innerText = "SELECCIONÁ UN ASIENTO";
-        }
-    }
-
-    // ============================================
-    // FINALIZAR VIAJE
-    // ============================================
     async function finalizarViaje() {
-        const btn = document.getElementById('btn-cancelar');
-        const nom = document.getElementById('nombre-input').value.trim();
-        
-        if (btn.disabled) return;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span>FINALIZANDO...';
-
-        if (!nom) {
-            alert("Error: No se encontró tu nombre.");
-            btn.disabled = false;
-            btn.innerText = "TERMINAR MI VIAJE";
-            return;
-        }
-
-        try {
-            const { data, error } = await _s.from('reservas_activas')
-                .update({ estado: 'finalizado' })
-                .eq('nombre_pasajero', nom)
-                .eq('estado', 'en_curso')
-                .select();
-
-            if (error) throw error;
-            
-            if (!data || data.length === 0) {
-                alert("No se encontró viaje activo para finalizar.");
-                btn.disabled = false;
-                btn.innerText = "TERMINAR MI VIAJE";
-                return;
-            }
-
-            location.reload();
-            
-        } catch (err) {
-            console.error("Error al finalizar:", err);
-            alert("Error de conexión al finalizar. Intentá de nuevo.");
-            btn.disabled = false;
-            btn.innerText = "TERMINAR MI VIAJE";
-        }
+        const nom = localStorage.getItem('usuario_nombre');
+        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('nombre_pasajero', nom).eq('estado', 'en_curso');
+        location.reload();
     }
-
-    // ============================================
-    // MAPA: Actualizar posición de taxis (bajo consumo)
-    // ============================================
-    async function actualizarMapaTaxis() {
-        const sentidoSeleccionado = document.getElementById('sentido-select').value;
-        const destIdx = document.getElementById('destino-select').value;
-        
-        try {
-            const { data: moviles, error } = await _s.from('estado_movil')
-                .select('id, latitud, longitud')
-                .eq('esta_online', true)
-                .eq('sentido_flujo', sentidoSeleccionado)
-                .neq('latitud', 0);
-            
-            if (error) throw error;
-
-            if (moviles) {
-                const idsOnline = moviles.map(m => m.id.toString());
-                
-                Object.keys(markerTaxis).forEach(id => {
-                    if(!idsOnline.includes(id)) {
-                        map.removeLayer(markerTaxis[id]);
-                        delete markerTaxis[id];
-                    }
-                });
-
-                moviles.forEach(t => {
-                    let yaPaso = false;
-                    if (destIdx !== "") {
-                        const paradaMovil = calcularParadaMasCerca(t.latitud, t.longitud);
-                        yaPaso = !movilPuedeRecoger(paradaMovil, parseInt(destIdx), sentidoSeleccionado);
-                    }
-
-                    const iconoUsar = yaPaso ? iconTPasado : iconT;
-
-                    if(markerTaxis[t.id]) {
-                        markerTaxis[t.id].setLatLng([t.latitud, t.longitud]);
-                        markerTaxis[t.id].setIcon(iconoUsar);
-                    } else {
-                        markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconoUsar }).addTo(map);
-                    }
-                });
-            }
-        } catch (err) {
-            console.error("Error actualizando flota:", err);
-        }
-    }
-
-    // ============================================
-    // REFRESCO PERIÓDICO (bajo consumo: cada 15 segundos)
-    // ============================================
-    // Solo mapa de taxis, la flota se actualiza manual al cambiar destino/sentido
-    setInterval(() => {
-        if (!miViajeActivo) actualizarMapaTaxis();
-    }, 15000);
-
-    // Primera carga
-    actualizarMapaTaxis();
 </script>
 </body>
 </html>
