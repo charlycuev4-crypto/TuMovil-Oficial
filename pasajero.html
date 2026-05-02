@@ -10,93 +10,49 @@
     <style>
         :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --success: #28a745; --danger: #dc3545; }
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-        
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
         .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-
         .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; flex-shrink: 0; }
         .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
-
         #map { flex-grow: 1; width: 100%; }
-        
         .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 50vh; overflow-y: auto; }
         .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
-        
         .flota-container { max-height: 220px; overflow-y: auto; }
-        .coche-card { background: #1a1a1a; border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; animation: slideIn 0.3s ease; }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .coche-card { background: #1a1a1a; border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; }
         .coche-card.seleccionado { border-color: var(--celeste); box-shadow: 0 0 8px rgba(0,210,255,0.3); }
-        .coche-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-        .coche-num { font-weight: bold; font-size: 13px; color: white; }
-        .coche-info { font-size: 10px; color: #888; }
-        .coche-dist { font-size: 10px; color: var(--amarillo); }
-        
+        .coche-header { display: flex; flex-direction: column; margin-bottom: 8px; }
+        .coche-num { font-weight: bold; font-size: 14px; color: var(--celeste); }
+        .coche-info { font-size: 11px; color: #bbb; margin-top: 2px; }
         .asientos-row { display: flex; gap: 5px; justify-content: center; }
-        .asiento-box { 
-            width: 52px; height: 48px; border-radius: 8px; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-size: 10px; transition: all 0.2s;
-        }
-        .asiento-libre { 
-            background: #2a2a2a; border: 2px solid var(--celeste); color: var(--celeste); cursor: pointer;
-        }
-        .asiento-libre:hover { background: var(--celeste); color: black; }
+        .asiento-box { width: 52px; height: 48px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; }
+        .asiento-libre { background: #2a2a2a; border: 2px solid var(--celeste); color: var(--celeste); cursor: pointer; }
         .asiento-libre.seleccionado { background: var(--amarillo); border-color: var(--amarillo); color: black; }
-        .asiento-ocupado { 
-            background: #1a1a1a; border: 2px solid #333; color: #555; cursor: not-allowed;
-        }
-        .asiento-num { font-size: 12px; font-weight: bold; }
-        .asiento-nombre { font-size: 9px; text-align: center; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 44px; }
-        .asiento-lock { font-size: 9px; }
-        
-        .sin-coches { text-align: center; padding: 15px; color: #666; font-size: 12px; }
-        .sin-coches b { color: #ff4444; display: block; margin-bottom: 4px; }
-
-        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; transition: all 0.3s; }
+        .asiento-ocupado { background: #1a1a1a; border: 2px solid #333; color: #555; }
+        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; margin-top: 5px; }
         .btn-pedir:disabled { background: #333; color: #666; }
         .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
-        
-        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; }
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-
-    <div id="splash">
-        <div class="anillo"><span style="font-size: 60px;">🚕</span></div>
-        <h2 style="color: var(--celeste); margin-top: 20px;">TUMOVIL</h2>
-        <p style="color: white; font-size: 12px;">Conectando al sistema...</p>
-    </div>
-
+    <div id="splash"><div class="anillo"><span style="font-size: 60px;">🚕</span></div></div>
     <div class="header"><h1>SOLICITAR VIAJE</h1></div>
     <div id="map"></div>
-
     <div class="bottom-ui">
         <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
-        
-        <select id="sentido-select">
-            <option value="IDA">Hacia IDA</option>
-            <option value="VUELTA">Hacia VUELTA</option>
-        </select>
-        
+        <select id="sentido-select"><option value="IDA">Hacia IDA</option><option value="VUELTA">Hacia VUELTA</option></select>
         <input type="text" id="nombre-input" placeholder="Tu Nombre">
-        <select id="destino-select">
-            <option value="" disabled selected>¿A qué parada vas?</option>
-        </select>
-        
-        <div class="flota-container" id="flota-container">
-            <div class="sin-coches">📍 Seleccioná tu destino para ver coches</div>
-        </div>
-        
+        <select id="destino-select"><option value="" disabled selected>¿A qué parada vas?</option></select>
+        <div class="flota-container" id="flota-container"><div class="sin-coches">📍 Seleccioná destino</div></div>
         <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ BUSCANDO GPS...</button>
         <button class="btn-cancelar" id="btn-cancelar" onclick="finalizarViaje()">TERMINAR MI VIAJE</button>
     </div>
 
 <script>
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-
     const paradas = [
         {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
         {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
@@ -116,218 +72,78 @@
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // === ACTUALIZACIÓN VISUAL: BORDES NEGROS ===
-    paradas.forEach(p => L.circleMarker(p.c, { 
-        radius: 5, 
-        color: '#000000', 
-        weight: 2, 
-        fillColor: '#00d2ff', 
-        fillOpacity: 1 
-    }).addTo(map));
+    // BORDES NEGROS EN PARADAS
+    paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#000', weight: 2, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map));
 
     const iconP = L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] });
-    const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', className: 'dest-arrow', iconAnchor: [10, 11] });
+    const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', iconAnchor: [10, 11] });
     const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
-    const iconTPasado = L.divIcon({ html: '<span style="font-size:25px; opacity:0.4; filter: grayscale(1);">🚕</span>', iconAnchor: [12, 12] });
 
     let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
     let markerDestinoFlecha = L.marker([0,0], { icon: iconDest });
     let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
-    let markerTaxis = {};
-
-    let miLat = 0, miLon = 0;
-    let asientosElegidos = [];
-    let miViajeActivo = false;
-    let cocheSeleccionado = null;
-    let ultimaFlotaHTML = '';
-    let ultimoEstadoBoton = '';
-    let gpsListo = false;
+    let miLat = 0, miLon = 0, cocheSeleccionado = null, asientosElegidos = [], miViajeActivo = false;
 
     const selDest = document.getElementById('destino-select');
-    paradas.forEach((p, i) => { 
-        const opt = document.createElement('option'); 
-        opt.value = i; 
-        opt.innerText = p.n; 
-        selDest.appendChild(opt); 
-    });
-
-    function calcularParadaMasCerca(lat, lon) {
-        let minDist = Infinity, paradaIdx = -1;
-        paradas.forEach((p, i) => {
-            const dist = Math.sqrt(Math.pow(lat - p.c[0], 2) + Math.pow(lon - p.c[1], 2));
-            if (dist < minDist) { minDist = dist; paradaIdx = i; }
-        });
-        return paradaIdx;
-    }
-
-    function movilPuedeRecoger(movilParada, paradaPasajero, sentido) {
-        if (sentido === 'IDA') return movilParada <= paradaPasajero;
-        return movilParada >= paradaPasajero;
-    }
-
-    window.onload = async () => {
-        const nombreGuardado = localStorage.getItem('usuario_nombre');
-        if(nombreGuardado) {
-            document.getElementById('nombre-input').value = nombreGuardado;
-            try {
-                const { data, error } = await _s.from('reservas_activas')
-                    .select('*')
-                    .eq('nombre_pasajero', nombreGuardado)
-                    .eq('estado', 'en_curso');
-                if(data && data.length > 0) {
-                    miViajeActivo = true;
-                    asientosElegidos = data.map(r => r.asiento_num);
-                    document.getElementById('destino-select').value = data[0].destino_idx;
-                    bloquearPanelParaViajeActivo();
-                }
-            } catch (err) { console.error("Error:", err); }
-        }
-    };
-
-    function bloquearPanelParaViajeActivo() {
-        document.getElementById('btn-pedir').style.display = 'none';
-        document.getElementById('btn-cancelar').style.display = 'block';
-        document.getElementById('nombre-input').disabled = true;
-        document.getElementById('destino-select').disabled = true;
-        document.getElementById('sentido-select').disabled = true;
-        document.getElementById('flota-container').innerHTML = '<div class="sin-coches">✅ Ya tenés un viaje activo</div>';
-    }
+    paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
 
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
         markerPasajero.setLatLng([miLat, miLon]);
-        actualizarMapaRuta();
-        if(!gpsListo) {
-            gpsListo = true;
-            document.getElementById('btn-pedir').disabled = false;
-            if(!miViajeActivo) document.getElementById('btn-pedir').innerText = "SELECCIONÁ TU DESTINO";
-        }
-        const s = document.getElementById('splash'); 
-        if(s) { s.style.opacity = '0'; setTimeout(() => s.style.visibility = 'hidden', 800); }
-    }, (err) => { console.error("GPS Error:", err); }, { enableHighAccuracy: true });
-
-    function actualizarMapaRuta() {
-        const val = document.getElementById('destino-select').value;
-        if(val !== "" && miLat !== 0) {
-            const dest = paradas[val].c;
-            guiaDestino.setLatLngs([[miLat, miLon], dest]);
-            markerDestinoFlecha.setLatLng(dest).addTo(map);
-            map.fitBounds(L.latLngBounds([miLat, miLon], dest), { padding: [80, 80] });
-        }
-    }
-
-    document.getElementById('destino-select').addEventListener('change', () => {
-        actualizarMapaRuta();
-        renderizarFlotaDisponible();
-    });
-    
-    document.getElementById('sentido-select').addEventListener('change', () => {
-        renderizarFlotaDisponible();
-    });
-
-    function seleccionarAsiento(cocheId, numAsiento) {
-        if (miViajeActivo) return;
-        if (cocheSeleccionado && cocheSeleccionado !== cocheId) {
-            asientosElegidos = [];
-            document.querySelectorAll('.asiento-libre').forEach(el => el.classList.remove('seleccionado'));
-        }
-        cocheSeleccionado = cocheId;
-        const idx = asientosElegidos.indexOf(numAsiento);
-        const el = document.getElementById(`as-${cocheId}-${numAsiento}`);
-        if (idx > -1) {
-            asientosElegidos.splice(idx, 1);
-            if(el) el.classList.remove('seleccionado');
-        } else {
-            if (asientosElegidos.length >= 2) { alert("Máximo 2 asientos"); return; }
-            asientosElegidos.push(numAsiento);
-            if(el) el.classList.add('seleccionado');
-        }
-        document.querySelectorAll('.coche-card').forEach(el => el.classList.remove('seleccionado'));
-        const card = document.getElementById(`coche-card-${cocheId}`);
-        if(card) card.classList.add('seleccionado');
-        actualizarBoton();
-    }
-
-    function actualizarBoton() {
-        const btn = document.getElementById('btn-pedir');
-        let nuevoTexto = ''; let nuevoDisabled = true;
-        if (!gpsListo) nuevoTexto = "⌛ BUSCANDO GPS...";
-        else if (!document.getElementById('destino-select').value) nuevoTexto = "SELECCIONÁ TU DESTINO";
-        else if (asientosElegidos.length > 0) { nuevoTexto = `🏁 RESERVAR ${asientosElegidos.length} ASIENTO(S)`; nuevoDisabled = false; }
-        else nuevoTexto = "SELECCIONÁ UN ASIENTO";
-        if (nuevoTexto !== ultimoEstadoBoton) { btn.innerText = nuevoTexto; btn.disabled = nuevoDisabled; ultimoEstadoBoton = nuevoTexto; }
-    }
+        if(!miViajeActivo) document.getElementById('btn-pedir').disabled = false;
+        document.getElementById('splash').style.display = 'none';
+    }, null, { enableHighAccuracy: true });
 
     async function renderizarFlotaDisponible() {
-        if (miViajeActivo) return;
         const container = document.getElementById('flota-container');
         const sentido = document.getElementById('sentido-select').value;
-        const destIdx = document.getElementById('destino-select').value;
-        if (!destIdx || !gpsListo) return;
-        container.innerHTML = '<div class="sin-coches"><span class="spinner"></span>Buscando móviles...</div>';
-        try {
-            const { data: moviles } = await _s.from('estado_movil').select('*').eq('esta_online', true).eq('sentido_flujo', sentido).neq('latitud', 0);
-            if (!moviles || moviles.length === 0) {
-                container.innerHTML = '<div class="sin-coches"><b>🚫 No hay móviles online</b></div>';
-                return;
-            }
-            let html = '';
-            for (const m of moviles) {
-                const paradaM = calcularParadaMasCerca(m.latitud, m.longitud);
-                if (!movilPuedeRecoger(paradaM, parseInt(destIdx), sentido)) continue;
-                const { data: ocupados } = await _s.from('reservas_activas').select('asiento_num, nombre_pasajero').eq('id_movil', m.id).eq('estado', 'en_curso');
-                const asientosOcupados = {};
-                if (ocupados) ocupados.forEach(r => { asientosOcupados[r.asiento_num] = r.nombre_pasajero; });
+        const { data: moviles } = await _s.from('estado_movil').select('*').eq('esta_online', true).eq('sentido_flujo', sentido);
+        
+        let html = '';
+        if(moviles) {
+            for(const m of moviles) {
+                const { data: res } = await _s.from('reservas_activas').select('asiento_num, nombre_pasajero').eq('id_movil', m.id).eq('estado', 'en_curso');
+                const ocupados = {}; if(res) res.forEach(r => ocupados[r.asiento_num] = r.nombre_pasajero);
+                
+                // MUESTRA NOMBRE, MODELO Y PATENTE
                 html += `
-                <div class="coche-card ${cocheSeleccionado === m.id ? 'seleccionado' : ''}" id="coche-card-${m.id}">
-                    <div class="coche-header"><span class="coche-num">🚗 Coche ${m.id}</span></div>
+                <div class="coche-card" id="coche-card-${m.id}">
+                    <div class="coche-header">
+                        <span class="coche-num">Móvil ${m.id} - ${m.chofer || 'Conductor'}</span>
+                        <span class="coche-info">${m.modelo || ''} ${m.patente || ''}</span>
+                    </div>
                     <div class="asientos-row">
-                        ${[1,2,3,4].map(num => {
-                            if (asientosOcupados[num]) return `<div class="asiento-box asiento-ocupado"><div class="asiento-num">${num}</div><div class="asiento-nombre">${asientosOcupados[num]}</div></div>`;
-                            return `<div class="asiento-box asiento-libre ${cocheSeleccionado === m.id && asientosElegidos.includes(num) ? 'seleccionado' : ''}" id="as-${m.id}-${num}" onclick="seleccionarAsiento(${m.id}, ${num})"><div class="asiento-num">${num}</div><div>LIBRE</div></div>`;
+                        ${[1,2,3,4].map(n => {
+                            if(ocupados[n]) return `<div class="asiento-box asiento-ocupado"><b>${n}</b><div style="font-size:8px">${ocupados[n]}</div></div>`;
+                            return `<div class="asiento-box asiento-libre" id="as-${m.id}-${n}" onclick="seleccionarAsiento(${m.id}, ${n})"><b>${n}</b><br>LIBRE</div>`;
                         }).join('')}
                     </div>
                 </div>`;
             }
-            container.innerHTML = html || '<div class="sin-coches"><b>🚫 Autos fuera de alcance</b></div>';
-            actualizarBoton();
-        } catch (err) { console.error(err); }
+        }
+        container.innerHTML = html || '<div class="sin-coches">No hay móviles en este sentido</div>';
+    }
+
+    function seleccionarAsiento(id, n) {
+        cocheSeleccionado = id;
+        if(asientosElegidos.includes(n)) asientosElegidos = asientosElegidos.filter(a => a !== n);
+        else if(asientosElegidos.length < 2) asientosElegidos.push(n);
+        document.querySelectorAll('.asiento-libre').forEach(el => el.classList.remove('seleccionado'));
+        asientosElegidos.forEach(a => document.getElementById(`as-${id}-${a}`).classList.add('seleccionado'));
+        document.getElementById('btn-pedir').innerText = `RESERVAR ${asientosElegidos.length} ASIENTO(S)`;
     }
 
     async function confirmarViajePasajero() {
-        const nom = document.getElementById('nombre-input').value.trim();
-        const destIdx = parseInt(document.getElementById('destino-select').value);
-        if (!nom || isNaN(destIdx) || !cocheSeleccionado || asientosElegidos.length === 0) return;
-        const btn = document.getElementById('btn-pedir');
-        btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>RESERVANDO...';
-        try {
-            const reservas = asientosElegidos.map(n => ({ asiento_num: n, id_movil: cocheSeleccionado, estado: 'en_curso', nombre_pasajero: nom, pasajero_lat: miLat, pasajero_lon: miLon, destino_idx: destIdx }));
-            await _s.from('reservas_activas').insert(reservas);
-            localStorage.setItem('usuario_nombre', nom);
-            location.reload();
-        } catch (err) { alert("Error al reservar"); btn.disabled = false; }
+        const nom = document.getElementById('nombre-input').value;
+        const dest = document.getElementById('destino-select').value;
+        if(!nom || !dest || !cocheSeleccionado) return alert("Completa todos los datos");
+        const insertData = asientosElegidos.map(a => ({ id_movil: cocheSeleccionado, asiento_num: a, nombre_pasajero: nom, destino_idx: dest, estado: 'en_curso' }));
+        await _s.from('reservas_activas').insert(insertData);
+        localStorage.setItem('usuario_nombre', nom);
+        location.reload();
     }
 
-    async function finalizarViaje() {
-        const nom = localStorage.getItem('usuario_nombre');
-        if (!nom) return;
-        try {
-            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('nombre_pasajero', nom).eq('estado', 'en_curso');
-            location.reload();
-        } catch (err) { console.error(err); }
-    }
-
-    async function actualizarMapaTaxis() {
-        const sentido = document.getElementById('sentido-select').value;
-        const { data: moviles } = await _s.from('estado_movil').select('id, latitud, longitud').eq('esta_online', true).eq('sentido_flujo', sentido).neq('latitud', 0);
-        if (moviles) {
-            moviles.forEach(t => {
-                if(markerTaxis[t.id]) markerTaxis[t.id].setLatLng([t.latitud, t.longitud]);
-                else markerTaxis[t.id] = L.marker([t.latitud, t.longitud], { icon: iconT }).addTo(map);
-            });
-        }
-    }
-    setInterval(actualizarMapaTaxis, 15000);
+    setInterval(renderizarFlotaDisponible, 5000);
 </script>
 </body>
 </html>
