@@ -32,6 +32,16 @@
             padding: 16px;
             margin-bottom: 10px;
             animation: slideIn 0.5s ease;
+            transition: border-color 0.5s ease;
+        }
+        .viaje-activo-panel.alerta-pasado {
+            border-color: var(--danger);
+            animation: shake 0.5s ease;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
         }
         .viaje-activo-header {
             display: flex;
@@ -51,6 +61,15 @@
             justify-content: center;
             font-size: 24px;
             flex-shrink: 0;
+            transition: background 0.3s ease;
+        }
+        .viaje-activo-panel.alerta-pasado .viaje-activo-icono {
+            background: var(--danger);
+            animation: pulseDanger 1s infinite;
+        }
+        @keyframes pulseDanger {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
         }
         .viaje-activo-titulo {
             flex: 1;
@@ -107,6 +126,14 @@
             gap: 6px;
             font-size: 12px;
             color: var(--success);
+            padding: 8px;
+            border-radius: 8px;
+            background: rgba(40, 167, 69, 0.1);
+        }
+        .viaje-activo-status.alerta {
+            color: var(--danger);
+            background: rgba(220, 53, 69, 0.1);
+            font-weight: bold;
         }
         .status-dot {
             width: 8px;
@@ -115,9 +142,36 @@
             border-radius: 50%;
             animation: blink 1.5s infinite;
         }
+        .status-dot.alerta {
+            background: var(--danger);
+            animation: blinkFast 0.5s infinite;
+        }
         @keyframes blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
+        }
+        @keyframes blinkFast {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+        .alerta-parada {
+            background: rgba(220, 53, 69, 0.15);
+            border: 1px solid var(--danger);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            margin-bottom: 10px;
+            animation: slideIn 0.3s ease;
+        }
+        .alerta-parada-texto {
+            color: #ff6b6b;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .alerta-parada-sub {
+            color: #ff9999;
+            font-size: 11px;
+            margin-top: 4px;
         }
 
         /* === FLOTA CON ASIENTOS === */
@@ -154,6 +208,7 @@
         .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; transition: all 0.3s; }
         .btn-pedir:disabled { background: #333; color: #666; }
         .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
+        .btn-cancelar:disabled { background: #661a22; color: #999; }
         
         .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -228,11 +283,13 @@
     const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', className: 'dest-arrow', iconAnchor: [10, 11] });
     const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
     const iconTPasado = L.divIcon({ html: '<span style="font-size:25px; opacity:0.4; filter: grayscale(1);">🚕</span>', iconAnchor: [12, 12] });
+    const iconMiCoche = L.divIcon({ html: '<div style="font-size:30px; filter: drop-shadow(0 0 8px #00d2ff);">🚕</div>', iconAnchor: [15, 15] });
 
     let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
     let markerDestinoFlecha = L.marker([0,0], { icon: iconDest });
     let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
     let markerTaxis = {};
+    let markerMiCoche = null; // Marcador del coche del pasajero durante viaje activo
 
     // ============================================
     // VARIABLES GLOBALES
@@ -244,7 +301,9 @@
     let ultimaFlotaHTML = '';
     let ultimoEstadoBoton = '';
     let gpsListo = false;
-    let datosViajeActivo = null; // Guarda info del viaje activo
+    let datosViajeActivo = null;
+    let cocheYaPaso = false; // NUEVO: indica si el coche pasó la parada del pasajero
+    let intervaloViajeActivo = null; // NUEVO: para refrescar posición del coche
 
     // ============================================
     // SELECT DE PARADAS
@@ -269,6 +328,12 @@
         return paradaIdx;
     }
 
+    // ============================================
+    // VERIFICAR SI EL MÓVIL PUEDE RECOGER AL PASAJERO
+    // ============================================
+    // Lógica del colectivo: no puede retroceder de parada
+    // IDA: paradas 0→24, el móvil puede recoger si está en parada <= parada del pasajero
+    // VUELTA: paradas 24→0, el móvil puede recoger si está en parada >= parada del pasajero
     function movilPuedeRecoger(movilParada, paradaPasajero, sentido) {
         if (sentido === 'IDA') return movilParada <= paradaPasajero;
         return movilParada >= paradaPasajero;
@@ -318,12 +383,150 @@
                 }
                 
                 bloquearPanelParaViajeActivo();
+                
+                // NUEVO: Iniciar monitoreo de posición del coche
+                iniciarMonitoreoViajeActivo();
             }
         } catch (err) { 
             console.error("Error al cargar viaje activo:", err); 
         }
     }
 
+    // ============================================
+    // MONITOREO DE VIAJE ACTIVO - NUEVO
+    // ============================================
+    function iniciarMonitoreoViajeActivo() {
+        // Primera verificación inmediata
+        verificarPosicionCoche();
+        
+        // Refrescar cada 10 segundos la posición del coche
+        intervaloViajeActivo = setInterval(verificarPosicionCoche, 10000);
+    }
+
+    async function verificarPosicionCoche() {
+        if (!miViajeActivo || !datosViajeActivo || datosViajeActivo.length === 0) return;
+        
+        const viaje = datosViajeActivo[0];
+        const idMovil = viaje.id_movil;
+        const sentido = viaje.estado_movil?.sentido_flujo || document.getElementById('sentido-select').value;
+        
+        // Calcular parada del pasajero (donde fue recogido)
+        // Usamos pasajero_lat/pasajero_lon de la reserva para saber dónde subió
+        const paradaPasajero = calcularParadaMasCerca(viaje.pasajero_lat || miLat, viaje.pasajero_lon || miLon);
+        
+        try {
+            const { data: movil, error } = await _s.from('estado_movil')
+                .select('latitud, longitud, chofer')
+                .eq('id', idMovil)
+                .single();
+            
+            if (error || !movil) {
+                console.log("No se pudo obtener posición del coche");
+                return;
+            }
+            
+            // Calcular parada actual del coche
+            const paradaCoche = calcularParadaMasCerca(movil.latitud, movil.longitud);
+            
+            // Verificar si el coche ya pasó la parada del pasajero
+            const puedeRecoger = movilPuedeRecoger(paradaCoche, paradaPasajero, sentido);
+            
+            if (!puedeRecoger && !cocheYaPaso) {
+                // El coche acaba de pasar la parada
+                cocheYaPaso = true;
+                mostrarAlertaCochePasado();
+            } else if (puedeRecoger && cocheYaPaso) {
+                // El coche volvió a estar en posición válida (raro, pero posible)
+                cocheYaPaso = false;
+                actualizarPanelViajeActivo(false);
+            }
+            
+            // Actualizar marcador del coche en el mapa
+            actualizarMarcadorMiCoche(movil.latitud, movil.longitud, cocheYaPaso);
+            
+        } catch (err) {
+            console.error("Error verificando posición:", err);
+        }
+    }
+
+    function mostrarAlertaCochePasado() {
+        // Actualizar el panel visual con alerta
+        actualizarPanelViajeActivo(true);
+        
+        // Notificación visual adicional
+        const container = document.getElementById('flota-container');
+        const alertaExistente = container.querySelector('.alerta-parada');
+        
+        if (!alertaExistente) {
+            const panel = container.querySelector('.viaje-activo-panel');
+            if (panel) {
+                const alerta = document.createElement('div');
+                alerta.className = 'alerta-parada';
+                alerta.innerHTML = `
+                    <div class="alerta-parada-texto">⚠️ EL COCHE YA PASÓ TU PARADA</div>
+                    <div class="alerta-parada-sub">El conductor no puede retroceder. Finalizá el viaje para liberar tu asiento.</div>
+                `;
+                panel.insertBefore(alerta, panel.querySelector('.viaje-activo-status'));
+            }
+        }
+        
+        // Cambiar texto del botón
+        const btn = document.getElementById('btn-cancelar');
+        btn.innerText = "🚨 FINALIZAR VIAJE (COCHE PASÓ)";
+        btn.style.background = "#ff4444";
+    }
+
+    function actualizarPanelViajeActivo(alerta) {
+        const container = document.getElementById('flota-container');
+        const panel = container.querySelector('.viaje-activo-panel');
+        if (!panel) return;
+        
+        if (alerta) {
+            panel.classList.add('alerta-pasado');
+            const status = panel.querySelector('.viaje-activo-status');
+            if (status) {
+                status.classList.add('alerta');
+                status.innerHTML = `
+                    <div class="status-dot alerta"></div>
+                    <span>⚠️ COCHE YA PASÓ - NO PUEDE RETROCEDER</span>
+                `;
+            }
+        } else {
+            panel.classList.remove('alerta-pasado');
+            const status = panel.querySelector('.viaje-activo-status');
+            if (status) {
+                status.classList.remove('alerta');
+                status.innerHTML = `
+                    <div class="status-dot"></div>
+                    <span>Conductor en camino...</span>
+                `;
+            }
+        }
+    }
+
+    function actualizarMarcadorMiCoche(lat, lon, pasado) {
+        // Remover marcador anterior si existe
+        if (markerMiCoche) {
+            map.removeLayer(markerMiCoche);
+        }
+        
+        // Crear nuevo marcador
+        const icono = pasado ? 
+            L.divIcon({ html: '<div style="font-size:30px; opacity:0.5; filter: grayscale(1);">🚕</div>', iconAnchor: [15, 15] }) :
+            iconMiCoche;
+        
+        markerMiCoche = L.marker([lat, lon], { icon: icono, zIndexOffset: 1000 }).addTo(map);
+        
+        // Si el coche pasó, centrar el mapa en el pasajero para que vea la distancia
+        if (pasado && miLat !== 0) {
+            const bounds = L.latLngBounds([miLat, miLon], [lat, lon]);
+            map.fitBounds(bounds, { padding: [100, 100] });
+        }
+    }
+
+    // ============================================
+    // PANEL VIAJE ACTIVO (bloqueo de controles)
+    // ============================================
     function bloquearPanelParaViajeActivo() {
         // Ocultar controles de búsqueda
         document.getElementById('btn-pedir').style.display = 'none';
@@ -333,6 +536,10 @@
         document.getElementById('sentido-select').disabled = true;
         
         // Generar panel de viaje activo con datos reales
+        renderizarPanelViajeActivo();
+    }
+
+    function renderizarPanelViajeActivo() {
         const container = document.getElementById('flota-container');
         
         if (!datosViajeActivo || datosViajeActivo.length === 0) {
@@ -346,7 +553,7 @@
         const asientos = datosViajeActivo.map(v => v.asiento_num).join(', ');
         
         container.innerHTML = `
-            <div class="viaje-activo-panel">
+            <div class="viaje-activo-panel" id="viaje-activo-panel">
                 <div class="viaje-activo-header">
                     <div class="viaje-activo-icono">🚗</div>
                     <div class="viaje-activo-titulo">
@@ -370,7 +577,7 @@
                     📍 Destino: ${destino.n}
                 </div>
                 
-                <div class="viaje-activo-status">
+                <div class="viaje-activo-status" id="viaje-status">
                     <div class="status-dot"></div>
                     <span>Conductor en camino...</span>
                 </div>
@@ -545,11 +752,12 @@
                 distancia: Math.sqrt(Math.pow(miLat - m.latitud, 2) + Math.pow(miLon - m.longitud, 2))
             }));
             
+            // FILTRAR: Solo coches que pueden recoger (no retroceden)
             const movilesValidos = movilesConParada.filter(m => 
                 movilPuedeRecoger(m.paradaCalculada, parseInt(destIdx), sentido)
             ).sort((a, b) => a.distancia - b.distancia);
             
-            // ❌ CASO 2: Hay coches pero todos pasaron
+            // ❌ CASO 2: Hay coches pero todos pasaron la parada del pasajero
             if (movilesValidos.length === 0) {
                 const html = '<div class="sin-coches"><b>🚫 Todos los autos ya pasaron tu parada</b><br>Esperá al siguiente recorrido</div>';
                 if (html !== ultimaFlotaHTML) { container.innerHTML = html; ultimaFlotaHTML = html; }
@@ -749,6 +957,11 @@
                 return;
             }
 
+            // Limpiar intervalo antes de recargar
+            if (intervaloViajeActivo) {
+                clearInterval(intervaloViajeActivo);
+            }
+            
             location.reload();
             
         } catch (err) {
