@@ -3,209 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TuMovil - Viaje Directo (Coche 02)</title>
+    <title>TuMovil - Servicio Privado</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --naranja: #ff6600; --dark: #0f0f0f; --panel: #1a1a1a; --success: #28a745; }
-        body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: -apple-system, sans-serif; }
+        :root { --naranja: #ff6600; --celeste: #00d2ff; --dark: #0f0f0f; --panel: #1a1a1a; }
+        body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: sans-serif; }
         
         #map { flex-grow: 1; width: 100%; z-index: 1; }
         
-        .header { background: var(--panel); border-bottom: 2px solid var(--naranja); padding: 12px; text-align: center; z-index: 10; }
-        .header h1 { margin: 0; font-size: 16px; color: var(--naranja); letter-spacing: 1px; font-weight: bold; }
+        .header { background: var(--panel); border-bottom: 2px solid var(--naranja); padding: 10px; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+        .header h1 { margin: 0; font-size: 14px; color: var(--naranja); text-transform: uppercase; }
 
-        /* BUSCADOR */
-        .search-container {
-            position: absolute;
-            top: 70px;
-            left: 10px;
-            right: 10px;
-            z-index: 1000;
-            display: flex;
-            gap: 5px;
-        }
-        .search-input {
-            flex-grow: 1;
-            background: white !important;
-            color: black !important;
-            border: 2px solid var(--naranja) !important;
-            padding: 12px;
-            border-radius: 12px;
-            font-size: 16px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-            width: 100%;
-            box-sizing: border-box;
-        }
-        .btn-search {
-            background: var(--naranja);
-            border: none;
-            border-radius: 12px;
-            padding: 0 15px;
-            color: white;
-            font-size: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        /* BOTÓN PARA IR A LA OTRA APP */
+        .btn-cambio-app { 
+            background: var(--celeste); 
+            color: black; 
+            border: none; 
+            padding: 8px 12px; 
+            border-radius: 8px; 
+            font-size: 11px; 
+            font-weight: bold; 
+            text-decoration: none;
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
         }
 
-        /* PANEL INFERIOR */
-        .bottom-ui { 
-            background: var(--panel); 
-            border-top: 2px solid var(--naranja); 
-            padding: 20px 20px env(safe-area-inset-bottom); 
-            border-radius: 25px 25px 0 0; 
-            z-index: 100; 
-            box-shadow: 0 -10px 25px rgba(0,0,0,0.5); 
-        }
-        
-        .price-tag { background: rgba(255, 102, 0, 0.1); border: 1px dashed var(--naranja); border-radius: 12px; padding: 12px; text-align: center; margin-bottom: 15px; }
-        .dist-info { font-size: 12px; color: #aaa; display: block; }
-        .price-value { font-size: 28px; font-weight: bold; color: var(--naranja); display: block; margin-top: 4px; }
+        .search-container { position: absolute; top: 65px; left: 10px; right: 10px; z-index: 1000; display: flex; gap: 5px; }
+        .search-input { flex-grow: 1; background: white !important; color: black !important; border: 2px solid var(--naranja) !important; padding: 12px; border-radius: 12px; font-size: 16px; width: 100%; box-sizing: border-box; }
+        .btn-search { background: var(--naranja); border: none; border-radius: 12px; padding: 0 15px; color: white; font-size: 20px; }
 
-        .input-nombre { background: #2a2a2a; border: 1px solid #444; color: white; padding: 15px; border-radius: 12px; font-size: 16px; width: 100%; box-sizing: border-box; margin-bottom: 12px; }
-        
-        .btn-uber { background: var(--naranja); color: white; border: none; padding: 18px; border-radius: 12px; font-weight: bold; font-size: 18px; width: 100%; transition: 0.3s; box-shadow: 0 4px 10px rgba(255,102,0,0.3); }
-        .btn-uber:disabled { background: #333; color: #666; box-shadow: none; }
-        
-        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 18px; border-radius: 12px; width: 100%; font-weight: bold; font-size: 16px; display: none; }
+        .bottom-ui { background: var(--panel); border-top: 2px solid var(--naranja); padding: 20px; border-radius: 25px 25px 0 0; z-index: 100; }
+        .price-tag { background: rgba(255, 102, 0, 0.1); border: 1px dashed var(--naranja); border-radius: 12px; padding: 10px; text-align: center; margin-bottom: 15px; }
+        .price-value { font-size: 26px; font-weight: bold; color: var(--naranja); display: block; }
 
-        .status-msg { color: #aaa; font-size: 12px; text-align: center; margin-top: 10px; }
+        .input-nombre { background: #2a2a2a; border: 1px solid #444; color: white; padding: 15px; border-radius: 12px; font-size: 16px; width: 100%; box-sizing: border-box; margin-bottom: 10px; }
+        .btn-uber { background: var(--naranja); color: white; border: none; padding: 18px; border-radius: 12px; font-weight: bold; font-size: 18px; width: 100%; }
+        .btn-uber:disabled { background: #333; color: #666; }
     </style>
 </head>
 <body>
 
-    <div class="header"><h1>TUMOVIL - SERVICIO PRIVADO</h1></div>
+    <div class="header">
+        <h1>SERVICIO PRIVADO</h1>
+        <a href="index.html" class="btn-cambio-app">🚌 LÍNEA FIJA ($1000)</a>
+    </div>
 
     <div class="search-container">
-        <input type="text" id="address-input" class="search-input" placeholder="Escribí dirección de destino...">
+        <input type="text" id="address-input" class="search-input" placeholder="¿A dónde vas? (Ej: Santa María 325)">
         <button class="btn-search" onclick="buscarDireccion()">🔍</button>
     </div>
 
     <div id="map"></div>
 
     <div class="bottom-ui">
-        <div id="panel-pedido">
-            <div class="price-tag">
-                <span class="dist-info" id="txt-distancia">Seleccioná destino en el mapa o buscador</span>
-                <span class="price-value" id="val-precio">$0</span>
-            </div>
-            
-            <input type="text" id="nombre-input" class="input-nombre" placeholder="¿Cómo te llamas?">
-            
-            <button class="btn-uber" id="btn-pedir" onclick="pedirUber()" disabled>INDICAR DESTINO</button>
-            <p class="status-msg">El Coche 02 te buscará en tu posición actual.</p>
+        <div class="price-tag">
+            <span style="color:#aaa; font-size:12px;" id="txt-distancia">Seleccioná destino</span>
+            <span class="price-value" id="val-precio">$0</span>
         </div>
-
-        <div id="panel-activo" style="display:none;">
-            <div class="price-tag" style="border-style: solid; border-color: var(--success);">
-                <span style="color: var(--success); font-weight: bold;">VIAJE EN CURSO</span>
-                <span class="dist-info" style="margin-top:5px;">El chofer está en camino a tu ubicación.</span>
-            </div>
-            <button class="btn-cancelar" id="btn-cancelar" style="display:block;" onclick="finalizarViaje()">TERMINAR / CANCELAR VIAJE</button>
-        </div>
+        <input type="text" id="nombre-input" class="input-nombre" placeholder="Tu nombre">
+        <button class="btn-uber" id="btn-pedir" onclick="pedirUber()" disabled>INDICAR DESTINO</button>
     </div>
 
 <script>
-    // Configuración de Supabase
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    // Configuración de Tarifas
     const TARIFA_BASE = 3000;
     const PRECIO_POR_KM = 500; 
-    const ID_COCHE_UBER = 2; // Siempre conecta al naranja
+    const ID_COCHE_UBER = 2;
 
     let map = L.map('map', { zoomControl: false }).setView([-34.58, -58.75], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     let miLat = 0, miLon = 0, destLat = 0, destLon = 0;
-    
-    // Iconos personalizados
-    const iconP = L.divIcon({ html: '🔵', className: 'p-icon', iconSize: [20, 20] });
-    const iconDest = L.divIcon({ html: '🚩', className: 'd-icon', iconSize: [25, 25] });
+    let markerPasajero = L.marker([0,0]).addTo(map);
+    let markerDestino = L.marker([0,0]);
 
-    let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
-    let markerDestino = L.marker([0,0], { icon: iconDest });
-    let lineaRuta = L.polyline([], {color: '#ff6600', weight: 4, dashArray: '10, 10'}).addTo(map);
-
-    // 1. Obtener ubicación del Pasajero
     navigator.geolocation.watchPosition(p => {
-        miLat = p.coords.latitude; 
-        miLon = p.coords.longitude;
+        miLat = p.coords.latitude; miLon = p.coords.longitude;
         markerPasajero.setLatLng([miLat, miLon]);
-        if (destLat === 0) map.panTo([miLat, miLon]);
-    }, err => console.log("Error GPS"), { enableHighAccuracy: true });
+    }, null, { enableHighAccuracy: true });
 
-    // 2. Función para buscar dirección por texto
     async function buscarDireccion() {
         const query = document.getElementById('address-input').value;
         if (!query) return;
-
-        const btn = document.querySelector('.btn-search');
-        btn.innerText = "⌛";
-
-        try {
-            // Buscamos específicamente en Buenos Aires para evitar errores
-            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ", San Miguel, Buenos Aires")}`;
-            const res = await fetch(url);
-            const data = await res.json();
-
-            if (data.length > 0) {
-                const lat = parseFloat(data[0].lat);
-                const lon = parseFloat(data[0].lon);
-                
-                // Actualizamos destino como si fuera un click
-                actualizarDestino(lat, lon);
-                map.setView([lat, lon], 16);
-            } else {
-                alert("No se encontró la dirección. Intentá ser más específico.");
-            }
-        } catch (e) {
-            alert("Error al buscar.");
-        } finally {
-            btn.innerText = "🔍";
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ", San Miguel, Buenos Aires")}`);
+        const data = await res.json();
+        if (data.length > 0) {
+            actualizarDestino(parseFloat(data[0].lat), parseFloat(data[0].lon));
+            map.setView([data[0].lat, data[0].lon], 16);
         }
     }
 
-    // 3. Tocar el mapa para elegir destino manualmente
-    map.on('click', (e) => {
-        actualizarDestino(e.latlng.lat, e.latlng.lng);
-    });
+    map.on('click', (e) => actualizarDestino(e.latlng.lat, e.latlng.lng));
 
     function actualizarDestino(lat, lon) {
-        destLat = lat;
-        destLon = lon;
-        
+        destLat = lat; destLon = lon;
         markerDestino.setLatLng([destLat, destLon]).addTo(map);
-        lineaRuta.setLatLngs([[miLat, miLon], [destLat, destLon]]);
-        
-        // Calcular Distancia Real (Fórmula Haversine)
-        const distanciaMetros = map.distance([miLat, miLon], [destLat, destLon]);
-        const distanciaKm = distanciaMetros / 1000;
-        
-        // Calcular Precio
-        const precioFinal = TARIFA_BASE + (distanciaKm * PRECIO_POR_KM);
-        
-        document.getElementById('txt-distancia').innerText = `Distancia: ${distanciaKm.toFixed(2)} km`;
-        document.getElementById('val-precio').innerText = `$${Math.round(precioFinal)}`;
-        
+        const dist = map.distance([miLat, miLon], [destLat, destLon]) / 1000;
+        const precio = TARIFA_BASE + (dist * PRECIO_POR_KM);
+        document.getElementById('txt-distancia').innerText = `Distancia: ${dist.toFixed(2)} km`;
+        document.getElementById('val-precio').innerText = `$${Math.round(precio)}`;
         document.getElementById('btn-pedir').disabled = false;
         document.getElementById('btn-pedir').innerText = "PEDIR COCHE 02";
-        
-        // Ajustar zoom para que se vean ambos puntos
-        const bounds = L.latLngBounds([miLat, miLon], [destLat, destLon]);
-        map.fitBounds(bounds, { padding: [50, 50] });
     }
 
-    // 4. Enviar pedido a Supabase
     async function pedirUber() {
         const nombre = document.getElementById('nombre-input').value.trim();
-        if(!nombre) return alert("Por favor, ingresá tu nombre.");
-
-        const btn = document.getElementById('btn-pedir');
-        const precio = document.getElementById('val-precio').innerText;
+        if(!nombre) return alert("Poné tu nombre");
         
+        const btn = document.getElementById('btn-pedir');
+        btn.innerText = "ENVIANDO...";
         btn.disabled = true;
-        btn.innerText = "ENVIANDO PEDIDO...";
 
         try {
             const { error } = await _s.from('reservas_activas').insert({
@@ -213,60 +122,17 @@
                 nombre_pasajero: nombre,
                 pasajero_lat: miLat,
                 pasajero_lon: miLon,
-                asiento_num: 99, // 99 indica viaje privado en tu sistema
+                asiento_num: 99, 
                 estado: 'en_curso'
             });
-
             if(error) throw error;
-
-            localStorage.setItem('uber_nombre', nombre);
-            document.getElementById('panel-pedido').style.display = 'none';
-            document.getElementById('panel-activo').style.display = 'block';
-            alert(`Pedido enviado al Coche 02. El precio estimado es ${precio}`);
-
+            alert("¡Pedido enviado! El Coche 02 está en camino.");
         } catch (e) {
-            alert("Error de conexión. Intentá de nuevo.");
+            alert("Error de conexión. Verificá si el RLS en Supabase permite insertar datos.");
             btn.disabled = false;
             btn.innerText = "PEDIR COCHE 02";
         }
     }
-
-    // 5. Finalizar viaje
-    async function finalizarViaje() {
-        const nombre = localStorage.getItem('uber_nombre');
-        const btn = document.getElementById('btn-cancelar');
-        btn.disabled = true;
-        btn.innerText = "FINALIZANDO...";
-
-        try {
-            await _s.from('reservas_activas')
-                .update({ estado: 'finalizado' })
-                .eq('nombre_pasajero', nombre)
-                .eq('estado', 'en_curso');
-            
-            location.reload();
-        } catch (e) {
-            alert("Error al finalizar.");
-            btn.disabled = false;
-        }
-    }
-
-    // Cargar si ya hay un viaje activo al abrir
-    window.onload = async () => {
-        const guardado = localStorage.getItem('uber_nombre');
-        if (guardado) {
-            const { data } = await _s.from('reservas_activas')
-                .select('*')
-                .eq('nombre_pasajero', guardado)
-                .eq('estado', 'en_curso');
-            
-            if (data && data.length > 0) {
-                document.getElementById('panel-pedido').style.display = 'none';
-                document.getElementById('panel-activo').style.display = 'block';
-                document.getElementById('nombre-input').value = guardado;
-            }
-        }
-    };
 </script>
 </body>
 </html>
