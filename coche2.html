@@ -1,165 +1,196 @@
-<!DOCTYPE html>
+            <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CONDUCTOR 02 - TuMovil</title>
+    <title>CONDUCTOR 02 - TuMovil (Modo Directo)</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
+        /* Reutilizamos el estilo visual del Maestro pero con colores Naranja/Uber */
+        * { box-sizing: border-box; }
         body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
-        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .splash-logo { font-size: 80px; margin-bottom: 20px; }
-        .splash-title { color: #FFD700; font-size: 32px; font-weight: 900; margin: 0; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #000; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
-        .top-stats { top: 10px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 0 10px; }
-        .stat-row { display: flex; justify-content: space-around; width: 100%; }
-        .stat-box { background: rgba(0,0,0,0.85); border: 2px solid #FFD700; border-radius: 12px; padding: 12px; width: 45%; text-align: center; color: white; pointer-events: auto; }
-        .sentido-panel { background: #222; border: 2px solid #00d2ff; color: #00d2ff; padding: 12px 40px; border-radius: 30px; font-weight: bold; font-size: 18px; cursor: pointer; pointer-events: auto; text-align: center; }
-        .connection-panel { display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.9); padding: 10px 20px; border-radius: 30px; border: 1px solid #FFD700; pointer-events: auto; }
-        .switch { position: relative; display: inline-block; width: 46px; height: 22px; }
+        
+        /* Panel Superior Naranja */
+        .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
+        .stat-box { background: rgba(0,0,0,0.9); border: 2px solid #FF8C00; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
+        .stat-label { color: #FF8C00; font-size: 11px; font-weight: 700; }
+        .stat-value { font-size: 24px; font-weight: 800; color: #4cd964; }
+
+        .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.9); padding: 8px 12px; border-radius: 30px; border: 2px solid #FF8C00; pointer-events: auto; }
+        
+        /* Alerta de Viaje (Estilo Uber) */
+        .alerta-uber {
+            position: fixed; top: 0; left: 0; right: 0;
+            background: #FF8C00; color: #000; padding: 20px;
+            text-align: center; z-index: 10000; transform: translateY(-100%);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 30px rgba(255, 140, 0, 0.5); font-weight: bold;
+        }
+        .alerta-uber.mostrar { transform: translateY(0); }
+        .btn-aceptar { background: #000; color: #fff; border: none; padding: 12px 30px; border-radius: 25px; font-weight: bold; margin-top: 10px; }
+
+        .bottom-ui { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
+        .btn-finalizar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; }
+        
+        .taxi-icon { font-size: 50px; text-align: center; line-height: 50px; }
+        #status-label { color: white; font-size: 11px; font-weight: bold; }
+        
+        /* Switch Estilo */
+        .switch { position: relative; width: 46px; height: 22px; display: inline-block; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 22px; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #4cd964; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #444; border-radius: 22px; transition: .4s; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .4s; }
+        input:checked + .slider { background: #4cd964; }
         input:checked + .slider:before { transform: translateX(24px); }
-        #status-label { color: white; font-size: 12px; font-weight: bold; width: 85px; text-align: center; }
-        .bottom-ui { bottom: 20px; display: flex; flex-direction: column; align-items: center; }
-        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 18px 45px; border-radius: 50px; font-weight: bold; font-size: 18px; pointer-events: auto; box-shadow: 0 4px 15px rgba(255,59,48,0.4); }
-        .asientos-pills { display: flex; gap: 12px; margin-bottom: 20px; pointer-events: auto; }
-        .pill { width: 55px; height: 55px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; background: rgba(0,0,0,0.85); transition: all 0.3s ease; }
-        .pill.active { background: #4cd964; border-color: #4cd964; color: black; transform: scale(1.1); }
-        .taxi-icon { font-size: 30px; }
     </style>
 </head>
 <body>
 
-    <div id="splash">
-        <div class="splash-logo">🚕</div>
-        <h1 class="splash-title">COCHE 02</h1>
-    </div>
-
-    <div class="ui-overlay top-stats">
-        <div class="connection-panel">
-            <span id="status-label">FUERA DE LÍNEA</span>
-            <label class="switch">
-                <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
-                <span class="slider"></span>
-            </label>
-        </div>
-        <div class="sentido-panel" id="btn-sentido" onclick="cambiarSentido()">SENTIDO: IDA</div>
-        <div class="stat-row">
-            <div class="stat-box"><small style="color:#FFD700">RECAUDACIÓN</small><div id="txt-plata" style="font-size:22px; font-weight:800; color:#4cd964;">$0</div></div>
-            <div class="stat-box"><small style="color:#FFD700">PASAJEROS</small><div id="txt-pax" style="font-size:22px; font-weight:800;">0</div></div>
-        </div>
+    <div class="alerta-uber" id="alerta-uber">
+        <div style="font-size: 1.2em;">🔔 NUEVO VIAJE PUERTA A PUERTA</div>
+        <div id="pax-nombre" style="font-size: 1.5em; margin: 5px 0;">--</div>
+        <button class="btn-aceptar" onclick="cerrarAlerta()">ENTENDIDO</button>
     </div>
 
     <div id="map"></div>
 
-    <div class="ui-overlay bottom-ui">
-        <div class="asientos-pills">
-            <div id="pill1" class="pill">1</div>
-            <div id="pill2" class="pill">2</div>
-            <div id="pill3" class="pill">3</div>
-            <div id="pill4" class="pill">4</div>
-        </div>
-        <button class="btn-vaciar" onclick="vaciarTodo()">🏁 FINALIZAR / VACIAR COCHE 02</button>
+    <div class="ui-overlay top-stats">
+        <div class="stat-box"><div class="stat-label">RECAUDACIÓN ESTIMADA</div><div id="txt-plata" class="stat-value">$0</div></div>
+        <div class="stat-box"><div class="stat-label">VIAJES ACTIVOS</div><div id="txt-pax" class="stat-value" style="color:white">0</div></div>
+    </div>
+
+    <div class="connection-panel">
+        <span id="status-label">FUERA DE LÍNEA</span>
+        <label class="switch"><input type="checkbox" id="online-toggle" onchange="gestionarConexion()"><span class="slider"></span></label>
+    </div>
+
+    <div class="bottom-ui">
+        <button class="btn-finalizar" onclick="confirmarVaciar()">🏁 FINALIZAR VIAJE ACTUAL</button>
     </div>
 
 <script>
-    const MI_ID_MOVIL = 2; 
+    const MI_ID_MOVIL = 2;
+    const TARIFA_BASE = 3000;
+    const PRECIO_KM = 600; // Ajustá este valor por kilómetro
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    let esHaciaAdelante = true;
-    let watchId = null;
-    let estaOnline = false;
+    let estaOnline = false, watchId = null, markersPax = [], markersDest = [];
+    let audioContext = null;
 
-    // --- SEGURIDAD: Limpieza al cerrar la página ---
-    window.addEventListener('beforeunload', async () => {
-        await _s.from('estado_movil').update({ latitud: 0, longitud: 0 }).eq('id', MI_ID_MOVIL);
-    });
-
-    const paradas = [
-        {c:[-34.561264, -58.770506]}, {c:[-34.562160, -58.771380]}, {c:[-34.562494, -58.772133]},
-        {c:[-34.563541, -58.773244]}, {c:[-34.564109, -58.773759]}, {c:[-34.565342, -58.772061]},
-        {c:[-34.567268, -58.769484]}, {c:[-34.569090, -58.767095]}, {c:[-34.571016, -58.764443]},
-        {c:[-34.571956, -58.763201]}, {c:[-34.577371, -58.755909]}, {c:[-34.578528, -58.757064]},
-        {c:[-34.579296, -58.755864]}, {c:[-34.580020, -58.755063]}, {c:[-34.580901, -58.753842]},
-        {c:[-34.581998, -58.752441]}, {c:[-34.583319, -58.750710]}, {c:[-34.584740, -58.748804]},
-        {c:[-34.585554, -58.749812]}, {c:[-34.586494, -58.750574]}, {c:[-34.588041, -58.751542]},
-        {c:[-34.588273, -58.751338]}, {c:[-34.588771, -58.750804]}, {c:[-34.588244, -58.749877]},
-        {c:[-34.586030, -58.747278]}
-    ];
-
-    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
+    const map = L.map('map', { zoomControl: false }).setView([-34.588244, -58.749877], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    async function cambiarSentido() {
-        esHaciaAdelante = !esHaciaAdelante;
-        await _s.from('estado_movil').update({ hacia_adelante: esHaciaAdelante }).eq('id', MI_ID_MOVIL);
-        actualizarUI();
+    const markerCoche = L.marker([-34.588244, -58.749877], { 
+        icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [25, 25] }) 
+    }).addTo(map);
+
+    // --- LÓGICA DE ALARMAS (Copiada del Maestro) ---
+    function reproducirAlarma() {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.connect(gain); gain.connect(audioContext.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        osc.start(); osc.stop(audioContext.currentTime + 0.5);
     }
 
-    function actualizarUI() {
-        const btn = document.getElementById('btn-sentido');
-        btn.innerText = esHaciaAdelante ? "SENTIDO: IDA" : "SENTIDO: VUELTA";
-        btn.style.color = esHaciaAdelante ? "#00d2ff" : "#ffcc00";
-        btn.style.borderColor = esHaciaAdelante ? "#00d2ff" : "#ffcc00";
+    function mostrarAlerta(nombre) {
+        document.getElementById('pax-nombre').innerText = nombre;
+        document.getElementById('alerta-uber').classList.add('mostrar');
+        reproducirAlarma();
+        if ('vibrate' in navigator) navigator.vibrate([500, 200, 500]);
     }
 
+    function cerrarAlerta() {
+        document.getElementById('alerta-uber').classList.remove('mostrar');
+    }
+
+    // --- CÁLCULO DE TARIFA DINÁMICA ---
+    function calcularPrecio(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2-lat1) * Math.PI/180;
+        const dLon = (lon2-lon1) * Math.PI/180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const kms = R * c;
+        return Math.round((TARIFA_BASE + (kms * PRECIO_KM)) / 100) * 100;
+    }
+
+    // --- GPS Y CONEXIÓN ---
     async function gestionarConexion() {
         estaOnline = document.getElementById('online-toggle').checked;
         const label = document.getElementById('status-label');
-        
         if (estaOnline) {
-            label.innerText = "EN LÍNEA";
-            label.style.color = "#4cd964";
-            await _s.from('estado_movil').update({ latitud: paradas[0].c[0], longitud: paradas[0].c[1] }).eq('id', MI_ID_MOVIL);
+            label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
             iniciarGPS();
         } else {
-            detenerTodo();
+            label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
         }
     }
 
     function iniciarGPS() {
-        watchId = navigator.geolocation.watchPosition(async p => {
-            if (!estaOnline) return;
-            await _s.from('estado_movil').update({ latitud: p.coords.latitude, longitud: p.coords.longitude }).eq('id', MI_ID_MOVIL);
+        watchId = navigator.geolocation.watchPosition(async (p) => {
+            const { latitude: lat, longitude: lon } = p.coords;
+            markerCoche.setLatLng([lat, lon]);
+            map.panTo([lat, lon]);
+            await _s.from('estado_movil').update({ latitud: lat, longitud: lon, esta_online: true }).eq('id', MI_ID_MOVIL);
         }, null, { enableHighAccuracy: true });
     }
 
-    function detenerTodo() {
-        // Detiene GPS y limpia estado en BD
-        if (watchId !== null) {
-            navigator.geolocation.clearWatch(watchId);
-            watchId = null;
+    async function actualizar() {
+        const { data: reservas } = await _s.from('reservas_activas')
+            .select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
+        
+        if (reservas) {
+            let totalPlata = 0;
+            // Limpiar mapa
+            markersPax.forEach(m => map.removeLayer(m));
+            markersDest.forEach(m => map.removeLayer(m));
+            markersPax = []; markersDest = [];
+
+            reservas.forEach(r => {
+                // Cálculo de precio para cada viaje
+                if(r.pasajero_lat && r.destino_idx !== null) {
+                    // Nota: En modo Uber, usaremos las coordenadas del destino guardadas en la DB
+                    // Por ahora, si no tenés coordenadas de destino, calculamos sobre la parada destino
+                    totalPlata += TARIFA_BASE; // O tu lógica de precio guardada
+                }
+
+                // Dibujar Pasajero
+                const mp = L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: '#FF8C00', radius: 10 }).addTo(map)
+                    .bindTooltip("RECOGER: " + r.nombre_pasajero, { permanent: true });
+                markersPax.push(mp);
+            });
+
+            document.getElementById('txt-pax').innerText = reservas.length;
+            document.getElementById('txt-plata').innerText = "$" + (reservas.length * TARIFA_BASE); // Simulación base
         }
-        estaOnline = false;
-        document.getElementById('online-toggle').checked = false;
-        document.getElementById('status-label').innerText = "FUERA DE LÍNEA";
-        document.getElementById('status-label').style.color = "white";
-        _s.from('estado_movil').update({ latitud: 0, longitud: 0 }).eq('id', MI_ID_MOVIL);
     }
 
-    async function vaciarTodo() {
-        if(!confirm("¿Finalizar el viaje y vaciar el Coche 02?")) return;
-        detenerTodo();
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
-        actualizarDatos();
+    async function confirmarVaciar() {
+        if(confirm("¿Finalizar viaje y quedar libre?")) {
+            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL);
+            actualizar();
+        }
     }
 
-    async function actualizarDatos() {
-        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('estado', 'en_curso').eq('id_movil', MI_ID_MOVIL);
-        // ... (resto de lógica de UI igual)
-        document.getElementById('txt-pax').innerText = reservas ? reservas.length : 0;
-        document.getElementById('txt-plata').innerText = '$' + (reservas ? reservas.length * 1000 : 0);
-        document.getElementById('splash').style.display = 'none';
-    }
+    // Suscribirse a cambios en tiempo real (NUEVOS VIAJES)
+    _s.channel('viajes_coche2').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reservas_activas' }, payload => {
+        if(payload.new.id_movil == MI_ID_MOVIL) {
+            mostrarAlerta(payload.new.nombre_pasajero);
+            actualizar();
+        }
+    }).subscribe();
 
-    window.onload = () => { actualizarDatos(); };
-    _s.channel('cambios_coche2').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas' }, () => { actualizarDatos(); }).subscribe();
+    setInterval(actualizar, 5000);
 </script>
 </body>
 </html>
