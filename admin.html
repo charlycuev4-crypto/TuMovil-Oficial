@@ -121,8 +121,6 @@
         .card-title { font-weight: bold; font-size: 15px; }
         .card-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: bold; }
         .badge-zona1 { background: #00d2ff33; color: #00d2ff; }
-        .badge-zona2 { background: #ffcc0033; color: #ffcc00; }
-        .badge-zona3 { background: #ff444433; color: #ff4444; }
         .card-info { font-size: 13px; color: #aaa; line-height: 1.5; }
         .card-price { font-size: 18px; color: var(--amarillo); font-weight: bold; }
 
@@ -351,12 +349,10 @@
     }
 
     // ============================================
-    // ZONAS
+    // ZONAS (tarifa plana)
     // ============================================
     const ZONAS = {
-        1: { nombre: 'Barrio', color: '#00d2ff', precio: 1000 },
-        2: { nombre: 'Cruce', color: '#ffcc00', precio: 1500 },
-        3: { nombre: 'Moreno', color: '#ff4444', precio: 2500 }
+        1: { nombre: 'Tarifa Plana', color: '#00d2ff', precio: 1000 }
     };
 
     const PARADAS = [
@@ -449,17 +445,16 @@
             html += `<div style="font-size: 12px; color: #888; margin-bottom: 8px; text-transform: uppercase;">🚗 Coche ${cocheId} — ${lista.length} pasajero(s)</div>`;
             
             lista.forEach(r => {
-                const zona = ZONAS[r.zona_bajada] || ZONAS[1];
                 const destino = PARADAS[r.destino_idx] || `Parada ${r.destino_idx}`;
                 
                 html += `
-                <div class="card" style="border-left-color: ${zona.color}">
+                <div class="card" style="border-left-color: #00d2ff">
                     <div class="card-header">
                         <span class="card-title">👤 ${r.nombre_pasajero}</span>
-                        <span class="card-badge badge-zona${r.zona_bajada || 1}">${zona.nombre}</span>
+                        <span class="card-badge badge-zona1">Tarifa Plana</span>
                     </div>
                     <div class="card-info">
-                        🪑 Asiento <b>${r.asiento_num}</b> | 💰 <span class="card-price">$${r.precio_pagado || 1000}</span><br>
+                        🪑 Asiento <b>${r.asiento_num}</b> | 💰 <span class="card-price">$1000</span><br>
                         📍 Destino: <b>${destino}</b>
                     </div>
                 </div>`;
@@ -471,7 +466,7 @@
     }
 
     // ============================================
-    // FLOTA
+    // FLOTA - SIN REPETIR NOMBRE DEL AUTO
     // ============================================
     function renderFlota(moviles, reservas) {
         const box = document.getElementById('flota-list');
@@ -484,7 +479,17 @@
             const pasajeros = reservas.filter(r => r.id_movil == m.id).length;
             const online = m.esta_online && m.latitud;
             const color = online ? '#28a745' : '#dc3545';
-            const autoInfo = m.patente ? `🚙 ${m.marca || ''} ${m.modelo || ''} · ${m.patente}` : '';
+            
+            // FIX: No repetir el auto si ya está en el nombre del chofer
+            const choferLower = (m.chofer || '').toLowerCase();
+            const autoInfo = (m.marca && m.patente && !choferLower.includes(m.marca.toLowerCase())) 
+                ? `🚙 ${m.marca} ${m.modelo || ''} · ${m.patente}` 
+                : '';
+            
+            const sentido = m.sentido_flujo || 'SIN SENTIDO';
+            const ultimaAct = m.ultima_actualizacion 
+                ? `⏱️ ${new Date(m.ultima_actualizacion).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit', second:'2-digit'})}` 
+                : '⏱️ Sin datos';
             
             return `
             <div class="card" style="border-left-color: ${color}">
@@ -497,14 +502,20 @@
                 <div class="card-info">
                     👤 ${m.chofer || 'Sin chofer'}<br>
                     ${autoInfo ? autoInfo + '<br>' : ''}
-                    🪑 ${pasajeros}/4 asientos ocupados
+                    🪑 ${pasajeros}/4 asientos ocupados<br>
+                    🔄 <b>${sentido}</b><br>
+                    ${ultimaAct}
+                </div>
+                <div style="display: flex; gap: 5px; margin-top: 8px;">
+                    <button onclick="cambiarSentidoAdmin(${m.id}, 'IDA')" class="mini-btn" style="background: #ff4444; color: white;">IDA</button>
+                    <button onclick="cambiarSentidoAdmin(${m.id}, 'VUELTA')" class="mini-btn" style="background: #00d2ff; color: black;">VUELTA</button>
                 </div>
             </div>`;
         }).join('');
     }
 
     // ============================================
-    // CAJA
+    // CAJA - TARIFA PLANA
     // ============================================
     function renderCaja(moviles, reservas) {
         const box = document.getElementById('caja-list');
@@ -519,7 +530,7 @@
 
         const html = moviles.map(m => {
             const delCoche = reservas.filter(r => r.id_movil == m.id);
-            const subtotal = delCoche.reduce((sum, r) => sum + (r.precio_pagado || 1000), 0);
+            const subtotal = delCoche.length * 1000;
             totalGeneral += subtotal;
             
             return `
@@ -528,7 +539,7 @@
                     <span class="card-title">💰 Coche ${m.id} ${m.patente ? '('+m.patente+')' : ''}</span>
                     <span class="card-price">$${subtotal.toLocaleString()}</span>
                 </div>
-                <div class="card-info">${delCoche.length} viaje(s) activo(s)</div>
+                <div class="card-info">${delCoche.length} viaje(s) activo(s) · $1000 c/u</div>
             </div>`;
         }).join('');
 
@@ -546,7 +557,7 @@
         moviles.forEach(m => {
             if(m.latitud && m.longitud) {
                 const key = 'coche_'+m.id;
-                const popup = `🚗 Coche ${m.id}<br>👤 ${m.chofer || 'Sin chofer'}<br>${m.patente ? '🚙 '+m.patente : ''}`;
+                const popup = `🚗 Coche ${m.id}<br>👤 ${m.chofer || 'Sin chofer'}<br>${m.patente ? '🚙 '+m.patente : ''}<br>🔄 ${m.sentido_flujo || '?'}`;
                 
                 if(markers[key]) {
                     markers[key].setLatLng([m.latitud, m.longitud]);
@@ -572,7 +583,6 @@
             }
         });
 
-        // Limpiar pasajeros que ya no están
         Object.keys(markers).forEach(key => {
             if(key.startsWith('pax_')) {
                 const id = parseInt(key.replace('pax_', ''));
@@ -606,15 +616,40 @@
     }
 
     // ============================================
-    // GUARDAR CHOFER
+    // CAMBIAR SENTIDO DESDE ADMIN
+    // ============================================
+    async function cambiarSentidoAdmin(id, sentido) {
+        if(!confirm(`¿Cambiar coche ${id} a ${sentido}?`)) return;
+        
+        try {
+            const { error } = await _s.from('estado_movil')
+                .update({ sentido_flujo: sentido })
+                .eq('id', id);
+            
+            if(error) throw error;
+            alert(`✅ Coche ${id} cambiado a ${sentido}`);
+        } catch(e) {
+            alert('❌ Error: ' + e.message);
+        }
+    }
+
+    // ============================================
+    // GUARDAR CHOFER - CON MERGE
     // ============================================
     async function guardarChofer() {
-        const id = document.getElementById('c-id').value;
+        const id = parseInt(document.getElementById('c-id').value);
         const nom = document.getElementById('c-nom').value.trim();
         if(!id || !nom) { alert('Completá N° de coche y nombre'); return; }
         
         try {
-            await _s.from('estado_movil').upsert({ id: parseInt(id), chofer: nom });
+            const { data: actual } = await _s.from('estado_movil').select('*').eq('id', id).single();
+            
+            await _s.from('estado_movil').upsert({ 
+                ...(actual || {}),
+                id: id, 
+                chofer: nom 
+            });
+            
             alert('✅ Chofer actualizado');
             document.getElementById('c-id').value = '';
             document.getElementById('c-nom').value = '';
@@ -624,10 +659,10 @@
     }
 
     // ============================================
-    // GUARDAR AUTO (NUEVO)
+    // GUARDAR AUTO - CON MERGE
     // ============================================
     async function guardarAuto() {
-        const id = document.getElementById('auto-id').value;
+        const id = parseInt(document.getElementById('auto-id').value);
         const marca = document.getElementById('auto-marca').value.trim();
         const modelo = document.getElementById('auto-modelo').value.trim();
         const color = document.getElementById('auto-color').value.trim();
@@ -639,8 +674,11 @@
         }
         
         try {
+            const { data: actual } = await _s.from('estado_movil').select('*').eq('id', id).single();
+            
             await _s.from('estado_movil').upsert({ 
-                id: parseInt(id),
+                ...(actual || {}),
+                id: id,
                 marca: marca,
                 modelo: modelo,
                 color: color,
@@ -649,7 +687,6 @@
             
             alert('✅ Vehículo guardado');
             
-            // Limpiar
             document.getElementById('auto-id').value = '';
             document.getElementById('auto-marca').value = '';
             document.getElementById('auto-modelo').value = '';
@@ -664,7 +701,7 @@
     }
 
     // ============================================
-    // LISTA DE AUTOS (NUEVO)
+    // LISTA DE AUTOS
     // ============================================
     async function cargarListaAutos() {
         try {
@@ -686,6 +723,7 @@
                         ${m.marca ? `📌 ${m.marca} ${m.modelo}` : ''}
                         ${m.color ? `· 🎨 ${m.color}` : ''}
                         ${m.chofer ? `<br>👤 ${m.chofer}` : ''}
+                        ${m.sentido_flujo ? `<br>🔄 ${m.sentido_flujo}` : ''}
                     </div>
                     <div style="display: flex; gap: 5px; margin-top: 8px;">
                         <button onclick="editarAuto(${m.id})" class="mini-btn" style="background: #333; color: white;">✏️ Editar</button>
@@ -716,9 +754,23 @@
         }
     }
 
+    // ============================================
+    // ELIMINAR AUTO - CON VERIFICACIÓN
+    // ============================================
     async function eliminarAuto(id) {
         if(!confirm(`¿Eliminar el coche ${id}?`)) return;
+        
         try {
+            const { data: reservasActivas } = await _s.from('reservas_activas')
+                .select('id')
+                .eq('id_movil', id)
+                .eq('estado', 'en_curso');
+            
+            if(reservasActivas && reservasActivas.length > 0) {
+                alert(`⚠️ No se puede eliminar: el coche ${id} tiene ${reservasActivas.length} reserva(s) activa(s).`);
+                return;
+            }
+            
             await _s.from('estado_movil').delete().eq('id', id);
             alert('🗑️ Coche eliminado');
             cargarListaAutos();
