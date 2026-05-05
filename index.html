@@ -166,7 +166,7 @@
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     
-    const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#00BFFF', weight: 8, opacity: 0.7 }).addTo(map);
+    const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#FF0000', weight: 8, opacity: 0.7 }).addTo(map);
     
     paradas.forEach(p => L.circleMarker(p.c, { 
         radius: 7, 
@@ -234,9 +234,8 @@
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
         
-        // Sonido de alarma tipo "ding-dong" urgente
         oscillator.type = 'square';
-        oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5
+        oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
         oscillator.frequency.setValueAtTime(1100, audioContext.currentTime + 0.1);
         oscillator.frequency.setValueAtTime(880, audioContext.currentTime + 0.2);
         oscillator.frequency.setValueAtTime(1100, audioContext.currentTime + 0.3);
@@ -248,7 +247,6 @@
         oscillator.start(audioContext.currentTime);
         oscillator.stop(audioContext.currentTime + 0.5);
         
-        // Segunda parte de la alarma (más grave)
         setTimeout(() => {
             const osc2 = audioContext.createOscillator();
             const gain2 = audioContext.createGain();
@@ -268,7 +266,6 @@
     // ============================================
     function vibrarAlarma() {
         if ('vibrate' in navigator) {
-            // Patrón: vibración larga, pausa, vibración larga, pausa, vibración larga
             navigator.vibrate([500, 200, 500, 200, 500, 200, 1000]);
         }
     }
@@ -283,11 +280,9 @@
         texto.innerText = `${nombrePasajero} reservó ${asientos.length} asiento(s): ${asientos.join(', ')}`;
         alerta.classList.add('mostrar');
         
-        // Sonido + vibración
         reproducirAlarma();
         vibrarAlarma();
         
-        // Reproducir alarma cada 3 segundos hasta que atienda
         window.alertaInterval = setInterval(() => {
             if (alerta.classList.contains('mostrar')) {
                 reproducirAlarma();
@@ -318,7 +313,7 @@
     }
 
     // ============================================
-    // CONEXIÓN / GPS
+    // CONEXIÓN / GPS - CON SINCRONIZACIÓN DE SENTIDO
     // ============================================
     async function gestionarConexion() {
         const toggle = document.getElementById('online-toggle'), label = document.getElementById('status-label');
@@ -326,8 +321,24 @@
         if (estaOnline) {
             label.innerText = "CONECTANDO...";
             
-            // Inicializar audio en el momento del click (requerido por políticas de navegador)
             inicializarAudio();
+            
+            // ===== SINCRONIZAR SENTIDO DESDE LA BASE DE DATOS =====
+            const { data: cocheActual, error: errorCoche } = await _s.from('estado_movil')
+                .select('sentido_flujo')
+                .eq('id', MI_ID_MOVIL)
+                .single();
+            
+            if (cocheActual && cocheActual.sentido_flujo) {
+                sentidoActual = cocheActual.sentido_flujo;
+                document.getElementById('btn-sentido').innerText = sentidoActual;
+                // IDA = Rojo, VUELTA = Azul celeste
+                rutaLine.setStyle({ 
+                    color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' 
+                });
+                console.log('Sentido sincronizado desde BD:', sentidoActual);
+            }
+            // ======================================================
             
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 const lat = pos.coords.latitude, lon = pos.coords.longitude;
@@ -348,7 +359,7 @@
                 } else {
                     label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
                     document.getElementById('panel-parada').style.display = 'block';
-                    activarWakeLock(); // Activar pantalla siempre encendida
+                    activarWakeLock();
                     iniciarGPS();
                 }
             }, (err) => { 
@@ -360,7 +371,7 @@
             await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
             label.innerText = "DESCONECTADO"; label.style.color = "white";
             document.getElementById('panel-parada').style.display = 'none';
-            liberarWakeLock(); // Liberar pantalla
+            liberarWakeLock();
             cerrarAlerta();
         }
     }
@@ -401,9 +412,7 @@
             .eq('estado', 'en_curso');
         
         if (reservas) {
-            // Detectar si hay NUEVAS reservas (más que antes)
             if (reservas.length > ultimaCantidadReservas && estaOnline) {
-                // Hay nueva(s) reserva(s)
                 const nuevasReservas = reservas.slice(ultimaCantidadReservas);
                 const nombresNuevos = nuevasReservas.map(r => r.nombre_pasajero).join(', ');
                 const asientosNuevos = nuevasReservas.map(r => r.asiento_num);
@@ -412,7 +421,6 @@
             }
             ultimaCantidadReservas = reservas.length;
 
-            // Limpiar marcadores anteriores
             markersPax.forEach(m => map.removeLayer(m));
             markersDest.forEach(m => map.removeLayer(m));
             markersPax = []; markersDest = [];
@@ -420,7 +428,6 @@
             document.getElementById('txt-pax').innerText = reservas.length;
             document.getElementById('txt-plata').innerText = "$" + (reservas.length * 1000);
             
-            // Resetear pills y nombres
             for(let i=1; i<=4; i++) {
                 document.getElementById('pill'+i).className = 'pill';
                 document.getElementById('nombre-pax-'+i).innerText = '';
@@ -451,13 +458,43 @@
         }
     }
 
+    // ============================================
+    // CAMBIAR SENTIDO - ARREGLADO
+    // ============================================
     async function cambiarSentido() {
+        // Cambiar el sentido localmente
+        const sentidoAnterior = sentidoActual;
         sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
-        document.getElementById('btn-sentido').innerText = sentidoActual;
-        rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
         
+        // Actualizar botón
+        document.getElementById('btn-sentido').innerText = sentidoActual;
+        
+        // Actualizar color de la ruta
+        // IDA = Rojo (#FF0000), VUELTA = Azul celeste (#00BFFF)
+        const nuevoColor = sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF';
+        rutaLine.setStyle({ color: nuevoColor });
+        
+        console.log('Cambiando sentido a:', sentidoActual, 'Color:', nuevoColor);
+        
+        // Si está online, actualizar en la base de datos
         if (estaOnline) {
-            await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL);
+            const { error } = await _s.from('estado_movil')
+                .update({ sentido_flujo: sentidoActual })
+                .eq('id', MI_ID_MOVIL);
+            
+            if (error) {
+                console.error('Error al cambiar sentido:', error);
+                alert('Error al cambiar sentido. Intentá de nuevo.');
+                
+                // REVERTIR el cambio visual si falló
+                sentidoActual = sentidoAnterior;
+                document.getElementById('btn-sentido').innerText = sentidoActual;
+                rutaLine.setStyle({ 
+                    color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' 
+                });
+            } else {
+                console.log('Sentido actualizado en BD:', sentidoActual);
+            }
         }
     }
 
@@ -491,6 +528,38 @@
             }
         }
     });
+
+    // ============================================
+    // SINCRONIZAR SENTIDO AL CARGAR LA PÁGINA
+    // ============================================
+    async function sincronizarSentidoInicial() {
+        try {
+            const { data: coche, error } = await _s.from('estado_movil')
+                .select('sentido_flujo')
+                .eq('id', MI_ID_MOVIL)
+                .single();
+            
+            if (error) {
+                console.error('Error al leer sentido inicial:', error);
+                return;
+            }
+            
+            if (coche && coche.sentido_flujo) {
+                sentidoActual = coche.sentido_flujo;
+                document.getElementById('btn-sentido').innerText = sentidoActual;
+                // IDA = Rojo, VUELTA = Azul celeste
+                rutaLine.setStyle({ 
+                    color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' 
+                });
+                console.log('Sentido sincronizado al inicio:', sentidoActual);
+            }
+        } catch (err) {
+            console.error('Error sincronizando sentido:', err);
+        }
+    }
+
+    // Llamar al cargar la página
+    sincronizarSentidoInicial();
 
     setInterval(actualizar, 4000);
 </script>
