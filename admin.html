@@ -22,7 +22,7 @@
         .btn-danger { background: #dc3545; color: white; }
         .btn-warning { background: var(--amarillo); color: black; }
         .btn-success { background: #28a745; color: white; }
-        .btn-reset { background: #444; color: #888; font-size: 12px; padding: 8px; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+        .btn-reset { background: #333; color: #888; font-size: 12px; padding: 10px; border: 1px solid #444; border-radius: 8px; cursor: pointer; margin-top: 10px; width: 100%; }
 
         #app-container { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
         
@@ -39,8 +39,9 @@
             flex-direction: column; 
             z-index: 1000; 
             transition: transform 0.3s ease;
+            transform: translateX(-100%);
         }
-        #sidebar.hidden { transform: translateX(-100%); }
+        #sidebar.open { transform: translateX(0); }
         
         #overlay { 
             position: fixed; 
@@ -230,10 +231,25 @@
             color: #888;
         }
 
+        .spinner { 
+            display: inline-block; 
+            width: 16px; 
+            height: 16px; 
+            border: 2px solid rgba(255,255,255,.3); 
+            border-radius: 50%; 
+            border-top-color: #fff; 
+            animation: spin 1s ease-in-out infinite; 
+            margin-right: 8px; 
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         @media (min-width: 768px) {
             #app-container { flex-direction: row; }
-            #sidebar { position: relative; width: 400px; transform: none !important; }
-            #sidebar.hidden { transform: none !important; }
+            #sidebar { 
+                position: relative; 
+                width: 400px; 
+                transform: none !important; 
+            }
             #btn-menu { display: none !important; }
             #overlay { display: none !important; }
         }
@@ -248,7 +264,7 @@
         <input type="password" id="pass-field" placeholder="Contraseña de administrador" onkeypress="if(event.key==='Enter')validar()">
         <button class="btn-main" onclick="validar()">INGRESAR AL PANEL</button>
         <p id="error" style="color: #ff4444; font-size: 13px; margin-top: 12px; display: none;">❌ Clave incorrecta</p>
-        <button class="btn-reset" onclick="resetearClave()">🔄 Olvidé mi contraseña (Resetear)</button>
+        <button class="btn-reset" onclick="resetearClave()">🔄 Olvidé mi contraseña (Resetear a 1234)</button>
     </div>
 </div>
 
@@ -259,7 +275,7 @@
 <button id="btn-menu" onclick="toggleSidebar(true)">☰</button>
 
 <div id="app-container">
-    <div id="sidebar" class="hidden">
+    <div id="sidebar">
         <div class="tabs">
             <button class="tab-btn active" onclick="ver('radar')">RADAR</button>
             <button class="tab-btn" onclick="ver('fila')">FILA</button>
@@ -306,7 +322,7 @@
             <!-- HISTORIAL -->
             <div id="view-historial" class="section">
                 <div class="total-box" style="border-color: var(--amarillo); background: linear-gradient(135deg, rgba(255,204,0,0.15), rgba(255,204,0,0.05));">
-                    <div class="label">RECAUDACIÓN TOTAL</div>
+                    <div class="label">RECAUDACIÓN TOTAL (30 días)</div>
                     <div class="amount" id="total-historial">$0</div>
                     <div class="detail" id="total-historial-detail">0 viajes en total</div>
                 </div>
@@ -317,12 +333,24 @@
             <!-- AJUSTES -->
             <div id="view-ajustes" class="section">
                 
-                <!-- CHOFER -->
+                <!-- CREAR NUEVO CONDUCTOR -->
                 <div class="form-section">
-                    <div class="form-title">👤 Datos del Chofer</div>
+                    <div class="form-title">➕ Crear Nuevo Conductor</div>
+                    <input type="number" id="new-coche-id" placeholder="N° de Coche (ej: 5)">
+                    <input type="text" id="new-chofer-nom" placeholder="Nombre del Chofer">
+                    <select id="new-sentido">
+                        <option value="IDA">IDA</option>
+                        <option value="VUELTA">VUELTA</option>
+                    </select>
+                    <button class="btn-main btn-success" onclick="crearConductor()">➕ CREAR CONDUCTOR</button>
+                </div>
+
+                <!-- EDITAR CHOFER EXISTENTE -->
+                <div class="form-section">
+                    <div class="form-title">✏️ Editar Chofer Existente</div>
                     <input type="number" id="c-id" placeholder="N° de Coche">
-                    <input type="text" id="c-nom" placeholder="Nombre del Chofer">
-                    <button class="btn-main" onclick="guardarChofer()">ACTUALIZAR CHOFER</button>
+                    <input type="text" id="c-nom" placeholder="Nuevo nombre del Chofer">
+                    <button class="btn-main" onclick="guardarChofer()">💾 GUARDAR CAMBIOS</button>
                 </div>
 
                 <!-- VEHÍCULO -->
@@ -385,13 +413,11 @@
     }
 
     // ============================================
-    // LOGIN - CON RESET DE EMERGENCIA
+    // LOGIN
     // ============================================
     function validar() {
         const ingresada = document.getElementById("pass-field").value;
         const guardada = localStorage.getItem("adminPass");
-        
-        // Si no hay contraseña guardada, usar "1234" por defecto
         const correcta = guardada || "1234";
         
         if(ingresada === correcta) {
@@ -417,7 +443,7 @@
     }
 
     // ============================================
-    // SIDEBAR
+    // SIDEBAR - ARREGLADO (NO SE CIERRA AL CAMBIAR PESTAÑA)
     // ============================================
     function toggleSidebar(show) {
         const side = document.getElementById("sidebar");
@@ -425,25 +451,33 @@
         const btn = document.getElementById("btn-menu");
         
         if(show) {
-            side.classList.remove("hidden");
+            side.classList.add("open");
             over.classList.add("active");
-            btn.style.display = "none";
+            if(btn) btn.style.display = "none";
         } else {
-            side.classList.add("hidden");
+            side.classList.remove("open");
             over.classList.remove("active");
-            btn.style.display = "block";
+            if(btn) btn.style.display = "block";
         }
     }
 
     function ver(s) {
+        // Cambiar pestañas visuales
         document.querySelectorAll('.section').forEach(x => x.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
-        document.getElementById('view-'+s).classList.add('active');
-        event.currentTarget.classList.add('active');
         
+        const targetSection = document.getElementById('view-'+s);
+        const targetBtn = event.currentTarget;
+        
+        if(targetSection) targetSection.classList.add('active');
+        if(targetBtn) targetBtn.classList.add('active');
+        
+        // Cargar datos específicos
         if(s === 'ajustes') cargarListaAutos();
         if(s === 'historial') cargarHistorial();
-        if(window.innerWidth < 768) toggleSidebar(false);
+        
+        // IMPORTANTE: NO cerrar sidebar al cambiar de pestaña
+        // El sidebar se mantiene abierto para navegación fácil
     }
 
     // ============================================
@@ -575,7 +609,7 @@
     }
 
     // ============================================
-    // FILA - ORDEN DE SALIDA (EFECTO CASCADA)
+    // FILA - ORDEN DE SALIDA
     // ============================================
     function renderFila(moviles) {
         const box = document.getElementById('fila-list');
@@ -920,7 +954,66 @@
     }
 
     // ============================================
-    // GUARDAR CHOFER
+    // CREAR NUEVO CONDUCTOR (NUEVO - FUNCIONA!)
+    // ============================================
+    async function crearConductor() {
+        const id = parseInt(document.getElementById('new-coche-id').value);
+        const nom = sanitizarInput(document.getElementById('new-chofer-nom').value);
+        const sentido = document.getElementById('new-sentido').value;
+        
+        if(!id || !nom) { 
+            alert('Completá N° de coche y nombre del chofer'); 
+            return; 
+        }
+        
+        if(id <= 0) {
+            alert('El N° de coche debe ser mayor a 0');
+            return;
+        }
+        
+        try {
+            // Verificar si ya existe
+            const { data: existente } = await _s.from('estado_movil')
+                .select('id')
+                .eq('id', id)
+                .single();
+            
+            if(existente) {
+                alert(`⚠️ El coche ${id} ya existe. Usá "Editar Chofer" para modificarlo.`);
+                return;
+            }
+            
+            // Crear nuevo conductor
+            const { error } = await _s.from('estado_movil').insert({
+                id: id,
+                chofer: nom,
+                sentido_flujo: sentido,
+                esta_online: false,
+                latitud: 0,
+                longitud: 0,
+                ultima_actualizacion: new Date().toISOString()
+            });
+            
+            if(error) throw error;
+            
+            alert(`✅ Conductor creado: Coche ${id} - ${nom}`);
+            
+            // Limpiar formulario
+            document.getElementById('new-coche-id').value = '';
+            document.getElementById('new-chofer-nom').value = '';
+            document.getElementById('new-sentido').value = 'IDA';
+            
+            // Recargar lista
+            cargarListaAutos();
+            
+        } catch(e) {
+            console.error("Error creando conductor:", e);
+            alert('❌ Error: ' + (e.message || 'No se pudo crear el conductor'));
+        }
+    }
+
+    // ============================================
+    // GUARDAR CHOFER (EDITAR EXISTENTE)
     // ============================================
     async function guardarChofer() {
         const id = parseInt(document.getElementById('c-id').value);
@@ -931,16 +1024,23 @@
         try {
             const { data: actual } = await _s.from('estado_movil').select('*').eq('id', id).single();
             
-            await _s.from('estado_movil').upsert({ 
-                ...(actual || {}),
-                id: id, 
+            if(!actual) {
+                alert(`⚠️ El coche ${id} no existe. Usá "Crear Nuevo Conductor".`);
+                return;
+            }
+            
+            await _s.from('estado_movil').update({ 
                 chofer: nom 
-            });
+            }).eq('id', id);
             
             alert('✅ Chofer actualizado');
             document.getElementById('c-id').value = '';
             document.getElementById('c-nom').value = '';
+            
+            cargarListaAutos();
+            
         } catch(e) {
+            console.error("Error:", e);
             alert('❌ Error: ' + e.message);
         }
     }
@@ -956,21 +1056,21 @@
         const patente = sanitizarInput(document.getElementById('auto-patente').value).toUpperCase();
         
         if(!id) { alert('Ingresá el N° de coche'); return; }
-        if(!marca || !modelo || !color || !patente) { 
-            alert('Completá todos los datos del vehículo'); return; 
-        }
         
         try {
             const { data: actual } = await _s.from('estado_movil').select('*').eq('id', id).single();
             
-            await _s.from('estado_movil').upsert({ 
-                ...(actual || {}),
-                id: id,
+            if(!actual) {
+                alert(`⚠️ El coche ${id} no existe. Creá el conductor primero.`);
+                return;
+            }
+            
+            await _s.from('estado_movil').update({ 
                 marca: marca,
                 modelo: modelo,
                 color: color,
                 patente: patente
-            });
+            }).eq('id', id);
             
             alert('✅ Vehículo guardado');
             
