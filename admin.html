@@ -12,7 +12,6 @@
         * { box-sizing: border-box; }
         body { margin: 0; background: var(--dark); color: white; font-family: -apple-system, BlinkMacSystemFont, sans-serif; height: 100vh; width: 100vw; overflow: hidden; }
 
-        /* LOGIN */
         #login-screen { position: fixed; inset: 0; background: var(--dark); z-index: 9999; display: flex; align-items: center; justify-content: center; }
         .login-box { text-align: center; width: 90%; max-width: 360px; background: #111; padding: 35px 25px; border-radius: 20px; border: 1px solid var(--celeste); }
         .login-box h1 { color: var(--celeste); margin: 0 0 25px 0; font-size: 28px; }
@@ -24,7 +23,6 @@
         .btn-warning { background: var(--amarillo); color: black; }
         .btn-success { background: #28a745; color: white; }
 
-        /* LAYOUT */
         #app-container { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
         
         #sidebar { 
@@ -73,7 +71,6 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
         }
 
-        /* TABS */
         .tabs { 
             display: flex; 
             background: #222; 
@@ -96,7 +93,6 @@
         }
         .tab-btn.active { background: var(--celeste); color: black; }
 
-        /* CONTENT */
         .content { 
             padding: 15px; 
             overflow-y: auto; 
@@ -106,7 +102,6 @@
         .section { display: none; }
         .section.active { display: block; }
 
-        /* CARDS */
         .card { 
             background: #222; 
             border-radius: 12px; 
@@ -124,7 +119,6 @@
         .card-info { font-size: 13px; color: #aaa; line-height: 1.5; }
         .card-price { font-size: 18px; color: var(--amarillo); font-weight: bold; }
 
-        /* FORMS */
         .form-section { 
             background: #1a1a1a; 
             padding: 15px; 
@@ -150,11 +144,9 @@
         }
         input:focus, select:focus { outline: none; border-color: var(--celeste); }
 
-        /* ACTION BAR */
         .action-bar { display: flex; gap: 8px; margin-bottom: 15px; }
         .action-bar button { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 12px; font-weight: bold; cursor: pointer; }
 
-        /* TOTAL BOX */
         .total-box { 
             background: linear-gradient(135deg, rgba(0,210,255,0.15), rgba(0,210,255,0.05)); 
             padding: 20px; 
@@ -167,14 +159,11 @@
         .total-box .amount { font-size: 36px; color: var(--amarillo); margin: 8px 0; font-weight: bold; }
         .total-box .detail { font-size: 13px; color: #aaa; }
 
-        /* EMPTY STATE */
         .empty-state { text-align: center; padding: 40px 20px; color: #555; }
         .empty-state .icon { font-size: 48px; margin-bottom: 10px; }
 
-        /* MAP */
         .map-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
 
-        /* MINI BUTTONS */
         .mini-btn { 
             padding: 6px 10px; 
             border: none; 
@@ -184,7 +173,64 @@
             flex: 1;
         }
 
-        /* RESPONSIVE DESKTOP */
+        /* === FILA / POSICIÓN === */
+        .fila-posicion {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 2px;
+        }
+        .fila-numero {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .fila-numero.primero { background: var(--amarillo); color: black; }
+        .fila-numero.segundo { background: #888; color: white; }
+        .fila-numero.tercero { background: #555; color: white; }
+        .fila-numero.resto { background: #333; color: #888; }
+        
+        .fila-tiempo {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        /* === HISTORIAL === */
+        .historial-fecha {
+            background: #1a1a1a;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid var(--celeste);
+        }
+        .historial-fecha-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .historial-fecha-titulo {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--celeste);
+        }
+        .historial-fecha-total {
+            font-size: 16px;
+            color: var(--amarillo);
+            font-weight: bold;
+        }
+        .historial-detalle {
+            font-size: 12px;
+            color: #888;
+        }
+
         @media (min-width: 768px) {
             #app-container { flex-direction: row; }
             #sidebar { position: relative; width: 400px; transform: none !important; }
@@ -216,9 +262,11 @@
     <div id="sidebar" class="hidden">
         <div class="tabs">
             <button class="tab-btn active" onclick="ver('radar')">RADAR</button>
+            <button class="tab-btn" onclick="ver('fila')">FILA</button>
             <button class="tab-btn" onclick="ver('flota')">FLOTA</button>
             <button class="tab-btn" onclick="ver('caja')">CAJA</button>
-            <button class="tab-btn" onclick="ver('ajustes')">AJUSTES</button>
+            <button class="tab-btn" onclick="ver('historial')">HIST</button>
+            <button class="tab-btn" onclick="ver('ajustes')">AJUST</button>
         </div>
 
         <div class="content">
@@ -232,6 +280,12 @@
                 <div id="pax-list"></div>
             </div>
 
+            <!-- FILA -->
+            <div id="view-fila" class="section">
+                <h4 style="color: var(--amarillo); margin: 0 0 12px 0; font-size: 14px;">🚦 ORDEN DE SALIDA</h4>
+                <div id="fila-list"></div>
+            </div>
+
             <!-- FLOTA -->
             <div id="view-flota" class="section">
                 <h4 style="margin: 0 0 12px 0; font-size: 14px;">🚗 ESTADO DE CONDUCTORES</h4>
@@ -241,12 +295,23 @@
             <!-- CAJA -->
             <div id="view-caja" class="section">
                 <div class="total-box">
-                    <div class="label">RECAUDACIÓN ESTIMADA</div>
+                    <div class="label">RECAUDACIÓN HOY</div>
                     <div class="amount" id="total-general">$0</div>
                     <div class="detail" id="total-detail">0 viajes activos</div>
                 </div>
                 <h4 style="margin: 0 0 12px 0; font-size: 14px;">💰 DETALLE POR COCHE</h4>
                 <div id="caja-list"></div>
+            </div>
+
+            <!-- HISTORIAL -->
+            <div id="view-historial" class="section">
+                <div class="total-box" style="border-color: var(--amarillo); background: linear-gradient(135deg, rgba(255,204,0,0.15), rgba(255,204,0,0.05));">
+                    <div class="label">RECAUDACIÓN TOTAL</div>
+                    <div class="amount" id="total-historial">$0</div>
+                    <div class="detail" id="total-historial-detail">0 viajes en total</div>
+                </div>
+                <h4 style="margin: 0 0 12px 0; font-size: 14px;">📅 HISTORIAL POR DÍA</h4>
+                <div id="historial-list"></div>
             </div>
 
             <!-- AJUSTES -->
@@ -286,8 +351,39 @@
 </div>
 
 <script>
-    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    // ============================================
+    // SUPABASE - CON APP SECRET (SEGURIDAD)
+    // ============================================
+    const _s = supabase.createClient(
+        'https://nvumdlxervrewqiiaicl.supabase.co',
+        'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE',
+        {
+            global: {
+                headers: {
+                    'x-app-secret': '2Awy7XGP0SBmBRprB3PBzfvz9VcbDd04'
+                }
+            }
+        }
+    );
     
+    // ============================================
+    // SANITIZACIÓN DE INPUTS (Anti-XSS)
+    // ============================================
+    function sanitizarInput(texto) {
+        if (!texto) return '';
+        return texto
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;')
+            .replace(/`/g, '&#x60;')
+            .replace(/javascript:/gi, '')
+            .replace(/data:/gi, '')
+            .replace(/on\w+=/gi, '')
+            .trim()
+            .substring(0, 100);
+    }
+
     // ============================================
     // LOGIN
     // ============================================
@@ -331,6 +427,7 @@
         event.currentTarget.classList.add('active');
         
         if(s === 'ajustes') cargarListaAutos();
+        if(s === 'historial') cargarHistorial();
         if(window.innerWidth < 768) toggleSidebar(false);
     }
 
@@ -349,12 +446,8 @@
     }
 
     // ============================================
-    // ZONAS (tarifa plana)
+    // PARADAS
     // ============================================
-    const ZONAS = {
-        1: { nombre: 'Tarifa Plana', color: '#00d2ff', precio: 1000 }
-    };
-
     const PARADAS = [
         'Miguel Cané','Cané y Los Aromos','Los Aromos 11016','Los Aromos 10874',
         'Los Aromos y Murillo','Murillo 601','Murillo y Güiraldes','Murillo y Watt',
@@ -417,6 +510,7 @@
 
     function renderizarTodo() {
         renderPasajeros(datosCache.reservas);
+        renderFila(datosCache.moviles);
         renderFlota(datosCache.moviles, datosCache.reservas);
         renderCaja(datosCache.moviles, datosCache.reservas);
         actualizarMapa(datosCache.moviles, datosCache.reservas);
@@ -466,7 +560,105 @@
     }
 
     // ============================================
-    // FLOTA - SIN REPETIR NOMBRE DEL AUTO
+    // FILA - ORDEN DE SALIDA (EFECTO CASCADA)
+    // ============================================
+    function renderFila(moviles) {
+        const box = document.getElementById('fila-list');
+        
+        // Filtrar solo coches online y con sentido definido
+        const enFila = (moviles || [])
+            .filter(m => m.esta_online && m.latitud && m.sentido_flujo)
+            .sort((a, b) => {
+                // Ordenar por: parada más cercana a la inicial (0 para IDA, última para VUELTA)
+                // y luego por hora de llegada (ultima_actualizacion)
+                const paradaA = calcularParadaMasCerca(a.latitud, a.longitud);
+                const paradaB = calcularParadaMasCerca(b.latitud, b.longitud);
+                
+                if (a.sentido_flujo === 'IDA') {
+                    if (paradaA !== paradaB) return paradaA - paradaB;
+                } else {
+                    if (paradaA !== paradaB) return paradaB - paradaA;
+                }
+                
+                // Si están en la misma parada, ordenar por quién llegó primero
+                const horaA = new Date(a.ultima_actualizacion || 0).getTime();
+                const horaB = new Date(b.ultima_actualizacion || 0).getTime();
+                return horaA - horaB;
+            });
+
+        if (enFila.length === 0) {
+            box.innerHTML = `<div class="empty-state"><div class="icon">🚦</div><div>No hay coches en fila</div></div>`;
+            return;
+        }
+
+        let html = `<div style="font-size: 12px; color: #888; margin-bottom: 12px;">📍 Parada inicial: <b>${enFila[0]?.sentido_flujo === 'IDA' ? 'Universidad Tecnológica' : 'Abasto y Roca'}</b></div>`;
+
+        enFila.forEach((m, index) => {
+            const posicion = index + 1;
+            const pasajeros = datosCache.reservas.filter(r => r.id_movil == m.id).length;
+            const paradaActual = calcularParadaMasCerca(m.latitud, m.longitud);
+            const nombreParada = PARADAS[paradaActual] || `Parada ${paradaActual}`;
+            
+            let claseNumero = 'resto';
+            if (posicion === 1) claseNumero = 'primero';
+            else if (posicion === 2) claseNumero = 'segundo';
+            else if (posicion === 3) claseNumero = 'tercero';
+
+            const tiempoEspera = m.ultima_actualizacion 
+                ? `Llegó: ${new Date(m.ultima_actualizacion).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'})}`
+                : 'Sin datos de llegada';
+
+            html += `
+            <div class="card" style="border-left-color: ${posicion === 1 ? var(--amarillo) : '#00d2ff'};">
+                <div class="fila-posicion">
+                    <div class="fila-numero ${claseNumero}">${posicion}</div>
+                    <div style="flex: 1;">
+                        <div class="card-header" style="margin-bottom: 2px;">
+                            <span class="card-title">🚗 Coche ${m.id}</span>
+                            <span class="card-badge" style="background: ${m.sentido_flujo === 'IDA' ? '#ff444433' : '#00d2ff33'}; color: ${m.sentido_flujo === 'IDA' ? '#ff4444' : '#00d2ff'};">
+                                ${m.sentido_flujo}
+                            </span>
+                        </div>
+                        <div class="card-info" style="font-size: 12px;">
+                            👤 ${m.chofer || 'Sin chofer'}<br>
+                            📍 ${nombreParada} | 🪑 ${pasajeros}/4 ocupados
+                        </div>
+                        <div class="fila-tiempo">${tiempoEspera}</div>
+                    </div>
+                </div>
+            </div>`;
+        });
+
+        box.innerHTML = html;
+    }
+
+    // ============================================
+    // CALCULAR PARADA MÁS CERCANA
+    // ============================================
+    function calcularParadaMasCerca(lat, lon) {
+        const paradasCoords = [
+            [-34.549295, -58.783648], [-34.551586, -58.781403], [-34.554132, -58.778927],
+            [-34.561264, -58.770506], [-34.562160, -58.771380], [-34.562494, -58.772133],
+            [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061],
+            [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443],
+            [-34.571956, -58.763201], [-34.577371, -58.755909], [-34.578528, -58.757064],
+            [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842],
+            [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804],
+            [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542],
+            [-34.588273, -58.751338], [-34.588771, -58.750804], [-34.588244, -58.749877],
+            [-34.586030, -58.747278]
+        ];
+        
+        let minDist = Infinity, paradaIdx = -1;
+        paradasCoords.forEach((p, i) => {
+            const dist = Math.sqrt(Math.pow(lat - p[0], 2) + Math.pow(lon - p[1], 2));
+            if (dist < minDist) { minDist = dist; paradaIdx = i; }
+        });
+        return paradaIdx;
+    }
+
+    // ============================================
+    // FLOTA
     // ============================================
     function renderFlota(moviles, reservas) {
         const box = document.getElementById('flota-list');
@@ -480,7 +672,6 @@
             const online = m.esta_online && m.latitud;
             const color = online ? '#28a745' : '#dc3545';
             
-            // FIX: No repetir el auto si ya está en el nombre del chofer
             const choferLower = (m.chofer || '').toLowerCase();
             const autoInfo = (m.marca && m.patente && !choferLower.includes(m.marca.toLowerCase())) 
                 ? `🚙 ${m.marca} ${m.modelo || ''} · ${m.patente}` 
@@ -515,7 +706,7 @@
     }
 
     // ============================================
-    // CAJA - TARIFA PLANA
+    // CAJA
     // ============================================
     function renderCaja(moviles, reservas) {
         const box = document.getElementById('caja-list');
@@ -546,6 +737,93 @@
         box.innerHTML = html;
         document.getElementById('total-general').innerText = '$' + totalGeneral.toLocaleString();
         document.getElementById('total-detail').innerText = `${reservas.length} viaje(s) · ${moviles.filter(m=>m.esta_online).length} coche(s) online`;
+    }
+
+    // ============================================
+    // HISTORIAL
+    // ============================================
+    async function cargarHistorial() {
+        const box = document.getElementById('historial-list');
+        const totalBox = document.getElementById('total-historial');
+        const totalDetail = document.getElementById('total-historial-detail');
+        
+        box.innerHTML = '<div class="empty-state"><span class="spinner"></span>Cargando...</div>';
+        
+        try {
+            // Traer viajes finalizados de los últimos 30 días
+            const fechaDesde = new Date();
+            fechaDesde.setDate(fechaDesde.getDate() - 30);
+            
+            const { data: viajes, error } = await _s.from('reservas_activas')
+                .select('*')
+                .eq('estado', 'finalizado')
+                .gte('creado_en', fechaDesde.toISOString())
+                .order('creado_en', { ascending: false });
+            
+            if (error) throw error;
+            
+            if (!viajes || viajes.length === 0) {
+                box.innerHTML = `<div class="empty-state"><div class="icon">📭</div><div>Sin viajes finalizados</div></div>`;
+                totalBox.innerText = '$0';
+                totalDetail.innerText = '0 viajes';
+                return;
+            }
+            
+            // Agrupar por fecha
+            const porFecha = {};
+            let totalRecaudacion = 0;
+            
+            viajes.forEach(v => {
+                const fecha = new Date(v.creado_en).toLocaleDateString('es-AR');
+                if (!porFecha[fecha]) {
+                    porFecha[fecha] = { cantidad: 0, monto: 0, detalles: [] };
+                }
+                porFecha[fecha].cantidad++;
+                porFecha[fecha].monto += 1000;
+                totalRecaudacion += 1000;
+                
+                // Guardar detalle por coche
+                const cocheExistente = porFecha[fecha].detalles.find(d => d.coche === v.id_movil);
+                if (cocheExistente) {
+                    cocheExistente.viajes++;
+                    cocheExistente.monto += 1000;
+                } else {
+                    porFecha[fecha].detalles.push({
+                        coche: v.id_movil,
+                        viajes: 1,
+                        monto: 1000
+                    });
+                }
+            });
+            
+            totalBox.innerText = '$' + totalRecaudacion.toLocaleString();
+            totalDetail.innerText = `${viajes.length} viajes · ${Object.keys(porFecha).length} días`;
+            
+            let html = '';
+            Object.entries(porFecha).forEach(([fecha, datos]) => {
+                const detalleCoches = datos.detalles
+                    .sort((a, b) => b.viajes - a.viajes)
+                    .map(d => `Coche ${d.coche}: ${d.viajes} viaje(s)`)
+                    .join(' · ');
+                
+                html += `
+                <div class="historial-fecha">
+                    <div class="historial-fecha-header">
+                        <span class="historial-fecha-titulo">📅 ${fecha}</span>
+                        <span class="historial-fecha-total">$${datos.monto.toLocaleString()}</span>
+                    </div>
+                    <div class="historial-detalle">
+                        ${datos.cantidad} viaje(s) · ${detalleCoches}
+                    </div>
+                </div>`;
+            });
+            
+            box.innerHTML = html;
+            
+        } catch (e) {
+            console.error("Error cargando historial:", e);
+            box.innerHTML = `<div class="empty-state"><div class="icon">❌</div><div>Error al cargar historial</div></div>`;
+        }
     }
 
     // ============================================
@@ -616,7 +894,7 @@
     }
 
     // ============================================
-    // CAMBIAR SENTIDO DESDE ADMIN
+    // CAMBIAR SENTIDO
     // ============================================
     async function cambiarSentidoAdmin(id, sentido) {
         if(!confirm(`¿Cambiar coche ${id} a ${sentido}?`)) return;
@@ -634,11 +912,12 @@
     }
 
     // ============================================
-    // GUARDAR CHOFER - CON MERGE
+    // GUARDAR CHOFER
     // ============================================
     async function guardarChofer() {
         const id = parseInt(document.getElementById('c-id').value);
-        const nom = document.getElementById('c-nom').value.trim();
+        const nom = sanitizarInput(document.getElementById('c-nom').value);
+        
         if(!id || !nom) { alert('Completá N° de coche y nombre'); return; }
         
         try {
@@ -659,14 +938,14 @@
     }
 
     // ============================================
-    // GUARDAR AUTO - CON MERGE
+    // GUARDAR AUTO
     // ============================================
     async function guardarAuto() {
         const id = parseInt(document.getElementById('auto-id').value);
-        const marca = document.getElementById('auto-marca').value.trim();
-        const modelo = document.getElementById('auto-modelo').value.trim();
-        const color = document.getElementById('auto-color').value.trim();
-        const patente = document.getElementById('auto-patente').value.trim().toUpperCase();
+        const marca = sanitizarInput(document.getElementById('auto-marca').value);
+        const modelo = sanitizarInput(document.getElementById('auto-modelo').value);
+        const color = sanitizarInput(document.getElementById('auto-color').value);
+        const patente = sanitizarInput(document.getElementById('auto-patente').value).toUpperCase();
         
         if(!id) { alert('Ingresá el N° de coche'); return; }
         if(!marca || !modelo || !color || !patente) { 
@@ -755,7 +1034,7 @@
     }
 
     // ============================================
-    // ELIMINAR AUTO - CON VERIFICACIÓN
+    // ELIMINAR AUTO
     // ============================================
     async function eliminarAuto(id) {
         if(!confirm(`¿Eliminar el coche ${id}?`)) return;
