@@ -22,6 +22,7 @@
         .btn-danger { background: #dc3545; color: white; }
         .btn-warning { background: var(--amarillo); color: black; }
         .btn-success { background: #28a745; color: white; }
+        .btn-reset { background: #444; color: #888; font-size: 12px; padding: 8px; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; }
 
         #app-container { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
         
@@ -173,7 +174,6 @@
             flex: 1;
         }
 
-        /* === FILA / POSICIÓN === */
         .fila-posicion {
             display: flex;
             align-items: center;
@@ -202,7 +202,6 @@
             margin-top: 2px;
         }
 
-        /* === HISTORIAL === */
         .historial-fecha {
             background: #1a1a1a;
             border-radius: 10px;
@@ -249,6 +248,7 @@
         <input type="password" id="pass-field" placeholder="Contraseña de administrador" onkeypress="if(event.key==='Enter')validar()">
         <button class="btn-main" onclick="validar()">INGRESAR AL PANEL</button>
         <p id="error" style="color: #ff4444; font-size: 13px; margin-top: 12px; display: none;">❌ Clave incorrecta</p>
+        <button class="btn-reset" onclick="resetearClave()">🔄 Olvidé mi contraseña (Resetear)</button>
     </div>
 </div>
 
@@ -385,11 +385,16 @@
     }
 
     // ============================================
-    // LOGIN
+    // LOGIN - CON RESET DE EMERGENCIA
     // ============================================
     function validar() {
-        const correcta = localStorage.getItem("adminPass") || "1234";
-        if(document.getElementById("pass-field").value === correcta) {
+        const ingresada = document.getElementById("pass-field").value;
+        const guardada = localStorage.getItem("adminPass");
+        
+        // Si no hay contraseña guardada, usar "1234" por defecto
+        const correcta = guardada || "1234";
+        
+        if(ingresada === correcta) {
             document.getElementById("login-screen").style.display = "none";
             localStorage.setItem("adminLogueado", "true");
             initMap();
@@ -398,6 +403,16 @@
         } else {
             document.getElementById("error").style.display = "block";
             setTimeout(() => document.getElementById("error").style.display = "none", 3000);
+        }
+    }
+
+    function resetearClave() {
+        if(confirm("¿Resetear contraseña a '1234'?")) {
+            localStorage.removeItem("adminPass");
+            localStorage.removeItem("adminLogueado");
+            alert("✅ Contraseña reseteada a '1234'. Ingresá de nuevo.");
+            document.getElementById("pass-field").value = "";
+            document.getElementById("error").style.display = "none";
         }
     }
 
@@ -565,12 +580,9 @@
     function renderFila(moviles) {
         const box = document.getElementById('fila-list');
         
-        // Filtrar solo coches online y con sentido definido
         const enFila = (moviles || [])
             .filter(m => m.esta_online && m.latitud && m.sentido_flujo)
             .sort((a, b) => {
-                // Ordenar por: parada más cercana a la inicial (0 para IDA, última para VUELTA)
-                // y luego por hora de llegada (ultima_actualizacion)
                 const paradaA = calcularParadaMasCerca(a.latitud, a.longitud);
                 const paradaB = calcularParadaMasCerca(b.latitud, b.longitud);
                 
@@ -580,7 +592,6 @@
                     if (paradaA !== paradaB) return paradaB - paradaA;
                 }
                 
-                // Si están en la misma parada, ordenar por quién llegó primero
                 const horaA = new Date(a.ultima_actualizacion || 0).getTime();
                 const horaB = new Date(b.ultima_actualizacion || 0).getTime();
                 return horaA - horaB;
@@ -609,7 +620,7 @@
                 : 'Sin datos de llegada';
 
             html += `
-            <div class="card" style="border-left-color: ${posicion === 1 ? var(--amarillo) : '#00d2ff'};">
+            <div class="card" style="border-left-color: ${posicion === 1 ? '#ffcc00' : '#00d2ff'};">
                 <div class="fila-posicion">
                     <div class="fila-numero ${claseNumero}">${posicion}</div>
                     <div style="flex: 1;">
@@ -750,7 +761,6 @@
         box.innerHTML = '<div class="empty-state"><span class="spinner"></span>Cargando...</div>';
         
         try {
-            // Traer viajes finalizados de los últimos 30 días
             const fechaDesde = new Date();
             fechaDesde.setDate(fechaDesde.getDate() - 30);
             
@@ -769,7 +779,6 @@
                 return;
             }
             
-            // Agrupar por fecha
             const porFecha = {};
             let totalRecaudacion = 0;
             
@@ -782,7 +791,6 @@
                 porFecha[fecha].monto += 1000;
                 totalRecaudacion += 1000;
                 
-                // Guardar detalle por coche
                 const cocheExistente = porFecha[fecha].detalles.find(d => d.coche === v.id_movil);
                 if (cocheExistente) {
                     cocheExistente.viajes++;
@@ -1063,7 +1071,9 @@
     // ============================================
     function cambiarClave() {
         const actual = prompt("Contraseña actual:");
-        const correcta = localStorage.getItem("adminPass") || "1234";
+        const guardada = localStorage.getItem("adminPass");
+        const correcta = guardada || "1234";
+        
         if(actual !== correcta) { alert('❌ Incorrecta'); return; }
         
         const nueva = prompt("Nueva contraseña (mínimo 4 caracteres):");
