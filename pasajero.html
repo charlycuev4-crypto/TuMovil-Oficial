@@ -249,9 +249,19 @@
 
 <script>
     // ============================================
-    // SUPABASE
+    // SUPABASE - CON APP SECRET (SEGURIDAD)
     // ============================================
-    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+    const _s = supabase.createClient(
+        'https://nvumdlxervrewqiiaicl.supabase.co',
+        'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE',
+        {
+            global: {
+                headers: {
+                    'x-app-secret': '2Awy7XGP0SBmBRprB3PBzfvz9VcbDd04'
+                }
+            }
+        }
+    );
 
     // ============================================
     // PARADAS (hardcodeadas - bajo consumo)
@@ -312,7 +322,7 @@
     let markerDestinoFlecha = L.marker([0,0], { icon: iconDest });
     let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
     let markerTaxis = {};
-    let markerMiCoche = null; // Marcador del coche del pasajero durante viaje activo
+    let markerMiCoche = null;
 
     // ============================================
     // VARIABLES GLOBALES
@@ -325,8 +335,8 @@
     let ultimoEstadoBoton = '';
     let gpsListo = false;
     let datosViajeActivo = null;
-    let cocheYaPaso = false; // NUEVO: indica si el coche pasó la parada del pasajero
-    let intervaloViajeActivo = null; // NUEVO: para refrescar posición del coche
+    let cocheYaPaso = false;
+    let intervaloViajeActivo = null;
 
     // ============================================
     // SELECT DE PARADAS
@@ -354,16 +364,13 @@
     // ============================================
     // VERIFICAR SI EL MÓVIL PUEDE RECOGER AL PASAJERO
     // ============================================
-    // Lógica del colectivo: no puede retroceder de parada
-    // IDA: paradas 0→24, el móvil puede recoger si está en parada <= parada del pasajero
-    // VUELTA: paradas 24→0, el móvil puede recoger si está en parada >= parada del pasajero
     function movilPuedeRecoger(movilParada, paradaPasajero, sentido) {
         if (sentido === 'IDA') return movilParada <= paradaPasajero;
         return movilParada >= paradaPasajero;
     }
 
     // ============================================
-    // CARGAR VIAJE ACTIVO (al iniciar) - MEJORADO
+    // CARGAR VIAJE ACTIVO (al iniciar)
     // ============================================
     window.onload = async () => {
         const nombreGuardado = localStorage.getItem('usuario_nombre');
@@ -375,7 +382,6 @@
 
     async function cargarDatosViajeActivo(nombre) {
         try {
-            // Consulta con join a estado_movil para traer datos del conductor
             const { data, error } = await _s.from('reservas_activas')
                 .select(`
                     *,
@@ -391,7 +397,6 @@
                 datosViajeActivo = data;
                 asientosElegidos = data.map(r => r.asiento_num);
                 
-                // Pre-llenar selects con datos del viaje
                 const primerViaje = data[0];
                 if(primerViaje.destino_idx !== undefined) {
                     document.getElementById('destino-select').value = primerViaje.destino_idx;
@@ -400,14 +405,11 @@
                     document.getElementById('sentido-select').value = primerViaje.estado_movil.sentido_flujo;
                 }
                 
-                // Mostrar ruta en el mapa
                 if(primerViaje.destino_idx !== undefined && miLat !== 0) {
                     actualizarMapaRuta();
                 }
                 
                 bloquearPanelParaViajeActivo();
-                
-                // NUEVO: Iniciar monitoreo de posición del coche
                 iniciarMonitoreoViajeActivo();
             }
         } catch (err) { 
@@ -416,13 +418,10 @@
     }
 
     // ============================================
-    // MONITOREO DE VIAJE ACTIVO - NUEVO
+    // MONITOREO DE VIAJE ACTIVO
     // ============================================
     function iniciarMonitoreoViajeActivo() {
-        // Primera verificación inmediata
         verificarPosicionCoche();
-        
-        // Refrescar cada 10 segundos la posición del coche
         intervaloViajeActivo = setInterval(verificarPosicionCoche, 10000);
     }
 
@@ -433,8 +432,6 @@
         const idMovil = viaje.id_movil;
         const sentido = viaje.estado_movil?.sentido_flujo || document.getElementById('sentido-select').value;
         
-        // Calcular parada del pasajero (donde fue recogido)
-        // Usamos pasajero_lat/pasajero_lon de la reserva para saber dónde subió
         const paradaPasajero = calcularParadaMasCerca(viaje.pasajero_lat || miLat, viaje.pasajero_lon || miLon);
         
         try {
@@ -448,23 +445,17 @@
                 return;
             }
             
-            // Calcular parada actual del coche
             const paradaCoche = calcularParadaMasCerca(movil.latitud, movil.longitud);
-            
-            // Verificar si el coche ya pasó la parada del pasajero
             const puedeRecoger = movilPuedeRecoger(paradaCoche, paradaPasajero, sentido);
             
             if (!puedeRecoger && !cocheYaPaso) {
-                // El coche acaba de pasar la parada
                 cocheYaPaso = true;
                 mostrarAlertaCochePasado();
             } else if (puedeRecoger && cocheYaPaso) {
-                // El coche volvió a estar en posición válida (raro, pero posible)
                 cocheYaPaso = false;
                 actualizarPanelViajeActivo(false);
             }
             
-            // Actualizar marcador del coche en el mapa
             actualizarMarcadorMiCoche(movil.latitud, movil.longitud, cocheYaPaso);
             
         } catch (err) {
@@ -473,10 +464,8 @@
     }
 
     function mostrarAlertaCochePasado() {
-        // Actualizar el panel visual con alerta
         actualizarPanelViajeActivo(true);
         
-        // Notificación visual adicional
         const container = document.getElementById('flota-container');
         const alertaExistente = container.querySelector('.alerta-parada');
         
@@ -493,7 +482,6 @@
             }
         }
         
-        // Cambiar texto del botón
         const btn = document.getElementById('btn-cancelar');
         btn.innerText = "🚨 FINALIZAR VIAJE (COCHE PASÓ)";
         btn.style.background = "#ff4444";
@@ -528,19 +516,16 @@
     }
 
     function actualizarMarcadorMiCoche(lat, lon, pasado) {
-        // Remover marcador anterior si existe
         if (markerMiCoche) {
             map.removeLayer(markerMiCoche);
         }
         
-        // Crear nuevo marcador
         const icono = pasado ? 
             L.divIcon({ html: '<div style="font-size:30px; opacity:0.5; filter: grayscale(1);">🚕</div>', iconAnchor: [15, 15] }) :
             iconMiCoche;
         
         markerMiCoche = L.marker([lat, lon], { icon: icono, zIndexOffset: 1000 }).addTo(map);
         
-        // Si el coche pasó, centrar el mapa en el pasajero para que vea la distancia
         if (pasado && miLat !== 0) {
             const bounds = L.latLngBounds([miLat, miLon], [lat, lon]);
             map.fitBounds(bounds, { padding: [100, 100] });
@@ -551,14 +536,12 @@
     // PANEL VIAJE ACTIVO (bloqueo de controles)
     // ============================================
     function bloquearPanelParaViajeActivo() {
-        // Ocultar controles de búsqueda
         document.getElementById('btn-pedir').style.display = 'none';
         document.getElementById('btn-cancelar').style.display = 'block';
         document.getElementById('nombre-input').disabled = true;
         document.getElementById('destino-select').disabled = true;
         document.getElementById('sentido-select').disabled = true;
         
-        // Generar panel de viaje activo con datos reales
         renderizarPanelViajeActivo();
     }
 
@@ -645,7 +628,7 @@
     }
 
     // ============================================
-    // EVENT LISTENERS (solo al cambiar destino/sentido)
+    // EVENT LISTENERS
     // ============================================
     document.getElementById('destino-select').addEventListener('change', () => {
         actualizarMapaRuta();
@@ -662,7 +645,6 @@
     function seleccionarAsiento(cocheId, numAsiento) {
         if (miViajeActivo) return;
         
-        // Si cambia de coche, limpiar todo
         if (cocheSeleccionado && cocheSeleccionado !== cocheId) {
             asientosElegidos = [];
             document.querySelectorAll('.asiento-libre').forEach(el => el.classList.remove('seleccionado'));
@@ -694,7 +676,7 @@
     }
 
     // ============================================
-    // ACTUALIZAR BOTÓN (sin tocar el DOM si no cambió)
+    // ACTUALIZAR BOTÓN
     // ============================================
     function actualizarBoton() {
         const btn = document.getElementById('btn-pedir');
@@ -712,7 +694,6 @@
             nuevoTexto = "SELECCIONÁ UN ASIENTO";
         }
         
-        // Solo actualizar si cambió (evita reflows)
         if (nuevoTexto !== ultimoEstadoBoton) {
             btn.innerText = nuevoTexto;
             btn.disabled = nuevoDisabled;
@@ -721,7 +702,7 @@
     }
 
     // ============================================
-    // RENDERIZAR FLOTA (principal)
+    // RENDERIZAR FLOTA
     // ============================================
     async function renderizarFlotaDisponible() {
         if (miViajeActivo) return;
@@ -730,7 +711,6 @@
         const sentido = document.getElementById('sentido-select').value;
         const destIdx = document.getElementById('destino-select').value;
         
-        // Sin destino
         if (!destIdx) {
             container.innerHTML = '<div class="sin-coches">📍 Seleccioná tu destino para ver coches</div>';
             ultimaFlotaHTML = '';
@@ -738,7 +718,6 @@
             return;
         }
         
-        // Sin GPS aún
         if (!gpsListo) {
             container.innerHTML = '<div class="sin-coches">⌛ Esperando señal GPS...</div>';
             ultimaFlotaHTML = '';
@@ -750,7 +729,6 @@
         actualizarBoton();
         
         try {
-            // ==== CONSULTA ÚNICA A SUPABASE (bajo consumo) ====
             const { data: moviles, error: errMoviles } = await _s.from('estado_movil')
                 .select('id, latitud, longitud, chofer')
                 .eq('esta_online', true)
@@ -760,7 +738,6 @@
             
             if (errMoviles) throw errMoviles;
             
-            // ❌ CASO 1: No hay coches online
             if (!moviles || moviles.length === 0) {
                 const html = '<div class="sin-coches"><b>🚫 No hay móviles en este momento</b><br>Intentá en unos minutos</div>';
                 if (html !== ultimaFlotaHTML) { container.innerHTML = html; ultimaFlotaHTML = html; }
@@ -768,19 +745,16 @@
                 return;
             }
             
-            // Calcular paradas y filtrar
             const movilesConParada = moviles.map(m => ({
                 ...m,
                 paradaCalculada: calcularParadaMasCerca(m.latitud, m.longitud),
                 distancia: Math.sqrt(Math.pow(miLat - m.latitud, 2) + Math.pow(miLon - m.longitud, 2))
             }));
             
-            // FILTRAR: Solo coches que pueden recoger (no retroceden)
             const movilesValidos = movilesConParada.filter(m => 
                 movilPuedeRecoger(m.paradaCalculada, parseInt(destIdx), sentido)
             ).sort((a, b) => a.distancia - b.distancia);
             
-            // ❌ CASO 2: Hay coches pero todos pasaron la parada del pasajero
             if (movilesValidos.length === 0) {
                 const html = '<div class="sin-coches"><b>🚫 Todos los autos ya pasaron tu parada</b><br>Esperá al siguiente recorrido</div>';
                 if (html !== ultimaFlotaHTML) { container.innerHTML = html; ultimaFlotaHTML = html; }
@@ -788,7 +762,6 @@
                 return;
             }
             
-            // Verificar asientos de cada coche
             let hayCochesConLugar = false;
             let html = '';
             
@@ -850,7 +823,6 @@
                 </div>`;
             }
             
-            // ❌ CASO 3: Todos los coches válidos están llenos
             if (!hayCochesConLugar) {
                 const html = '<div class="sin-coches"><b>🚫 Todos los móviles están llenos</b><br>Intentá en unos minutos</div>';
                 if (html !== ultimaFlotaHTML) { container.innerHTML = html; ultimaFlotaHTML = html; }
@@ -858,12 +830,10 @@
                 return;
             }
             
-            // ✅ CASO 4: Hay coches con lugar
             if (html !== ultimaFlotaHTML) {
                 container.innerHTML = html;
                 ultimaFlotaHTML = html;
                 
-                // Restaurar selección visual
                 if (cocheSeleccionado) {
                     const card = document.getElementById(`coche-card-${cocheSeleccionado}`);
                     if(card) card.classList.add('seleccionado');
@@ -903,7 +873,6 @@
         btn.innerHTML = '<span class="spinner"></span>RESERVANDO...';
 
         try {
-            // Verificar que sigue libre
             const { data: ocupados } = await _s.from('reservas_activas')
                 .select('asiento_num')
                 .eq('id_movil', cocheSeleccionado)
@@ -921,7 +890,6 @@
                 return;
             }
             
-            // Crear reservas
             const reservas = asientosElegidos.map(n => ({ 
                 asiento_num: n, 
                 id_movil: cocheSeleccionado, 
@@ -980,7 +948,6 @@
                 return;
             }
 
-            // Limpiar intervalo antes de recargar
             if (intervaloViajeActivo) {
                 clearInterval(intervaloViajeActivo);
             }
@@ -996,7 +963,7 @@
     }
 
     // ============================================
-    // MAPA: Actualizar posición de taxis (bajo consumo)
+    // MAPA: Actualizar posición de taxis
     // ============================================
     async function actualizarMapaTaxis() {
         const sentidoSeleccionado = document.getElementById('sentido-select').value;
@@ -1044,14 +1011,12 @@
     }
 
     // ============================================
-    // REFRESCO PERIÓDICO (bajo consumo: cada 15 segundos)
+    // REFRESCO PERIÓDICO
     // ============================================
-    // Solo mapa de taxis, la flota se actualiza manual al cambiar destino/sentido
     setInterval(() => {
         if (!miViajeActivo) actualizarMapaTaxis();
     }, 15000);
 
-    // Primera carga
     actualizarMapaTaxis();
 </script>
 </body>
