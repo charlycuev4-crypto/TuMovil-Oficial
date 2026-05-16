@@ -2,385 +2,97 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TuMovil - Master Panel Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TuMovil - Conductor</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #0a0a0a; --panel: #161616; }
-        * { box-sizing: border-box; }
-        body { margin: 0; background: var(--dark); color: white; font-family: -apple-system, BlinkMacSystemFont, sans-serif; height: 100vh; width: 100vw; overflow: hidden; }
-
-        #login-screen { position: fixed; inset: 0; background: var(--dark); z-index: 9999; display: flex; align-items: center; justify-content: center; }
-        .login-box { text-align: center; width: 90%; max-width: 360px; background: #111; padding: 35px 25px; border-radius: 20px; border: 1px solid var(--celeste); }
-        .login-box h1 { color: var(--celeste); margin: 0 0 25px 0; font-size: 28px; }
-        .login-box input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 15px; border-radius: 12px; width: 100%; font-size: 16px; margin-bottom: 15px; }
-        .login-box input:focus { outline: none; border-color: var(--celeste); }
-        .btn-main { background: var(--celeste); color: black; border: none; padding: 16px; border-radius: 12px; font-weight: bold; width: 100%; font-size: 16px; cursor: pointer; }
-        .btn-main:active { transform: scale(0.98); }
-        .btn-danger { background: #dc3545; color: white; }
-        .btn-warning { background: var(--amarillo); color: black; }
-        .btn-success { background: #28a745; color: white; }
-        .btn-reset { background: #333; color: #888; font-size: 12px; padding: 10px; border: 1px solid #444; border-radius: 8px; cursor: pointer; margin-top: 10px; width: 100%; }
-
-        #app-container { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --success: #28a745; --danger: #dc3545; }
+        body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
         
-        #sidebar { 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            width: 85%; 
-            max-width: 380px; 
-            height: 100vh; 
-            background: var(--panel); 
-            border-right: 1px solid #333; 
-            display: flex; 
-            flex-direction: column; 
-            z-index: 1000; 
-            transition: transform 0.3s ease;
-            transform: translateX(-100%);
-        }
-        #sidebar.open { transform: translateX(0); }
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
+        .anillo { width: 140px; height: 140px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; font-size: 16px; color: var(--celeste); letter-spacing: 2px; }
         
-        #overlay { 
-            position: fixed; 
-            inset: 0; 
-            background: rgba(0,0,0,0.6); 
-            z-index: 999; 
-            display: none; 
-        }
-        #overlay.active { display: block; }
-
-        #map { 
-            flex-grow: 1; 
-            height: 100vh; 
-            width: 100vw; 
-            position: relative; 
-        }
-
-        #btn-menu { 
-            position: fixed; 
-            top: 15px; 
-            left: 15px; 
-            z-index: 500; 
-            background: var(--celeste); 
-            border: none; 
-            padding: 12px 14px; 
-            border-radius: 12px; 
-            font-size: 20px; 
-            cursor: pointer; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-        }
-
-        .tabs { 
-            display: flex; 
-            background: #222; 
-            overflow-x: auto; 
-            scrollbar-width: none; 
-            flex-shrink: 0;
-        }
-        .tabs::-webkit-scrollbar { display: none; }
-        .tab-btn { 
-            flex: 1; 
-            padding: 14px 8px; 
-            border: none; 
-            background: #333; 
-            color: #888; 
-            font-size: 11px; 
-            cursor: pointer; 
-            text-transform: uppercase; 
-            font-weight: 600; 
-            min-width: 65px;
-        }
-        .tab-btn.active { background: var(--celeste); color: black; }
-
-        .content { 
-            padding: 15px; 
-            overflow-y: auto; 
-            flex-grow: 1; 
-            -webkit-overflow-scrolling: touch;
-        }
-        .section { display: none; }
-        .section.active { display: block; }
-
-        .card { 
-            background: #222; 
-            border-radius: 12px; 
-            padding: 14px; 
-            margin-bottom: 10px; 
-            border-left: 4px solid var(--celeste);
-            animation: slideIn 0.3s ease;
-        }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        #map { flex-grow: 1; width: 100%; }
         
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-        .card-title { font-weight: bold; font-size: 15px; }
-        .card-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: bold; }
-        .badge-zona1 { background: #00d2ff33; color: #00d2ff; }
-        .card-info { font-size: 13px; color: #aaa; line-height: 1.5; }
-        .card-price { font-size: 18px; color: var(--amarillo); font-weight: bold; }
-
-        .form-section { 
-            background: #1a1a1a; 
-            padding: 15px; 
-            border-radius: 12px; 
-            margin-bottom: 15px; 
-        }
-        .form-title { 
-            font-size: 12px; 
-            color: #888; 
-            margin-bottom: 12px; 
-            text-transform: uppercase; 
-            letter-spacing: 0.5px;
-        }
-        input, select { 
-            background: #2a2a2a; 
-            border: 1px solid #444; 
-            color: white; 
-            padding: 12px; 
-            border-radius: 10px; 
-            width: 100%; 
-            font-size: 15px; 
-            margin-bottom: 10px; 
-        }
-        input:focus, select:focus { outline: none; border-color: var(--celeste); }
-
-        .action-bar { display: flex; gap: 8px; margin-bottom: 15px; }
-        .action-bar button { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 12px; font-weight: bold; cursor: pointer; }
-
-        .total-box { 
-            background: linear-gradient(135deg, rgba(0,210,255,0.15), rgba(0,210,255,0.05)); 
-            padding: 20px; 
-            border-radius: 16px; 
-            text-align: center; 
-            border: 1px solid var(--celeste); 
-            margin-bottom: 20px;
-        }
-        .total-box .label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-        .total-box .amount { font-size: 36px; color: var(--amarillo); margin: 8px 0; font-weight: bold; }
-        .total-box .detail { font-size: 13px; color: #aaa; }
-
-        .empty-state { text-align: center; padding: 40px 20px; color: #555; }
-        .empty-state .icon { font-size: 48px; margin-bottom: 10px; }
-
-        .map-tiles { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
-
-        .mini-btn { 
-            padding: 6px 10px; 
-            border: none; 
-            border-radius: 6px; 
-            font-size: 11px; 
-            cursor: pointer; 
-            flex: 1;
-        }
-
-        .fila-posicion {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 2px;
-        }
-        .fila-numero {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 16px;
-            flex-shrink: 0;
-        }
-        .fila-numero.primero { background: var(--amarillo); color: black; }
-        .fila-numero.segundo { background: #888; color: white; }
-        .fila-numero.tercero { background: #555; color: white; }
-        .fila-numero.resto { background: #333; color: #888; }
+        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 10px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 55vh; overflow-y: auto; }
         
-        .fila-tiempo {
-            font-size: 11px;
-            color: #666;
-            margin-top: 2px;
-        }
-
-        .historial-fecha {
-            background: #1a1a1a;
-            border-radius: 10px;
-            padding: 12px;
-            margin-bottom: 10px;
-            border-left: 3px solid var(--celeste);
-        }
-        .historial-fecha-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        .historial-fecha-titulo {
-            font-size: 14px;
-            font-weight: bold;
-            color: var(--celeste);
-        }
-        .historial-fecha-total {
-            font-size: 16px;
-            color: var(--amarillo);
-            font-weight: bold;
-        }
-        .historial-detalle {
-            font-size: 12px;
-            color: #888;
-        }
-
-        .spinner { 
-            display: inline-block; 
-            width: 16px; 
-            height: 16px; 
-            border: 2px solid rgba(255,255,255,.3); 
-            border-radius: 50%; 
-            border-top-color: #fff; 
-            animation: spin 1s ease-in-out infinite; 
-            margin-right: 8px; 
-        }
+        .status-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 12px; text-align: center; }
+        .status-online { background: rgba(40, 167, 69, 0.1); border-color: var(--success); }
+        .status-offline { background: rgba(220, 53, 69, 0.1); border-color: var(--danger); }
+        
+        .btn-toggle { padding: 16px; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; transition: all 0.3s; }
+        .btn-online { background: var(--success); color: white; }
+        .btn-offline { background: var(--danger); color: white; }
+        .btn-sentido { background: var(--amarillo); color: black; padding: 12px; border: none; border-radius: 10px; font-weight: bold; font-size: 14px; cursor: pointer; }
+        
+        .info-box { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .info-item { background: #2a2a2a; border-radius: 8px; padding: 10px; text-align: center; }
+        .info-label { font-size: 10px; color: #888; text-transform: uppercase; }
+        .info-valor { font-size: 16px; color: var(--celeste); font-weight: bold; margin-top: 4px; }
+        
+        .pasajeros-list { max-height: 150px; overflow-y: auto; }
+        .pasajero-item { background: #2a2a2a; border-radius: 8px; padding: 8px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+        .pasajero-nombre { font-size: 13px; }
+        .pasajero-asiento { font-size: 12px; color: var(--amarillo); }
+        
+        .sin-pasajeros { text-align: center; padding: 15px; color: #666; font-size: 12px; }
+        
+        .fila-info { font-size: 12px; color: #888; text-align: center; margin-top: 4px; }
+        
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        @media (min-width: 768px) {
-            #app-container { flex-direction: row; }
-            #sidebar { 
-                position: relative; 
-                width: 400px; 
-                transform: none !important; 
-            }
-            #btn-menu { display: none !important; }
-            #overlay { display: none !important; }
-        }
     </style>
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="login-screen">
-    <div class="login-box">
-        <h1>🛰️ TuMovil</h1>
-        <input type="password" id="pass-field" placeholder="Contraseña de administrador" onkeypress="if(event.key==='Enter')validar()">
-        <button class="btn-main" onclick="validar()">INGRESAR AL PANEL</button>
-        <p id="error" style="color: #ff4444; font-size: 13px; margin-top: 12px; display: none;">❌ Clave incorrecta</p>
-        <button class="btn-reset" onclick="resetearClave()">🔄 Olvidé mi contraseña (Resetear a 1234)</button>
-    </div>
-</div>
-
-<!-- OVERLAY -->
-<div id="overlay" onclick="toggleSidebar(false)"></div>
-
-<!-- BOTÓN MENÚ -->
-<button id="btn-menu" onclick="toggleSidebar(true)">☰</button>
-
-<div id="app-container">
-    <div id="sidebar">
-        <div class="tabs">
-            <button class="tab-btn active" onclick="ver('radar')">RADAR</button>
-            <button class="tab-btn" onclick="ver('fila')">FILA</button>
-            <button class="tab-btn" onclick="ver('flota')">FLOTA</button>
-            <button class="tab-btn" onclick="ver('caja')">CAJA</button>
-            <button class="tab-btn" onclick="ver('historial')">HIST</button>
-            <button class="tab-btn" onclick="ver('ajustes')">AJUST</button>
-        </div>
-
-        <div class="content">
-            <!-- RADAR -->
-            <div id="view-radar" class="section active">
-                <div class="action-bar">
-                    <button class="btn-warning" onclick="finalizarTodos(false)">🧹 FINALIZAR TODO</button>
-                    <button class="btn-danger" onclick="finalizarTodos(true)">🗑️ BORRAR TODO</button>
-                </div>
-                <h4 style="color: var(--celeste); margin: 0 0 12px 0; font-size: 14px;">📡 PASAJEROS EN VIVO</h4>
-                <div id="pax-list"></div>
-            </div>
-
-            <!-- FILA -->
-            <div id="view-fila" class="section">
-                <h4 style="color: var(--amarillo); margin: 0 0 12px 0; font-size: 14px;">🚦 ORDEN DE SALIDA</h4>
-                <div id="fila-list"></div>
-            </div>
-
-            <!-- FLOTA -->
-            <div id="view-flota" class="section">
-                <h4 style="margin: 0 0 12px 0; font-size: 14px;">🚗 ESTADO DE CONDUCTORES</h4>
-                <div id="flota-list"></div>
-            </div>
-
-            <!-- CAJA -->
-            <div id="view-caja" class="section">
-                <div class="total-box">
-                    <div class="label">RECAUDACIÓN HOY</div>
-                    <div class="amount" id="total-general">$0</div>
-                    <div class="detail" id="total-detail">0 viajes activos</div>
-                </div>
-                <h4 style="margin: 0 0 12px 0; font-size: 14px;">💰 DETALLE POR COCHE</h4>
-                <div id="caja-list"></div>
-            </div>
-
-            <!-- HISTORIAL -->
-            <div id="view-historial" class="section">
-                <div class="total-box" style="border-color: var(--amarillo); background: linear-gradient(135deg, rgba(255,204,0,0.15), rgba(255,204,0,0.05));">
-                    <div class="label">RECAUDACIÓN TOTAL (30 días)</div>
-                    <div class="amount" id="total-historial">$0</div>
-                    <div class="detail" id="total-historial-detail">0 viajes en total</div>
-                </div>
-                <h4 style="margin: 0 0 12px 0; font-size: 14px;">📅 HISTORIAL POR DÍA</h4>
-                <div id="historial-list"></div>
-            </div>
-
-            <!-- AJUSTES -->
-            <div id="view-ajustes" class="section">
-                
-                <!-- CREAR NUEVO CONDUCTOR -->
-                <div class="form-section">
-                    <div class="form-title">➕ Crear Nuevo Conductor</div>
-                    <input type="number" id="new-coche-id" placeholder="N° de Coche (ej: 5)">
-                    <input type="text" id="new-chofer-nom" placeholder="Nombre del Chofer">
-                    <select id="new-sentido">
-                        <option value="IDA">IDA</option>
-                        <option value="VUELTA">VUELTA</option>
-                    </select>
-                    <button class="btn-main btn-success" onclick="crearConductor()">➕ CREAR CONDUCTOR</button>
-                </div>
-
-                <!-- EDITAR CHOFER EXISTENTE -->
-                <div class="form-section">
-                    <div class="form-title">✏️ Editar Chofer Existente</div>
-                    <input type="number" id="c-id" placeholder="N° de Coche">
-                    <input type="text" id="c-nom" placeholder="Nuevo nombre del Chofer">
-                    <button class="btn-main" onclick="guardarChofer()">💾 GUARDAR CAMBIOS</button>
-                </div>
-
-                <!-- VEHÍCULO -->
-                <div class="form-section">
-                    <div class="form-title">🚗 Datos del Vehículo</div>
-                    <input type="number" id="auto-id" placeholder="N° de Coche">
-                    <input type="text" id="auto-marca" placeholder="Marca (ej: Renault)">
-                    <input type="text" id="auto-modelo" placeholder="Modelo (ej: Clio)">
-                    <input type="text" id="auto-color" placeholder="Color (ej: Azul)">
-                    <input type="text" id="auto-patente" placeholder="Patente (ej: ABC123)" style="text-transform: uppercase;">
-                    <button class="btn-main" onclick="guardarAuto()" style="background: var(--amarillo);">💾 GUARDAR VEHÍCULO</button>
-                </div>
-
-                <!-- LISTA DE COCHES -->
-                <div class="form-section">
-                    <div class="form-title">📋 Coches Registrados</div>
-                    <div id="lista-autos" style="max-height: 250px; overflow-y: auto;"></div>
-                </div>
-
-                <button class="btn-main" style="background: #444; color: white;" onclick="cambiarClave()">🔐 CAMBIAR CONTRASEÑA</button>
-            </div>
-        </div>
+    <div id="splash">
+        <div class="anillo"><span style="font-size: 50px;">🚕</span></div>
+        <h2 style="color: var(--celeste); margin-top: 20px;">TUMOVIL</h2>
+        <p style="color: white; font-size: 12px;">Cargando conductor...</p>
     </div>
 
+    <div class="header">
+        <span style="font-size: 20px;">☰</span>
+        <h1>CONDUCTOR <span id="coche-num">--</span></h1>
+        <span id="online-indicator" style="width: 12px; height: 12px; border-radius: 50%; background: #666;"></span>
+    </div>
     <div id="map"></div>
-</div>
+
+    <div class="bottom-ui">
+        <div class="status-card" id="status-card">
+            <b style="color: var(--celeste); font-size: 14px;" id="status-text">CONECTANDO...</b>
+            <div class="fila-info" id="fila-info"></div>
+        </div>
+        
+        <div class="info-box">
+            <div class="info-item">
+                <div class="info-label">PASAJEROS</div>
+                <div class="info-valor" id="info-pasajeros">0/4</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">RECAUDACIÓN</div>
+                <div class="info-valor" id="info-plata">$0</div>
+            </div>
+        </div>
+        
+        <h4 style="margin: 0; font-size: 12px; color: #888;">🪑 ASIENTOS</h4>
+        <div class="pasajeros-list" id="pasajeros-list">
+            <div class="sin-pasajeros">Sin pasajeros</div>
+        </div>
+        
+        <button class="btn-sentido" id="btn-sentido" onclick="cambiarSentido()">🔄 SENTIDO: IDA</button>
+        <button class="btn-toggle btn-online" id="btn-toggle" onclick="toggleOnline()">⌛ CARGANDO...</button>
+    </div>
 
 <script>
     // ============================================
-    // SUPABASE - CON APP SECRET (SEGURIDAD)
+    // SUPABASE - CON APP SECRET
     // ============================================
     const _s = supabase.createClient(
         'https://nvumdlxervrewqiiaicl.supabase.co',
@@ -393,807 +105,307 @@
             }
         }
     );
+
+    // ============================================
+    // OBTENER ID DEL CONDUCTOR DESDE URL
+    // ============================================
+    // Uso: conductor.html?id=2
+    const urlParams = new URLSearchParams(window.location.search);
+    const MI_ID = parseInt(urlParams.get('id')) || 1;
     
-    // ============================================
-    // SANITIZACIÓN DE INPUTS (Anti-XSS)
-    // ============================================
-    function sanitizarInput(texto) {
-        if (!texto) return '';
-        return texto
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#x27;')
-            .replace(/`/g, '&#x60;')
-            .replace(/javascript:/gi, '')
-            .replace(/data:/gi, '')
-            .replace(/on\w+=/gi, '')
-            .trim()
-            .substring(0, 100);
-    }
+    document.getElementById('coche-num').innerText = MI_ID;
 
     // ============================================
-    // LOGIN
+    // VARIABLES
     // ============================================
-    function validar() {
-        const ingresada = document.getElementById("pass-field").value;
-        const guardada = localStorage.getItem("adminPass");
-        const correcta = guardada || "1234";
-        
-        if(ingresada === correcta) {
-            document.getElementById("login-screen").style.display = "none";
-            localStorage.setItem("adminLogueado", "true");
-            initMap();
-            cargarInicial();
-            activarRealtime();
-        } else {
-            document.getElementById("error").style.display = "block";
-            setTimeout(() => document.getElementById("error").style.display = "none", 3000);
-        }
-    }
-
-    function resetearClave() {
-        if(confirm("¿Resetear contraseña a '1234'?")) {
-            localStorage.removeItem("adminPass");
-            localStorage.removeItem("adminLogueado");
-            alert("✅ Contraseña reseteada a '1234'. Ingresá de nuevo.");
-            document.getElementById("pass-field").value = "";
-            document.getElementById("error").style.display = "none";
-        }
-    }
-
-    // ============================================
-    // SIDEBAR - ARREGLADO (NO SE CIERRA AL CAMBIAR PESTAÑA)
-    // ============================================
-    function toggleSidebar(show) {
-        const side = document.getElementById("sidebar");
-        const over = document.getElementById("overlay");
-        const btn = document.getElementById("btn-menu");
-        
-        if(show) {
-            side.classList.add("open");
-            over.classList.add("active");
-            if(btn) btn.style.display = "none";
-        } else {
-            side.classList.remove("open");
-            over.classList.remove("active");
-            if(btn) btn.style.display = "block";
-        }
-    }
-
-    function ver(s) {
-        // Cambiar pestañas visuales
-        document.querySelectorAll('.section').forEach(x => x.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
-        
-        const targetSection = document.getElementById('view-'+s);
-        const targetBtn = event.currentTarget;
-        
-        if(targetSection) targetSection.classList.add('active');
-        if(targetBtn) targetBtn.classList.add('active');
-        
-        // Cargar datos específicos
-        if(s === 'ajustes') cargarListaAutos();
-        if(s === 'historial') cargarHistorial();
-        
-        // IMPORTANTE: NO cerrar sidebar al cambiar de pestaña
-        // El sidebar se mantiene abierto para navegación fácil
-    }
+    let miLat = 0, miLon = 0;
+    let estoyOnline = false;
+    let miSentido = 'IDA';
+    let misPasajeros = [];
+    let watchId = null;
 
     // ============================================
     // MAPA
     // ============================================
-    let map;
-    let markers = {};
-    const iconT = L.divIcon({ html: '<div style="font-size:28px;">🚕</div>', iconSize: [30, 30], iconAnchor: [15, 15] });
-    const iconPax = L.divIcon({ html: '<div style="font-size:20px;">🚶</div>', iconSize: [20, 20], iconAnchor: [10, 20] });
-
-    function initMap() {
-        map = L.map('map', { zoomControl: false }).setView([-34.588, -58.750], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { className: 'map-tiles' }).addTo(map);
-        setTimeout(() => map.invalidateSize(), 100);
-    }
+    const map = L.map('map', { zoomControl: false }).setView([-34.588, -58.750], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
+    const iconYo = L.divIcon({ html: '<div style="font-size:30px; filter: drop-shadow(0 0 8px #00d2ff);">🚕</div>', iconAnchor: [15, 15] });
+    let markerYo = null;
 
     // ============================================
-    // PARADAS
+    // INICIAR
     // ============================================
-    const PARADAS = [
-        'Miguel Cané','Cané y Los Aromos','Los Aromos 11016','Los Aromos 10874',
-        'Los Aromos y Murillo','Murillo 601','Murillo y Güiraldes','Murillo y Watt',
-        'A. Prado 2555','Prado y Payró','Prado 1744','Boulevard Caveri',
-        'Caveri y Azara','Caveri y Vedia','Caveri y Tablada','Caveri y Echeverría',
-        'Caveri y Gálvez','Caveri (Final)','Libertador y Aero','Libertador 7300',
-        'Libertador 7200','Libertador y Maza','Maza y Albatros','Maternidad',
-        'Abasto y Roca','Cruce Castelar','N. Kirchner y Maza','N. Kirchner y Albatros',
-        'Libertador y Gaona','Libertador (Italia)','Córdoba 2879','Nemesio Álvarez',
-        'España 171','Merlo / Mr. Tasty','Estación Moreno'
-    ];
-
-    // ============================================
-    // REALTIME + CACHE
-    // ============================================
-    let datosCache = { moviles: [], reservas: [] };
-
-    async function cargarInicial() {
+    async function iniciar() {
         try {
-            const [{ data: moviles }, { data: reservas }] = await Promise.all([
-                _s.from('estado_movil').select('*').order('id'),
-                _s.from('reservas_activas').select('*').eq('estado', 'en_curso')
-            ]);
-            
-            datosCache.moviles = moviles || [];
-            datosCache.reservas = reservas || [];
-            renderizarTodo();
-        } catch(e) {
-            console.error("Error carga inicial:", e);
-        }
-    }
-
-    function activarRealtime() {
-        _s.channel('admin_moviles')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'estado_movil' }, (payload) => {
-                if(payload.eventType === 'DELETE') {
-                    datosCache.moviles = datosCache.moviles.filter(m => m.id !== payload.old.id);
-                } else {
-                    const idx = datosCache.moviles.findIndex(m => m.id === payload.new.id);
-                    if(idx >= 0) datosCache.moviles[idx] = { ...datosCache.moviles[idx], ...payload.new };
-                    else datosCache.moviles.push(payload.new);
-                }
-                renderizarTodo();
-            })
-            .subscribe();
-
-        _s.channel('admin_reservas')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas_activas', filter: 'estado=eq.en_curso' }, (payload) => {
-                if(payload.eventType === 'DELETE') {
-                    datosCache.reservas = datosCache.reservas.filter(r => r.id !== payload.old.id);
-                } else {
-                    const idx = datosCache.reservas.findIndex(r => r.id === payload.new.id);
-                    if(idx >= 0) datosCache.reservas[idx] = payload.new;
-                    else datosCache.reservas.push(payload.new);
-                }
-                renderizarTodo();
-            })
-            .subscribe();
-    }
-
-    function renderizarTodo() {
-        renderPasajeros(datosCache.reservas);
-        renderFila(datosCache.moviles);
-        renderFlota(datosCache.moviles, datosCache.reservas);
-        renderCaja(datosCache.moviles, datosCache.reservas);
-        actualizarMapa(datosCache.moviles, datosCache.reservas);
-    }
-
-    // ============================================
-    // RADAR - PASAJEROS
-    // ============================================
-    function renderPasajeros(reservas) {
-        const box = document.getElementById('pax-list');
-        
-        if(!reservas || reservas.length === 0) {
-            box.innerHTML = `<div class="empty-state"><div class="icon">📭</div><div>No hay pasajeros activos</div></div>`;
-            return;
-        }
-
-        const porCoche = {};
-        reservas.forEach(r => {
-            if(!porCoche[r.id_movil]) porCoche[r.id_movil] = [];
-            porCoche[r.id_movil].push(r);
-        });
-
-        let html = '';
-        Object.entries(porCoche).forEach(([cocheId, lista]) => {
-            html += `<div style="margin-bottom: 15px;">`;
-            html += `<div style="font-size: 12px; color: #888; margin-bottom: 8px; text-transform: uppercase;">🚗 Coche ${cocheId} — ${lista.length} pasajero(s)</div>`;
-            
-            lista.forEach(r => {
-                const destino = PARADAS[r.destino_idx] || `Parada ${r.destino_idx}`;
-                
-                html += `
-                <div class="card" style="border-left-color: #00d2ff">
-                    <div class="card-header">
-                        <span class="card-title">👤 ${r.nombre_pasajero}</span>
-                        <span class="card-badge badge-zona1">Tarifa Plana</span>
-                    </div>
-                    <div class="card-info">
-                        🪑 Asiento <b>${r.asiento_num}</b> | 💰 <span class="card-price">$1000</span><br>
-                        📍 Destino: <b>${destino}</b>
-                    </div>
-                </div>`;
-            });
-            html += `</div>`;
-        });
-        
-        box.innerHTML = html;
-    }
-
-    // ============================================
-    // FILA - ORDEN DE SALIDA
-    // ============================================
-    function renderFila(moviles) {
-        const box = document.getElementById('fila-list');
-        
-        const enFila = (moviles || [])
-            .filter(m => m.esta_online && m.latitud && m.sentido_flujo)
-            .sort((a, b) => {
-                const paradaA = calcularParadaMasCerca(a.latitud, a.longitud);
-                const paradaB = calcularParadaMasCerca(b.latitud, b.longitud);
-                
-                if (a.sentido_flujo === 'IDA') {
-                    if (paradaA !== paradaB) return paradaA - paradaB;
-                } else {
-                    if (paradaA !== paradaB) return paradaB - paradaA;
-                }
-                
-                const horaA = new Date(a.ultima_actualizacion || 0).getTime();
-                const horaB = new Date(b.ultima_actualizacion || 0).getTime();
-                return horaA - horaB;
-            });
-
-        if (enFila.length === 0) {
-            box.innerHTML = `<div class="empty-state"><div class="icon">🚦</div><div>No hay coches en fila</div></div>`;
-            return;
-        }
-
-        let html = `<div style="font-size: 12px; color: #888; margin-bottom: 12px;">📍 Parada inicial: <b>${enFila[0]?.sentido_flujo === 'IDA' ? 'Universidad Tecnológica' : 'Abasto y Roca'}</b></div>`;
-
-        enFila.forEach((m, index) => {
-            const posicion = index + 1;
-            const pasajeros = datosCache.reservas.filter(r => r.id_movil == m.id).length;
-            const paradaActual = calcularParadaMasCerca(m.latitud, m.longitud);
-            const nombreParada = PARADAS[paradaActual] || `Parada ${paradaActual}`;
-            
-            let claseNumero = 'resto';
-            if (posicion === 1) claseNumero = 'primero';
-            else if (posicion === 2) claseNumero = 'segundo';
-            else if (posicion === 3) claseNumero = 'tercero';
-
-            const tiempoEspera = m.ultima_actualizacion 
-                ? `Llegó: ${new Date(m.ultima_actualizacion).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'})}`
-                : 'Sin datos de llegada';
-
-            html += `
-            <div class="card" style="border-left-color: ${posicion === 1 ? '#ffcc00' : '#00d2ff'};">
-                <div class="fila-posicion">
-                    <div class="fila-numero ${claseNumero}">${posicion}</div>
-                    <div style="flex: 1;">
-                        <div class="card-header" style="margin-bottom: 2px;">
-                            <span class="card-title">🚗 Coche ${m.id}</span>
-                            <span class="card-badge" style="background: ${m.sentido_flujo === 'IDA' ? '#ff444433' : '#00d2ff33'}; color: ${m.sentido_flujo === 'IDA' ? '#ff4444' : '#00d2ff'};">
-                                ${m.sentido_flujo}
-                            </span>
-                        </div>
-                        <div class="card-info" style="font-size: 12px;">
-                            👤 ${m.chofer || 'Sin chofer'}<br>
-                            📍 ${nombreParada} | 🪑 ${pasajeros}/4 ocupados
-                        </div>
-                        <div class="fila-tiempo">${tiempoEspera}</div>
-                    </div>
-                </div>
-            </div>`;
-        });
-
-        box.innerHTML = html;
-    }
-
-    // ============================================
-    // CALCULAR PARADA MÁS CERCANA
-    // ============================================
-    function calcularParadaMasCerca(lat, lon) {
-        const paradasCoords = [
-            [-34.549295, -58.783648], [-34.551586, -58.781403], [-34.554132, -58.778927],
-            [-34.561264, -58.770506], [-34.562160, -58.771380], [-34.562494, -58.772133],
-            [-34.563541, -58.773244], [-34.564109, -58.773759], [-34.565342, -58.772061],
-            [-34.567268, -58.769484], [-34.569090, -58.767095], [-34.571016, -58.764443],
-            [-34.571956, -58.763201], [-34.577371, -58.755909], [-34.578528, -58.757064],
-            [-34.579296, -58.755864], [-34.580020, -58.755063], [-34.580901, -58.753842],
-            [-34.581998, -58.752441], [-34.583319, -58.750710], [-34.584740, -58.748804],
-            [-34.585554, -58.749812], [-34.586494, -58.750574], [-34.588041, -58.751542],
-            [-34.588273, -58.751338], [-34.588771, -58.750804], [-34.588244, -58.749877],
-            [-34.586030, -58.747278]
-        ];
-        
-        let minDist = Infinity, paradaIdx = -1;
-        paradasCoords.forEach((p, i) => {
-            const dist = Math.sqrt(Math.pow(lat - p[0], 2) + Math.pow(lon - p[1], 2));
-            if (dist < minDist) { minDist = dist; paradaIdx = i; }
-        });
-        return paradaIdx;
-    }
-
-    // ============================================
-    // FLOTA
-    // ============================================
-    function renderFlota(moviles, reservas) {
-        const box = document.getElementById('flota-list');
-        if(!moviles || moviles.length === 0) {
-            box.innerHTML = `<div class="empty-state"><div class="icon">🚗</div><div>Sin coches registrados</div></div>`;
-            return;
-        }
-
-        box.innerHTML = moviles.map(m => {
-            const pasajeros = reservas.filter(r => r.id_movil == m.id).length;
-            const online = m.esta_online && m.latitud;
-            const color = online ? '#28a745' : '#dc3545';
-            
-            const choferLower = (m.chofer || '').toLowerCase();
-            const autoInfo = (m.marca && m.patente && !choferLower.includes(m.marca.toLowerCase())) 
-                ? `🚙 ${m.marca} ${m.modelo || ''} · ${m.patente}` 
-                : '';
-            
-            const sentido = m.sentido_flujo || 'SIN SENTIDO';
-            const ultimaAct = m.ultima_actualizacion 
-                ? `⏱️ ${new Date(m.ultima_actualizacion).toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit', second:'2-digit'})}` 
-                : '⏱️ Sin datos';
-            
-            return `
-            <div class="card" style="border-left-color: ${color}">
-                <div class="card-header">
-                    <span class="card-title">🚗 Coche ${m.id}</span>
-                    <span class="card-badge" style="background: ${color}33; color: ${color};">
-                        ${online ? '🟢 Online' : '🔴 Offline'}
-                    </span>
-                </div>
-                <div class="card-info">
-                    👤 ${m.chofer || 'Sin chofer'}<br>
-                    ${autoInfo ? autoInfo + '<br>' : ''}
-                    🪑 ${pasajeros}/4 asientos ocupados<br>
-                    🔄 <b>${sentido}</b><br>
-                    ${ultimaAct}
-                </div>
-                <div style="display: flex; gap: 5px; margin-top: 8px;">
-                    <button onclick="cambiarSentidoAdmin(${m.id}, 'IDA')" class="mini-btn" style="background: #ff4444; color: white;">IDA</button>
-                    <button onclick="cambiarSentidoAdmin(${m.id}, 'VUELTA')" class="mini-btn" style="background: #00d2ff; color: black;">VUELTA</button>
-                </div>
-            </div>`;
-        }).join('');
-    }
-
-    // ============================================
-    // CAJA
-    // ============================================
-    function renderCaja(moviles, reservas) {
-        const box = document.getElementById('caja-list');
-        let totalGeneral = 0;
-
-        if(!moviles || moviles.length === 0) {
-            box.innerHTML = `<div class="empty-state">Sin datos</div>`;
-            document.getElementById('total-general').innerText = '$0';
-            document.getElementById('total-detail').innerText = '0 viajes';
-            return;
-        }
-
-        const html = moviles.map(m => {
-            const delCoche = reservas.filter(r => r.id_movil == m.id);
-            const subtotal = delCoche.length * 1000;
-            totalGeneral += subtotal;
-            
-            return `
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title">💰 Coche ${m.id} ${m.patente ? '('+m.patente+')' : ''}</span>
-                    <span class="card-price">$${subtotal.toLocaleString()}</span>
-                </div>
-                <div class="card-info">${delCoche.length} viaje(s) activo(s) · $1000 c/u</div>
-            </div>`;
-        }).join('');
-
-        box.innerHTML = html;
-        document.getElementById('total-general').innerText = '$' + totalGeneral.toLocaleString();
-        document.getElementById('total-detail').innerText = `${reservas.length} viaje(s) · ${moviles.filter(m=>m.esta_online).length} coche(s) online`;
-    }
-
-    // ============================================
-    // HISTORIAL
-    // ============================================
-    async function cargarHistorial() {
-        const box = document.getElementById('historial-list');
-        const totalBox = document.getElementById('total-historial');
-        const totalDetail = document.getElementById('total-historial-detail');
-        
-        box.innerHTML = '<div class="empty-state"><span class="spinner"></span>Cargando...</div>';
-        
-        try {
-            const fechaDesde = new Date();
-            fechaDesde.setDate(fechaDesde.getDate() - 30);
-            
-            const { data: viajes, error } = await _s.from('reservas_activas')
+            // Verificar que el conductor existe
+            const { data: yo, error } = await _s.from('estado_movil')
                 .select('*')
-                .eq('estado', 'finalizado')
-                .gte('creado_en', fechaDesde.toISOString())
-                .order('creado_en', { ascending: false });
+                .eq('id', MI_ID)
+                .single();
             
-            if (error) throw error;
-            
-            if (!viajes || viajes.length === 0) {
-                box.innerHTML = `<div class="empty-state"><div class="icon">📭</div><div>Sin viajes finalizados</div></div>`;
-                totalBox.innerText = '$0';
-                totalDetail.innerText = '0 viajes';
+            if (error || !yo) {
+                alert(`❌ El conductor ${MI_ID} no existe. Contactá al administrador.`);
                 return;
             }
             
-            const porFecha = {};
-            let totalRecaudacion = 0;
+            estoyOnline = yo.esta_online || false;
+            miSentido = yo.sentido_flujo || 'IDA';
             
-            viajes.forEach(v => {
-                const fecha = new Date(v.creado_en).toLocaleDateString('es-AR');
-                if (!porFecha[fecha]) {
-                    porFecha[fecha] = { cantidad: 0, monto: 0, detalles: [] };
-                }
-                porFecha[fecha].cantidad++;
-                porFecha[fecha].monto += 1000;
-                totalRecaudacion += 1000;
-                
-                const cocheExistente = porFecha[fecha].detalles.find(d => d.coche === v.id_movil);
-                if (cocheExistente) {
-                    cocheExistente.viajes++;
-                    cocheExistente.monto += 1000;
-                } else {
-                    porFecha[fecha].detalles.push({
-                        coche: v.id_movil,
-                        viajes: 1,
-                        monto: 1000
-                    });
-                }
-            });
+            // Actualizar UI
+            actualizarUI();
             
-            totalBox.innerText = '$' + totalRecaudacion.toLocaleString();
-            totalDetail.innerText = `${viajes.length} viajes · ${Object.keys(porFecha).length} días`;
+            // Iniciar GPS
+            iniciarGPS();
             
-            let html = '';
-            Object.entries(porFecha).forEach(([fecha, datos]) => {
-                const detalleCoches = datos.detalles
-                    .sort((a, b) => b.viajes - a.viajes)
-                    .map(d => `Coche ${d.coche}: ${d.viajes} viaje(s)`)
-                    .join(' · ');
-                
-                html += `
-                <div class="historial-fecha">
-                    <div class="historial-fecha-header">
-                        <span class="historial-fecha-titulo">📅 ${fecha}</span>
-                        <span class="historial-fecha-total">$${datos.monto.toLocaleString()}</span>
-                    </div>
-                    <div class="historial-detalle">
-                        ${datos.cantidad} viaje(s) · ${detalleCoches}
-                    </div>
-                </div>`;
-            });
+            // Escuchar cambios
+            escucharCambios();
             
-            box.innerHTML = html;
+            // Cargar pasajeros
+            cargarPasajeros();
             
-        } catch (e) {
-            console.error("Error cargando historial:", e);
-            box.innerHTML = `<div class="empty-state"><div class="icon">❌</div><div>Error al cargar historial</div></div>`;
+            // Ocultar splash
+            setTimeout(() => {
+                const s = document.getElementById('splash');
+                s.style.opacity = '0';
+                setTimeout(() => s.style.visibility = 'hidden', 800);
+            }, 1000);
+            
+        } catch (err) {
+            console.error("Error iniciando:", err);
+            alert("Error de conexión. Reintentando...");
+            setTimeout(iniciar, 3000);
         }
     }
 
     // ============================================
-    // MAPA
+    // GPS
     // ============================================
-    function actualizarMapa(moviles, reservas) {
-        if(!map) return;
-
-        moviles.forEach(m => {
-            if(m.latitud && m.longitud) {
-                const key = 'coche_'+m.id;
-                const popup = `🚗 Coche ${m.id}<br>👤 ${m.chofer || 'Sin chofer'}<br>${m.patente ? '🚙 '+m.patente : ''}<br>🔄 ${m.sentido_flujo || '?'}`;
+    function iniciarGPS() {
+        if (!navigator.geolocation) {
+            alert("GPS no disponible");
+            return;
+        }
+        
+        watchId = navigator.geolocation.watchPosition(
+            async (pos) => {
+                miLat = pos.coords.latitude;
+                miLon = pos.coords.longitude;
                 
-                if(markers[key]) {
-                    markers[key].setLatLng([m.latitud, m.longitud]);
-                    markers[key].setPopupContent(popup);
+                // Actualizar marcador
+                if (markerYo) {
+                    markerYo.setLatLng([miLat, miLon]);
                 } else {
-                    markers[key] = L.marker([m.latitud, m.longitud], {icon: iconT})
-                        .addTo(map).bindPopup(popup);
+                    markerYo = L.marker([miLat, miLon], { icon: iconYo }).addTo(map);
                 }
-            }
-        });
-
-        reservas.forEach(r => {
-            if(r.pasajero_lat && r.pasajero_lon) {
-                const key = 'pax_'+r.id;
-                const popup = `👤 ${r.nombre_pasajero}<br>🚗 Coche ${r.id_movil}<br>🪑 Asiento ${r.asiento_num}`;
                 
-                if(markers[key]) {
-                    markers[key].setLatLng([r.pasajero_lat, r.pasajero_lon]);
-                } else {
-                    markers[key] = L.marker([r.pasajero_lat, r.pasajero_lon], {icon: iconPax})
-                        .addTo(map).bindPopup(popup);
+                map.setView([miLat, miLon], 15);
+                
+                // Si estoy online, actualizar posición en BD
+                if (estoyOnline) {
+                    await _s.from('estado_movil').update({
+                        latitud: miLat,
+                        longitud: miLon,
+                        ultima_actualizacion: new Date().toISOString()
+                    }).eq('id', MI_ID);
                 }
-            }
-        });
-
-        Object.keys(markers).forEach(key => {
-            if(key.startsWith('pax_')) {
-                const id = parseInt(key.replace('pax_', ''));
-                if(!reservas.find(r => r.id === id)) {
-                    map.removeLayer(markers[key]);
-                    delete markers[key];
-                }
-            }
-        });
+            },
+            (err) => console.error("GPS error:", err),
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
     }
 
     // ============================================
-    // ACCIONES MASIVAS
+    // TOGGLE ONLINE/OFFLINE
     // ============================================
-    async function finalizarTodos(borrar) {
-        if(!confirm(borrar ? '¿Borrar TODOS los viajes permanentemente?' : '¿Finalizar TODOS los viajes activos?')) return;
+    async function toggleOnline() {
+        const btn = document.getElementById('btn-toggle');
+        btn.disabled = true;
         
         try {
-            if(borrar) {
-                await _s.from('reservas_activas').delete().eq('estado', 'en_curso');
-                alert('🗑️ Todos los viajes fueron eliminados');
+            if (estoyOnline) {
+                // PASAR A OFFLINE
+                await _s.from('estado_movil').update({
+                    esta_online: false,
+                    latitud: 0,
+                    longitud: 0,
+                    ultima_actualizacion: new Date().toISOString()
+                }).eq('id', MI_ID);
+                
+                estoyOnline = false;
+                
             } else {
-                await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('estado', 'en_curso');
-                alert('✅ Todos los viajes fueron finalizados');
+                // PASAR A ONLINE
+                await _s.from('estado_movil').update({
+                    esta_online: true,
+                    latitud: miLat,
+                    longitud: miLon,
+                    ultima_actualizacion: new Date().toISOString()
+                }).eq('id', MI_ID);
+                
+                estoyOnline = true;
             }
-            datosCache.reservas = [];
-            renderizarTodo();
-        } catch(e) {
-            alert('❌ Error: ' + e.message);
+            
+            actualizarUI();
+            
+        } catch (err) {
+            console.error("Error toggle:", err);
+            alert("Error de conexión");
+        } finally {
+            btn.disabled = false;
         }
     }
 
     // ============================================
     // CAMBIAR SENTIDO
     // ============================================
-    async function cambiarSentidoAdmin(id, sentido) {
-        if(!confirm(`¿Cambiar coche ${id} a ${sentido}?`)) return;
+    async function cambiarSentido() {
+        const nuevo = miSentido === 'IDA' ? 'VUELTA' : 'IDA';
         
         try {
-            const { error } = await _s.from('estado_movil')
-                .update({ sentido_flujo: sentido })
-                .eq('id', id);
+            await _s.from('estado_movil').update({
+                sentido_flujo: nuevo
+            }).eq('id', MI_ID);
             
-            if(error) throw error;
-            alert(`✅ Coche ${id} cambiado a ${sentido}`);
-        } catch(e) {
-            alert('❌ Error: ' + e.message);
+            miSentido = nuevo;
+            actualizarUI();
+            
+        } catch (err) {
+            alert("Error cambiando sentido");
         }
     }
 
     // ============================================
-    // CREAR NUEVO CONDUCTOR (NUEVO - FUNCIONA!)
+    // ACTUALIZAR UI
     // ============================================
-    async function crearConductor() {
-        const id = parseInt(document.getElementById('new-coche-id').value);
-        const nom = sanitizarInput(document.getElementById('new-chofer-nom').value);
-        const sentido = document.getElementById('new-sentido').value;
+    function actualizarUI() {
+        const statusCard = document.getElementById('status-card');
+        const statusText = document.getElementById('status-text');
+        const btnToggle = document.getElementById('btn-toggle');
+        const btnSentido = document.getElementById('btn-sentido');
+        const indicator = document.getElementById('online-indicator');
         
-        if(!id || !nom) { 
-            alert('Completá N° de coche y nombre del chofer'); 
-            return; 
-        }
+        btnSentido.innerText = `🔄 SENTIDO: ${miSentido}`;
         
-        if(id <= 0) {
-            alert('El N° de coche debe ser mayor a 0');
-            return;
-        }
-        
-        try {
-            // Verificar si ya existe
-            const { data: existente } = await _s.from('estado_movil')
-                .select('id')
-                .eq('id', id)
-                .single();
-            
-            if(existente) {
-                alert(`⚠️ El coche ${id} ya existe. Usá "Editar Chofer" para modificarlo.`);
-                return;
-            }
-            
-            // Crear nuevo conductor
-            const { error } = await _s.from('estado_movil').insert({
-                id: id,
-                chofer: nom,
-                sentido_flujo: sentido,
-                esta_online: false,
-                latitud: 0,
-                longitud: 0,
-                ultima_actualizacion: new Date().toISOString()
-            });
-            
-            if(error) throw error;
-            
-            alert(`✅ Conductor creado: Coche ${id} - ${nom}`);
-            
-            // Limpiar formulario
-            document.getElementById('new-coche-id').value = '';
-            document.getElementById('new-chofer-nom').value = '';
-            document.getElementById('new-sentido').value = 'IDA';
-            
-            // Recargar lista
-            cargarListaAutos();
-            
-        } catch(e) {
-            console.error("Error creando conductor:", e);
-            alert('❌ Error: ' + (e.message || 'No se pudo crear el conductor'));
+        if (estoyOnline) {
+            statusCard.className = 'status-card status-online';
+            statusText.innerText = '🟢 EN LÍNEA';
+            statusText.style.color = 'var(--success)';
+            btnToggle.innerText = '🔴 BAJARME DE LA LÍNEA';
+            btnToggle.className = 'btn-toggle btn-offline';
+            indicator.style.background = 'var(--success)';
+            indicator.style.boxShadow = '0 0 10px var(--success)';
+        } else {
+            statusCard.className = 'status-card status-offline';
+            statusText.innerText = '🔴 FUERA DE LÍNEA';
+            statusText.style.color = 'var(--danger)';
+            btnToggle.innerText = '🟢 PONERME EN LÍNEA';
+            btnToggle.className = 'btn-toggle btn-online';
+            indicator.style.background = '#666';
+            indicator.style.boxShadow = 'none';
         }
     }
 
     // ============================================
-    // GUARDAR CHOFER (EDITAR EXISTENTE)
+    // CARGAR PASAJEROS
     // ============================================
-    async function guardarChofer() {
-        const id = parseInt(document.getElementById('c-id').value);
-        const nom = sanitizarInput(document.getElementById('c-nom').value);
-        
-        if(!id || !nom) { alert('Completá N° de coche y nombre'); return; }
-        
+    async function cargarPasajeros() {
         try {
-            const { data: actual } = await _s.from('estado_movil').select('*').eq('id', id).single();
+            const { data: reservas } = await _s.from('reservas_activas')
+                .select('*')
+                .eq('id_movil', MI_ID)
+                .eq('estado', 'en_curso');
             
-            if(!actual) {
-                alert(`⚠️ El coche ${id} no existe. Usá "Crear Nuevo Conductor".`);
+            misPasajeros = reservas || [];
+            
+            // Actualizar contadores
+            document.getElementById('info-pasajeros').innerText = `${misPasajeros.length}/4`;
+            document.getElementById('info-plata').innerText = `$${misPasajeros.length * 1000}`;
+            
+            // Renderizar lista
+            const box = document.getElementById('pasajeros-list');
+            
+            if (misPasajeros.length === 0) {
+                box.innerHTML = '<div class="sin-pasajeros">Sin pasajeros</div>';
                 return;
             }
             
-            await _s.from('estado_movil').update({ 
-                chofer: nom 
-            }).eq('id', id);
-            
-            alert('✅ Chofer actualizado');
-            document.getElementById('c-id').value = '';
-            document.getElementById('c-nom').value = '';
-            
-            cargarListaAutos();
-            
-        } catch(e) {
-            console.error("Error:", e);
-            alert('❌ Error: ' + e.message);
-        }
-    }
-
-    // ============================================
-    // GUARDAR AUTO
-    // ============================================
-    async function guardarAuto() {
-        const id = parseInt(document.getElementById('auto-id').value);
-        const marca = sanitizarInput(document.getElementById('auto-marca').value);
-        const modelo = sanitizarInput(document.getElementById('auto-modelo').value);
-        const color = sanitizarInput(document.getElementById('auto-color').value);
-        const patente = sanitizarInput(document.getElementById('auto-patente').value).toUpperCase();
-        
-        if(!id) { alert('Ingresá el N° de coche'); return; }
-        
-        try {
-            const { data: actual } = await _s.from('estado_movil').select('*').eq('id', id).single();
-            
-            if(!actual) {
-                alert(`⚠️ El coche ${id} no existe. Creá el conductor primero.`);
-                return;
-            }
-            
-            await _s.from('estado_movil').update({ 
-                marca: marca,
-                modelo: modelo,
-                color: color,
-                patente: patente
-            }).eq('id', id);
-            
-            alert('✅ Vehículo guardado');
-            
-            document.getElementById('auto-id').value = '';
-            document.getElementById('auto-marca').value = '';
-            document.getElementById('auto-modelo').value = '';
-            document.getElementById('auto-color').value = '';
-            document.getElementById('auto-patente').value = '';
-            
-            cargarListaAutos();
-            
-        } catch(e) {
-            alert('❌ Error: ' + e.message);
-        }
-    }
-
-    // ============================================
-    // LISTA DE AUTOS
-    // ============================================
-    async function cargarListaAutos() {
-        try {
-            const { data: moviles } = await _s.from('estado_movil').select('*').order('id');
-            const box = document.getElementById('lista-autos');
-            
-            if(!moviles || moviles.length === 0) {
-                box.innerHTML = '<div style="color: #555; text-align: center; padding: 20px;">Sin coches registrados</div>';
-                return;
-            }
-            
-            box.innerHTML = moviles.map(m => `
-                <div class="card" style="border-left-color: ${m.patente ? '#28a745' : '#666'}; padding: 10px;">
-                    <div class="card-header">
-                        <span class="card-title" style="font-size: 14px;">🚗 Coche ${m.id}</span>
-                        ${m.patente ? `<span class="card-badge" style="background: #28a74533; color: #28a745;">${m.patente}</span>` : '<span style="color:#666;font-size:11px;">Sin datos</span>'}
-                    </div>
-                    <div class="card-info" style="font-size: 12px;">
-                        ${m.marca ? `📌 ${m.marca} ${m.modelo}` : ''}
-                        ${m.color ? `· 🎨 ${m.color}` : ''}
-                        ${m.chofer ? `<br>👤 ${m.chofer}` : ''}
-                        ${m.sentido_flujo ? `<br>🔄 ${m.sentido_flujo}` : ''}
-                    </div>
-                    <div style="display: flex; gap: 5px; margin-top: 8px;">
-                        <button onclick="editarAuto(${m.id})" class="mini-btn" style="background: #333; color: white;">✏️ Editar</button>
-                        <button onclick="eliminarAuto(${m.id})" class="mini-btn" style="background: #dc3545; color: white;">🗑️ Eliminar</button>
-                    </div>
+            box.innerHTML = misPasajeros.map(p => `
+                <div class="pasajero-item">
+                    <span class="pasajero-nombre">👤 ${p.nombre_pasajero}</span>
+                    <span class="pasajero-asiento">🪑 ${p.asiento_num}</span>
                 </div>
             `).join('');
             
-        } catch(e) {
-            console.error("Error cargando autos:", e);
-        }
-    }
-
-    async function editarAuto(id) {
-        try {
-            const { data: m } = await _s.from('estado_movil').select('*').eq('id', id).single();
-            if(!m) return;
-            
-            document.getElementById('auto-id').value = m.id;
-            document.getElementById('auto-marca').value = m.marca || '';
-            document.getElementById('auto-modelo').value = m.modelo || '';
-            document.getElementById('auto-color').value = m.color || '';
-            document.getElementById('auto-patente').value = m.patente || '';
-            
-            document.getElementById('auto-id').scrollIntoView({ behavior: 'smooth' });
-        } catch(e) {
-            console.error("Error:", e);
+        } catch (err) {
+            console.error("Error cargando pasajeros:", err);
         }
     }
 
     // ============================================
-    // ELIMINAR AUTO
+    // ESCUCHAR CAMBIOS EN TIEMPO REAL
     // ============================================
-    async function eliminarAuto(id) {
-        if(!confirm(`¿Eliminar el coche ${id}?`)) return;
+    function escucharCambios() {
+        // Escuchar cambios en mis reservas
+        _s.channel('conductor_reservas_' + MI_ID)
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'reservas_activas',
+                filter: `id_movil=eq.${MI_ID}`
+            }, () => {
+                cargarPasajeros();
+            })
+            .subscribe();
         
+        // Escuchar cambios en mi estado
+        _s.channel('conductor_estado_' + MI_ID)
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'estado_movil',
+                filter: `id=eq.${MI_ID}`
+            }, (payload) => {
+                if (payload.new.sentido_flujo !== miSentido) {
+                    miSentido = payload.new.sentido_flujo;
+                    actualizarUI();
+                }
+            })
+            .subscribe();
+    }
+
+    // ============================================
+    // VER POSICIÓN EN FILA (opcional)
+    // ============================================
+    async function verPosicionFila() {
         try {
-            const { data: reservasActivas } = await _s.from('reservas_activas')
-                .select('id')
-                .eq('id_movil', id)
-                .eq('estado', 'en_curso');
+            const { data: online } = await _s.from('estado_movil')
+                .select('id, ultima_actualizacion')
+                .eq('esta_online', true)
+                .eq('sentido_flujo', miSentido)
+                .order('ultima_actualizacion', { ascending: true });
             
-            if(reservasActivas && reservasActivas.length > 0) {
-                alert(`⚠️ No se puede eliminar: el coche ${id} tiene ${reservasActivas.length} reserva(s) activa(s).`);
-                return;
+            if (!online) return;
+            
+            const miPos = online.findIndex(c => c.id === MI_ID);
+            const total = online.length;
+            
+            const filaInfo = document.getElementById('fila-info');
+            if (miPos >= 0) {
+                filaInfo.innerText = `Posición en fila: ${miPos + 1} de ${total}`;
+            } else {
+                filaInfo.innerText = 'No estás en la fila';
             }
             
-            await _s.from('estado_movil').delete().eq('id', id);
-            alert('🗑️ Coche eliminado');
-            cargarListaAutos();
-        } catch(e) {
-            alert('❌ Error: ' + e.message);
-        }
-    }
-
-    // ============================================
-    // CAMBIAR CLAVE
-    // ============================================
-    function cambiarClave() {
-        const actual = prompt("Contraseña actual:");
-        const guardada = localStorage.getItem("adminPass");
-        const correcta = guardada || "1234";
-        
-        if(actual !== correcta) { alert('❌ Incorrecta'); return; }
-        
-        const nueva = prompt("Nueva contraseña (mínimo 4 caracteres):");
-        if(nueva && nueva.length >= 4) {
-            localStorage.setItem("adminPass", nueva);
-            alert('🔐 Contraseña actualizada. Volvé a ingresar.');
-            localStorage.removeItem("adminLogueado");
-            location.reload();
+        } catch (err) {
+            console.error("Error fila:", err);
         }
     }
 
     // ============================================
     // INICIAR
     // ============================================
-    if(localStorage.getItem("adminLogueado")) {
-        document.getElementById("login-screen").style.display = "none";
-        initMap();
-        cargarInicial();
-        activarRealtime();
-    }
+    window.onload = iniciar;
 </script>
 </body>
 </html>
