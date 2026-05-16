@@ -24,7 +24,6 @@
         .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
         
-        /* === PANEL VIAJE ACTIVO === */
         .viaje-activo-panel {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             border: 2px solid var(--celeste);
@@ -174,7 +173,6 @@
             margin-top: 4px;
         }
 
-        /* === FLOTA CON ASIENTOS === */
         .flota-container { max-height: 220px; overflow-y: auto; }
         .coche-card { background: #1a1a1a; border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; animation: slideIn 0.3s ease; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -233,12 +231,11 @@
             <option value="VUELTA">Hacia VUELTA</option>
         </select>
         
-        <input type="text" id="nombre-input" placeholder="Tu Nombre">
+        <input type="text" id="nombre-input" placeholder="Tu Nombre" maxlength="20">
         <select id="destino-select">
             <option value="" disabled selected>¿A qué parada vas?</option>
         </select>
         
-        <!-- FLOTA CON ASIENTOS VISIBLES -->
         <div class="flota-container" id="flota-container">
             <div class="sin-coches">📍 Seleccioná tu destino para ver coches</div>
         </div>
@@ -249,7 +246,7 @@
 
 <script>
     // ============================================
-    // SUPABASE - CON APP SECRET (SEGURIDAD)
+    // SUPABASE
     // ============================================
     const _s = supabase.createClient(
         'https://nvumdlxervrewqiiaicl.supabase.co',
@@ -264,7 +261,28 @@
     );
 
     // ============================================
-    // PARADAS (hardcodeadas - bajo consumo)
+    // ✅ FUNCIONES DE SEGURIDAD - ANTI XSS
+    // ============================================
+    
+    // Limpia input del usuario: solo letras, espacios, guiones. Máx 20 chars.
+    function sanitizarInput(texto) {
+        if (!texto || typeof texto !== 'string') return '';
+        return texto
+            .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\-]/g, '')
+            .trim()
+            .substring(0, 20);
+    }
+    
+    // Escapa HTML para mostrar en pantalla: < → &lt;, > → &gt;, etc.
+    function escaparHTML(texto) {
+        if (!texto || typeof texto !== 'string') return '';
+        const div = document.createElement('div');
+        div.textContent = texto;
+        return div.innerHTML;
+    }
+
+    // ============================================
+    // PARADAS
     // ============================================
     const paradas = [
         {n:'Universidad Tecnológica', c:[-34.549295, -58.783648]},
@@ -303,7 +321,6 @@
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     
-    // Paradas con borde negro
     paradas.forEach(p => L.circleMarker(p.c, { 
         radius: 6, 
         color: '#000000', 
@@ -324,9 +341,6 @@
     let markerTaxis = {};
     let markerMiCoche = null;
 
-    // ============================================
-    // VARIABLES GLOBALES
-    // ============================================
     let miLat = 0, miLon = 0;
     let asientosElegidos = [];
     let miViajeActivo = false;
@@ -349,9 +363,6 @@
         selDest.appendChild(opt); 
     });
 
-    // ============================================
-    // CALCULAR PARADA MÁS CERCANA
-    // ============================================
     function calcularParadaMasCerca(lat, lon) {
         let minDist = Infinity, paradaIdx = -1;
         paradas.forEach((p, i) => {
@@ -361,16 +372,13 @@
         return paradaIdx;
     }
 
-    // ============================================
-    // VERIFICAR SI EL MÓVIL PUEDE RECOGER AL PASAJERO
-    // ============================================
     function movilPuedeRecoger(movilParada, paradaPasajero, sentido) {
         if (sentido === 'IDA') return movilParada <= paradaPasajero;
         return movilParada >= paradaPasajero;
     }
 
     // ============================================
-    // CARGAR VIAJE ACTIVO (al iniciar)
+    // CARGAR VIAJE ACTIVO
     // ============================================
     window.onload = async () => {
         const nombreGuardado = localStorage.getItem('usuario_nombre');
@@ -417,9 +425,6 @@
         }
     }
 
-    // ============================================
-    // MONITOREO DE VIAJE ACTIVO
-    // ============================================
     function iniciarMonitoreoViajeActivo() {
         verificarPosicionCoche();
         intervaloViajeActivo = setInterval(verificarPosicionCoche, 10000);
@@ -474,11 +479,22 @@
             if (panel) {
                 const alerta = document.createElement('div');
                 alerta.className = 'alerta-parada';
-                alerta.innerHTML = `
-                    <div class="alerta-parada-texto">⚠️ EL COCHE YA PASÓ TU PARADA</div>
-                    <div class="alerta-parada-sub">El conductor no puede retroceder. Finalizá el viaje para liberar tu asiento.</div>
-                `;
-                panel.insertBefore(alerta, panel.querySelector('.viaje-activo-status'));
+                
+                const texto1 = document.createElement('div');
+                texto1.className = 'alerta-parada-texto';
+                texto1.textContent = '⚠️ EL COCHE YA PASÓ TU PARADA';
+                
+                const texto2 = document.createElement('div');
+                texto2.className = 'alerta-parada-sub';
+                texto2.textContent = 'El conductor no puede retroceder. Finalizá el viaje para liberar tu asiento.';
+                
+                alerta.appendChild(texto1);
+                alerta.appendChild(texto2);
+                
+                const statusElement = panel.querySelector('.viaje-activo-status');
+                if (statusElement) {
+                    panel.insertBefore(alerta, statusElement);
+                }
             }
         }
         
@@ -497,20 +513,26 @@
             const status = panel.querySelector('.viaje-activo-status');
             if (status) {
                 status.classList.add('alerta');
-                status.innerHTML = `
-                    <div class="status-dot alerta"></div>
-                    <span>⚠️ COCHE YA PASÓ - NO PUEDE RETROCEDER</span>
-                `;
+                status.innerHTML = '';
+                const dot = document.createElement('div');
+                dot.className = 'status-dot alerta';
+                const span = document.createElement('span');
+                span.textContent = '⚠️ COCHE YA PASÓ - NO PUEDE RETROCEDER';
+                status.appendChild(dot);
+                status.appendChild(span);
             }
         } else {
             panel.classList.remove('alerta-pasado');
             const status = panel.querySelector('.viaje-activo-status');
             if (status) {
                 status.classList.remove('alerta');
-                status.innerHTML = `
-                    <div class="status-dot"></div>
-                    <span>Conductor en camino...</span>
-                `;
+                status.innerHTML = '';
+                const dot = document.createElement('div');
+                dot.className = 'status-dot';
+                const span = document.createElement('span');
+                span.textContent = 'Conductor en camino...';
+                status.appendChild(dot);
+                status.appendChild(span);
             }
         }
     }
@@ -532,9 +554,6 @@
         }
     }
 
-    // ============================================
-    // PANEL VIAJE ACTIVO (bloqueo de controles)
-    // ============================================
     function bloquearPanelParaViajeActivo() {
         document.getElementById('btn-pedir').style.display = 'none';
         document.getElementById('btn-cancelar').style.display = 'block';
@@ -545,11 +564,18 @@
         renderizarPanelViajeActivo();
     }
 
+    // ============================================
+    // ✅ SEGURO: renderizarPanelViajeActivo - SIN innerHTML CON DATOS DE BD
+    // ============================================
     function renderizarPanelViajeActivo() {
         const container = document.getElementById('flota-container');
         
         if (!datosViajeActivo || datosViajeActivo.length === 0) {
-            container.innerHTML = '<div class="sin-coches">✅ Ya tenés un viaje activo</div>';
+            container.innerHTML = '';
+            const msg = document.createElement('div');
+            msg.className = 'sin-coches';
+            msg.textContent = '✅ Ya tenés un viaje activo';
+            container.appendChild(msg);
             return;
         }
         
@@ -558,41 +584,82 @@
         const destino = paradas[viaje.destino_idx] || {n: 'Destino'};
         const asientos = datosViajeActivo.map(v => v.asiento_num).join(', ');
         
-        container.innerHTML = `
-            <div class="viaje-activo-panel" id="viaje-activo-panel">
-                <div class="viaje-activo-header">
-                    <div class="viaje-activo-icono">🚗</div>
-                    <div class="viaje-activo-titulo">
-                        <p class="coche-numero">Coche ${viaje.id_movil || '---'}</p>
-                        <p class="conductor-nombre">${movil.chofer || 'Conductor'}</p>
-                    </div>
-                </div>
-                
-                <div class="viaje-activo-info">
-                    <div class="info-box">
-                        <div class="info-box-label">Asiento(s)</div>
-                        <div class="info-box-valor">${asientos}</div>
-                    </div>
-                    <div class="info-box">
-                        <div class="info-box-label">Tarifa</div>
-                        <div class="info-box-valor">$${datosViajeActivo.length * 1000}</div>
-                    </div>
-                </div>
-                
-                <div class="viaje-activo-destino">
-                    📍 Destino: ${destino.n}
-                </div>
-                
-                <div class="viaje-activo-status" id="viaje-status">
-                    <div class="status-dot"></div>
-                    <span>Conductor en camino...</span>
-                </div>
-            </div>
-        `;
+        container.innerHTML = '';
+        
+        const panel = document.createElement('div');
+        panel.className = 'viaje-activo-panel';
+        panel.id = 'viaje-activo-panel';
+        
+        const header = document.createElement('div');
+        header.className = 'viaje-activo-header';
+        
+        const icono = document.createElement('div');
+        icono.className = 'viaje-activo-icono';
+        icono.textContent = '🚗';
+        
+        const titulo = document.createElement('div');
+        titulo.className = 'viaje-activo-titulo';
+        
+        const cocheNum = document.createElement('p');
+        cocheNum.className = 'coche-numero';
+        cocheNum.textContent = `Coche ${viaje.id_movil || '---'}`;
+        
+        const conductorNombre = document.createElement('p');
+        conductorNombre.className = 'conductor-nombre';
+        // ✅ SEGURO: textContent escapa automáticamente
+        conductorNombre.textContent = movil.chofer || 'Conductor';
+        
+        titulo.appendChild(cocheNum);
+        titulo.appendChild(conductorNombre);
+        header.appendChild(icono);
+        header.appendChild(titulo);
+        panel.appendChild(header);
+        
+        const infoBox = document.createElement('div');
+        infoBox.className = 'viaje-activo-info';
+        
+        const asientoBox = document.createElement('div');
+        asientoBox.className = 'info-box';
+        asientoBox.innerHTML = '<div class="info-box-label">Asiento(s)</div>';
+        const asientoValor = document.createElement('div');
+        asientoValor.className = 'info-box-valor';
+        asientoValor.textContent = asientos;
+        asientoBox.appendChild(asientoValor);
+        
+        const tarifaBox = document.createElement('div');
+        tarifaBox.className = 'info-box';
+        tarifaBox.innerHTML = '<div class="info-box-label">Tarifa</div>';
+        const tarifaValor = document.createElement('div');
+        tarifaValor.className = 'info-box-valor';
+        tarifaValor.textContent = `$${datosViajeActivo.length * 1000}`;
+        tarifaBox.appendChild(tarifaValor);
+        
+        infoBox.appendChild(asientoBox);
+        infoBox.appendChild(tarifaBox);
+        panel.appendChild(infoBox);
+        
+        const destinoDiv = document.createElement('div');
+        destinoDiv.className = 'viaje-activo-destino';
+        // ✅ SEGURO: textContent escapa el nombre de la parada
+        destinoDiv.textContent = `📍 Destino: ${destino.n}`;
+        panel.appendChild(destinoDiv);
+        
+        const status = document.createElement('div');
+        status.className = 'viaje-activo-status';
+        status.id = 'viaje-status';
+        const dot = document.createElement('div');
+        dot.className = 'status-dot';
+        const span = document.createElement('span');
+        span.textContent = 'Conductor en camino...';
+        status.appendChild(dot);
+        status.appendChild(span);
+        panel.appendChild(status);
+        
+        container.appendChild(panel);
     }
 
     // ============================================
-    // GPS (watchPosition - solo una vez)
+    // GPS
     // ============================================
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; 
@@ -613,9 +680,6 @@
         document.getElementById('btn-pedir').innerText = "⚠️ GPS NO DISPONIBLE";
     }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
 
-    // ============================================
-    // MAPA RUTA
-    // ============================================
     function actualizarMapaRuta() {
         const val = document.getElementById('destino-select').value;
         if(val !== "" && miLat !== 0) {
@@ -627,9 +691,6 @@
         }
     }
 
-    // ============================================
-    // EVENT LISTENERS
-    // ============================================
     document.getElementById('destino-select').addEventListener('change', () => {
         actualizarMapaRuta();
         renderizarFlotaDisponible();
@@ -639,9 +700,6 @@
         renderizarFlotaDisponible();
     });
 
-    // ============================================
-    // SELECCIONAR ASIENTO
-    // ============================================
     function seleccionarAsiento(cocheId, numAsiento) {
         if (miViajeActivo) return;
         
@@ -675,9 +733,6 @@
         actualizarBoton();
     }
 
-    // ============================================
-    // ACTUALIZAR BOTÓN
-    // ============================================
     function actualizarBoton() {
         const btn = document.getElementById('btn-pedir');
         let nuevoTexto = '';
@@ -702,7 +757,7 @@
     }
 
     // ============================================
-    // RENDERIZAR FLOTA
+    // ✅ SEGURO: renderizarFlotaDisponible - SIN innerHTML CON DATOS DE BD
     // ============================================
     async function renderizarFlotaDisponible() {
         if (miViajeActivo) return;
@@ -712,20 +767,32 @@
         const destIdx = document.getElementById('destino-select').value;
         
         if (!destIdx) {
-            container.innerHTML = '<div class="sin-coches">📍 Seleccioná tu destino para ver coches</div>';
+            container.innerHTML = '';
+            const msg = document.createElement('div');
+            msg.className = 'sin-coches';
+            msg.textContent = '📍 Seleccioná tu destino para ver coches';
+            container.appendChild(msg);
             ultimaFlotaHTML = '';
             actualizarBoton();
             return;
         }
         
         if (!gpsListo) {
-            container.innerHTML = '<div class="sin-coches">⌛ Esperando señal GPS...</div>';
+            container.innerHTML = '';
+            const msg = document.createElement('div');
+            msg.className = 'sin-coches';
+            msg.textContent = '⌛ Esperando señal GPS...';
+            container.appendChild(msg);
             ultimaFlotaHTML = '';
             actualizarBoton();
             return;
         }
         
-        container.innerHTML = '<div class="sin-coches"><span class="spinner"></span>Buscando móviles...</div>';
+        container.innerHTML = '';
+        const spinner = document.createElement('div');
+        spinner.className = 'sin-coches';
+        spinner.innerHTML = '<span class="spinner"></span>Buscando móviles...';
+        container.appendChild(spinner);
         actualizarBoton();
         
         try {
@@ -739,8 +806,12 @@
             if (errMoviles) throw errMoviles;
             
             if (!moviles || moviles.length === 0) {
-                const html = '<div class="sin-coches"><b>🚫 No hay móviles en este momento</b><br>Intentá en unos minutos</div>';
-                if (html !== ultimaFlotaHTML) { container.innerHTML = html; ultimaFlotaHTML = html; }
+                container.innerHTML = '';
+                const msg = document.createElement('div');
+                msg.className = 'sin-coches';
+                msg.innerHTML = '<b>🚫 No hay móviles en este momento</b><br>Intentá en unos minutos';
+                container.appendChild(msg);
+                ultimaFlotaHTML = '';
                 ultimoEstadoBoton = ''; actualizarBoton();
                 return;
             }
@@ -756,14 +827,18 @@
             ).sort((a, b) => a.distancia - b.distancia);
             
             if (movilesValidos.length === 0) {
-                const html = '<div class="sin-coches"><b>🚫 Todos los autos ya pasaron tu parada</b><br>Esperá al siguiente recorrido</div>';
-                if (html !== ultimaFlotaHTML) { container.innerHTML = html; ultimaFlotaHTML = html; }
+                container.innerHTML = '';
+                const msg = document.createElement('div');
+                msg.className = 'sin-coches';
+                msg.innerHTML = '<b>🚫 Todos los autos ya pasaron tu parada</b><br>Esperá al siguiente recorrido';
+                container.appendChild(msg);
+                ultimaFlotaHTML = '';
                 ultimoEstadoBoton = ''; actualizarBoton();
                 return;
             }
             
             let hayCochesConLugar = false;
-            let html = '';
+            container.innerHTML = '';
             
             for (const movil of movilesValidos) {
                 const { data: ocupados } = await _s.from('reservas_activas')
@@ -782,86 +857,146 @@
                 const estaSeleccionado = cocheSeleccionado === movil.id;
                 const distanciaKm = (movil.distancia * 111).toFixed(1);
                 
-                html += `
-                <div class="coche-card ${estaSeleccionado ? 'seleccionado' : ''}" id="coche-card-${movil.id}">
-                    <div class="coche-header">
-                        <div>
-                            <span class="coche-num">🚗 Coche ${movil.id}</span>
-                            <div class="coche-info">${movil.chofer || 'Conductor'}</div>
-                        </div>
-                        <div class="coche-dist">📍 ${distanciaKm} km</div>
-                    </div>
-                    <div class="asientos-row">
-                        ${[1,2,3,4].map(num => {
-                            const nombreOcupante = asientosOcupados[num];
-                            const seleccionado = estaSeleccionado && asientosElegidos.includes(num);
-                            
-                            if (nombreOcupante) {
-                                const nombreCorto = nombreOcupante.length > 7 ? nombreOcupante.substring(0,6)+'…' : nombreOcupante;
-                                return `
-                                <div class="asiento-box asiento-ocupado" title="${nombreOcupante}">
-                                    <div class="asiento-num">${num}</div>
-                                    <div class="asiento-nombre">${nombreCorto}</div>
-                                    <div class="asiento-lock">🔒</div>
-                                </div>`;
-                            } else {
-                                return `
-                                <div class="asiento-box asiento-libre ${seleccionado ? 'seleccionado' : ''}" 
-                                     id="as-${movil.id}-${num}"
-                                     onclick="seleccionarAsiento(${movil.id}, ${num})">
-                                    <div class="asiento-num">${num}</div>
-                                    <div style="font-size:9px;">LIBRE</div>
-                                </div>`;
-                            }
-                        }).join('')}
-                    </div>
-                    <div class="coche-info" style="margin-top:4px; text-align:center;">
-                        ${asientosLibres.length === 0 ? '<span style="color:#ff4444;">🚫 LLENO</span>' : 
-                          asientosLibres.length === 4 ? '<span style="color:#28a745;">✅ Todos libres</span>' :
-                          `${asientosLibres.length} libre(s)`}
-                    </div>
-                </div>`;
+                // ✅ SEGURO: Crear elementos DOM en vez de innerHTML
+                const card = document.createElement('div');
+                card.className = `coche-card ${estaSeleccionado ? 'seleccionado' : ''}`;
+                card.id = `coche-card-${movil.id}`;
+                
+                const header = document.createElement('div');
+                header.className = 'coche-header';
+                
+                const infoDiv = document.createElement('div');
+                const cocheNum = document.createElement('span');
+                cocheNum.className = 'coche-num';
+                cocheNum.textContent = `🚗 Coche ${movil.id}`;
+                
+                const cocheInfo = document.createElement('div');
+                cocheInfo.className = 'coche-info';
+                // ✅ SEGURO: textContent escapa automáticamente
+                cocheInfo.textContent = movil.chofer || 'Conductor';
+                
+                infoDiv.appendChild(cocheNum);
+                infoDiv.appendChild(cocheInfo);
+                
+                const distDiv = document.createElement('div');
+                distDiv.className = 'coche-dist';
+                distDiv.textContent = `📍 ${distanciaKm} km`;
+                
+                header.appendChild(infoDiv);
+                header.appendChild(distDiv);
+                card.appendChild(header);
+                
+                const asientosRow = document.createElement('div');
+                asientosRow.className = 'asientos-row';
+                
+                for (let num = 1; num <= 4; num++) {
+                    const nombreOcupante = asientosOcupados[num];
+                    const seleccionado = estaSeleccionado && asientosElegidos.includes(num);
+                    
+                    const asientoBox = document.createElement('div');
+                    asientoBox.className = `asiento-box ${nombreOcupante ? 'asiento-ocupado' : 'asiento-libre'} ${seleccionado ? 'seleccionado' : ''}`;
+                    asientoBox.id = `as-${movil.id}-${num}`;
+                    
+                    if (!nombreOcupante) {
+                        asientoBox.onclick = () => seleccionarAsiento(movil.id, num);
+                    }
+                    
+                    const numDiv = document.createElement('div');
+                    numDiv.className = 'asiento-num';
+                    numDiv.textContent = num;
+                    asientoBox.appendChild(numDiv);
+                    
+                    if (nombreOcupante) {
+                        // ✅ SEGURO: doble protección - sanitizar + escapar + textContent
+                        const nombreLimpio = escaparHTML(sanitizarInput(nombreOcupante));
+                        const nombreCorto = nombreLimpio.length > 7 ? nombreLimpio.substring(0,6)+'…' : nombreLimpio;
+                        
+                        asientoBox.title = nombreLimpio;
+                        
+                        const nombreDiv = document.createElement('div');
+                        nombreDiv.className = 'asiento-nombre';
+                        nombreDiv.textContent = nombreCorto;
+                        asientoBox.appendChild(nombreDiv);
+                        
+                        const lockDiv = document.createElement('div');
+                        lockDiv.className = 'asiento-lock';
+                        lockDiv.textContent = '🔒';
+                        asientoBox.appendChild(lockDiv);
+                    } else {
+                        const libreDiv = document.createElement('div');
+                        libreDiv.style.fontSize = '9px';
+                        libreDiv.textContent = 'LIBRE';
+                        asientoBox.appendChild(libreDiv);
+                    }
+                    
+                    asientosRow.appendChild(asientoBox);
+                }
+                
+                card.appendChild(asientosRow);
+                
+                const disponibilidad = document.createElement('div');
+                disponibilidad.className = 'coche-info';
+                disponibilidad.style.marginTop = '4px';
+                disponibilidad.style.textAlign = 'center';
+                
+                if (asientosLibres.length === 0) {
+                    disponibilidad.innerHTML = '<span style="color:#ff4444;">🚫 LLENO</span>';
+                } else if (asientosLibres.length === 4) {
+                    disponibilidad.innerHTML = '<span style="color:#28a745;">✅ Todos libres</span>';
+                } else {
+                    disponibilidad.textContent = `${asientosLibres.length} libre(s)`;
+                }
+                
+                card.appendChild(disponibilidad);
+                container.appendChild(card);
             }
             
             if (!hayCochesConLugar) {
-                const html = '<div class="sin-coches"><b>🚫 Todos los móviles están llenos</b><br>Intentá en unos minutos</div>';
-                if (html !== ultimaFlotaHTML) { container.innerHTML = html; ultimaFlotaHTML = html; }
+                container.innerHTML = '';
+                const msg = document.createElement('div');
+                msg.className = 'sin-coches';
+                msg.innerHTML = '<b>🚫 Todos los móviles están llenos</b><br>Intentá en unos minutos';
+                container.appendChild(msg);
+                ultimaFlotaHTML = '';
                 ultimoEstadoBoton = ''; actualizarBoton();
                 return;
             }
             
-            if (html !== ultimaFlotaHTML) {
-                container.innerHTML = html;
-                ultimaFlotaHTML = html;
-                
-                if (cocheSeleccionado) {
-                    const card = document.getElementById(`coche-card-${cocheSeleccionado}`);
-                    if(card) card.classList.add('seleccionado');
-                    asientosElegidos.forEach(n => {
-                        const el = document.getElementById(`as-${cocheSeleccionado}-${n}`);
-                        if(el) el.classList.add('seleccionado');
-                    });
-                }
-            }
-            
+            ultimaFlotaHTML = container.innerHTML;
             actualizarBoton();
             
         } catch (err) {
             console.error("Error:", err);
-            const html = '<div class="sin-coches"><b>❌ Error de conexión</b><br>Verificá tu internet</div>';
-            if (html !== ultimaFlotaHTML) { container.innerHTML = html; ultimaFlotaHTML = html; }
+            container.innerHTML = '';
+            const msg = document.createElement('div');
+            msg.className = 'sin-coches';
+            msg.innerHTML = '<b>❌ Error de conexión</b><br>Verificá tu internet';
+            container.appendChild(msg);
+            ultimaFlotaHTML = '';
             ultimoEstadoBoton = ''; actualizarBoton();
         }
     }
 
     // ============================================
-    // CONFIRMAR VIAJE
+    // ✅ SEGURO: confirmarViajePasajero - CON SANITIZACIÓN DEL INPUT
     // ============================================
     async function confirmarViajePasajero() {
-        const nom = document.getElementById('nombre-input').value.trim();
+        // ✅ SANITIZAR el nombre ANTES de todo
+        const nomRaw = document.getElementById('nombre-input').value.trim();
+        const nom = sanitizarInput(nomRaw);
+        
+        // ✅ VALIDAR: si quedó vacío después de sanitizar, rechazar
+        if (!nom || nom.length < 2) {
+            alert("Ingresá un nombre válido (solo letras, máximo 20 caracteres).");
+            document.getElementById('nombre-input').value = '';
+            return;
+        }
+        
+        // Mostrar el nombre limpio en el input
+        document.getElementById('nombre-input').value = nom;
+        
         const destIdx = parseInt(document.getElementById('destino-select').value);
         
-        if (!nom) { alert("Ingresá tu nombre."); return; }
         if (isNaN(destIdx)) { alert("Seleccioná una parada de destino."); return; }
         if (!cocheSeleccionado || asientosElegidos.length === 0) { 
             alert("Seleccioná un coche y al menos un asiento."); 
@@ -894,7 +1029,7 @@
                 asiento_num: n, 
                 id_movil: cocheSeleccionado, 
                 estado: 'en_curso', 
-                nombre_pasajero: nom, 
+                nombre_pasajero: nom,  // ✅ Nombre ya sanitizado
                 pasajero_lat: miLat, 
                 pasajero_lon: miLon, 
                 destino_idx: destIdx 
@@ -1010,9 +1145,6 @@
         }
     }
 
-    // ============================================
-    // REFRESCO PERIÓDICO
-    // ============================================
     setInterval(() => {
         if (!miViajeActivo) actualizarMapaTaxis();
     }, 15000);
