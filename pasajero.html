@@ -394,7 +394,6 @@
 
             if (error) throw error;
 
-            // La función devuelve {viaje: [...]}
             const data = (rpcData && rpcData.viaje && Array.isArray(rpcData.viaje)) ? rpcData.viaje : [];
 
             if(data.length > 0) {
@@ -406,8 +405,10 @@
                 if(primerViaje.destino_idx !== undefined) {
                     document.getElementById('destino-select').value = primerViaje.destino_idx;
                 }
-                // El sentido ya no viene en la respuesta RPC, lo tomamos del select
-                const sentidoActual = document.getElementById('sentido-select').value;
+                // ✅ Usar sentido del móvil si viene en la respuesta
+                if(primerViaje.estado_movil && primerViaje.estado_movil.sentido_flujo) {
+                    document.getElementById('sentido-select').value = primerViaje.estado_movil.sentido_flujo;
+                }
 
                 if(primerViaje.destino_idx !== undefined && miLat !== 0) {
                     actualizarMapaRuta();
@@ -434,7 +435,9 @@
 
         const viaje = datosViajeActivo[0];
         const idMovil = viaje.id_movil;
-        const sentido = document.getElementById('sentido-select').value;
+        const sentido = (viaje.estado_movil && viaje.estado_movil.sentido_flujo) 
+            ? viaje.estado_movil.sentido_flujo 
+            : document.getElementById('sentido-select').value;
 
         const paradaPasajero = calcularParadaMasCerca(viaje.pasajero_lat || miLat, viaje.pasajero_lon || miLon);
 
@@ -579,6 +582,8 @@
         }
 
         const viaje = datosViajeActivo[0];
+        // ✅ AHORA SÍ: obtener datos del móvil desde la respuesta RPC
+        const movil = viaje.estado_movil || {};
         const destino = paradas[viaje.destino_idx] || {n: 'Destino'};
         const asientos = datosViajeActivo.map(v => v.asiento_num).join(', ');
 
@@ -604,7 +609,8 @@
 
         const conductorNombre = document.createElement('p');
         conductorNombre.className = 'conductor-nombre';
-        conductorNombre.textContent = 'Conductor';
+        // ✅ AHORA SÍ: muestra el nombre real del conductor desde la BD
+        conductorNombre.textContent = movil.chofer || 'Conductor';
 
         titulo.appendChild(cocheNum);
         titulo.appendChild(conductorNombre);
@@ -802,13 +808,26 @@
 
             if (errMoviles) throw errMoviles;
 
-            const moviles = (rpcData && rpcData.moviles && Array.isArray(rpcData.moviles)) ? rpcData.moviles : [];
+            const movilesRaw = (rpcData && rpcData.moviles) ? rpcData.moviles : [];
+            // Si moviles es null, convertir a array vacío
+            const moviles = movilesRaw || [];
 
-            if (moviles.length === 0) {
+            // El JS filtra por parada (la función SQL ya no lo hace)
+            const movilesConParada = moviles.map(m => ({
+                ...m,
+                paradaCalculada: calcularParadaMasCerca(m.latitud, m.longitud),
+                distancia: m.distancia || Math.sqrt(Math.pow(miLat - m.latitud, 2) + Math.pow(miLon - m.longitud, 2))
+            }));
+
+            const movilesValidos = movilesConParada.filter(m => 
+                movilPuedeRecoger(m.paradaCalculada, parseInt(destIdx), sentido)
+            ).sort((a, b) => a.distancia - b.distancia);
+
+            if (movilesValidos.length === 0) {
                 container.innerHTML = '';
                 const msg = document.createElement('div');
                 msg.className = 'sin-coches';
-                msg.innerHTML = '<b>🚫 No hay móviles disponibles</b><br>Intentá en unos minutos';
+                msg.innerHTML = '<b>🚫 No hay móviles disponibles</b><br>Todos ya pasaron tu parada o no hay online';
                 container.appendChild(msg);
                 ultimaFlotaHTML = '';
                 ultimoEstadoBoton = ''; actualizarBoton();
@@ -818,7 +837,7 @@
             let hayCochesConLugar = false;
             container.innerHTML = '';
 
-            for (const movil of moviles) {
+            for (const movil of movilesValidos) {
                 // Asientos ocupados vienen incluidos en la respuesta RPC
                 const asientosOcupados = {};
                 const ocupadosArray = movil.asientos_ocupados || [];
