@@ -27,7 +27,7 @@
         #status-label { color: white; font-size: 11px; font-weight: bold; width: 85px; text-align: center; }
         #btn-sentido { background: #FFD700; border: none; padding: 6px 12px; border-radius: 15px; font-weight: 800; font-size: 12px; }
         #panel-parada { position: absolute; top: 145px; left: 50%; transform: translateX(-50%); z-index: 1001; background: rgba(0,0,0,0.9); color: #FFD700; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid #FFD700; display:none; }
-        
+
         .leaflet-tooltip { background: #000 !important; color: #FFD700 !important; border: 1.5px solid #FFD700 !important; font-weight: bold !important; font-size: 13px !important; }
 
         .taxi-icon { 
@@ -140,34 +140,52 @@
     const MI_ID_MOVIL = 1;
     const MI_NOMBRE = "Carlos - Ford Fiesta JCP 478";
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-    
+
     let estaOnline = false, watchId = null, sentidoActual = 'IDA';
     let ultimaVezEnviado = 0;
     let ultimaCantidadReservas = 0;
     let wakeLock = null;
     let audioContext = null;
 
+    // ============================================
+    // ✅ PARADAS - IDÉNTICAS AL PASAJERO (28 paradas, mismo orden, mismos índices 0-27)
+    // ============================================
     const paradas = [
-        {n:'Miguel Cané', c:[-34.561264, -58.770506]}, {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
-        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]}, {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
-        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]}, {n:'Murillo 601', c:[-34.565342, -58.772061]},
-        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]}, {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
-        {n:'A. Prado 2555', c:[-34.571016, -58.764443]}, {n:'Prado y Payró', c:[-34.571956, -58.763201]},
-        {n:'Prado 1744', c:[-34.577371, -58.755909]}, {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
-        {n:'Caveri y Azara', c:[-34.579296, -58.755864]}, {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
-        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]}, {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
-        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]}, {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
-        {n:'Libertador y Aero', c:[-34.585554, -58.749812]}, {n:'Libertador 7300', c:[-34.586494, -58.750574]},
-        {n:'Libertador 7200', c:[-34.588041, -58.751542]}, {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
-        {n:'Maza y Albatros', c:[-34.588771, -58.750804]}, {n:'Maternidad', c:[-34.588244, -58.749877]},
-        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+        {n:'Universidad Tecnológica', c:[-34.549295, -58.783648]},      // 0
+        {n:'Parque Tecnológico', c:[-34.551586, -58.781403]},             // 1
+        {n:'Base Aérea', c:[-34.554132, -58.778927]},                     // 2
+        {n:'Miguel Cané', c:[-34.561264, -58.770506]},                    // 3
+        {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},              // 4
+        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]},               // 5
+        {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},               // 6
+        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]},           // 7
+        {n:'Murillo 601', c:[-34.565342, -58.772061]},                    // 8
+        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]},            // 9
+        {n:'Murillo y Watt', c:[-34.569090, -58.767095]},                 // 10
+        {n:'A. Prado 2555', c:[-34.571016, -58.764443]},                  // 11
+        {n:'Prado y Payró', c:[-34.571956, -58.763201]},                  // 12
+        {n:'Prado 1744', c:[-34.577371, -58.755909]},                     // 13
+        {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},               // 14
+        {n:'Caveri y Azara', c:[-34.579296, -58.755864]},                 // 15
+        {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},                 // 16
+        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]},              // 17
+        {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},            // 18
+        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]},                // 19
+        {n:'Caveri (Final)', c:[-34.584740, -58.748804]},                  // 20
+        {n:'Libertador y Aero', c:[-34.585554, -58.749812]},             // 21
+        {n:'Libertador 7300', c:[-34.586494, -58.750574]},                // 22
+        {n:'Libertador 7200', c:[-34.588041, -58.751542]},                // 23
+        {n:'Libertador y Maza', c:[-34.588273, -58.751338]},              // 24
+        {n:'Maza y Albatros', c:[-34.588771, -58.750804]},                // 25
+        {n:'Maternidad', c:[-34.588244, -58.749877]},                     // 26
+        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}                   // 27
     ];
 
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    
+
     const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#FF0000', weight: 8, opacity: 0.7 }).addTo(map);
-    
+
     paradas.forEach(p => L.circleMarker(p.c, { 
         radius: 7, 
         color: '#000000', 
@@ -175,7 +193,7 @@
         fillColor: '#00BFFF', 
         fillOpacity: 1 
     }).addTo(map));
-    
+
     const markerCoche = L.marker(paradas[0].c, { 
         icon: L.divIcon({ 
             html: '🚕', 
@@ -183,7 +201,7 @@
             iconAnchor: [30, 30] 
         }) 
     }).addTo(map);
-    
+
     let markersPax = [], markersDest = [];
 
     // ============================================
@@ -195,7 +213,7 @@
                 wakeLock = await navigator.wakeLock.request('screen');
                 document.getElementById('wakelock-indicator').classList.add('activo');
                 console.log('Wake Lock activado');
-                
+
                 wakeLock.addEventListener('release', () => {
                     console.log('Wake Lock liberado');
                     document.getElementById('wakelock-indicator').classList.remove('activo');
@@ -227,26 +245,26 @@
 
     function reproducirAlarma() {
         inicializarAudio();
-        
+
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
-        
+
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
-        
+
         oscillator.type = 'square';
         oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
         oscillator.frequency.setValueAtTime(1100, audioContext.currentTime + 0.1);
         oscillator.frequency.setValueAtTime(880, audioContext.currentTime + 0.2);
         oscillator.frequency.setValueAtTime(1100, audioContext.currentTime + 0.3);
         oscillator.frequency.setValueAtTime(880, audioContext.currentTime + 0.4);
-        
+
         gainNode.gain.setValueAtTime(0.8, audioContext.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-        
+
         oscillator.start(audioContext.currentTime);
         oscillator.stop(audioContext.currentTime + 0.5);
-        
+
         setTimeout(() => {
             const osc2 = audioContext.createOscillator();
             const gain2 = audioContext.createGain();
@@ -276,13 +294,13 @@
     function mostrarAlertaReserva(nombrePasajero, asientos) {
         const alerta = document.getElementById('alerta-reserva');
         const texto = document.getElementById('alerta-texto');
-        
+
         texto.innerText = `${nombrePasajero} reservó ${asientos.length} asiento(s): ${asientos.join(', ')}`;
         alerta.classList.add('mostrar');
-        
+
         reproducirAlarma();
         vibrarAlarma();
-        
+
         window.alertaInterval = setInterval(() => {
             if (alerta.classList.contains('mostrar')) {
                 reproducirAlarma();
@@ -301,15 +319,15 @@
     }
 
     // ============================================
-    // CALCULAR PARADA CERCANA
+    // ✅ CALCULAR PARADA CERCANA - mismo algoritmo que el pasajero
     // ============================================
     function calcularCercana(lat, lon) {
-        let min = Infinity, nombre = "";
-        paradas.forEach(p => {
+        let min = Infinity, idx = -1, nombre = "";
+        paradas.forEach((p, i) => {
             let d = Math.sqrt(Math.pow(p.c[0]-lat,2) + Math.pow(p.c[1]-lon,2));
-            if(d < min) { min = d; nombre = p.n; }
+            if(d < min) { min = d; idx = i; nombre = p.n; }
         });
-        return nombre;
+        return { nombre, idx, min };
     }
 
     // ============================================
@@ -320,15 +338,15 @@
         estaOnline = toggle.checked;
         if (estaOnline) {
             label.innerText = "CONECTANDO...";
-            
+
             inicializarAudio();
-            
+
             // ===== SINCRONIZAR SENTIDO DESDE LA BASE DE DATOS =====
             const { data: cocheActual, error: errorCoche } = await _s.from('estado_movil')
                 .select('sentido_flujo')
                 .eq('id', MI_ID_MOVIL)
                 .single();
-            
+
             if (cocheActual && cocheActual.sentido_flujo) {
                 sentidoActual = cocheActual.sentido_flujo;
                 document.getElementById('btn-sentido').innerText = sentidoActual;
@@ -339,20 +357,23 @@
                 console.log('Sentido sincronizado desde BD:', sentidoActual);
             }
             // ======================================================
-            
+
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 const lat = pos.coords.latitude, lon = pos.coords.longitude;
+                const paradaInfo = calcularCercana(lat, lon);
+
                 const datos = { 
                     esta_online: true, 
                     latitud: lat, 
                     longitud: lon, 
                     sentido_flujo: sentidoActual, 
+                    disponible_desde: paradaInfo.idx,
                     ultima_actualizacion: new Date().toISOString(), 
                     chofer: MI_NOMBRE 
                 };
-                
+
                 let { error } = await _s.from('estado_movil').update(datos).eq('id', MI_ID_MOVIL);
-                
+
                 if (error) {
                     label.innerText = "ERROR DB";
                     toggle.checked = false;
@@ -382,20 +403,20 @@
         watchId = navigator.geolocation.watchPosition(async (p) => {
             const ahora = Date.now();
             const lat = p.coords.latitude, lon = p.coords.longitude;
-            
+
             markerCoche.setLatLng([lat, lon]);
             map.panTo([lat, lon]);
-            
-            const paradaActual = calcularCercana(lat, lon);
-            document.getElementById('txt-parada').innerText = paradaActual;
+
+            const paradaInfo = calcularCercana(lat, lon);
+            document.getElementById('txt-parada').innerText = paradaInfo.nombre;
 
             if (estaOnline && (ahora - ultimaVezEnviado > 5000)) { 
                 ultimaVezEnviado = ahora;
-                
+
                 await _s.from('estado_movil').update({ 
                     latitud: lat, 
                     longitud: lon, 
-                    disponible_desde: paradas.findIndex(p => p.n === paradaActual) + 1,
+                    disponible_desde: paradaInfo.idx,
                     ultima_actualizacion: new Date().toISOString() 
                 }).eq('id', MI_ID_MOVIL);
             }
@@ -410,13 +431,13 @@
             .select('*')
             .eq('id_movil', MI_ID_MOVIL)
             .eq('estado', 'en_curso');
-        
+
         if (reservas) {
             if (reservas.length > ultimaCantidadReservas && estaOnline) {
                 const nuevasReservas = reservas.slice(ultimaCantidadReservas);
                 const nombresNuevos = nuevasReservas.map(r => r.nombre_pasajero).join(', ');
                 const asientosNuevos = nuevasReservas.map(r => r.asiento_num);
-                
+
                 mostrarAlertaReserva(nombresNuevos, asientosNuevos);
             }
             ultimaCantidadReservas = reservas.length;
@@ -427,18 +448,18 @@
 
             document.getElementById('txt-pax').innerText = reservas.length;
             document.getElementById('txt-plata').innerText = "$" + (reservas.length * 1000);
-            
+
             for(let i=1; i<=4; i++) {
                 document.getElementById('pill'+i).className = 'pill';
                 document.getElementById('nombre-pax-'+i).innerText = '';
             }
-            
+
             reservas.forEach(r => {
                 if(r.asiento_num <= 4) {
                     document.getElementById('pill'+r.asiento_num).className = 'pill active';
                     document.getElementById('nombre-pax-'+r.asiento_num).innerText = r.nombre_pasajero;
                 }
-                
+
                 if (r.pasajero_lat) {
                     const mp = L.circleMarker([r.pasajero_lat, r.pasajero_lon], { 
                         color: 'red', 
@@ -446,7 +467,7 @@
                     }).addTo(map).bindTooltip(r.nombre_pasajero);
                     markersPax.push(mp);
                 }
-                
+
                 if (paradas[r.destino_idx]) {
                     const md = L.marker(paradas[r.destino_idx].c).addTo(map).bindTooltip(
                         `BAJA: ${r.nombre_pasajero}`, 
@@ -465,27 +486,27 @@
         // Cambiar el sentido localmente
         const sentidoAnterior = sentidoActual;
         sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
-        
+
         // Actualizar botón
         document.getElementById('btn-sentido').innerText = sentidoActual;
-        
+
         // Actualizar color de la ruta
         // IDA = Rojo (#FF0000), VUELTA = Azul celeste (#00BFFF)
         const nuevoColor = sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF';
         rutaLine.setStyle({ color: nuevoColor });
-        
+
         console.log('Cambiando sentido a:', sentidoActual, 'Color:', nuevoColor);
-        
+
         // Si está online, actualizar en la base de datos
         if (estaOnline) {
             const { error } = await _s.from('estado_movil')
                 .update({ sentido_flujo: sentidoActual })
                 .eq('id', MI_ID_MOVIL);
-            
+
             if (error) {
                 console.error('Error al cambiar sentido:', error);
                 alert('Error al cambiar sentido. Intentá de nuevo.');
-                
+
                 // REVERTIR el cambio visual si falló
                 sentidoActual = sentidoAnterior;
                 document.getElementById('btn-sentido').innerText = sentidoActual;
@@ -538,12 +559,12 @@
                 .select('sentido_flujo')
                 .eq('id', MI_ID_MOVIL)
                 .single();
-            
+
             if (error) {
                 console.error('Error al leer sentido inicial:', error);
                 return;
             }
-            
+
             if (coche && coche.sentido_flujo) {
                 sentidoActual = coche.sentido_flujo;
                 document.getElementById('btn-sentido').innerText = sentidoActual;
