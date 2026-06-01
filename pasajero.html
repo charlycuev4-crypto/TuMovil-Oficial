@@ -242,7 +242,10 @@
         .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
         .toast.success { border-color: rgba(16,185,129,0.3); color: var(--success); }
         .toast.error { border-color: rgba(239,68,68,0.3); color: var(--danger); }
-        @media (min-width: 768px) { .bottom-sheet { max-height: 45vh; } }
+        .leaflet-popup-content-wrapper { background: rgba(30,30,30,0.95); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; }
+    .leaflet-popup-tip { background: rgba(30,30,30,0.95); }
+    .parada-popup .leaflet-popup-content { margin: 8px 12px; font-family: 'Inter', sans-serif; font-size: 13px; }
+    @media (min-width: 768px) { .bottom-sheet { max-height: 45vh; } }
     </style>
 </head>
 <body>
@@ -370,11 +373,32 @@
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    paradas.forEach(function(p) {
-        L.circleMarker(p.c, { radius: 5, color: 'rgba(255,255,255,0.3)', weight: 1, fillColor: '#2563eb', fillOpacity: 0.7 }).addTo(map);
+    paradas.forEach(function(p, idx) {
+        const marker = L.circleMarker(p.c, { 
+            radius: 7, 
+            color: 'rgba(255,255,255,0.6)', 
+            weight: 2, 
+            fillColor: '#2563eb', 
+            fillOpacity: 0.85 
+        }).addTo(map);
+        marker.bindPopup('<b style="color:#333;">' + p.n + '</b>', { 
+            closeButton: false, 
+            offset: [0, -5],
+            className: 'parada-popup'
+        });
+        marker.on('click', function() {
+            document.getElementById('destino-select').value = idx;
+            actualizarMapaRuta();
+            renderizarFlotaDisponible();
+        });
     });
 
-    const iconP = L.divIcon({ html: '<div style="width:14px;height:14px;background:#2563eb;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>', className: 'p-mark', iconAnchor: [7, 7] });
+    const iconP = L.divIcon({ 
+            html: '<div style="position:relative;"><div style="width:48px;height:48px;background:rgba(37,99,235,0.15);border-radius:50%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);animation:pulse 2s infinite;"></div><div style="width:18px;height:18px;background:#2563eb;border:3px solid white;border-radius:50%;box-shadow:0 2px 12px rgba(0,0,0,0.5);position:relative;z-index:2;"></div></div>', 
+            className: 'p-mark', 
+            iconAnchor: [9, 9] 
+        });
+        let circuloPrecision = L.circle([0,0], { radius: 50, color: '#2563eb', weight: 1, fillColor: '#2563eb', fillOpacity: 0.1, dashArray: '4,4' }).addTo(map);
     const iconDest = L.divIcon({ html: '<div style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:18px solid #f59e0b;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></div>', className: 'dest-arrow', iconAnchor: [8, 18] });
     const iconT = L.divIcon({ html: '<div style="width:32px;height:32px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:16px;">🚕</div>', iconAnchor: [16, 16] });
     const iconTPasado = L.divIcon({ html: '<div style="width:32px;height:32px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.05);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-size:16px;opacity:0.4;filter:grayscale(1);">🚕</div>', iconAnchor: [16, 16] });
@@ -530,7 +554,10 @@
 
     navigator.geolocation.watchPosition(function(p) {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
-        markerPasajero.setLatLng([miLat, miLon]); actualizarMapaRuta();
+        markerPasajero.setLatLng([miLat, miLon]);
+        circuloPrecision.setLatLng([miLat, miLon]);
+        if (p.coords.accuracy) { circuloPrecision.setRadius(p.coords.accuracy); }
+        actualizarMapaRuta();
         if(!gpsListo) {
             gpsListo = true; document.getElementById('btn-pedir').disabled = false;
             document.getElementById('gps-badge').textContent = 'GPS ok';
