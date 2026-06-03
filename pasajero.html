@@ -18,13 +18,17 @@
         .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; flex-shrink: 0; }
         .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
 
-        #map { flex-grow: 1; width: 100%; }
+        /* 🔄 MODIFICADO: Transición suave de altura para el mapa */
+        #map { height: 50vh; width: 100%; transition: height 0.4s ease-in-out; flex-grow: 1; }
+        body.viaje-confirmado-layout #map { height: 80vh; flex-grow: 0; }
 
-        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 50vh; overflow-y: auto; }
+        /* 🔄 MODIFICADO: El contenedor UI cambia de tamaño y comportamiento según el estado */
+        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); height: 50vh; transition: height 0.4s ease-in-out; overflow-y: auto; box-sizing: border-box; }
+        body.viaje-confirmado-layout .bottom-ui { height: 20vh; overflow: hidden; padding: 10px 15px; gap: 4px; justify-content: space-between; }
+
         .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
 
-        /* 🚀 NUEVO: Estilos para el switch del altavoz */
         .audio-toggle-container {
             display: flex;
             align-items: center;
@@ -43,14 +47,19 @@
         input:checked + .slider { background-color: var(--celeste); }
         input:checked + .slider:before { transform: translateX(20px); }
 
+        /* 🔄 MODIFICADO: Optimización del panel del viaje activo para el espacio del 20% */
         .viaje-activo-panel {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border: 2px solid var(--celeste);
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 10px;
+            border: 1px solid var(--celeste);
+            border-radius: 12px;
+            padding: 8px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
             animation: slideIn 0.5s ease;
-            transition: border-color 0.5s ease;
+            height: 100%;
+            justify-content: space-between;
+            box-sizing: border-box;
         }
         .viaje-activo-panel.alerta-pasado {
             border-color: var(--danger);
@@ -64,22 +73,20 @@
         .viaje-activo-header {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid rgba(0, 210, 255, 0.2);
+            gap: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(0, 210, 255, 0.1);
         }
         .viaje-activo-icono {
-            width: 50px;
-            height: 50px;
+            width: 32px;
+            height: 32px;
             background: var(--celeste);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: 16px;
             flex-shrink: 0;
-            transition: background 0.3s ease;
         }
         .viaje-activo-panel.alerta-pasado .viaje-activo-icono {
             background: var(--danger);
@@ -91,71 +98,75 @@
         }
         .viaje-activo-titulo {
             flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .viaje-activo-titulo .coche-numero {
-            font-size: 20px;
+            font-size: 15px;
             font-weight: bold;
             color: var(--amarillo);
             margin: 0;
         }
         .viaje-activo-titulo .conductor-nombre {
-            font-size: 14px;
+            font-size: 13px;
             color: white;
-            margin: 2px 0 0 0;
+            margin: 0;
         }
         .viaje-activo-info {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-bottom: 12px;
+            grid-template-columns: 1fr 1fr 1.5fr;
+            gap: 6px;
+            align-items: center;
         }
         .info-box {
             background: rgba(0, 0, 0, 0.3);
-            border-radius: 8px;
-            padding: 8px;
+            border-radius: 6px;
+            padding: 4px;
             text-align: center;
         }
         .info-box-label {
-            font-size: 10px;
+            font-size: 9px;
             color: #888;
             text-transform: uppercase;
-            letter-spacing: 1px;
         }
         .info-box-valor {
-            font-size: 14px;
+            font-size: 12px;
             color: var(--celeste);
             font-weight: bold;
-            margin-top: 2px;
         }
         .viaje-activo-destino {
-            background: rgba(255, 204, 0, 0.1);
+            background: rgba(255, 204, 0, 0.08);
             border: 1px solid var(--amarillo);
-            border-radius: 8px;
-            padding: 8px;
+            border-radius: 6px;
+            padding: 4px;
             text-align: center;
-            font-size: 13px;
+            font-size: 12px;
             color: var(--amarillo);
-            margin-bottom: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .viaje-activo-status {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
-            font-size: 12px;
+            font-size: 11px;
             color: var(--success);
-            padding: 8px;
-            border-radius: 8px;
-            background: rgba(40, 167, 69, 0.1);
+            padding: 4px;
+            border-radius: 6px;
+            background: rgba(40, 167, 69, 0.08);
         }
         .viaje-activo-status.alerta {
             color: var(--danger);
-            background: rgba(220, 53, 69, 0.1);
+            background: rgba(220, 53, 69, 0.08);
             font-weight: bold;
         }
         .status-dot {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
             background: var(--success);
             border-radius: 50%;
             animation: blink 1.5s infinite;
@@ -164,35 +175,22 @@
             background: var(--danger);
             animation: blinkFast 0.5s infinite;
         }
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-        @keyframes blinkFast {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.2; }
-        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        @keyframes blinkFast { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
         .alerta-parada {
             background: rgba(220, 53, 69, 0.15);
             border: 1px solid var(--danger);
-            border-radius: 8px;
-            padding: 10px;
+            border-radius: 6px;
+            padding: 4px;
             text-align: center;
-            margin-bottom: 10px;
-            animation: slideIn 0.3s ease;
         }
-        .alerta-parada-texto {
-            color: #ff6b6b;
-            font-size: 13px;
-            font-weight: bold;
-        }
-        .alerta-parada-sub {
-            color: #ff9999;
-            font-size: 11px;
-            margin-top: 4px;
-        }
+        .alerta-parada-texto { color: #ff6b6b; font-size: 11px; font-weight: bold; }
 
         .flota-container { max-height: 220px; overflow-y: auto; }
+        /* 🔄 NUEVO: Forzar que ocupe todo el alto disponible en modo viaje */
+        body.viaje-confirmado-layout .flota-container { max-height: 100%; height: 100%; overflow: hidden; }
+
         .coche-card { background: #1a1a1a; border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; animation: slideIn 0.3s ease; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .coche-card.seleccionado { border-color: var(--celeste); box-shadow: 0 0 8px rgba(0,210,255,0.3); }
@@ -207,14 +205,10 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             font-size: 10px; transition: all 0.2s;
         }
-        .asiento-libre { 
-            background: #2a2a2a; border: 2px solid var(--celeste); color: var(--celeste); cursor: pointer;
-        }
+        .asiento-libre { background: #2a2a2a; border: 2px solid var(--celeste); color: var(--celeste); cursor: pointer; }
         .asiento-libre:hover { background: var(--celeste); color: black; }
         .asiento-libre.seleccionado { background: var(--amarillo); border-color: var(--amarillo); color: black; }
-        .asiento-ocupado { 
-            background: #1a1a1a; border: 2px solid #333; color: #555; cursor: not-allowed;
-        }
+        .asiento-ocupado { background: #1a1a1a; border: 2px solid #333; color: #555; cursor: not-allowed; }
         .asiento-num { font-size: 12px; font-weight: bold; }
         .asiento-nombre { font-size: 9px; text-align: center; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 44px; }
         .asiento-lock { font-size: 9px; }
@@ -224,7 +218,9 @@
 
         .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; transition: all 0.3s; }
         .btn-pedir:disabled { background: #333; color: #666; }
-        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
+        
+        /* 🔄 MODIFICADO: Ajuste fino estético para el botón de cancelar fijo abajo */
+        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 12px; border-radius: 10px; font-weight: bold; font-size: 15px; display: none; margin-top: 0; width: 100%; box-sizing: border-box; z-index: 101; }
         .btn-cancelar:disabled { background: #661a22; color: #999; }
 
         .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; }
@@ -243,25 +239,27 @@
     <div id="map"></div>
 
     <div class="bottom-ui">
-        <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
+        <div id="grupo-reserva-ui" style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
 
-        <div class="audio-toggle-container">
-            <div class="audio-toggle-label"><span>📢</span> Altavoz de Paradas Elegidas</div>
-            <label class="switch">
-                <input type="checkbox" id="altavoz-checkbox" checked onchange="inicializarAudioPorInteraccionUsuario()">
-                <span class="slider"></span>
-            </label>
+            <div class="audio-toggle-container">
+                <div class="audio-toggle-label"><span>📢</span> Altavoz de Paradas Elegidas</div>
+                <label class="switch">
+                    <input type="checkbox" id="altavoz-checkbox" checked onchange="inicializarAudioPorInteraccionUsuario()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <select id="sentido-select">
+                <option value="IDA">Hacia IDA</option>
+                <option value="VUELTA">Hacia VUELTA</option>
+            </select>
+
+            <input type="text" id="nombre-input" placeholder="Tu Nombre" maxlength="20">
+            <select id="destino-select">
+                <option value="" disabled selected>¿A qué parada vas?</option>
+            </select>
         </div>
-
-        <select id="sentido-select">
-            <option value="IDA">Hacia IDA</option>
-            <option value="VUELTA">Hacia VUELTA</option>
-        </select>
-
-        <input type="text" id="nombre-input" placeholder="Tu Nombre" maxlength="20">
-        <select id="destino-select">
-            <option value="" disabled selected>¿A qué parada vas?</option>
-        </select>
 
         <div class="flota-container" id="flota-container">
             <div class="sin-coches">📍 Seleccioná tu destino para ver coches</div>
@@ -351,7 +349,6 @@
     let cocheYaPaso = false;
     let intervaloViajeActivo = null;
 
-    // 🚀 NUEVO: Variables de control para las alertas de voz nativas
     let paradasAnunciadas = {}; 
     let audioContextContext = null;
 
@@ -363,9 +360,8 @@
         selDest.appendChild(opt); 
     });
 
-    // 🚀 NUEVO: Función matemática precisa para medir distancias reales en metros (Haversine)
     function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
-        const R = 6371e3; // Radio de la Tierra en metros
+        const R = 6371e3;
         const phi1 = lat1 * Math.PI/180;
         const phi2 = lat2 * Math.PI/180;
         const deltaPhi = (lat2-lat1) * Math.PI/180;
@@ -391,7 +387,6 @@
         return movilParada >= paradaPasajero;
     }
 
-    // 🚀 NUEVO: Generador de timbre sintético "Ding-Dong" estilo tren
     function reproducirTimbreTren() {
         try {
             if (!audioContextContext) audioContextContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -411,42 +406,36 @@
             };
             
             const ahora = audioContextContext.currentTime;
-            reproducirNota(554.37, ahora, 0.4); // Nota C#5
-            reproducirNota(440.00, ahora + 0.3, 0.5); // Nota A4
+            reproducirNota(554.37, ahora, 0.4);
+            reproducirNota(440.00, ahora + 0.3, 0.5);
         } catch(e) { console.error("Error de audio:", e); }
     }
 
-    // 🚀 NUEVO: Sintetizador de voz para el anuncio de parada elegida
     function anunciarParadaPorVoz(nombreParada) {
         if (!document.getElementById('altavoz-checkbox').checked) return;
-
         reproducirTimbreTren();
-
         setTimeout(() => {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // Detiene anuncios previos trabados
+                window.speechSynthesis.cancel();
                 const mensaje = new SpeechSynthesisUtterance();
                 mensaje.text = `Próxima parada: ${nombreParada}. Por favor, prepárese para descender.`;
                 mensaje.lang = 'es-ES';
-                mensaje.rate = 0.9; // Velocidad pausada y clara estilo megafonía
+                mensaje.rate = 0.9;
                 mensaje.pitch = 1.0;
                 window.speechSynthesis.speak(mensaje);
             }
-        }, 800); // Pequeña pausa para que suene el timbre antes del habla
+        }, 800);
     }
 
-    // 🚀 NUEVO: Inicializar requerimiento de audio de navegadores por interacción del usuario
     function inicializarAudioPorInteraccionUsuario() {
         if (!audioContextContext) audioContextContext = new (window.AudioContext || window.webkitAudioContext)();
         if (audioContextContext.state === 'suspended') audioContextContext.resume();
-        
         if (document.getElementById('altavoz-checkbox').checked && 'speechSynthesis' in window) {
             const t = new SpeechSynthesisUtterance('');
-            window.speechSynthesis.speak(t); // "Despierta" la API de voz
+            window.speechSynthesis.speak(t);
         }
     }
 
-    // 🚀 NUEVO: Sistema Geofence dinámico. Monitorea la cercanía a la parada seleccionada.
     function monitorearGeofenceParadas() {
         const destinoSeleccionadoIdx = document.getElementById('destino-select').value;
         if (destinoSeleccionadoIdx === "" || miLat === 0 || miLon === 0) return;
@@ -454,17 +443,13 @@
         const paradaDestino = paradas[destinoSeleccionadoIdx];
         const distanciaMetros = calcularDistanciaMetros(miLat, miLon, paradaDestino.c[0], paradaDestino.c[1]);
 
-        // Si el pasajero está dentro de un radio menor a 150 metros de su destino elegido
         if (distanciaMetros <= 150) {
             if (!paradasAnunciadas[destinoSeleccionadoIdx]) {
-                paradasAnunciadas[destinoSeleccionadoIdx] = true; // Evita bucle repetitivo de voz
+                paradasAnunciadas[destinoSeleccionadoIdx] = true;
                 anunciarParadaPorVoz(paradaDestino.n);
             }
         } else {
-            // Si se aleja, limpia el estado para futuros viajes
-            if(distanciaMetros > 300) {
-                delete paradasAnunciadas[destinoSeleccionadoIdx];
-            }
+            if(distanciaMetros > 300) { delete paradasAnunciadas[destinoSeleccionadoIdx]; }
         }
     }
 
@@ -474,7 +459,6 @@
             document.getElementById('nombre-input').value = nombreGuardado;
             await cargarDatosViajeActivo(nombreGuardado);
         }
-        // Despertar el motor de audio al hacer click en cualquier parte inicial del documento
         document.body.addEventListener('click', inicializarAudioPorInteraccionUsuario, { once: true });
     };
 
@@ -550,7 +534,7 @@
             if (panel) {
                 const alerta = document.createElement('div');
                 alerta.className = 'alerta-parada';
-                alerta.innerHTML = '<div class="alerta-parada-texto">⚠️ EL COCHE YA PASÓ TU PARADA</div><div class="alerta-parada-sub">El conductor no puede retroceder. Finalizá el viaje para liberar tu asiento.</div>';
+                alerta.innerHTML = '<div class="alerta-parada-texto">⚠️ EL COCHE YA PASÓ TU PARADA</div>';
                 const statusElement = panel.querySelector('.viaje-activo-status');
                 if (statusElement) panel.insertBefore(alerta, statusElement);
             }
@@ -572,7 +556,7 @@
         if (alerta) {
             panel.classList.add('alerta-pasado');
             status.classList.add('alerta');
-            status.innerHTML = '<div class="status-dot alerta"></div><span>⚠️ COCHE YA PASÓ - NO PUEDE RETROCEDER</span>';
+            status.innerHTML = '<div class="status-dot alerta"></div><span>⚠️ COCHE YA PASÓ</span>';
         } else {
             panel.classList.remove('alerta-pasado');
             status.classList.remove('alerta');
@@ -591,12 +575,12 @@
         }
     }
 
+    // 🔄 MODIFICADO: Añadimos alteración del Layout CSS al activar viaje
     function bloquearPanelParaViajeActivo() {
+        document.body.classList.add('viaje-confirmado-layout'); // 🚀 Dispara el 80% de GPS
+        document.getElementById('grupo-reserva-ui').style.display = 'none'; // 🔥 Oculta menús viejos
         document.getElementById('btn-pedir').style.display = 'none';
         document.getElementById('btn-cancelar').style.display = 'block';
-        document.getElementById('nombre-input').disabled = true;
-        document.getElementById('destino-select').disabled = true;
-        document.getElementById('sentido-select').disabled = true;
         renderizarPanelViajeActivo();
     }
 
@@ -617,32 +601,30 @@
         panel.className = 'viaje-activo-panel';
         panel.id = 'viaje-activo-panel';
 
+        // 🔄 MODIFICADO: Ajustado para que encaje compacto sin hacer scroll en el 20%
         panel.innerHTML = `
             <div class="viaje-activo-header">
                 <div class="viaje-activo-icono">🚗</div>
                 <div class="viaje-activo-titulo">
-                    <p class="coche-numero">Coche ${viaje.id_movil || '---'}</p>
-                    <p class="conductor-nombre">${movil.chofer || 'Conductor'}</p>
+                    <span class="coche-numero">Coche ${viaje.id_movil || '---'}</span>
+                    <span class="conductor-nombre">${movil.chofer || 'Conductor'}</span>
                 </div>
             </div>
             <div class="viaje-activo-info">
-                <div class="info-box"><div class="info-box-label">Asiento(s)</div><div class="info-box-valor">${asientos}</div></div>
+                <div class="info-box"><div class="info-box-label">Asientos</div><div class="info-box-valor">${asientos}</div></div>
                 <div class="info-box"><div class="info-box-label">Tarifa</div><div class="info-box-valor">$${datosViajeActivo.length * 1000}</div></div>
+                <div class="viaje-activo-status" id="viaje-status"><div class="status-dot"></div><span>En camino...</span></div>
             </div>
             <div class="viaje-activo-destino">📍 Destino: ${destino.n}</div>
-            <div class="viaje-activo-status" id="viaje-status"><div class="status-dot"></div><span>Conductor en camino...</span></div>
         `;
         container.appendChild(panel);
     }
 
-    // GPS Activo en Tiempo Real
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; 
         miLon = p.coords.longitude;
         markerPasajero.setLatLng([miLat, miLon]);
         actualizarMapaRuta();
-
-        // 🚀 NUEVO: Comprobar cercanía a la parada elegida en cada ciclo de actualización GPS
         monitorearGeofenceParadas();
 
         if(!gpsListo) {
