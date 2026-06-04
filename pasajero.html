@@ -19,7 +19,7 @@
         .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
 
         /* ============================================
-           MAPA - Se expande cuando viaje activo/a bordo
+           MAPA
            ============================================ */
         #map { flex-grow: 1; width: 100%; transition: all 0.4s ease; }
 
@@ -77,9 +77,22 @@
             transition: all 0.4s ease;
         }
 
+        /* ============================================
+           ELEMENTOS DEL FORMULARIO (ocultos en viaje activo)
+           ============================================ */
+        body.viaje-activo .form-element {
+            display: none !important;
+        }
+        body.viaje-activo #btn-pedir {
+            display: none !important;
+        }
+
         .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
         input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
 
+        /* ============================================
+           PANEL DE VIAJE ACTIVO (cuadro azul)
+           ============================================ */
         .viaje-activo-panel {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             border: 2px solid var(--celeste);
@@ -330,7 +343,6 @@
             border: 2px solid rgba(255,255,255,0.5);
         }
 
-        /* Timer circular */
         .llegada-timer {
             position: absolute;
             top: 15px;
@@ -387,23 +399,29 @@
     <div id="map"></div>
 
     <div class="bottom-ui">
-        <div class="promo-card"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
+        <!-- ELEMENTOS DEL FORMULARIO (se ocultan en viaje activo) -->
+        <div class="promo-card form-element"><b style="color:var(--amarillo);">TARIFA PLANA: $1000 POR ASIENTO</b></div>
 
-        <select id="sentido-select">
+        <select id="sentido-select" class="form-element">
             <option value="IDA">Hacia IDA</option>
             <option value="VUELTA">Hacia VUELTA</option>
         </select>
 
-        <input type="text" id="nombre-input" placeholder="Tu Nombre" maxlength="20">
-        <select id="destino-select">
+        <input type="text" id="nombre-input" class="form-element" placeholder="Tu Nombre" maxlength="20">
+        
+        <select id="destino-select" class="form-element">
             <option value="" disabled selected>¿A qué parada vas?</option>
         </select>
 
-        <div class="flota-container" id="flota-container">
+        <div class="flota-container form-element" id="flota-container">
             <div class="sin-coches">📍 Seleccioná tu destino para ver coches</div>
         </div>
 
         <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ BUSCANDO GPS...</button>
+        
+        <!-- PANEL DE VIAJE ACTIVO (solo visible en viaje activo) -->
+        <div id="viaje-activo-container" style="display: none;"></div>
+        
         <button class="btn-cancelar" id="btn-cancelar" onclick="finalizarViaje()">TERMINAR MI VIAJE</button>
     </div>
 
@@ -538,18 +556,12 @@
     // OPCIÓN C: SISTEMA DE LLEGADA DEL COCHE
     // ============================================
     
-    /**
-     * Inicia la verificación periódica de si el coche llegó a la parada
-     */
     function iniciarVerificacionLlegada() {
         if (intervaloVerificarLlegada) clearInterval(intervaloVerificarLlegada);
-        verificarLlegadaCoche(); // Primera verificación inmediata
-        intervaloVerificarLlegada = setInterval(verificarLlegadaCoche, 8000); // Cada 8 segundos
+        verificarLlegadaCoche();
+        intervaloVerificarLlegada = setInterval(verificarLlegadaCoche, 8000);
     }
 
-    /**
-     * Verifica por RPC si el coche está cerca de la parada del pasajero
-     */
     async function verificarLlegadaCoche() {
         if (!miViajeActivo || pasajeroABordo || llegadaMostrada) return;
         
@@ -565,7 +577,6 @@
             if (!rpcData || !rpcData.encontrado) return;
             if (!rpcData.llego) return;
 
-            // ¡El coche llegó! Mostrar banner
             mostrarBannerLlegada();
 
         } catch (err) {
@@ -573,9 +584,6 @@
         }
     }
 
-    /**
-     * Muestra el banner de llegada con timer de 30 segundos
-     */
     function mostrarBannerLlegada() {
         if (llegadaMostrada) return;
         llegadaMostrada = true;
@@ -587,11 +595,9 @@
         segundosRestantes = 30;
         timerEl.textContent = segundosRestantes;
 
-        // Sonido y vibración
         reproducirAlarmaLlegada();
         vibrarAlarma();
 
-        // Timer countdown
         timerLlegada = setInterval(() => {
             segundosRestantes--;
             timerEl.textContent = segundosRestantes;
@@ -601,26 +607,20 @@
             }
 
             if (segundosRestantes <= 0) {
-                // Auto-confirmar
                 clearInterval(timerLlegada);
-                confirmarSubida(true); // true = auto-confirmado
+                confirmarSubida(true);
             }
         }, 1000);
     }
 
-    /**
-     * El pasajero confirma que subió al auto
-     */
     async function confirmarSubida(autoConfirmado = false) {
         const nom = document.getElementById('nombre-input').value.trim();
         
-        // Limpiar timer
         if (timerLlegada) {
             clearInterval(timerLlegada);
             timerLlegada = null;
         }
 
-        // Ocultar banner
         document.getElementById('banner-llegada').classList.remove('visible');
 
         try {
@@ -635,7 +635,6 @@
                 activarModoABordo();
                 
                 if (autoConfirmado) {
-                    // Mostrar toast de auto-confirmación
                     mostrarToast('✅ Subida confirmada automáticamente');
                 }
             }
@@ -645,53 +644,38 @@
         }
     }
 
-    /**
-     * El pasajero pospone la confirmación (todavía no subió)
-     */
     function posponerSubida() {
-        // Limpiar timer
         if (timerLlegada) {
             clearInterval(timerLlegada);
             timerLlegada = null;
         }
 
-        // Ocultar banner pero seguir verificando
         document.getElementById('banner-llegada').classList.remove('visible');
         llegadaMostrada = false;
         
-        // Volver a verificar en 15 segundos
         setTimeout(() => {
             verificarLlegadaCoche();
         }, 15000);
     }
 
-    /**
-     * Activa el modo "a bordo": mapa grande, solo botón terminar
-     */
     function activarModoABordo() {
         document.body.classList.remove('viaje-activo');
         document.body.classList.add('a-bordo');
         
-        // Forzar resize del mapa
         setTimeout(() => {
             map.invalidateSize();
-            // Centrar en el coche si tenemos su posición
             if (markerMiCoche) {
                 const latLng = markerMiCoche.getLatLng();
                 map.setView(latLng, 17);
             }
         }, 400);
 
-        // Detener verificación de llegada
         if (intervaloVerificarLlegada) {
             clearInterval(intervaloVerificarLlegada);
             intervaloVerificarLlegada = null;
         }
     }
 
-    // ============================================
-    // SONIDO Y VIBRACIÓN PARA LLEGADA
-    // ============================================
     let audioCtx = null;
 
     function inicializarAudio() {
@@ -706,7 +690,6 @@
     function reproducirAlarmaLlegada() {
         inicializarAudio();
         
-        // Tipo campana de tren/subte
         const oscillator = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
         
@@ -714,9 +697,9 @@
         gainNode.connect(audioCtx.destination);
         
         oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // Do
-        oscillator.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.15); // Mi
-        oscillator.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.3); // Sol
+        oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+        oscillator.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.15);
+        oscillator.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.3);
         
         gainNode.gain.setValueAtTime(0.6, audioCtx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
@@ -724,19 +707,18 @@
         oscillator.start(audioCtx.currentTime);
         oscillator.stop(audioCtx.currentTime + 0.8);
 
-        // Segundo tono
         setTimeout(() => {
             const osc2 = audioCtx.createOscillator();
             const gain2 = audioCtx.createGain();
             osc2.connect(gain2);
             gain2.connect(audioCtx.destination);
             osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+            osc2.frequency.setValueAtTime(440, audioCtx.currentTime);
             gain2.gain.setValueAtTime(0.5, audioCtx.currentTime);
             gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
             osc2.start(audioCtx.currentTime);
             osc2.stop(audioCtx.currentTime + 0.6);
-        }, 400);
+        }, 200);
     }
 
     function vibrarAlarma() {
@@ -786,7 +768,6 @@
 
                 const primerViaje = data[0];
                 
-                // ✅ Verificar si ya está a bordo
                 if (primerViaje.estado_pasajero === 'a_bordo') {
                     pasajeroABordo = true;
                 }
@@ -808,7 +789,7 @@
                     activarModoABordo();
                 } else {
                     iniciarMonitoreoViajeActivo();
-                    iniciarVerificacionLlegada(); // ✅ Opción C
+                    iniciarVerificacionLlegada();
                 }
             }
         } catch (err) { 
@@ -826,7 +807,7 @@
     // ============================================
     async function verificarPosicionCoche() {
         if (!miViajeActivo || !datosViajeActivo || datosViajeActivo.length === 0) return;
-        if (pasajeroABordo) return; // No verificar si ya está a bordo
+        if (pasajeroABordo) return;
 
         const viaje = datosViajeActivo[0];
         const idMovil = viaje.id_movil;
@@ -864,11 +845,11 @@
 
     function mostrarAlertaCochePasado() {
         actualizarPanelViajeActivo(true);
-        const container = document.getElementById('flota-container');
-        const alertaExistente = container.querySelector('.alerta-parada');
-        if (!alertaExistente) {
-            const panel = container.querySelector('.viaje-activo-panel');
-            if (panel) {
+        const container = document.getElementById('viaje-activo-container');
+        const panel = container.querySelector('.viaje-activo-panel');
+        if (panel) {
+            const alertaExistente = panel.querySelector('.alerta-parada');
+            if (!alertaExistente) {
                 const alerta = document.createElement('div');
                 alerta.className = 'alerta-parada';
                 alerta.innerHTML = `
@@ -885,7 +866,7 @@
     }
 
     function actualizarPanelViajeActivo(alerta) {
-        const container = document.getElementById('flota-container');
+        const container = document.getElementById('viaje-activo-container');
         const panel = container.querySelector('.viaje-activo-panel');
         if (!panel) return;
 
@@ -924,15 +905,20 @@
         document.getElementById('nombre-input').disabled = true;
         document.getElementById('destino-select').disabled = true;
         document.getElementById('sentido-select').disabled = true;
+        
+        // Mostrar el panel de viaje activo en el contenedor dedicado
         renderizarPanelViajeActivo();
+        
         setTimeout(() => map.invalidateSize(), 350);
     }
 
     // ============================================
-    // RENDERIZAR PANEL VIAJE ACTIVO
+    // RENDERIZAR PANEL VIAJE ACTIVO (cuadro azul)
     // ============================================
     function renderizarPanelViajeActivo() {
-        const container = document.getElementById('flota-container');
+        const container = document.getElementById('viaje-activo-container');
+        container.style.display = 'block';
+        
         if (!datosViajeActivo || datosViajeActivo.length === 0) {
             container.innerHTML = '<div class="sin-coches">✅ Ya tenés un viaje activo</div>';
             return;
