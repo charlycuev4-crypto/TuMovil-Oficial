@@ -39,10 +39,11 @@
         .bottom-ui { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
         .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; }
         .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
-        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); position: relative; }
+        .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); position: relative; cursor: pointer; transition: all 0.3s; }
         .pill.active { background: #4cd964; border-color: #4cd964; color: black; }
+        .pill.a-bordo { background: #00d2ff; border-color: #00d2ff; color: black; }
         .pill .nombre-pax { position: absolute; bottom: -18px; font-size: 8px; color: white; white-space: nowrap; background: rgba(0,0,0,0.8); padding: 2px 4px; border-radius: 4px; display: none; }
-        .pill.active .nombre-pax { display: block; }
+        .pill.active .nombre-pax, .pill.a-bordo .nombre-pax { display: block; }
 
         /* === ALERTA DE NUEVA RESERVA === */
         .alerta-reserva {
@@ -86,6 +87,46 @@
             50% { transform: scale(1.05); }
         }
 
+        /* === BANNER DE ANUNCIO DE PARADA === */
+        .banner-anuncio {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-150%);
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #000;
+            padding: 15px 25px;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 9999;
+            box-shadow: 0 8px 32px rgba(255, 215, 0, 0.4);
+            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            text-align: center;
+            min-width: 300px;
+            border: 2px solid #fff;
+            pointer-events: none;
+        }
+        .banner-anuncio.visible {
+            transform: translateX(-50%) translateY(0);
+        }
+        .banner-anuncio .anuncio-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+        .banner-anuncio .anuncio-nombre {
+            font-size: 20px;
+            font-weight: 900;
+        }
+        .banner-anuncio .anuncio-pasajero {
+            font-size: 14px;
+            margin-top: 4px;
+            color: #333;
+        }
+
         /* Indicador de Wake Lock */
         .wakelock-indicator {
             position: absolute;
@@ -112,6 +153,13 @@
         <h2>🔔 ¡NUEVA SOLICITUD!</h2>
         <p id="alerta-texto">Alguien quiere subir a tu coche</p>
         <button class="btn-atender" onclick="cerrarAlerta()">ATENDER</button>
+    </div>
+
+    <!-- BANNER DE ANUNCIO DE PARADA -->
+    <div class="banner-anuncio" id="banner-anuncio">
+        <div class="anuncio-label">📢 Próxima parada</div>
+        <div class="anuncio-nombre" id="anuncio-nombre">--</div>
+        <div class="anuncio-pasajero" id="anuncio-pasajero">--</div>
     </div>
 
     <div id="map"></div>
@@ -146,6 +194,12 @@
     let ultimaCantidadReservas = 0;
     let wakeLock = null;
     let audioContext = null;
+
+    // ============================================
+    // VARIABLES PARA ANUNCIO DE PARADAS
+    // ============================================
+    let paradasAnunciadas = new Set(); // Guarda IDs de reservas ya anunciadas
+    let audioCtx = null;
 
     // ============================================
     // ✅ PARADAS - IDÉNTICAS AL PASAJERO (28 paradas, mismo orden, mismos índices 0-27)
@@ -319,6 +373,128 @@
     }
 
     // ============================================
+    // ANUNCIO DE PARADAS - Sistema tipo tren
+    // ============================================
+    
+    function inicializarAudioAnuncio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    function anunciarParadaConductor(nombreParada, nombrePasajero) {
+        // Mostrar banner
+        const banner = document.getElementById('banner-anuncio');
+        document.getElementById('anuncio-nombre').textContent = nombreParada;
+        document.getElementById('anuncio-pasajero').textContent = `Baja: ${nombrePasajero}`;
+        banner.classList.add('visible');
+
+        // Ocultar después de 6 segundos
+        setTimeout(() => {
+            banner.classList.remove('visible');
+        }, 6000);
+
+        // Anunciar por voz (SpeechSynthesis)
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+
+            const texto = `Próxima parada: ${nombreParada}. Baja ${nombrePasajero}.`;
+            
+            const utterance = new SpeechSynthesisUtterance(texto);
+            utterance.lang = 'es-AR';
+            utterance.rate = 0.85;
+            utterance.pitch = 1;
+            utterance.volume = 1;
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Sonido de campana tipo tren
+        reproducirCampanaTren();
+    }
+
+    function reproducirCampanaTren() {
+        inicializarAudioAnuncio();
+
+        // Primer ding (Do)
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(523.25, audioCtx.currentTime); // Do
+        gain1.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+        osc1.start(audioCtx.currentTime);
+        osc1.stop(audioCtx.currentTime + 0.6);
+
+        // Segundo ding (Mi) - 200ms después
+        setTimeout(() => {
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(659.25, audioCtx.currentTime); // Mi
+            gain2.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+            osc2.start(audioCtx.currentTime);
+            osc2.stop(audioCtx.currentTime + 0.6);
+        }, 200);
+
+        // Tercer ding (Sol) - 400ms después
+        setTimeout(() => {
+            const osc3 = audioCtx.createOscillator();
+            const gain3 = audioCtx.createGain();
+            osc3.connect(gain3);
+            gain3.connect(audioCtx.destination);
+            osc3.type = 'sine';
+            osc3.frequency.setValueAtTime(783.99, audioCtx.currentTime); // Sol
+            gain3.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain3.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+            osc3.start(audioCtx.currentTime);
+            osc3.stop(audioCtx.currentTime + 0.8);
+        }, 400);
+    }
+
+    // ============================================
+    // VERIFICAR ANUNCIO DE PARADAS
+    // ============================================
+    function verificarAnuncioParadas(paradaActualIdx, reservasActivas) {
+        reservasActivas.forEach(reserva => {
+            // Solo anunciar si el pasajero está a bordo
+            if (reserva.estado_pasajero !== 'a_bordo') return;
+            
+            // Solo anunciar si no fue anunciado antes
+            if (paradasAnunciadas.has(reserva.id)) return;
+
+            const destinoIdx = reserva.destino_idx;
+            let paradaAnterior;
+
+            if (sentidoActual === 'IDA') {
+                paradaAnterior = destinoIdx - 1;
+            } else {
+                paradaAnterior = destinoIdx + 1;
+            }
+
+            // Verificar que la parada anterior sea válida
+            if (paradaAnterior < 0 || paradaAnterior >= paradas.length) return;
+
+            // Si el coche está en la parada anterior al destino del pasajero
+            if (paradaActualIdx === paradaAnterior) {
+                const nombreParada = paradas[destinoIdx].n;
+                const nombrePasajero = reserva.nombre_pasajero;
+
+                anunciarParadaConductor(nombreParada, nombrePasajero);
+                paradasAnunciadas.add(reserva.id);
+            }
+        });
+    }
+
+    // ============================================
     // ✅ CALCULAR PARADA CERCANA - mismo algoritmo que el pasajero
     // ============================================
     function calcularCercana(lat, lon) {
@@ -424,7 +600,7 @@
     }
 
     // ============================================
-    // ACTUALIZAR RESERVAS - CON DETECCIÓN DE NUEVAS
+    // ACTUALIZAR RESERVAS - CON DETECCIÓN DE NUEVAS Y ANUNCIO DE PARADAS
     // ============================================
     async function actualizar() {
         const { data: reservas } = await _s.from('reservas_activas')
@@ -456,7 +632,13 @@
 
             reservas.forEach(r => {
                 if(r.asiento_num <= 4) {
-                    document.getElementById('pill'+r.asiento_num).className = 'pill active';
+                    const pill = document.getElementById('pill'+r.asiento_num);
+                    // Si está a bordo, mostrar en azul celeste
+                    if (r.estado_pasajero === 'a_bordo') {
+                        pill.className = 'pill a-bordo';
+                    } else {
+                        pill.className = 'pill active';
+                    }
                     document.getElementById('nombre-pax-'+r.asiento_num).innerText = r.nombre_pasajero;
                 }
 
@@ -476,6 +658,12 @@
                     markersDest.push(md);
                 }
             });
+
+            // ✅ VERIFICAR ANUNCIO DE PARADAS
+            // Obtener parada actual del coche desde el marker
+            const latLng = markerCoche.getLatLng();
+            const paradaActual = calcularCercana(latLng.lat, latLng.lng);
+            verificarAnuncioParadas(paradaActual.idx, reservas);
         }
     }
 
@@ -526,6 +714,10 @@
                 .eq('id_movil', MI_ID_MOVIL)
                 .eq('asiento_num', n)
                 .eq('estado', 'en_curso');
+            // Remover de anunciados si estaba
+            paradasAnunciadas.forEach(id => {
+                // No hay forma directa de saber el ID, pero al finalizar se limpia solo
+            });
             actualizar();
         }
     }
@@ -535,6 +727,7 @@
             await _s.from('reservas_activas')
                 .update({ estado: 'finalizado' })
                 .eq('id_movil', MI_ID_MOVIL);
+            paradasAnunciadas.clear();
             actualizar();
         }
     }
