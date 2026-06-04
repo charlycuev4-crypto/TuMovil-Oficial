@@ -87,46 +87,6 @@
             50% { transform: scale(1.05); }
         }
 
-        /* === BANNER DE ANUNCIO DE PARADA === */
-        .banner-anuncio {
-            position: fixed;
-            top: 60px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-150%);
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #000;
-            padding: 15px 25px;
-            border-radius: 16px;
-            font-size: 16px;
-            font-weight: bold;
-            z-index: 9999;
-            box-shadow: 0 8px 32px rgba(255, 215, 0, 0.4);
-            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            text-align: center;
-            min-width: 300px;
-            border: 2px solid #fff;
-            pointer-events: none;
-        }
-        .banner-anuncio.visible {
-            transform: translateX(-50%) translateY(0);
-        }
-        .banner-anuncio .anuncio-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            opacity: 0.7;
-            margin-bottom: 4px;
-        }
-        .banner-anuncio .anuncio-nombre {
-            font-size: 20px;
-            font-weight: 900;
-        }
-        .banner-anuncio .anuncio-pasajero {
-            font-size: 14px;
-            margin-top: 4px;
-            color: #333;
-        }
-
         /* Indicador de Wake Lock */
         .wakelock-indicator {
             position: absolute;
@@ -153,13 +113,6 @@
         <h2>🔔 ¡NUEVA SOLICITUD!</h2>
         <p id="alerta-texto">Alguien quiere subir a tu coche</p>
         <button class="btn-atender" onclick="cerrarAlerta()">ATENDER</button>
-    </div>
-
-    <!-- BANNER DE ANUNCIO DE PARADA -->
-    <div class="banner-anuncio" id="banner-anuncio">
-        <div class="anuncio-label">📢 Próxima parada</div>
-        <div class="anuncio-nombre" id="anuncio-nombre">--</div>
-        <div class="anuncio-pasajero" id="anuncio-pasajero">--</div>
     </div>
 
     <div id="map"></div>
@@ -196,9 +149,10 @@
     let audioContext = null;
 
     // ============================================
-    // VARIABLES PARA ANUNCIO DE PARADAS
+    // VARIABLES PARA NAVEGACIÓN POR PARADAS
     // ============================================
-    let paradasAnunciadas = new Set(); // Guarda IDs de reservas ya anunciadas
+    let paradasAnunciadas = new Set(); // Guarda índices de paradas ya anunciadas
+    let ultimaParadaAnunciada = -1;    // Última parada que se anunció
     let audioCtx = null;
 
     // ============================================
@@ -373,10 +327,10 @@
     }
 
     // ============================================
-    // ANUNCIO DE PARADAS - Sistema tipo tren
+    // NAVEGACIÓN POR PARADAS - Anuncio de voz
     // ============================================
     
-    function inicializarAudioAnuncio() {
+    function inicializarAudioNavegacion() {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
@@ -385,113 +339,126 @@
         }
     }
 
-    function anunciarParadaConductor(nombreParada, nombrePasajero) {
-        // Mostrar banner
-        const banner = document.getElementById('banner-anuncio');
-        document.getElementById('anuncio-nombre').textContent = nombreParada;
-        document.getElementById('anuncio-pasajero').textContent = `Baja: ${nombrePasajero}`;
-        banner.classList.add('visible');
-
-        // Ocultar después de 6 segundos
-        setTimeout(() => {
-            banner.classList.remove('visible');
-        }, 6000);
-
-        // Anunciar por voz (SpeechSynthesis)
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-
-            const texto = `Próxima parada: ${nombreParada}. Baja ${nombrePasajero}.`;
-            
-            const utterance = new SpeechSynthesisUtterance(texto);
-            utterance.lang = 'es-AR';
-            utterance.rate = 0.85;
-            utterance.pitch = 1;
-            utterance.volume = 1;
-
-            window.speechSynthesis.speak(utterance);
-        }
-
-        // Sonido de campana tipo tren
-        reproducirCampanaTren();
+    /**
+     * Calcula la distancia entre dos puntos en metros (aproximado)
+     */
+    function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
+        // 1 grado de latitud ≈ 111,320 metros
+        // 1 grado de longitud ≈ 111,320 * cos(latitud) metros
+        const R = 111320;
+        const dLat = (lat2 - lat1) * R;
+        const dLon = (lon2 - lon1) * R * Math.cos(lat1 * Math.PI / 180);
+        return Math.sqrt(dLat * dLat + dLon * dLon);
     }
 
-    function reproducirCampanaTren() {
-        inicializarAudioAnuncio();
+    /**
+     * Obtiene la siguiente parada según el sentido
+     */
+    function obtenerSiguienteParada(paradaActualIdx) {
+        if (sentidoActual === 'IDA') {
+            return paradaActualIdx + 1 < paradas.length ? paradaActualIdx + 1 : -1;
+        } else {
+            return paradaActualIdx - 1 >= 0 ? paradaActualIdx - 1 : -1;
+        }
+    }
 
-        // Primer ding (Do)
-        const osc1 = audioCtx.createOscillator();
-        const gain1 = audioCtx.createGain();
-        osc1.connect(gain1);
-        gain1.connect(audioCtx.destination);
-        osc1.type = 'sine';
-        osc1.frequency.setValueAtTime(523.25, audioCtx.currentTime); // Do
-        gain1.gain.setValueAtTime(0.5, audioCtx.currentTime);
-        gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
-        osc1.start(audioCtx.currentTime);
-        osc1.stop(audioCtx.currentTime + 0.6);
+    /**
+     * Busca si hay un pasajero que baja en la parada dada
+     */
+    function obtenerPasajeroQueBaja(destinoIdx, reservasActivas) {
+        const reserva = reservasActivas.find(r => 
+            r.destino_idx === destinoIdx && 
+            r.estado === 'en_curso' &&
+            r.estado_pasajero === 'a_bordo'
+        );
+        return reserva ? reserva.nombre_pasajero : null;
+    }
 
-        // Segundo ding (Mi) - 200ms después
+    /**
+     * Anuncia la siguiente parada por voz
+     */
+    function anunciarParadaNavegacion(nombreParada, nombrePasajero) {
+        if (!('speechSynthesis' in window)) return;
+
+        window.speechSynthesis.cancel();
+
+        let texto;
+        if (nombrePasajero) {
+            texto = `Próxima parada: ${nombreParada}. Baja ${nombrePasajero}.`;
+        } else {
+            texto = `Siguiente parada: ${nombreParada}.`;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(texto);
+        utterance.lang = 'es-AR';
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+
+        window.speechSynthesis.speak(utterance);
+
+        // Sonido de campana suave antes del anuncio
+        reproducirCampanaSuave();
+    }
+
+    function reproducirCampanaSuave() {
+        inicializarAudioNavegacion();
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // La
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.4);
+
+        // Segundo tono más agudo
         setTimeout(() => {
             const osc2 = audioCtx.createOscillator();
             const gain2 = audioCtx.createGain();
             osc2.connect(gain2);
             gain2.connect(audioCtx.destination);
             osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(659.25, audioCtx.currentTime); // Mi
-            gain2.gain.setValueAtTime(0.5, audioCtx.currentTime);
-            gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+            osc2.frequency.setValueAtTime(1174.66, audioCtx.currentTime); // Re
+            gain2.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
             osc2.start(audioCtx.currentTime);
-            osc2.stop(audioCtx.currentTime + 0.6);
-        }, 200);
-
-        // Tercer ding (Sol) - 400ms después
-        setTimeout(() => {
-            const osc3 = audioCtx.createOscillator();
-            const gain3 = audioCtx.createGain();
-            osc3.connect(gain3);
-            gain3.connect(audioCtx.destination);
-            osc3.type = 'sine';
-            osc3.frequency.setValueAtTime(783.99, audioCtx.currentTime); // Sol
-            gain3.gain.setValueAtTime(0.5, audioCtx.currentTime);
-            gain3.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
-            osc3.start(audioCtx.currentTime);
-            osc3.stop(audioCtx.currentTime + 0.8);
-        }, 400);
+            osc2.stop(audioCtx.currentTime + 0.3);
+        }, 150);
     }
 
-    // ============================================
-    // VERIFICAR ANUNCIO DE PARADAS
-    // ============================================
-    function verificarAnuncioParadas(paradaActualIdx, reservasActivas) {
-        reservasActivas.forEach(reserva => {
-            // Solo anunciar si el pasajero está a bordo
-            if (reserva.estado_pasajero !== 'a_bordo') return;
-            
-            // Solo anunciar si no fue anunciado antes
-            if (paradasAnunciadas.has(reserva.id)) return;
-
-            const destinoIdx = reserva.destino_idx;
-            let paradaAnterior;
-
-            if (sentidoActual === 'IDA') {
-                paradaAnterior = destinoIdx - 1;
-            } else {
-                paradaAnterior = destinoIdx + 1;
-            }
-
-            // Verificar que la parada anterior sea válida
-            if (paradaAnterior < 0 || paradaAnterior >= paradas.length) return;
-
-            // Si el coche está en la parada anterior al destino del pasajero
-            if (paradaActualIdx === paradaAnterior) {
-                const nombreParada = paradas[destinoIdx].n;
-                const nombrePasajero = reserva.nombre_pasajero;
-
-                anunciarParadaConductor(nombreParada, nombrePasajero);
-                paradasAnunciadas.add(reserva.id);
-            }
-        });
+    /**
+     * Verifica si hay que anunciar la siguiente parada
+     * Se anuncia cuando el coche está a ~100 metros de la parada anterior
+     */
+    function verificarNavegacionParadas(lat, lon, reservasActivas) {
+        const paradaActual = calcularCercana(lat, lon);
+        const paradaActualIdx = paradaActual.idx;
+        
+        // Obtener la siguiente parada según sentido
+        const siguienteParadaIdx = obtenerSiguienteParada(paradaActualIdx);
+        
+        if (siguienteParadaIdx === -1) return; // No hay más paradas
+        
+        // Verificar si ya se anunció esta parada
+        if (paradasAnunciadas.has(siguienteParadaIdx)) return;
+        
+        // Calcular distancia a la siguiente parada
+        const siguienteParada = paradas[siguienteParadaIdx];
+        const distanciaMetros = calcularDistanciaMetros(lat, lon, siguienteParada.c[0], siguienteParada.c[1]);
+        
+        // Anunciar cuando está a ~100 metros (con margen de 80-120m)
+        if (distanciaMetros >= 80 && distanciaMetros <= 120) {
+            const nombrePasajero = obtenerPasajeroQueBaja(siguienteParadaIdx, reservasActivas);
+            anunciarParadaNavegacion(siguienteParada.n, nombrePasajero);
+            paradasAnunciadas.add(siguienteParadaIdx);
+            ultimaParadaAnunciada = siguienteParadaIdx;
+        }
     }
 
     // ============================================
@@ -600,7 +567,7 @@
     }
 
     // ============================================
-    // ACTUALIZAR RESERVAS - CON DETECCIÓN DE NUEVAS Y ANUNCIO DE PARADAS
+    // ACTUALIZAR RESERVAS - CON NAVEGACIÓN POR PARADAS
     // ============================================
     async function actualizar() {
         const { data: reservas } = await _s.from('reservas_activas')
@@ -633,7 +600,6 @@
             reservas.forEach(r => {
                 if(r.asiento_num <= 4) {
                     const pill = document.getElementById('pill'+r.asiento_num);
-                    // Si está a bordo, mostrar en azul celeste
                     if (r.estado_pasajero === 'a_bordo') {
                         pill.className = 'pill a-bordo';
                     } else {
@@ -659,33 +625,30 @@
                 }
             });
 
-            // ✅ VERIFICAR ANUNCIO DE PARADAS
-            // Obtener parada actual del coche desde el marker
+            // ✅ NAVEGACIÓN POR PARADAS
             const latLng = markerCoche.getLatLng();
-            const paradaActual = calcularCercana(latLng.lat, latLng.lng);
-            verificarAnuncioParadas(paradaActual.idx, reservas);
+            verificarNavegacionParadas(latLng.lat, latLng.lng, reservas);
         }
     }
 
     // ============================================
-    // CAMBIAR SENTIDO - ARREGLADO
+    // CAMBIAR SENTIDO
     // ============================================
     async function cambiarSentido() {
-        // Cambiar el sentido localmente
         const sentidoAnterior = sentidoActual;
         sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
 
-        // Actualizar botón
         document.getElementById('btn-sentido').innerText = sentidoActual;
 
-        // Actualizar color de la ruta
-        // IDA = Rojo (#FF0000), VUELTA = Azul celeste (#00BFFF)
         const nuevoColor = sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF';
         rutaLine.setStyle({ color: nuevoColor });
 
         console.log('Cambiando sentido a:', sentidoActual, 'Color:', nuevoColor);
 
-        // Si está online, actualizar en la base de datos
+        // Limpiar paradas anunciadas al cambiar de sentido
+        paradasAnunciadas.clear();
+        ultimaParadaAnunciada = -1;
+
         if (estaOnline) {
             const { error } = await _s.from('estado_movil')
                 .update({ sentido_flujo: sentidoActual })
@@ -695,7 +658,6 @@
                 console.error('Error al cambiar sentido:', error);
                 alert('Error al cambiar sentido. Intentá de nuevo.');
 
-                // REVERTIR el cambio visual si falló
                 sentidoActual = sentidoAnterior;
                 document.getElementById('btn-sentido').innerText = sentidoActual;
                 rutaLine.setStyle({ 
@@ -714,10 +676,6 @@
                 .eq('id_movil', MI_ID_MOVIL)
                 .eq('asiento_num', n)
                 .eq('estado', 'en_curso');
-            // Remover de anunciados si estaba
-            paradasAnunciadas.forEach(id => {
-                // No hay forma directa de saber el ID, pero al finalizar se limpia solo
-            });
             actualizar();
         }
     }
@@ -727,13 +685,15 @@
             await _s.from('reservas_activas')
                 .update({ estado: 'finalizado' })
                 .eq('id_movil', MI_ID_MOVIL);
+            // Limpiar navegación
             paradasAnunciadas.clear();
+            ultimaParadaAnunciada = -1;
             actualizar();
         }
     }
 
     // ============================================
-    // REINTENTAR WAKE LOCK SI LA PANTALLA SE PRENDE
+    // REINTENTAR WAKE LOCK
     // ============================================
     document.addEventListener('visibilitychange', async () => {
         if (estaOnline && document.visibilityState === 'visible') {
@@ -744,7 +704,7 @@
     });
 
     // ============================================
-    // SINCRONIZAR SENTIDO AL CARGAR LA PÁGINA
+    // SINCRONIZAR SENTIDO AL CARGAR
     // ============================================
     async function sincronizarSentidoInicial() {
         try {
@@ -761,7 +721,6 @@
             if (coche && coche.sentido_flujo) {
                 sentidoActual = coche.sentido_flujo;
                 document.getElementById('btn-sentido').innerText = sentidoActual;
-                // IDA = Rojo, VUELTA = Azul celeste
                 rutaLine.setStyle({ 
                     color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' 
                 });
@@ -772,7 +731,6 @@
         }
     }
 
-    // Llamar al cargar la página
     sincronizarSentidoInicial();
 
     setInterval(actualizar, 4000);
