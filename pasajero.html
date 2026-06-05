@@ -62,6 +62,39 @@
         .alerta-parada-texto { color: #ff6b6b; font-size: 13px; font-weight: bold; }
         .alerta-parada-sub { color: #ff9999; font-size: 11px; margin-top: 4px; }
 
+        /* === PANEL DE ANUNCIO DE PARADA (NUEVO) === */
+        #panel-anuncio-parada {
+            background: linear-gradient(135deg, #1a1a2e 0%, #0d2b3a 100%);
+            border: 2px solid var(--amarillo);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            animation: slideIn 0.5s ease, pulseBorder 2s infinite;
+            display: none;
+            text-align: center;
+            position: relative;
+        }
+        #panel-anuncio-parada.visible { display: block; }
+        #panel-anuncio-parada .anuncio-icono { font-size: 32px; margin-bottom: 8px; }
+        #panel-anuncio-parada .anuncio-titulo { color: var(--amarillo); font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; }
+        #panel-anuncio-parada .anuncio-mensaje { color: white; font-size: 15px; font-weight: bold; line-height: 1.4; white-space: pre-line; }
+        #panel-anuncio-parada .anuncio-btn-ok {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            margin-top: 12px;
+            cursor: pointer;
+            width: 100%;
+        }
+        @keyframes pulseBorder {
+            0%, 100% { box-shadow: 0 0 10px rgba(255, 204, 0, 0.3); }
+            50% { box-shadow: 0 0 25px rgba(255, 204, 0, 0.6); }
+        }
+
         .flota-container { max-height: 220px; overflow-y: auto; }
         .coche-card { background: #1a1a1a; border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; animation: slideIn 0.3s ease; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -98,10 +131,11 @@
         @keyframes bounceCar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         #banner-llegada .llegada-titulo { font-size: 22px; font-weight: 900; margin-bottom: 5px; }
         #banner-llegada .llegada-sub { font-size: 14px; opacity: 0.9; margin-bottom: 15px; }
-        #banner-llegada .llegada-botones { display: flex; gap: 10px; justify-content: center; }
-        .btn-llegada { border: none; padding: 14px 24px; border-radius: 12px; font-weight: bold; font-size: 15px; cursor: pointer; flex: 1; max-width: 160px; }
+        #banner-llegada .llegada-botones { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .btn-llegada { border: none; padding: 14px 20px; border-radius: 12px; font-weight: bold; font-size: 14px; cursor: pointer; flex: 1; min-width: 100px; }
         .btn-llegada-si { background: var(--success); color: white; box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4); }
         .btn-llegada-no { background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.5); }
+        .btn-llegada-rechazar { background: var(--danger); color: white; border: 2px solid rgba(255,255,255,0.3); }
         .llegada-timer { position: absolute; top: 15px; right: 15px; width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; }
 
         @media (max-height: 500px) { body, html { overflow-y: auto !important; height: auto !important; } #map { min-height: 200px; } }
@@ -124,6 +158,7 @@
         <div class="llegada-botones">
             <button class="btn-llegada btn-llegada-si" onclick="confirmarSubida()">✅ YA SUBÍ</button>
             <button class="btn-llegada btn-llegada-no" onclick="posponerSubida()">⏱️ TODAVÍA NO</button>
+            <button class="btn-llegada btn-llegada-rechazar" onclick="rechazarViaje()">❌ RECHAZAR</button>
         </div>
     </div>
 
@@ -144,6 +179,15 @@
             <div class="sin-coches">📍 Seleccioná tu destino para ver coches</div>
         </div>
         <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ BUSCANDO GPS...</button>
+
+        <!-- PANEL DE ANUNCIO DE PARADA (NUEVO) -->
+        <div id="panel-anuncio-parada">
+            <div class="anuncio-icono">🔔</div>
+            <div class="anuncio-titulo">🚏 ANUNCIO DEL CONDUCTOR</div>
+            <div class="anuncio-mensaje" id="anuncio-mensaje-texto">--</div>
+            <button class="anuncio-btn-ok" onclick="marcarAnuncioVisto()">✅ ENTENDIDO</button>
+        </div>
+
         <div id="viaje-activo-container" style="display: none;"></div>
         <button class="btn-cancelar" id="btn-cancelar" onclick="finalizarViaje()">TERMINAR MI VIAJE</button>
     </div>
@@ -230,8 +274,8 @@
     let timerLlegada = null;
     let segundosRestantes = 30;
     let llegadaMostrada = false;
-    // ===== VARIABLE GLOBAL PARA GUARDAR EL NOMBRE =====
     let miNombrePasajero = '';
+    let canalRealtime = null; // Canal de Supabase Realtime
 
     const selDest = document.getElementById('destino-select');
     paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
@@ -258,19 +302,15 @@
 
     async function verificarLlegadaCoche() {
         if (!miViajeActivo || pasajeroABordo || llegadaMostrada) return;
-        // ===== USAR NOMBRE GUARDADO, NO EL INPUT (que está disabled) =====
         const nom = miNombrePasajero;
         if (!nom) return;
-
         try {
             const { data: rpcData, error } = await _s.rpc('verificar_llegada_coche', { p_nombre: nom });
             if (error) throw error;
             if (!rpcData || !rpcData.encontrado) return;
             if (!rpcData.llego) return;
             mostrarBannerLlegada();
-        } catch (err) {
-            console.error("Error verificando llegada:", err);
-        }
+        } catch (err) { console.error("Error verificando llegada:", err); }
     }
 
     function mostrarBannerLlegada() {
@@ -281,6 +321,7 @@
         banner.classList.add('visible');
         segundosRestantes = 30;
         timerEl.textContent = segundosRestantes;
+        timerEl.style.background = 'rgba(0,0,0,0.3)';
         reproducirAlarmaLlegada();
         vibrarAlarma();
         timerLlegada = setInterval(() => {
@@ -292,7 +333,6 @@
     }
 
     async function confirmarSubida(autoConfirmado = false) {
-        // ===== USAR NOMBRE GUARDADO =====
         const nom = miNombrePasajero;
         if (timerLlegada) { clearInterval(timerLlegada); timerLlegada = null; }
         document.getElementById('banner-llegada').classList.remove('visible');
@@ -303,9 +343,37 @@
                 pasajeroABordo = true;
                 activarModoABordo();
                 if (autoConfirmado) mostrarToast('✅ Subida confirmada automáticamente');
+                // ✅ Iniciar escucha de anuncios de parada
+                iniciarEscuchaAnuncios();
+            }
+        } catch (err) { console.error("Error confirmando abordo:", err); }
+    }
+
+    // ✅ NUEVO: RECHAZAR VIAJE
+    async function rechazarViaje() {
+        const nom = miNombrePasajero;
+        if (!nom) { alert("Error: no se encontró tu nombre."); return; }
+        if (!confirm("¿Estás seguro de que querés cancelar tu reserva? El conductor será notificado.")) return;
+
+        if (timerLlegada) { clearInterval(timerLlegada); timerLlegada = null; }
+        document.getElementById('banner-llegada').classList.remove('visible');
+
+        try {
+            const { data: rpcData, error } = await _s.rpc('cancelar_viaje_pasajero', { p_nombre: nom });
+            if (error) throw error;
+            if (rpcData && rpcData.error) {
+                alert(rpcData.error);
+                return;
+            }
+            if (rpcData && rpcData.success) {
+                mostrarToast('❌ Viaje cancelado');
+                localStorage.removeItem('usuario_nombre');
+                miNombrePasajero = '';
+                setTimeout(() => location.reload(), 1500);
             }
         } catch (err) {
-            console.error("Error confirmando abordo:", err);
+            console.error("Error cancelando viaje:", err);
+            alert("Error al cancelar. Intentá de nuevo.");
         }
     }
 
@@ -326,6 +394,51 @@
         if (intervaloVerificarLlegada) { clearInterval(intervaloVerificarLlegada); intervaloVerificarLlegada = null; }
     }
 
+    // ============================================
+    // ✅ NUEVO: SISTEMA DE ANUNCIOS DE PARADA
+    // ============================================
+    function iniciarEscuchaAnuncios() {
+        if (canalRealtime) return; // Ya está iniciado
+        if (!miNombrePasajero) return;
+
+        canalRealtime = _s.channel('anuncios-parada-' + miNombrePasajero)
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'reservas_activas',
+                filter: 'nombre_pasajero=eq.' + miNombrePasajero
+            }, (payload) => {
+                const nuevo = payload.new;
+                if (nuevo.anuncio_parada && !nuevo.anuncio_visto) {
+                    mostrarAnuncioParada(nuevo.anuncio_parada);
+                }
+            })
+            .subscribe();
+
+        console.log('Escucha de anuncios iniciada para:', miNombrePasajero);
+    }
+
+    function mostrarAnuncioParada(mensaje) {
+        const panel = document.getElementById('panel-anuncio-parada');
+        const texto = document.getElementById('anuncio-mensaje-texto');
+        texto.innerText = mensaje;
+        panel.classList.add('visible');
+        reproducirAlarmaLlegada();
+        vibrarAlarma();
+    }
+
+    async function marcarAnuncioVisto() {
+        const panel = document.getElementById('panel-anuncio-parada');
+        panel.classList.remove('visible');
+        if (!miNombrePasajero) return;
+        try {
+            await _s.rpc('marcar_anuncio_visto', { p_nombre: miNombrePasajero });
+        } catch (err) { console.error("Error marcando anuncio visto:", err); }
+    }
+
+    // ============================================
+    // AUDIO / VIBRACIÓN / TOAST
+    // ============================================
     let audioCtx = null;
     function inicializarAudio() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -371,13 +484,13 @@
         const nombreGuardado = localStorage.getItem('usuario_nombre');
         if (nombreGuardado) {
             document.getElementById('nombre-input').value = nombreGuardado;
-            miNombrePasajero = nombreGuardado; // Guardar en variable global
+            miNombrePasajero = nombreGuardado;
             await cargarDatosViajeActivo(nombreGuardado);
         }
     };
 
     async function cargarDatosViajeActivo(nombre) {
-        miNombrePasajero = nombre; // Guardar en variable global
+        miNombrePasajero = nombre;
         try {
             const { data: rpcData, error } = await _s.rpc('obtener_viaje_activo', { p_nombre: nombre });
             if (error) throw error;
@@ -387,7 +500,11 @@
                 datosViajeActivo = data;
                 asientosElegidos = data.map(r => r.asiento_num);
                 const primerViaje = data[0];
-                if (primerViaje.estado_pasajero === 'a_bordo') pasajeroABordo = true;
+                if (primerViaje.estado_pasajero === 'a_bordo') {
+                    pasajeroABordo = true;
+                    // ✅ Si ya está a bordo, iniciar escucha de anuncios
+                    iniciarEscuchaAnuncios();
+                }
                 if (primerViaje.destino_idx !== undefined) document.getElementById('destino-select').value = primerViaje.destino_idx;
                 if (primerViaje.estado_movil && primerViaje.estado_movil.sentido_flujo) document.getElementById('sentido-select').value = primerViaje.estado_movil.sentido_flujo;
                 if (primerViaje.destino_idx !== undefined && miLat !== 0) actualizarMapaRuta();
@@ -657,7 +774,6 @@
             if (error) throw error;
             if (rpcData && rpcData.colision) { alert("❌ Algunos asientos ya fueron tomados. Elegí otros."); asientosElegidos = []; cocheSeleccionado = null; ultimaFlotaHTML = ''; renderizarFlotaDisponible(); return; }
             if (rpcData && rpcData.success) {
-                // ===== GUARDAR NOMBRE EN LOCALSTORAGE Y VARIABLE GLOBAL =====
                 localStorage.setItem('usuario_nombre', nom);
                 miNombrePasajero = nom;
                 location.reload();
@@ -672,7 +788,6 @@
 
     async function finalizarViaje() {
         const btn = document.getElementById('btn-cancelar');
-        // ===== USAR NOMBRE GUARDADO =====
         const nom = miNombrePasajero || document.getElementById('nombre-input').value.trim();
         if (btn.disabled) return;
         btn.disabled = true;
@@ -685,6 +800,7 @@
             if (intervaloViajeActivo) clearInterval(intervaloViajeActivo);
             if (intervaloVerificarLlegada) clearInterval(intervaloVerificarLlegada);
             if (timerLlegada) clearInterval(timerLlegada);
+            if (canalRealtime) { canalRealtime.unsubscribe(); canalRealtime = null; }
             localStorage.removeItem('usuario_nombre');
             miNombrePasajero = '';
             location.reload();
