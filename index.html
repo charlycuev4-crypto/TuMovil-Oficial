@@ -59,7 +59,12 @@
         .taxi-icon { font-size: 60px; text-align: center; line-height: 60px; }
 
         .bottom-ui { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
-        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; }
+        .btn-vaciar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; margin-bottom: 8px; }
+        .btn-subir-abordo { background: #00d2ff; color: black; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; margin-bottom: 8px; display: none; animation: pulseBtn 1.5s infinite; }
+        @keyframes pulseBtn {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 10px rgba(0, 210, 255, 0.5); }
+            50% { transform: scale(1.05); box-shadow: 0 0 25px rgba(0, 210, 255, 0.8); }
+        }
         .asientos-pills { display: flex; gap: 8px; margin-bottom: 15px; pointer-events: auto; }
         .pill { width: 48px; height: 48px; border: 2px solid #FFD700; border-radius: 12px; color: #FFD700; display: flex; align-items: center; justify-content: center; font-weight: bold; background: rgba(0,0,0,0.85); position: relative; cursor: pointer; transition: all 0.3s; }
         .pill.active { background: #4cd964; border-color: #4cd964; color: black; }
@@ -114,6 +119,8 @@
             <div id="pill3" class="pill" onclick="liberarAsiento(3)">3<span class="nombre-pax" id="nombre-pax-3"></span></div>
             <div id="pill4" class="pill" onclick="liberarAsiento(4)">4<span class="nombre-pax" id="nombre-pax-4"></span></div>
         </div>
+        <!-- ✅ NUEVO: Botón para marcar pasajero como a bordo -->
+        <button class="btn-subir-abordo" id="btn-subir-abordo" onclick="marcarPasajeroABordo()">✅ PASAJERO SUBIÓ</button>
         <button class="btn-vaciar" onclick="confirmarVaciar()">🏁 FINALIZAR / VACIAR</button>
     </div>
 
@@ -129,15 +136,15 @@
     let audioContext = null;
 
     // ============================================
-    // VARIABLES PARA NAVEGACIÓN POR PARADAS - CORREGIDO
+    // VARIABLES PARA NAVEGACIÓN POR PARADAS
     // ============================================
-    let paradasAnunciadas = new Map(); // ✅ CAMBIADO: Set → Map (guarda timestamps)
+    let paradasAnunciadas = new Map();
     let ultimaParadaAnunciada = -1;
     let audioCtx = null;
     let ultimaPosicionGPS = { lat: 0, lon: 0 };
 
     // ============================================
-    // PARADAS - IDÉNTICAS AL PASAJERO
+    // PARADAS
     // ============================================
     const paradas = [
         {n:'Universidad Tecnológica', c:[-34.549295, -58.783648]},
@@ -262,7 +269,44 @@
     }
 
     // ============================================
-    // NAVEGACIÓN POR PARADAS - CORREGIDO
+    // ✅ NUEVO: MARCAR PASAJERO COMO A BORDO
+    // ============================================
+    async function marcarPasajeroABordo() {
+        try {
+            const { data: reservas, error } = await _s.from('reservas_activas')
+                .select('*')
+                .eq('id_movil', MI_ID_MOVIL)
+                .eq('estado', 'en_curso')
+                .eq('estado_pasajero', 'esperando');
+            
+            if (error) throw error;
+            
+            if (!reservas || reservas.length === 0) {
+                alert('No hay pasajeros esperando');
+                return;
+            }
+            
+            for (const r of reservas) {
+                const { data, error: rpcError } = await _s.rpc('confirmar_abordo', { p_nombre: r.nombre_pasajero });
+                if (rpcError) {
+                    console.error('Error marcando a bordo para', r.nombre_pasajero, rpcError);
+                } else {
+                    console.log('✅ Pasajero', r.nombre_pasajero, 'marcado como a bordo');
+                }
+            }
+            
+            // Ocultar botón y actualizar
+            document.getElementById('btn-subir-abordo').style.display = 'none';
+            actualizar();
+            
+        } catch (err) {
+            console.error('Error en marcarPasajeroABordo:', err);
+            alert('Error al marcar como a bordo');
+        }
+    }
+
+    // ============================================
+    // NAVEGACIÓN POR PARADAS
     // ============================================
     function inicializarAudioNavegacion() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -315,30 +359,19 @@
         }, 150);
     }
 
-    /**
-     * ✅ CORREGIDO: Obtiene la siguiente parada válida según el sentido
-     */
     function obtenerSiguienteParadaDesdePosicion(paradaActualIdx) {
         if (sentidoActual === 'IDA') {
-            for (let i = paradaActualIdx + 1; i < paradas.length; i++) {
-                return i;
-            }
+            for (let i = paradaActualIdx + 1; i < paradas.length; i++) return i;
             return -1;
         } else {
-            for (let i = paradaActualIdx - 1; i >= 0; i--) {
-                return i;
-            }
+            for (let i = paradaActualIdx - 1; i >= 0; i--) return i;
             return -1;
         }
     }
 
-    /**
-     * ✅ CORREGIDO: Navegación por paradas con Map en vez de Set
-     */
     async function verificarNavegacionParadas(lat, lon, reservasActivas) {
         const paradaActual = calcularCercana(lat, lon);
         const paradaActualIdx = paradaActual.idx;
-        
         const siguienteParadaIdx = obtenerSiguienteParadaDesdePosicion(paradaActualIdx);
         
         if (siguienteParadaIdx === -1) {
@@ -349,25 +382,21 @@
         const siguienteParada = paradas[siguienteParadaIdx];
         const distanciaMetros = calcularDistanciaMetros(lat, lon, siguienteParada.c[0], siguienteParada.c[1]);
 
-        // Mostrar en panel la próxima parada
         const panelAnuncio = document.getElementById('panel-anuncio-parada');
         const nombreAnuncio = document.getElementById('anuncio-parada-nombre');
         const pasajeroBaja = obtenerPasajeroQueBaja(siguienteParadaIdx, reservasActivas);
         nombreAnuncio.innerText = siguienteParada.n + (pasajeroBaja ? ` — ${pasajeroBaja}` : '');
         panelAnuncio.style.display = 'block';
 
-        // ✅ FIX: Solo anunciar si NO fue anunciada recientemente (últimos 60 segundos)
         const ahora = Date.now();
         const ultimaVezAnunciada = paradasAnunciadas.get(siguienteParadaIdx) || 0;
         const tiempoDesdeUltimoAnuncio = ahora - ultimaVezAnunciada;
-        
         const enRango = distanciaMetros >= 50 && distanciaMetros <= 400;
         const puedeAnunciar = tiempoDesdeUltimoAnuncio > 60000;
         
         if (enRango && puedeAnunciar) {
             const nombrePasajero = obtenerPasajeroQueBaja(siguienteParadaIdx, reservasActivas);
             anunciarParadaNavegacion(siguienteParada.n, nombrePasajero);
-            
             paradasAnunciadas.set(siguienteParadaIdx, ahora);
             ultimaParadaAnunciada = siguienteParadaIdx;
 
@@ -381,13 +410,12 @@
                     p_parada_idx: siguienteParadaIdx,
                     p_mensaje: mensajeDB
                 });
-                console.log('✅ Anuncio guardado en BD para parada', siguienteParadaIdx, '- distancia:', distanciaMetros.toFixed(0), 'm');
+                console.log('✅ Anuncio guardado en BD para parada', siguienteParadaIdx);
             } catch (err) {
                 console.error('❌ Error guardando anuncio en BD:', err);
             }
         }
         
-        // ✅ FIX: Limpiar paradas antiguas del Map (más de 5 minutos)
         paradasAnunciadas.forEach((timestamp, idx) => {
             if (ahora - timestamp > 300000) {
                 paradasAnunciadas.delete(idx);
@@ -396,9 +424,6 @@
         });
     }
 
-    // ============================================
-    // CALCULAR PARADA CERCANA
-    // ============================================
     function calcularCercana(lat, lon) {
         let min = Infinity, idx = -1, nombre = "";
         paradas.forEach((p, i) => {
@@ -460,7 +485,7 @@
     }
 
     // ============================================
-    // ACTUALIZAR RESERVAS - CON NAVEGACIÓN
+    // ACTUALIZAR RESERVAS - CON NAVEGACIÓN Y BOTÓN A BORDO
     // ============================================
     async function actualizar() {
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
@@ -478,11 +503,18 @@
             document.getElementById('txt-pax').innerText = reservas.length;
             document.getElementById('txt-plata').innerText = "$" + (reservas.length * 1000);
             for(let i=1; i<=4; i++) { document.getElementById('pill'+i).className = 'pill'; document.getElementById('nombre-pax-'+i).innerText = ''; }
+            
+            // ✅ Contar pasajeros esperando para mostrar/ocultar botón
+            let pasajerosEsperando = 0;
+            
             reservas.forEach(r => {
                 if(r.asiento_num <= 4) {
                     const pill = document.getElementById('pill'+r.asiento_num);
                     if (r.estado_pasajero === 'a_bordo') pill.className = 'pill a-bordo';
-                    else pill.className = 'pill active';
+                    else {
+                        pill.className = 'pill active';
+                        pasajerosEsperando++;
+                    }
                     document.getElementById('nombre-pax-'+r.asiento_num).innerText = r.nombre_pasajero;
                 }
                 if (r.pasajero_lat) {
@@ -494,6 +526,16 @@
                     markersDest.push(md);
                 }
             });
+            
+            // ✅ Mostrar/ocultar botón "PASAJERO SUBIÓ"
+            const btnSubir = document.getElementById('btn-subir-abordo');
+            if (pasajerosEsperando > 0) {
+                btnSubir.style.display = 'block';
+                btnSubir.innerText = `✅ PASAJERO SUBIÓ (${pasajerosEsperando})`;
+            } else {
+                btnSubir.style.display = 'none';
+            }
+            
             // NAVEGACIÓN POR PARADAS
             const latLng = markerCoche.getLatLng();
             if (latLng) verificarNavegacionParadas(latLng.lat, latLng.lng, reservas);
