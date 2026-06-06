@@ -1,1 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TuMovil - Panel Conductor</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root { --celeste: #00d2ff; --amarillo: #ffcc00; --dark: #121212; --panel: #1e1e1e; --success: #28a745; --danger: #dc3545; }
+        body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
 
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
+        .anillo { width: 200px; height: 200px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 12px; text-align: center; flex-shrink: 0; }
+        .header h1 { margin: 0; font-size: 22px; color: var(--celeste); letter-spacing: 2px; }
+        .header .sub { color: #888; font-size: 14px; margin-top: 4px; }
+
+        #map { flex-grow: 1; width: 100%; }
+
+        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 18px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 10px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 50vh; overflow-y: auto; }
+
+        .btn { border: none; padding: 18px; border-radius: 12px; font-weight: bold; font-size: 18px; cursor: pointer; transition: all 0.3s; width: 100%; }
+        .btn-online { background: var(--success); color: white; }
+        .btn-online:hover { background: #218838; }
+        .btn-offline { background: var(--danger); color: white; }
+        .btn-offline:hover { background: #c82333; }
+        .btn-anuncio { background: var(--amarillo); color: black; }
+        .btn-anuncio:hover { background: #e6b800; }
+        .btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+        .info-panel { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 14px; text-align: center; font-size: 16px; color: white; }
+        .info-panel b { color: var(--amarillo); }
+
+        .asientos-panel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0; }
+        .asiento-conductor { background: #2a2a2a; border: 2px solid #444; border-radius: 10px; padding: 14px 8px; text-align: center; font-size: 14px; color: #888; }
+        .asiento-conductor.ocupado { background: rgba(0, 210, 255, 0.1); border-color: var(--celeste); color: white; }
+        .asiento-conductor .num { font-size: 20px; font-weight: bold; margin-bottom: 4px; }
+        .asiento-conductor .nombre { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .select-sentido { background: #2a2a2a; border: 1px solid #444; color: white; padding: 14px; border-radius: 10px; font-size: 18px; width: 100%; box-sizing: border-box; }
+
+        .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); color: var(--success); padding: 14px 28px; border-radius: 25px; font-size: 16px; font-weight: bold; z-index: 99999; border: 1px solid var(--success); animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .paradas-scroll { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; scrollbar-width: none; }
+        .paradas-scroll::-webkit-scrollbar { display: none; }
+        .btn-parada { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px 16px; border-radius: 20px; font-size: 14px; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
+        .btn-parada:hover { background: var(--celeste); color: black; border-color: var(--celeste); }
+        .btn-parada.activa { background: var(--celeste); color: black; border-color: var(--celeste); font-weight: bold; }
+
+        @media (max-height: 500px) { body, html { overflow-y: auto !important; height: auto !important; } #map { min-height: 200px; } }
+    </style>
+</head>
+<body>
+
+    <div id="splash">
+        <div class="anillo"><span style="font-size: 70px;">🚕</span></div>
+        <h2 style="color: var(--celeste); margin-top: 20px; font-size: 24px;">TUMOVIL</h2>
+        <p style="color: white; font-size: 14px;">Panel del Conductor</p>
+    </div>
+
+    <div class="header">
+        <h1>PANEL CONDUCTOR</h1>
+        <div class="sub" id="estado-conductor">Desconectado</div>
+    </div>
+    <div id="map"></div>
+
+    <div class="bottom-ui">
+        <div class="info-panel" id="info-panel">
+            <b>🚗 Coche:</b> <span id="coche-id">--</span> | 
+            <b>📍 Parada:</b> <span id="parada-actual">--</span> | 
+            <b>👥 Pasajeros:</b> <span id="pasajeros-count">0/4</span>
+        </div>
+
+        <select id="sentido-select" class="select-sentido">
+            <option value="IDA">🔄 Sentido: IDA (1 → 36)</option>
+            <option value="VUELTA">🔄 Sentido: VUELTA (36 → 1)</option>
+        </select>
+
+        <div class="asientos-panel" id="asientos-panel">
+            <div class="asiento-conductor"><div class="num">1</div><div class="nombre">Libre</div></div>
+            <div class="asiento-conductor"><div class="num">2</div><div class="nombre">Libre</div></div>
+            <div class="asiento-conductor"><div class="num">3</div><div class="nombre">Libre</div></div>
+            <div class="asiento-conductor"><div class="num">4</div><div class="nombre">Libre</div></div>
+        </div>
+
+        <div class="paradas-scroll" id="paradas-scroll"></div>
+
+        <button class="btn btn-online" id="btn-online" onclick="conductorOnline()">🟢 ENTRAR EN LÍNEA</button>
+        <button class="btn btn-offline" id="btn-offline" onclick="conductorOffline()" style="display:none;">🔴 SALIR DE LÍNEA</button>
+        <button class="btn btn-anuncio" id="btn-anuncio" onclick="mostrarSelectorAnuncio()" style="display:none;">📢 ANUNCIAR PARADA</button>
+    </div>
+
+<script>
+    const _s = supabase.createClient(
+        'https://nvumdlxervrewqiiaicl.supabase.co',
+        'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE',
+        { global: { headers: { 'x-app-secret': '2Awy7XGP0SBmBRprB3PBzfvz9VcbDd04' } } }
+    );
+
+    // ID del conductor (hardcodeado por ahora, después se puede hacer login)
+    const CONDUCTOR_ID = 1; // Cambiar según el conductor
+    const CONDUCTOR_NOMBRE = 'Conductor 1';
+
+    const paradas = [
+        'Universidad Tecnológica', 'Parque Tecnológico', 'Base Aérea', 'Miguel Cané',
+        'Cané y Los Aromos', 'Los Aromos 11016', 'Los Aromos 10874', 'Los Aromos y Murillo',
+        'Murillo 601', 'Murillo y Güiraldes', 'Murillo y Watt', 'A. Prado 2555',
+        'Prado y Payró', 'Prado 1744', 'Boulevard Caveri', 'Caveri y Azara',
+        'Caveri y Vedia', 'Caveri y Tablada', 'Caveri y Echeverría', 'Caveri y Gálvez',
+        'Caveri (Final)', 'Libertador y Aero', 'Libertador 7300', 'Libertador 7200',
+        'Libertador y Maza', 'Maza y Albatros', 'Maternidad', 'Abasto y Roca'
+    ];
+
+    const map = L.map('map', { zoomControl: false }).setView([-34.57, -58.76], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    const iconConductor = L.divIcon({ html: '<div style="font-size:35px; filter: drop-shadow(0 0 10px #00d2ff);">🚕</div>', iconAnchor: [17, 17] });
+    const iconOtro = L.divIcon({ html: '<span style="font-size:25px; opacity:0.7;">🚕</span>', iconAnchor: [12, 12] });
+
+    let markerConductor = null;
+    let markersOtros = {};
+    let miLat = 0, miLon = 0;
+    let estaOnline = false;
+    let paradaActual = 0;
+    let sentidoActual = 'IDA';
+    let gpsListo = false;
+    let intervaloGPS = null;
+    let intervaloDatos = null;
+
+    // Generar botones de paradas
+    const paradasScroll = document.getElementById('paradas-scroll');
+    paradas.forEach((p, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-parada';
+        btn.textContent = (i + 1) + '. ' + p;
+        btn.onclick = () => seleccionarParada(i);
+        paradasScroll.appendChild(btn);
+    });
+
+    function seleccionarParada(idx) {
+        paradaActual = idx;
+        document.querySelectorAll('.btn-parada').forEach((b, i) => {
+            b.classList.toggle('activa', i === idx);
+        });
+        document.getElementById('parada-actual').textContent = (idx + 1) + '. ' + paradas[idx];
+        if (estaOnline) actualizarGPS();
+    }
+
+    navigator.geolocation.watchPosition(p => {
+        miLat = p.coords.latitude;
+        miLon = p.coords.longitude;
+        if (!gpsListo) {
+            gpsListo = true;
+            document.getElementById('splash').style.opacity = '0';
+            setTimeout(() => document.getElementById('splash').style.visibility = 'hidden', 800);
+        }
+        if (estaOnline) actualizarGPS();
+    }, (err) => {
+        console.error("GPS Error:", err);
+        mostrarToast("⚠️ GPS NO DISPONIBLE");
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+
+    async function conductorOnline() {
+        if (!gpsListo) { mostrarToast("⌛ Esperando GPS..."); return; }
+        const btn = document.getElementById('btn-online');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>Conectando...';
+
+        try {
+            const { data, error } = await _s.rpc('conductor_prender', {
+                p_id_movil: CONDUCTOR_ID,
+                p_lat: miLat,
+                p_lon: miLon,
+                p_sentido: document.getElementById('sentido-select').value,
+                p_parada_actual: paradaActual
+            });
+            if (error) throw error;
+            if (data && data.success) {
+                estaOnline = true;
+                sentidoActual = document.getElementById('sentido-select').value;
+                document.getElementById('sentido-select').disabled = true;
+                document.getElementById('btn-online').style.display = 'none';
+                document.getElementById('btn-offline').style.display = 'block';
+                document.getElementById('btn-anuncio').style.display = 'block';
+                document.getElementById('estado-conductor').textContent = '🟢 En línea - Orden: ' + (data.orden_fila || '--');
+                document.getElementById('estado-conductor').style.color = 'var(--success)';
+                mostrarToast('✅ Conectado');
+                actualizarGPS();
+                intervaloGPS = setInterval(actualizarGPS, 10000);
+                intervaloDatos = setInterval(cargarDatosConductor, 5000);
+                cargarDatosConductor();
+            }
+        } catch (err) {
+            console.error("Error:", err);
+            mostrarToast("❌ Error al conectar");
+            btn.disabled = false;
+            btn.innerHTML = '🟢 ENTRAR EN LÍNEA';
+        }
+    }
+
+    async function conductorOffline() {
+        const btn = document.getElementById('btn-offline');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>Saliendo...';
+
+        try {
+            const { data, error } = await _s.rpc('conductor_apagar', { p_id_movil: CONDUCTOR_ID });
+            if (error) throw error;
+            estaOnline = false;
+            document.getElementById('sentido-select').disabled = false;
+            document.getElementById('btn-online').style.display = 'block';
+            document.getElementById('btn-offline').style.display = 'none';
+            document.getElementById('btn-anuncio').style.display = 'none';
+            document.getElementById('estado-conductor').textContent = 'Desconectado';
+            document.getElementById('estado-conductor').style.color = '#888';
+            if (intervaloGPS) clearInterval(intervaloGPS);
+            if (intervaloDatos) clearInterval(intervaloDatos);
+            mostrarToast('🔴 Desconectado');
+        } catch (err) {
+            console.error("Error:", err);
+            mostrarToast("❌ Error al desconectar");
+        }
+        btn.disabled = false;
+        btn.innerHTML = '🔴 SALIR DE LÍNEA';
+    }
+
+    async function actualizarGPS() {
+        if (!estaOnline || !gpsListo) return;
+        try {
+            await _s.rpc('actualizar_parada_conductor', {
+                p_id_movil: CONDUCTOR_ID,
+                p_parada_idx: paradaActual,
+                p_lat: miLat,
+                p_lon: miLon
+            });
+            if (markerConductor) {
+                markerConductor.setLatLng([miLat, miLon]);
+            } else {
+                markerConductor = L.marker([miLat, miLon], { icon: iconConductor, zIndexOffset: 1000 }).addTo(map);
+            }
+            map.setView([miLat, miLon], 16);
+        } catch (err) { console.error("Error GPS:", err); }
+    }
+
+    async function cargarDatosConductor() {
+        if (!estaOnline) return;
+        try {
+            const { data, error } = await _s.rpc('obtener_posicion_coche', { p_id_movil: CONDUCTOR_ID });
+            if (error || !data || !data.id) return;
+
+            document.getElementById('coche-id').textContent = data.id;
+            document.getElementById('pasajeros-count').textContent = (data.asientos_ocupados || 0) + '/4';
+
+            // Cargar pasajeros en asientos
+            const { data: reservas, error: errReservas } = await _s
+                .from('reservas_activas')
+                .select('asiento_num, nombre_pasajero, destino_idx')
+                .eq('id_movil', CONDUCTOR_ID)
+                .eq('estado', 'en_curso');
+
+            if (!errReservas && reservas) {
+                const asientosPanel = document.getElementById('asientos-panel');
+                asientosPanel.innerHTML = '';
+                for (let i = 1; i <= 4; i++) {
+                    const reserva = reservas.find(r => r.asiento_num === i);
+                    const div = document.createElement('div');
+                    div.className = 'asiento-conductor ' + (reserva ? 'ocupado' : '');
+                    div.innerHTML = '<div class="num">' + i + '</div><div class="nombre">' + (reserva ? escaparHTML(reserva.nombre_pasajero) : 'Libre') + '</div>';
+                    asientosPanel.appendChild(div);
+                }
+            }
+
+            // Ver otros coches en el mapa
+            cargarOtrosCoches();
+
+        } catch (err) { console.error("Error cargando datos:", err); }
+    }
+
+    async function cargarOtrosCoches() {
+        try {
+            const { data, error } = await _s.rpc('obtener_flota_cascada', {
+                p_sentido: sentidoActual,
+                p_destino_idx: 0,
+                p_lat: miLat,
+                p_lon: miLon
+            });
+            if (error || !data) return;
+
+            const idsOnline = data.map(m => m.id.toString());
+            Object.keys(markersOtros).forEach(id => {
+                if (id !== CONDUCTOR_ID.toString() && !idsOnline.includes(id)) {
+                    map.removeLayer(markersOtros[id]);
+                    delete markersOtros[id];
+                }
+            });
+
+            data.forEach(t => {
+                if (t.id === CONDUCTOR_ID) return;
+                if (markersOtros[t.id]) {
+                    markersOtros[t.id].setLatLng([t.latitud, t.longitud]);
+                } else {
+                    markersOtros[t.id] = L.marker([t.latitud, t.longitud], { icon: iconOtro }).addTo(map);
+                }
+            });
+        } catch (err) { console.error("Error cargando otros coches:", err); }
+    }
+
+    function mostrarSelectorAnuncio() {
+        const paradaIdx = prompt("¿Qué parada querés anunciar? (1-" + paradas.length + ")");
+        if (!paradaIdx) return;
+        const idx = parseInt(paradaIdx) - 1;
+        if (idx < 0 || idx >= paradas.length) { mostrarToast("❌ Parada inválida"); return; }
+
+        const mensaje = "🚏 Siguiente parada: " + paradas[idx] + "\n📢 ¡" + CONDUCTOR_NOMBRE + " avisa que llegamos!";
+        anunciarParada(idx, mensaje);
+    }
+
+    async function anunciarParada(idx, mensaje) {
+        try {
+            const { data, error } = await _s.rpc('anunciar_parada', {
+                p_id_movil: CONDUCTOR_ID,
+                p_parada_idx: idx,
+                p_mensaje: mensaje
+            });
+            if (error) throw error;
+            if (data && data.success) {
+                mostrarToast('📢 Anunciado a ' + data.pasajeros_notificados + ' pasajero(s)');
+            }
+        } catch (err) {
+            console.error("Error anunciando:", err);
+            mostrarToast("❌ Error al anunciar");
+        }
+    }
+
+    function escaparHTML(texto) {
+        if (!texto || typeof texto !== 'string') return '';
+        const div = document.createElement('div');
+        div.textContent = texto;
+        return div.innerHTML;
+    }
+
+    function mostrarToast(mensaje) {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = mensaje;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Seleccionar parada 0 por defecto
+    seleccionarParada(0);
+</script>
+</body>
+</html>
