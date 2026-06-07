@@ -12,20 +12,17 @@
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
 
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
-        .anillo { width: 160px; height: 160px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
+        .anillo { width: 176px; height: 176px; border: 4px solid var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 25px var(--celeste); animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 10px; text-align: center; flex-shrink: 0; }
-        .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 2px; }
+        .header { background: var(--panel); border-bottom: 2px solid var(--celeste); padding: 12px; text-align: center; flex-shrink: 0; }
+        .header h1 { margin: 0; font-size: 20px; color: var(--celeste); letter-spacing: 2px; }
 
         #map { flex-grow: 1; width: 100%; transition: all 0.4s ease; }
 
         body.viaje-activo #map { height: 55vh !important; flex: none !important; }
         body.viaje-activo .bottom-ui { max-height: 45vh; }
 
-        /* ============================================
-           MODO A BORDO - CORREGIDO: 85/15 + panel flotante
-           ============================================ */
         body.a-bordo #map { height: 85vh !important; flex: none !important; }
         body.a-bordo .header { display: none; }
         body.a-bordo .bottom-ui {
@@ -41,7 +38,6 @@
             justify-content: space-between;
         }
 
-        /* Ocultar todo excepto info y boton cancelar */
         body.a-bordo .bottom-ui > *:not(#btn-cancelar):not(#info-viaje-abordo):not(#panel-anuncio-parada) {
             display: none !important;
         }
@@ -49,18 +45,17 @@
         body.a-bordo #btn-cancelar {
             display: block !important;
             margin: 0;
-            padding: 12px 20px;
-            font-size: 14px;
+            padding: 14px 22px;
+            font-size: 15px;
             height: auto;
             white-space: nowrap;
             flex-shrink: 0;
         }
 
-        /* Info del viaje visible mientras esta a bordo */
         #info-viaje-abordo {
             display: none;
             color: white;
-            font-size: 13px;
+            font-size: 14px;
             text-align: left;
             flex: 1;
             padding-right: 10px;
@@ -70,42 +65,39 @@
             display: block !important;
         }
 
-        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 15px 15px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 8px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 55vh; overflow-y: auto; transition: all 0.4s ease; }
+        .bottom-ui { background: var(--panel); border-top: 2px solid var(--celeste); padding: 16px 16px env(safe-area-inset-bottom); display: flex; flex-direction: column; gap: 10px; border-radius: 25px 25px 0 0; z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5); max-height: 55vh; overflow-y: auto; transition: all 0.4s ease; }
 
         body.viaje-activo .form-element { display: none !important; }
         body.viaje-activo #btn-pedir { display: none !important; }
 
-        .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 8px; text-align: center; }
-        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; font-size: 16px; width: 100%; box-sizing: border-box; }
+        .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid var(--celeste); border-radius: 12px; padding: 10px; text-align: center; font-size: 15px; }
+        input, select { background: #2a2a2a; border: 1px solid #444; color: white; padding: 14px; border-radius: 10px; font-size: 17px; width: 100%; box-sizing: border-box; }
 
-        .viaje-activo-panel { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 2px solid var(--celeste); border-radius: 16px; padding: 16px; margin-bottom: 10px; animation: slideIn 0.5s ease; transition: border-color 0.5s ease; }
+        .viaje-activo-panel { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 2px solid var(--celeste); border-radius: 16px; padding: 18px; margin-bottom: 10px; animation: slideIn 0.5s ease; transition: border-color 0.5s ease; }
         .viaje-activo-panel.alerta-pasado { border-color: var(--danger); animation: shake 0.5s ease; }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
         .viaje-activo-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(0, 210, 255, 0.2); }
-        .viaje-activo-icono { width: 50px; height: 50px; background: var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; transition: background 0.3s ease; }
+        .viaje-activo-icono { width: 55px; height: 55px; background: var(--celeste); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; transition: background 0.3s ease; }
         .viaje-activo-panel.alerta-pasado .viaje-activo-icono { background: var(--danger); animation: pulseDanger 1s infinite; }
         @keyframes pulseDanger { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
         .viaje-activo-titulo { flex: 1; }
-        .viaje-activo-titulo .coche-numero { font-size: 20px; font-weight: bold; color: var(--amarillo); margin: 0; }
-        .viaje-activo-titulo .conductor-nombre { font-size: 14px; color: white; margin: 2px 0 0 0; }
+        .viaje-activo-titulo .coche-numero { font-size: 22px; font-weight: bold; color: var(--amarillo); margin: 0; }
+        .viaje-activo-titulo .conductor-nombre { font-size: 15px; color: white; margin: 2px 0 0 0; }
         .viaje-activo-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-        .info-box { background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 8px; text-align: center; }
-        .info-box-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-        .info-box-valor { font-size: 14px; color: var(--celeste); font-weight: bold; margin-top: 2px; }
-        .viaje-activo-destino { background: rgba(255, 204, 0, 0.1); border: 1px solid var(--amarillo); border-radius: 8px; padding: 8px; text-align: center; font-size: 13px; color: var(--amarillo); margin-bottom: 12px; }
-        .viaje-activo-status { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: var(--success); padding: 8px; border-radius: 8px; background: rgba(40, 167, 69, 0.1); }
+        .info-box { background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 10px; text-align: center; }
+        .info-box-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .info-box-valor { font-size: 15px; color: var(--celeste); font-weight: bold; margin-top: 2px; }
+        .viaje-activo-destino { background: rgba(255, 204, 0, 0.1); border: 1px solid var(--amarillo); border-radius: 8px; padding: 10px; text-align: center; font-size: 14px; color: var(--amarillo); margin-bottom: 12px; }
+        .viaje-activo-status { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; color: var(--success); padding: 10px; border-radius: 8px; background: rgba(40, 167, 69, 0.1); }
         .viaje-activo-status.alerta { color: var(--danger); background: rgba(220, 53, 69, 0.1); font-weight: bold; }
         .status-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; animation: blink 1.5s infinite; }
         .status-dot.alerta { background: var(--danger); animation: blinkFast 0.5s infinite; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
         @keyframes blinkFast { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
-        .alerta-parada { background: rgba(220, 53, 69, 0.15); border: 1px solid var(--danger); border-radius: 8px; padding: 10px; text-align: center; margin-bottom: 10px; animation: slideIn 0.3s ease; }
-        .alerta-parada-texto { color: #ff6b6b; font-size: 13px; font-weight: bold; }
-        .alerta-parada-sub { color: #ff9999; font-size: 11px; margin-top: 4px; }
+        .alerta-parada { background: rgba(220, 53, 69, 0.15); border: 1px solid var(--danger); border-radius: 8px; padding: 12px; text-align: center; margin-bottom: 10px; animation: slideIn 0.3s ease; }
+        .alerta-parada-texto { color: #ff6b6b; font-size: 14px; font-weight: bold; }
+        .alerta-parada-sub { color: #ff9999; font-size: 12px; margin-top: 4px; }
 
-        /* ============================================
-           PANEL DE ANUNCIO DE PARADA - FLOTANTE
-           ============================================ */
         #panel-anuncio-parada {
             position: fixed;
             top: 60px;
@@ -115,7 +107,7 @@
             background: linear-gradient(135deg, #1a1a2e 0%, #0d2b3a 100%);
             border: 2px solid var(--amarillo);
             border-radius: 16px;
-            padding: 16px;
+            padding: 18px;
             animation: slideIn 0.5s ease, pulseBorder 2s infinite;
             display: none;
             text-align: center;
@@ -124,23 +116,22 @@
             margin: 0 auto;
         }
 
-        /* Cuando el header esta oculto (a-bordo), subir un poco */
         body.a-bordo #panel-anuncio-parada {
             top: 15px;
         }
 
         #panel-anuncio-parada.visible { display: block; }
-        #panel-anuncio-parada .anuncio-icono { font-size: 32px; margin-bottom: 8px; }
-        #panel-anuncio-parada .anuncio-titulo { color: var(--amarillo); font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; }
-        #panel-anuncio-parada .anuncio-mensaje { color: white; font-size: 15px; font-weight: bold; line-height: 1.4; white-space: pre-line; }
+        #panel-anuncio-parada .anuncio-icono { font-size: 36px; margin-bottom: 8px; }
+        #panel-anuncio-parada .anuncio-titulo { color: var(--amarillo); font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; }
+        #panel-anuncio-parada .anuncio-mensaje { color: white; font-size: 16px; font-weight: bold; line-height: 1.4; white-space: pre-line; }
         #panel-anuncio-parada .anuncio-btn-ok {
             background: var(--success);
             color: white;
             border: none;
-            padding: 10px 30px;
+            padding: 12px 32px;
             border-radius: 20px;
             font-weight: bold;
-            font-size: 14px;
+            font-size: 15px;
             margin-top: 12px;
             cursor: pointer;
             width: 100%;
@@ -150,48 +141,48 @@
             50% { box-shadow: 0 0 25px rgba(255, 204, 0, 0.6); }
         }
 
-        .flota-container { max-height: 220px; overflow-y: auto; }
-        .coche-card { background: #1a1a1a; border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid #333; animation: slideIn 0.3s ease; }
+        .flota-container { max-height: 240px; overflow-y: auto; }
+        .coche-card { background: #1a1a1a; border-radius: 12px; padding: 12px; margin-bottom: 8px; border: 1px solid #333; animation: slideIn 0.3s ease; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .coche-card.seleccionado { border-color: var(--celeste); box-shadow: 0 0 8px rgba(0,210,255,0.3); }
         .coche-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-        .coche-num { font-weight: bold; font-size: 13px; color: white; }
-        .coche-info { font-size: 10px; color: #888; }
-        .coche-dist { font-size: 10px; color: var(--amarillo); }
+        .coche-num { font-weight: bold; font-size: 14px; color: white; }
+        .coche-info { font-size: 11px; color: #888; }
+        .coche-dist { font-size: 11px; color: var(--amarillo); }
 
-        .asientos-row { display: flex; gap: 5px; justify-content: center; }
-        .asiento-box { width: 52px; height: 48px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; transition: all 0.2s; }
+        .asientos-row { display: flex; gap: 6px; justify-content: center; }
+        .asiento-box { width: 58px; height: 52px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; transition: all 0.2s; }
         .asiento-libre { background: #2a2a2a; border: 2px solid var(--celeste); color: var(--celeste); cursor: pointer; }
         .asiento-libre:hover { background: var(--celeste); color: black; }
         .asiento-libre.seleccionado { background: var(--amarillo); border-color: var(--amarillo); color: black; }
         .asiento-ocupado { background: #1a1a1a; border: 2px solid #333; color: #555; cursor: not-allowed; }
-        .asiento-num { font-size: 12px; font-weight: bold; }
-        .asiento-nombre { font-size: 9px; text-align: center; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 44px; }
-        .asiento-lock { font-size: 9px; }
+        .asiento-num { font-size: 13px; font-weight: bold; }
+        .asiento-nombre { font-size: 10px; text-align: center; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 48px; }
+        .asiento-lock { font-size: 10px; }
 
-        .sin-coches { text-align: center; padding: 15px; color: #666; font-size: 12px; }
+        .sin-coches { text-align: center; padding: 16px; color: #666; font-size: 13px; }
         .sin-coches b { color: #ff4444; display: block; margin-bottom: 4px; }
 
-        .btn-pedir { background: #28a745; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px; transition: all 0.3s; }
+        .btn-pedir { background: #28a745; color: white; border: none; padding: 16px; border-radius: 12px; font-weight: bold; font-size: 17px; transition: all 0.3s; }
         .btn-pedir:disabled { background: #333; color: #666; }
-        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; }
+        .btn-cancelar { background: #dc3545; color: white; border: none; padding: 16px; border-radius: 12px; font-weight: bold; display: none; margin-top: 5px; font-size: 16px; }
         .btn-cancelar:disabled { background: #661a22; color: #999; }
 
-        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; }
+        .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        #banner-llegada { position: fixed; top: 0; left: 0; right: 0; background: linear-gradient(180deg, var(--celeste) 0%, #0088cc 100%); color: white; padding: 20px 15px 25px; text-align: center; z-index: 99999; transform: translateY(-120%); transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); box-shadow: 0 10px 40px rgba(0, 210, 255, 0.5); }
+        #banner-llegada { position: fixed; top: 0; left: 0; right: 0; background: linear-gradient(180deg, var(--celeste) 0%, #0088cc 100%); color: white; padding: 22px 16px 28px; text-align: center; z-index: 99999; transform: translateY(-120%); transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); box-shadow: 0 10px 40px rgba(0, 210, 255, 0.5); }
         #banner-llegada.visible { transform: translateY(0); }
-        #banner-llegada .llegada-icono { font-size: 50px; margin-bottom: 5px; animation: bounceCar 1s infinite; }
+        #banner-llegada .llegada-icono { font-size: 55px; margin-bottom: 5px; animation: bounceCar 1s infinite; }
         @keyframes bounceCar { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-        #banner-llegada .llegada-titulo { font-size: 22px; font-weight: 900; margin-bottom: 5px; }
-        #banner-llegada .llegada-sub { font-size: 14px; opacity: 0.9; margin-bottom: 15px; }
+        #banner-llegada .llegada-titulo { font-size: 24px; font-weight: 900; margin-bottom: 5px; }
+        #banner-llegada .llegada-sub { font-size: 15px; opacity: 0.9; margin-bottom: 15px; }
         #banner-llegada .llegada-botones { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-        .btn-llegada { border: none; padding: 14px 20px; border-radius: 12px; font-weight: bold; font-size: 14px; cursor: pointer; flex: 1; min-width: 100px; }
+        .btn-llegada { border: none; padding: 16px 22px; border-radius: 12px; font-weight: bold; font-size: 15px; cursor: pointer; flex: 1; min-width: 100px; }
         .btn-llegada-si { background: var(--success); color: white; box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4); }
         .btn-llegada-no { background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.5); }
         .btn-llegada-rechazar { background: var(--danger); color: white; border: 2px solid rgba(255,255,255,0.3); }
-        .llegada-timer { position: absolute; top: 15px; right: 15px; width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; }
+        .llegada-timer { position: absolute; top: 15px; right: 15px; width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; }
 
         @media (max-height: 500px) { body, html { overflow-y: auto !important; height: auto !important; } #map { min-height: 200px; } }
         input:focus, select:focus { scroll-margin-bottom: 300px; }
@@ -200,9 +191,9 @@
 <body>
 
     <div id="splash">
-        <div class="anillo"><span style="font-size: 60px;">🚕</span></div>
-        <h2 style="color: var(--celeste); margin-top: 20px;">TUMOVIL</h2>
-        <p style="color: white; font-size: 12px;">Conectando al sistema...</p>
+        <div class="anillo"><span style="font-size: 66px;">🚕</span></div>
+        <h2 style="color: var(--celeste); margin-top: 20px; font-size: 22px;">TUMOVIL</h2>
+        <p style="color: white; font-size: 13px;">Conectando al sistema...</p>
     </div>
 
     <div id="banner-llegada">
@@ -235,7 +226,6 @@
         </div>
         <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ BUSCANDO GPS...</button>
 
-        <!-- PANEL DE ANUNCIO DE PARADA - AHORA FLOTANTE EN EL BODY -->
         <div id="panel-anuncio-parada">
             <div class="anuncio-icono">🔔</div>
             <div class="anuncio-titulo">🚏 ANUNCIO DEL CONDUCTOR</div>
@@ -245,12 +235,11 @@
 
         <div id="viaje-activo-container" style="display: none;"></div>
 
-        <!-- INFO DEL VIAJE VISIBLE MIENTRAS ESTÁ A BORDO -->
         <div id="info-viaje-abordo">
-            <div style="color: var(--amarillo); font-weight: bold; font-size: 14px;">
+            <div style="color: var(--amarillo); font-weight: bold; font-size: 15px;">
                 🚗 Coche <span id="info-coche-id">--</span>
             </div>
-            <div style="color: #aaa; font-size: 11px;">
+            <div style="color: #aaa; font-size: 12px;">
                 📍 <span id="info-destino-abordo">--</span>
             </div>
         </div>
@@ -259,6 +248,7 @@
     </div>
 
 <script>
+
     const _s = supabase.createClient(
         'https://nvumdlxervrewqiiaicl.supabase.co',
         'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE',
@@ -1042,6 +1032,7 @@
 
     setInterval(() => { if (!miViajeActivo) actualizarMapaTaxis(); }, 15000);
     actualizarMapaTaxis();
+
 </script>
 </body>
 </html>
