@@ -99,8 +99,35 @@
 
         .leaflet-tooltip { background: #000 !important; color: #FFD700 !important; border: 1.5px solid #FFD700 !important; font-weight: bold !important; font-size: 14px !important; }
 
-        /* ✅ ICONO DE TAXI MÁS GRANDE */
-        .taxi-icon { font-size: 75px; text-align: center; line-height: 75px; }
+        /* ✅ ICONO DE AUTO DESDE ARRIBA CON ROTACIÓN SUAVE */
+        .auto-icon-container {
+            transition: transform 0.3s ease-out;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+        }
+        .auto-icon-container.activo {
+            animation: pulsoAuto 2s infinite;
+        }
+        @keyframes pulsoAuto {
+            0%, 100% { filter: drop-shadow(0 0 5px rgba(0, 210, 255, 0.5)); }
+            50% { filter: drop-shadow(0 0 20px rgba(0, 210, 255, 0.9)); }
+        }
+
+        /* Rastro del auto (como Waze) */
+        .rastro-auto {
+            stroke: #00d2ff;
+            stroke-width: 4;
+            stroke-opacity: 0.6;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+        }
+
+        /* Precisión GPS */
+        .precision-gps {
+            fill: rgba(0, 210, 255, 0.15);
+            stroke: rgba(0, 210, 255, 0.4);
+            stroke-width: 1;
+        }
 
         .bottom-ui { 
             position: absolute; 
@@ -211,6 +238,25 @@
         }
         @keyframes pulseText { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
 
+        /* Panel de velocidad */
+        #panel-velocidad {
+            position: absolute;
+            top: 165px;
+            right: 12px;
+            z-index: 1001;
+            background: rgba(0,0,0,0.85);
+            border: 2px solid #00d2ff;
+            border-radius: 14px;
+            padding: 8px 14px;
+            text-align: center;
+            color: white;
+            pointer-events: auto;
+            display: none;
+        }
+        #panel-velocidad .vel-label { color: #00d2ff; font-size: 10px; font-weight: 700; }
+        #panel-velocidad .vel-value { font-size: 24px; font-weight: 800; color: #00d2ff; }
+        #panel-velocidad .vel-unit { font-size: 10px; color: #888; }
+
         .wakelock-indicator { 
             position: absolute; 
             top: 290px; 
@@ -250,6 +296,11 @@
         <div class="anuncio-titulo">🚏 PRÓXIMA PARADA</div>
         <div class="anuncio-nombre" id="anuncio-parada-nombre">--</div>
     </div>
+    <div id="panel-velocidad">
+        <div class="vel-label">VELOCIDAD</div>
+        <div class="vel-value" id="txt-velocidad">0</div>
+        <div class="vel-unit">km/h</div>
+    </div>
     <div class="wakelock-indicator" id="wakelock-indicator">🔒 Pantalla bloqueada activa</div>
     <div class="bottom-ui">
         <div class="asientos-pills">
@@ -281,8 +332,20 @@
     let ultimaParadaAnunciada = -1;
     let audioCtx = null;
     let ultimaPosicionGPS = { lat: 0, lon: 0 };
-    let historialParadas = []; // GPS INTELIGENTE: historial de paradas visitadas
-    let direccionDetectada = 'IDA'; // Dirección real detectada por secuencia
+    let historialParadas = [];
+    let direccionDetectada = 'IDA';
+
+    // ============================================
+    // VARIABLES GPS REALISTA - ROTACIÓN Y RASTRO
+    // ============================================
+    let historialPosiciones = [];
+    let anguloActual = 0;
+    let suavizadoAngulo = 0;
+    let rastroPolyline = null;
+    let precisionCircle = null;
+    let velocidadActual = 0;
+    const MAX_PUNTOS_RASTRO = 100;
+    let puntosRastro = [];
 
     // ============================================
     // 28 PARADAS (mismo orden que el pasajero)
@@ -327,8 +390,101 @@
     // Paradas: Bolitas CELESTES con borde NEGRO
     paradas.forEach(p => L.circleMarker(p.c, { radius: 7, color: '#000000', weight: 2, fillColor: '#00BFFF', fillOpacity: 1 }).addTo(map));
 
-    // Taxi GIGANTE
-    const markerCoche = L.marker(paradas[0].c, { icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [37, 37] }) }).addTo(map);
+    // ============================================
+    // 🚗 ICONO DE AUTO DESDE ARRIBA (TECHO) CON ROTACIÓN
+    // ============================================
+    function crearIconoAuto(angulo) {
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140" width="55" height="77">
+            <defs>
+                <filter id="sombra" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="rgba(0,0,0,0.5)"/>
+                </filter>
+                <linearGradient id="gradCarroceria" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#FFD700"/>
+                    <stop offset="50%" style="stop-color:#FFC800"/>
+                    <stop offset="100%" style="stop-color:#E6B800"/>
+                </linearGradient>
+                <linearGradient id="gradTecho" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#FFF2A8"/>
+                    <stop offset="100%" style="stop-color:#E6C200"/>
+                </linearGradient>
+            </defs>
+            <!-- Sombra del auto -->
+            <ellipse cx="50" cy="115" rx="28" ry="18" fill="rgba(0,0,0,0.25)"/>
+
+            <!-- Carrocería principal (vista desde arriba) -->
+            <rect x="18" y="25" width="64" height="85" rx="20" fill="url(#gradCarroceria)" stroke="#1a1a1a" stroke-width="2.5" filter="url(#sombra)"/>
+
+            <!-- Parabrisas delantero -->
+            <path d="M 22 32 Q 50 18 78 32" fill="#1a2a3a" stroke="#333" stroke-width="1.5"/>
+
+            <!-- Luneta trasera -->
+            <path d="M 22 103 Q 50 117 78 103" fill="#1a2a3a" stroke="#333" stroke-width="1.5"/>
+
+            <!-- Techo -->
+            <rect x="26" y="42" width="48" height="52" rx="10" fill="url(#gradTecho)" stroke="#1a1a1a" stroke-width="1.2"/>
+
+            <!-- Líneas de las puertas -->
+            <line x1="18" y1="68" x2="82" y2="68" stroke="#1a1a1a" stroke-width="1" opacity="0.4"/>
+
+            <!-- Luces delanteras -->
+            <ellipse cx="24" cy="30" rx="7" ry="4" fill="#fff" opacity="0.95"/>
+            <ellipse cx="76" cy="30" rx="7" ry="4" fill="#fff" opacity="0.95"/>
+            <ellipse cx="24" cy="30" rx="4" ry="2" fill="#e6f7ff" opacity="0.8"/>
+            <ellipse cx="76" cy="30" rx="4" ry="2" fill="#e6f7ff" opacity="0.8"/>
+
+            <!-- Luces traseras -->
+            <ellipse cx="24" cy="105" rx="7" ry="4" fill="#ff3b30" opacity="0.95"/>
+            <ellipse cx="76" cy="105" rx="7" ry="4" fill="#ff3b30" opacity="0.95"/>
+            <ellipse cx="24" cy="105" rx="4" ry="2" fill="#ff6b6b" opacity="0.8"/>
+            <ellipse cx="76" cy="105" rx="4" ry="2" fill="#ff6b6b" opacity="0.8"/>
+
+            <!-- Flecha de dirección (siempre apunta ARRIBA = adelante) -->
+            <polygon points="50,5 38,22 62,22" fill="#00d2ff" stroke="#1a1a1a" stroke-width="1.5"/>
+            <polygon points="50,10 42,20 58,20" fill="#80e5ff"/>
+
+            <!-- Antena -->
+            <line x1="50" y1="25" x2="50" y2="8" stroke="#444" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="50" cy="8" r="3" fill="#00d2ff" stroke="#1a1a1a" stroke-width="1"/>
+            <circle cx="50" cy="8" r="1.5" fill="#fff"/>
+
+            <!-- Espejos retrovisores -->
+            <rect x="10" y="55" width="8" height="14" rx="3" fill="#FFD700" stroke="#1a1a1a" stroke-width="1.5"/>
+            <rect x="82" y="55" width="8" height="14" rx="3" fill="#FFD700" stroke="#1a1a1a" stroke-width="1.5"/>
+
+            <!-- Placa delantera -->
+            <rect x="38" y="24" width="24" height="6" rx="2" fill="#fff" stroke="#1a1a1a" stroke-width="1"/>
+            <text x="50" y="28.5" text-anchor="middle" font-size="4" font-weight="bold" fill="#1a1a1a">JCP 478</text>
+        </svg>`;
+
+        const svgBase64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+
+        return L.icon({
+            iconUrl: svgBase64,
+            iconSize: [55, 77],
+            iconAnchor: [27, 38],
+            popupAnchor: [0, -38],
+            className: 'auto-icon-container'
+        });
+    }
+
+    // Crear marker con icono inicial
+    let markerCoche = L.marker(paradas[0].c, { 
+        icon: crearIconoAuto(0),
+        zIndexOffset: 1000
+    }).addTo(map);
+
+    // Rastro del auto (como Waze)
+    rastroPolyline = L.polyline([], {
+        className: 'rastro-auto',
+        smoothFactor: 1
+    }).addTo(map);
+
+    // Círculo de precisión GPS
+    precisionCircle = L.circle(paradas[0].c, {
+        className: 'precision-gps',
+        radius: 10
+    }).addTo(map);
 
     let markersPax = [], markersDest = [];
 
@@ -413,16 +569,44 @@
     }
 
     // ============================================
+    // 🧭 GPS REALISTA - CÁLCULO DE DIRECCIÓN (HEADING)
+    // ============================================
+    function calcularAnguloDireccion(lat1, lon1, lat2, lon2) {
+        const φ1 = lat1 * Math.PI / 180;
+        const φ2 = lat2 * Math.PI / 180;
+        const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+        const y = Math.sin(Δλ) * Math.cos(φ2);
+        const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+        let θ = Math.atan2(y, x);
+
+        let angulo = (θ * 180 / Math.PI + 360) % 360;
+        return angulo;
+    }
+
+    function suavizarRotacion(anguloNuevo, anguloActual, factor = 0.15) {
+        let diff = anguloNuevo - anguloActual;
+        while (diff > 180) diff -= 360;
+        while (diff < -180) diff += 360;
+        return (anguloActual + diff * factor + 360) % 360;
+    }
+
+    function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
+        const R = 111320;
+        const dLat = (lat2 - lat1) * R;
+        const dLon = (lon2 - lon1) * R * Math.cos(lat1 * Math.PI / 180);
+        return Math.sqrt(dLat * dLat + dLon * dLon);
+    }
+
+    // ============================================
     // GPS INTELIGENTE: DETECTAR DIRECCIÓN POR SECUENCIA
     // ============================================
     function detectarDireccionPorSecuencia(paradaActualIdx) {
-        // Agregar al historial (mantener últimas 5 paradas)
         historialParadas.push(paradaActualIdx);
         if (historialParadas.length > 5) historialParadas.shift();
 
         if (historialParadas.length < 2) return sentidoActual;
 
-        // Analizar tendencia: si los índices van aumentando = IDA, disminuyendo = VUELTA
         let tendencia = 0;
         for (let i = 1; i < historialParadas.length; i++) {
             if (historialParadas[i] > historialParadas[i-1]) tendencia++;
@@ -431,15 +615,12 @@
 
         const nuevaDireccion = tendencia >= 0 ? 'IDA' : 'VUELTA';
 
-        // Solo cambiar si hay tendencia clara (al menos 2 de 3 movimientos)
         if (Math.abs(tendencia) >= 2 && nuevaDireccion !== direccionDetectada) {
             console.log('🧭 GPS Inteligente: dirección cambiada de', direccionDetectada, 'a', nuevaDireccion, '(tendencia:', tendencia, ')');
             direccionDetectada = nuevaDireccion;
-            // Si está online, actualizar en la base
             if (estaOnline) {
                 _s.from('estado_movil').update({ sentido_flujo: direccionDetectada }).eq('id', MI_ID_MOVIL);
             }
-            // Actualizar UI
             sentidoActual = direccionDetectada;
             document.getElementById('btn-sentido').innerText = sentidoActual;
             rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
@@ -449,7 +630,7 @@
     }
 
     // ============================================
-    // MARCAR PASAJERO COMO A BORDO (UPDATE DIRECTO A TABLA)
+    // MARCAR PASAJERO COMO A BORDO
     // ============================================
     async function marcarPasajeroABordo() {
         try {
@@ -486,7 +667,7 @@
     }
 
     // ============================================
-    // LLEGÓ A DESTINO - Finaliza solo los que están a bordo
+    // LLEGÓ A DESTINO
     // ============================================
     async function llegoADestino() {
         try {
@@ -507,7 +688,6 @@
             if (!confirm('¿Finalizar viaje de: ' + nombres + '?')) return;
 
             for (const r of reservas) {
-                // 1. Guardar en historial
                 const { error: insertError } = await _s.from('viajes').insert({
                     nombre_pasajero: r.nombre_pasajero,
                     id_movil: MI_ID_MOVIL,
@@ -521,7 +701,6 @@
                 });
                 if (insertError) console.error('Error guardando historial:', insertError);
 
-                // 2. Borrar de activas
                 const { error: deleteError } = await _s.from('reservas_activas')
                     .delete()
                     .eq('id', r.id);
@@ -548,13 +727,6 @@
     function inicializarAudioNavegacion() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
-    }
-
-    function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
-        const R = 111320;
-        const dLat = (lat2 - lat1) * R;
-        const dLon = (lon2 - lon1) * R * Math.cos(lat1 * Math.PI / 180);
-        return Math.sqrt(dLat * dLat + dLon * dLon);
     }
 
     function obtenerPasajeroQueBaja(destinoIdx, reservasActivas) {
@@ -611,7 +783,6 @@
         const paradaActual = calcularCercana(lat, lon);
         const paradaActualIdx = paradaActual.idx;
 
-        // GPS INTELIGENTE: detectar dirección por secuencia
         detectarDireccionPorSecuencia(paradaActualIdx);
 
         const siguienteParadaIdx = obtenerSiguienteParadaDesdePosicion(paradaActualIdx);
@@ -642,13 +813,11 @@
             paradasAnunciadas.set(siguienteParadaIdx, ahora);
             ultimaParadaAnunciada = siguienteParadaIdx;
 
-            // Guardar anuncio en la reserva del pasajero (para que el pasajero lo vea)
             const mensajeDB = nombrePasajero
                 ? '🚏 Próxima parada: ' + siguienteParada.n + '\n👤 ' + nombrePasajero + ', preparate para bajar'
                 : '🚏 Próxima parada: ' + siguienteParada.n;
 
             try {
-                // Buscar reservas de este móvil que van a esa parada
                 const { data: reservasDestino } = await _s.from('reservas_activas')
                     .select('id, nombre_pasajero')
                     .eq('id_movil', MI_ID_MOVIL)
@@ -668,7 +837,6 @@
             }
         }
 
-        // Limpiar paradas antiguas del cache
         paradasAnunciadas.forEach((timestamp, idx) => {
             if (ahora - timestamp > 300000) {
                 paradasAnunciadas.delete(idx);
@@ -687,7 +855,7 @@
     }
 
     // ============================================
-    // CONEXIÓN / GPS (LÓGICA DEL VIEJO QUE ANDABA)
+    // 🔄 CONEXIÓN / GPS CON ROTACIÓN REALISTA
     // ============================================
     async function gestionarConexion() {
         const toggle = document.getElementById('online-toggle'), label = document.getElementById('status-label');
@@ -696,7 +864,6 @@
             label.innerText = "CONECTANDO...";
             inicializarAudio();
 
-            // Sincronizar sentido desde la base
             const { data: cocheActual, error: errorCoche } = await _s.from('estado_movil').select('sentido_flujo').eq('id', MI_ID_MOVIL).single();
             if (cocheActual && cocheActual.sentido_flujo) {
                 sentidoActual = cocheActual.sentido_flujo;
@@ -727,6 +894,7 @@
                     label.innerText = "EN LÍNEA"; 
                     label.style.color = "#4cd964";
                     document.getElementById('panel-parada').style.display = 'block';
+                    document.getElementById('panel-velocidad').style.display = 'block';
                     activarWakeLock();
                     iniciarGPS();
                 }
@@ -741,20 +909,80 @@
             label.style.color = "white";
             document.getElementById('panel-parada').style.display = 'none';
             document.getElementById('panel-anuncio-parada').style.display = 'none';
+            document.getElementById('panel-velocidad').style.display = 'none';
             liberarWakeLock();
             cerrarAlerta();
         }
     }
 
+    // ============================================
+    // 🚗 GPS CON ROTACIÓN REALISTA, RASTRO Y VELOCIDAD
+    // ============================================
     function iniciarGPS() {
         const opcionesGPS = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
 
         watchId = navigator.geolocation.watchPosition(async (p) => {
             const ahora = Date.now();
-            const lat = p.coords.latitude, lon = p.coords.longitude;
+            const lat = p.coords.latitude;
+            const lon = p.coords.longitude;
+            const precision = p.coords.accuracy || 10;
+            const velocidadMs = p.coords.speed || 0;
+            const headingNativo = p.coords.heading;
+
+            // Calcular velocidad en km/h
+            velocidadActual = Math.round(velocidadMs * 3.6);
+            document.getElementById('txt-velocidad').innerText = velocidadActual;
+
+            // Guardar posición en historial para calcular dirección
+            historialPosiciones.push({ lat, lon, tiempo: ahora });
+            if (historialPosiciones.length > 8) historialPosiciones.shift();
+
+            // Calcular dirección (heading)
+            let anguloNuevo = null;
+
+            // 1. Primero intentar usar heading nativo del GPS (más preciso)
+            if (headingNativo !== null && !isNaN(headingNativo) && velocidadMs > 0.5) {
+                anguloNuevo = headingNativo;
+            }
+            // 2. Si no hay heading nativo, calcular con las últimas posiciones
+            else if (historialPosiciones.length >= 2) {
+                const anterior = historialPosiciones[historialPosiciones.length - 2];
+                const distancia = calcularDistanciaMetros(anterior.lat, anterior.lon, lat, lon);
+                if (distancia > 2) { // Solo si nos movimos más de 2 metros
+                    anguloNuevo = calcularAnguloDireccion(anterior.lat, anterior.lon, lat, lon);
+                }
+            }
+
+            // Suavizar rotación
+            if (anguloNuevo !== null) {
+                suavizadoAngulo = suavizarRotacion(anguloNuevo, suavizadoAngulo, 0.2);
+                anguloActual = suavizadoAngulo;
+            }
 
             ultimaPosicionGPS = { lat, lon };
+
+            // Actualizar marker con rotación
             markerCoche.setLatLng([lat, lon]);
+
+            // Aplicar rotación al icono
+            const iconoElement = markerCoche.getElement();
+            if (iconoElement) {
+                const img = iconoElement.querySelector('img');
+                if (img) {
+                    img.style.transform = `rotate(${anguloActual}deg)`;
+                    img.style.transition = 'transform 0.3s ease-out';
+                }
+            }
+
+            // Actualizar rastro (como Waze)
+            puntosRastro.push([lat, lon]);
+            if (puntosRastro.length > MAX_PUNTOS_RASTRO) puntosRastro.shift();
+            rastroPolyline.setLatLngs(puntosRastro);
+
+            // Actualizar círculo de precisión GPS
+            precisionCircle.setLatLng([lat, lon]);
+            precisionCircle.setRadius(precision);
+
             map.panTo([lat, lon]);
 
             const paradaInfo = calcularCercana(lat, lon);
@@ -776,13 +1004,12 @@
     }
 
     // ============================================
-    // ACTUALIZAR RESERVAS - CON BOTONES INTELIGENTES
+    // ACTUALIZAR RESERVAS
     // ============================================
     async function actualizar() {
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
 
         if (reservas) {
-            // Alerta de nueva reserva
             if (reservas.length > ultimaCantidadReservas && estaOnline) {
                 const nuevasReservas = reservas.slice(ultimaCantidadReservas);
                 const nombresNuevos = nuevasReservas.map(r => r.nombre_pasajero).join(', ');
@@ -791,7 +1018,6 @@
             }
             ultimaCantidadReservas = reservas.length;
 
-            // Limpiar markers
             markersPax.forEach(m => map.removeLayer(m));
             markersDest.forEach(m => map.removeLayer(m));
             markersPax = []; markersDest = [];
@@ -828,7 +1054,6 @@
                 }
             });
 
-            // Mostrar/ocultar botones según estado
             const btnSubir = document.getElementById('btn-subir-abordo');
             const btnLlego = document.getElementById('btn-llego-destino');
 
@@ -846,11 +1071,9 @@
                 btnLlego.style.display = 'none';
             }
 
-            // NAVEGACIÓN POR PARADAS
             const latLng = markerCoche.getLatLng();
             if (latLng) verificarNavegacionParadas(latLng.lat, latLng.lng, reservas);
         } else {
-            // Sin reservas, ocultar botones
             document.getElementById('btn-subir-abordo').style.display = 'none';
             document.getElementById('btn-llego-destino').style.display = 'none';
             document.getElementById('txt-pax').innerText = '0';
@@ -867,10 +1090,8 @@
         direccionDetectada = sentidoActual;
         document.getElementById('btn-sentido').innerText = sentidoActual;
 
-        // IDA = ROJO, VUELTA = CELESTE
         rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
 
-        // Resetear navegación
         paradasAnunciadas.clear();
         ultimaParadaAnunciada = -1;
         historialParadas = [];
@@ -895,7 +1116,6 @@
 
     async function confirmarVaciar() {
         if(confirm("⚠️ ¿VACIAR TODOS los asientos? Esto finalizará TODOS los viajes.")) {
-            // Finalizar todos los que están a bordo
             const { data: reservas } = await _s.from('reservas_activas')
                 .select('*')
                 .eq('id_movil', MI_ID_MOVIL)
