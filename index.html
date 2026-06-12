@@ -11,7 +11,6 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #0a0a0a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; color: #fff; }
         
-        /* Contenedor envolvente para permitir la rotación fluida del mapa */
         #map-wrapper { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; overflow: hidden; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.175); }
         #map { width: 100%; height: 100%; }
 
@@ -50,7 +49,6 @@
         .connection-status { display: flex; align-items: center; gap: 8px; }
         #status-label { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #aaa; }
         
-        /* SWITCH */
         .switch { position: relative; width: 46px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #333; border-radius: 24px; transition: .3s; }
@@ -87,21 +85,31 @@
         .parada-pill.proxima { background: #00d2ff; color: #000; border-color: #00d2ff; font-weight: 800; }
         .parada-pill.visitada { background: rgba(52, 199, 89, 0.2); color: #34c759; border-color: rgba(52, 199, 89, 0.4); }
 
-        /* MENÚ INFERIOR DESLIZABLE (BOTTOM SHEET) */
+        /* BOTÓN FLOTANTE PARA VOLVER A ABRIR EL MENU CUANDO ESTÁ SUBIDO COMPLETAMENTE */
+        #btn-abrir-sheet {
+            position: absolute; bottom: 16px; right: 16px; z-index: 999;
+            background: #ffcc00; color: #000; border: none; width: 56px; height: 56px;
+            border-radius: 50%; font-size: 24px; font-weight: bold; display: flex;
+            align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            cursor: pointer; transition: transform 0.2s; pointer-events: auto;
+        }
+        #btn-abrir-sheet:active { transform: scale(0.9); }
+
+        /* MENÚ INFERIOR MEJORADO (Escondido al 100% por defecto) */
         .bottom-sheet {
             position: absolute; bottom: 0; left: 0; right: 0; z-index: 1001;
-            background: rgba(15, 15, 15, 0.95); backdrop-filter: blur(25px);
-            border-top: 1px solid rgba(255,255,255,0.1);
+            background: rgba(15, 15, 15, 0.96); backdrop-filter: blur(25px);
+            border-top: 1px solid rgba(255,255,255,0.15);
             border-radius: 28px 28px 0 0; padding: 10px 16px env(safe-area-inset-bottom, 16px) 16px;
-            box-shadow: 0 -8px 36px rgba(0,0,0,0.5);
-            transform: translateY(calc(100% - 110px));
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+            box-shadow: 0 -8px 36px rgba(0,0,0,0.6);
+            transform: translateY(100%); /* Oculto completamente abajo */
+            transition: transform 0.4s cubic-bezier(0.1, 0.9, 0.2, 1);
             pointer-events: auto;
         }
-        .bottom-sheet.expanded { transform: translateY(0); }
-        .drag-handle { width: 40px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; margin: 0 auto 10px auto; cursor: pointer; }
+        .bottom-sheet.expanded { transform: translateY(0%); }
+        .drag-handle { width: 42px; height: 6px; background: rgba(255,255,255,0.3); border-radius: 3px; margin: 0 auto 12px auto; cursor: pointer; }
 
-        .sheet-visible-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .sheet-visible-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; cursor: pointer; }
         .quick-stats { display: flex; gap: 12px; flex: 1; }
         .q-stat { background: rgba(255,255,255,0.04); padding: 8px 14px; border-radius: 16px; flex: 1; border: 1px solid rgba(255,255,255,0.05); }
         .q-label { font-size: 9px; color: #888; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
@@ -144,10 +152,9 @@
         .btn-llego-destino { background: #34c759; color: #fff; }
         .btn-vaciar { background: rgba(255, 59, 48, 0.05); color: #ff3b30; border: 1px solid rgba(255, 59, 48, 0.2); margin-top: 2px; padding: 10px; font-size: 12px; }
         
-        /* BOTÓN DE FINALIZAR JORNADA */
         .btn-finalizar-jornada { display: block !important; background: linear-gradient(135deg, #bd2113 0%, #7a0f05 100%); color: #fff; border: 1px solid #ff3b30; margin-top: 6px; box-shadow: 0 4px 15px rgba(255,59,48,0.2); }
 
-        /* WAKE LOCK INDICATOR */
+        /* WAKE LOCK */
         .wakelock-indicator { position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #34c759; color: #000; padding: 3px 10px; border-radius: 10px; font-size: 9px; font-weight: 800; display: none; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
         .wakelock-indicator.activo { display: block; }
 
@@ -168,8 +175,6 @@
         @keyframes fadeInDown { from { opacity: 0; transform: translateY(-15px); } to { opacity: 1; transform: translateY(0); } }
 
         .leaflet-tooltip { background: #111 !important; color: #ffcc00 !important; border: 1px solid #ffcc00 !important; font-weight: 700 !important; border-radius: 8px !important; }
-        
-        /* Corrección visual para los marcadores cuando se rota el mapa */
         .auto-radar-icon { transition: transform 0.25s linear; }
     </style>
 </head>
@@ -193,6 +198,8 @@
     <div id="map-wrapper">
         <div id="map"></div>
     </div>
+
+    <button id="btn-abrir-sheet" onclick="abrirSheet()">📋</button>
 
     <div class="top-nav">
         <div class="header-bar">
@@ -219,7 +226,7 @@
     </div>
 
     <div class="bottom-sheet" id="driver-sheet">
-        <div class="drag-handle" onclick="toggleSheet()"></div>
+        <div class="drag-handle" onclick="cerrarSheet()"></div>
         
         <div class="wakelock-indicator" id="wakelock-indicator">☀️ PANTALLA ACTIVA</div>
 
@@ -273,7 +280,6 @@
     let wakeLock = null;
     let audioContext = null;
     let paradasAnunciadas = new Map();
-    let audioCtx = null;
     let historialParadas = [];
     let direccionDetectada = 'IDA';
     let paradasVisitadas = new Set();
@@ -354,8 +360,18 @@
     let markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
     let markersPax = [], markersDest = [];
 
+    // CONTROLADORES MANUALES DE UI CORREGIDOS
     function toggleSheet() {
-        document.getElementById('driver-sheet').classList.toggle('expanded');
+        const sheet = document.getElementById('driver-sheet');
+        if(sheet.classList.contains('expanded')) { cerrarSheet(); } else { abrirSheet(); }
+    }
+    function abrirSheet() {
+        document.getElementById('driver-sheet').classList.add('expanded');
+        document.getElementById('btn-abrir-sheet').style.display = 'none';
+    }
+    function cerrarSheet() {
+        document.getElementById('driver-sheet').classList.remove('expanded');
+        document.getElementById('btn-abrir-sheet').style.display = 'flex';
     }
 
     function mostrarToast(mensaje, tipo) {
@@ -409,11 +425,13 @@
         alerta.classList.add('mostrar');
         reproducirAlarma();
         vibrarAlarma();
-        document.getElementById('driver-sheet').classList.add('expanded');
+        abrirSheet(); // Desliza el panel para ver controles inmediatamente
     }
 
+    // Al pulsar el botón "Atender Viaje", la alerta se va y el panel baja solo para dejarte el mapa limpio
     function cerrarAlerta() {
         document.getElementById('alerta-reserva').classList.remove('mostrar');
+        setTimeout(cerrarSheet, 1000);
     }
 
     function calcularAnguloDireccion(lat1, lon1, lat2, lon2) {
@@ -461,6 +479,7 @@
             pill.textContent = (i + 1) + ". " + paradas[i].n.split(' ')[0];
             if (i === paradaActualIdx) pill.classList.add('proxima');
             else if (paradasVisitadas.has(i)) pill.classList.add('visitada');
+            hud.appendChild(hud.childNodes.length === 0 ? pill : pill); // Inserción limpia
             hud.appendChild(pill);
         }
     }
@@ -478,7 +497,7 @@
         if (Math.abs(tendencia) >= 2 && nuevaDireccion !== direccionDetectada) {
             direccionDetectada = nuevaDireccion;
             sentidoActual = direccionDetectada;
-            localStorage.setItem('driver_sentido', sentidoActual); // Guardar persistencia
+            localStorage.setItem('driver_sentido', sentidoActual);
             if (estaOnline) { _s.from('estado_movil').update({ sentido_flujo: direccionDetectada }).eq('id', MI_ID_MOVIL); }
             document.getElementById('btn-sentido').innerText = sentidoActual;
             rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
@@ -497,6 +516,7 @@
             }
             mostrarToast('Pasajeros a bordo', 'success');
             actualizar();
+            setTimeout(cerrarSheet, 1500); // Vuelve a guardar la pantalla sola al arrancar el viaje
         } catch (err) { mostrarToast('Error al actualizar', 'error'); }
     }
 
@@ -516,6 +536,7 @@
             }
             mostrarToast('Viajes Completados', 'success');
             actualizar();
+            setTimeout(cerrarSheet, 1500);
         } catch (err) { mostrarToast('Error al finalizar', 'error'); }
     }
 
@@ -552,6 +573,12 @@
         const paxEl = document.getElementById('anuncio-parada-pasajero');
         if (paxBaja) { paxEl.style.display = 'block'; paxEl.innerText = '👤 Baja: ' + paxBaja.nombre_pasajero; } else { paxEl.style.display = 'none'; }
 
+        // TRIGGER DISPARADOR GPS DE UI AUTOMÁTICO:
+        // Si estás a menos de 50 metros de la parada donde baja un pasajero en viaje, la app le levanta el menú a Carlos sola.
+        if (dist <= 50 && paxBaja) {
+            abrirSheet();
+        }
+
         const ahora = Date.now();
         if (dist >= 60 && dist <= 300 && (ahora - (paradasAnunciadas.get(sigIdx) || 0) > 60000)) {
             anunciarParadaNavegacion(siguienteParada.n, paxBaja?.nombre_pasajero);
@@ -573,7 +600,6 @@
         const label = document.getElementById('status-label');
         estaOnline = toggle.checked;
         
-        // Guardar estado online en el teléfono
         localStorage.setItem('driver_online', estaOnline ? 'true' : 'false');
 
         if (estaOnline) {
@@ -584,6 +610,7 @@
                 await _s.from('estado_movil').update(datos).eq('id', MI_ID_MOVIL);
                 label.innerText = "EN LÍNEA"; label.style.color = "#34c759";
                 activarWakeLock(); iniciarGPS();
+                setTimeout(cerrarSheet, 2000); // Cuando inicia en línea, esconde el menú para ver el mapa entero
             }, () => { toggle.checked = false; label.innerText = "ERROR GPS"; localStorage.setItem('driver_online', 'false'); }, { enableHighAccuracy: true });
         } else {
             if (watchId) navigator.geolocation.clearWatch(watchId);
@@ -591,11 +618,9 @@
             label.innerText = "DESCONECTADO"; label.style.color = "#aaa";
             document.getElementById('panel-anuncio-parada').classList.remove('visible');
             document.getElementById('hud-paradas').style.display = 'none';
-            
-            // Restablecer rotación al desconectar
             document.getElementById('map-wrapper').style.transform = `rotate(0deg)`;
-            
             liberarWakeLock();
+            abrirSheet(); // Al desconectarse, despliega el panel
         }
     }
 
@@ -606,7 +631,6 @@
             velocidadActual = Math.round((p.coords.speed || 0) * 3.6);
             actualizarVelocimetro(velocidadActual);
             
-            // Si el teléfono nos da rumbo nativo lo usamos, sino lo calculamos por diferencia de puntos
             if (p.coords.heading !== null && p.coords.heading !== undefined && velocidadActual > 5) {
                 anguloActual = suavizarRotacion(p.coords.heading, anguloActual, 0.40);
             } else if (historialPosiciones.length > 0) {
@@ -620,8 +644,6 @@
             
             markerCoche.setLatLng([lat, lon]);
             
-            // EFECTO GPS "HACIA ARRIBA": Rotamos el contenedor del mapa en sentido inverso al auto
-            // De este modo el auto en pantalla siempre apunta hacia adelante y el mapa gira.
             if (estaOnline && velocidadActual > 3) {
                 document.getElementById('map-wrapper').style.transform = `rotate(${-anguloActual}deg)`;
                 map.setView([lat, lon], map.getZoom(), { animate: false });
@@ -683,7 +705,7 @@
     async function cambiarSentido() {
         sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
         direccionDetectada = sentidoActual;
-        localStorage.setItem('driver_sentido', sentidoActual); // Guardar memoria interna
+        localStorage.setItem('driver_sentido', sentidoActual);
         document.getElementById('btn-sentido').innerText = sentidoActual;
         rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
         if (estaOnline) { await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL); }
@@ -706,28 +728,22 @@
         }
     }
 
-    // NUEVA FUNCIÓN: FINALIZAR JORNADA COMPLETA
     async function finalizarJornada() {
         if (!confirm("🏁 ¿Estás seguro de que deseas finalizar tu jornada laboral?\nEsto te desconectará del sistema por completo y vaciará el coche.")) return;
         
-        // 1. Apagar GPS Local
         if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
         
-        // 2. Comunicar desconexión total a Supabase
         try {
             await _s.from('estado_movil').update({ esta_online: false, ultima_actualizacion: new Date().toISOString() }).eq('id', MI_ID_MOVIL);
-            // Opcional: Vaciar las reservas de este móvil en curso si finalizas el turno completo
             const { data: res } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
             if (res) {
                 for (const r of res) { await _s.from('reservas_activas').delete().eq('id', r.id); }
             }
-        } catch(e) { console.error("Error al limpiar base de datos al salir:", e); }
+        } catch(e) { console.error(e); }
 
-        // 3. Limpiar memoria local (localStorage)
         localStorage.removeItem('driver_online');
         localStorage.removeItem('driver_sentido');
 
-        // 4. Resetear UI de la app
         estaOnline = false;
         document.getElementById('online-toggle').checked = false;
         document.getElementById('status-label').innerText = "DESCONECTADO";
@@ -738,13 +754,12 @@
         
         liberarWakeLock();
         actualizar();
+        abrirSheet();
         
         mostrarToast('Jornada finalizada correctamente. ¡Buen descanso!', 'warning');
     }
 
-    // CONTROL DE PERSISTENCIA AL ABRIR LA PÁGINA (Anti-Cierre / Segundo Plano)
     window.addEventListener('DOMContentLoaded', () => {
-        // Cargar sentido anterior si existe
         const sentidoGuardado = localStorage.getItem('driver_sentido');
         if (sentidoGuardado) {
             sentidoActual = sentidoGuardado;
@@ -753,11 +768,12 @@
             rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
         }
 
-        // Cargar estado online anterior si existe y estaba activo
         const onlineGuardado = localStorage.getItem('driver_online');
         if (onlineGuardado === 'true') {
             document.getElementById('online-toggle').checked = true;
             gestionarConexion();
+        } else {
+            abrirSheet(); // Inicia abierto por comodidad de configuración inicial
         }
     });
 
