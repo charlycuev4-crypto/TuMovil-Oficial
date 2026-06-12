@@ -3,324 +3,282 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>CONDUCTOR 01 - TuMovil</title>
+    <title>CONDUCTOR 01 - TuMovil PRO</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
+        body { background: #0a0a0a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; color: #fff; }
+        
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
 
-        /* SPLASH */
+        /* SPLASH SCREEN */
         #splash {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(180deg, #0a0a1a 0%, #1a1a3e 50%, #0d2b3a 100%);
+            background: radial-gradient(circle at center, #1a1a3e 0%, #05050f 100%);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 99999; transition: opacity 0.8s ease, visibility 0.8s;
+            z-index: 99999; transition: opacity 0.6s ease, visibility 0.6s;
         }
         #splash .logo-ring {
-            width: 140px; height: 140px; border: 3px solid #00d2ff; border-radius: 50%;
+            width: 120px; height: 120px; border: 3px solid #00d2ff; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 0 40px rgba(0, 210, 255, 0.4), inset 0 0 20px rgba(0, 210, 255, 0.1);
-            animation: pulseRing 2s infinite;
+            box-shadow: 0 0 30px rgba(0, 210, 255, 0.3); animation: pulseRing 2s infinite;
         }
-        @keyframes pulseRing { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
-        #splash h1 { color: #00d2ff; margin-top: 24px; font-size: 28px; letter-spacing: 4px; font-weight: 800; }
-        #splash p { color: #888; margin-top: 8px; font-size: 13px; }
-        #splash .loading-bar {
-            width: 180px; height: 3px; background: #222; border-radius: 3px; margin-top: 20px; overflow: hidden;
-        }
-        #splash .loading-bar-inner {
-            width: 0%; height: 100%; background: linear-gradient(90deg, #00d2ff, #ffcc00);
-            border-radius: 3px; animation: loadBar 1.5s ease forwards;
-        }
+        @keyframes pulseRing { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+        #splash h1 { color: #00d2ff; margin-top: 20px; font-size: 26px; letter-spacing: 3px; font-weight: 800; }
+        #splash p { color: #666; margin-top: 6px; font-size: 13px; }
+        #splash .loading-bar { width: 140px; height: 3px; background: #222; border-radius: 3px; margin-top: 20px; overflow: hidden; }
+        #splash .loading-bar-inner { width: 0%; height: 100%; background: linear-gradient(90deg, #00d2ff, #ffcc00); animation: loadBar 1.5s ease forwards; }
         @keyframes loadBar { to { width: 100%; } }
 
-        .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
-
-        /* TOP STATS */
-        .top-stats {
-            top: env(safe-area-inset-top, 12px);
-            display: flex; justify-content: space-around; padding: 0 12px; gap: 10px;
+        /* CONTROLES SUPERIORES FLOTANTES (Ultra-Limpios) */
+        .top-nav {
+            position: absolute; top: env(safe-area-inset-top, 12px); left: 12px; right: 12px;
+            z-index: 1000; display: flex; flex-direction: column; gap: 8px; pointer-events: none;
         }
-        .stat-card {
-            background: rgba(0,0,0,0.75); backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 215, 0, 0.4); border-radius: 16px;
-            padding: 10px 14px; flex: 1; text-align: center; pointer-events: auto;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: all 0.3s ease;
-        }
-        .stat-card.pulse-green { animation: pulseGreen 0.5s ease; }
-        @keyframes pulseGreen {
-            0%,100% { border-color: rgba(255,215,0,0.4); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
-            50% { border-color: #4cd964; box-shadow: 0 0 30px rgba(76, 217, 100, 0.4); }
-        }
-        .stat-label { color: #FFD700; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
-        .stat-value { font-size: 26px; font-weight: 800; color: white; margin-top: 2px; }
-        .stat-value.green { color: #4cd964; text-shadow: 0 0 10px rgba(76, 217, 100, 0.5); }
-
-        /* CONNECTION PANEL */
-        .connection-panel {
-            position: absolute; top: 90px; left: 50%; transform: translateX(-50%);
-            z-index: 1001; display: flex; align-items: center; gap: 12px;
-            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
-            padding: 8px 16px; border-radius: 30px;
-            border: 1px solid rgba(255, 215, 0, 0.3); pointer-events: auto;
+        
+        .header-bar {
+            background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08); padding: 10px 16px; border-radius: 20px;
+            display: flex; justify-content: space-between; align-items: center; pointer-events: auto;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
-        .switch { position: relative; width: 52px; height: 26px; display: inline-block; }
+
+        .connection-status { display: flex; align-items: center; gap: 8px; }
+        #status-label { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #aaa; }
+        
+        /* SWITCH REDISEÑADO */
+        .switch { position: relative; width: 46px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background: #333; border-radius: 26px; transition: .4s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
-        }
-        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px;
-            background: white; border-radius: 50%; transition: .4s; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        }
-        input:checked + .slider { background: linear-gradient(90deg, #4cd964, #34c759); }
-        input:checked + .slider:before { transform: translateX(26px); }
-        #status-label { color: white; font-size: 12px; font-weight: 700; width: 100px; text-align: center; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #333; border-radius: 24px; transition: .3s; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; }
+        input:checked + .slider { background: #34c759; }
+        input:checked + .slider:before { transform: translateX(22px); }
+
         #btn-sentido {
-            background: linear-gradient(135deg, #FFD700, #E6C200); border: none;
-            padding: 8px 18px; border-radius: 20px; font-weight: 800; font-size: 13px;
-            color: #1a1a1a; cursor: pointer; box-shadow: 0 2px 10px rgba(255, 215, 0, 0.3); transition: all 0.2s;
+            background: #ffcc00; border: none; padding: 6px 14px; border-radius: 12px;
+            font-weight: 800; font-size: 11px; color: #000; cursor: pointer; transition: 0.2s;
         }
-        #btn-sentido:active { transform: scale(0.95); }
 
-        /* PANEL PARADA */
-        #panel-parada {
-            position: absolute; top: 150px; left: 50%; transform: translateX(-50%);
-            z-index: 1001; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
-            color: #FFD700; padding: 6px 18px; border-radius: 20px;
-            font-size: 12px; font-weight: 700; border: 1px solid rgba(255, 215, 0, 0.3);
-            display: none; pointer-events: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
-        #panel-parada .parada-icono { margin-right: 4px; }
-
-        /* VELOCIMETRO */
-        .velocimetro-container {
-            position: absolute; top: 150px; right: 12px;
-            width: 85px; height: 85px; z-index: 1001; pointer-events: none; display: none;
-        }
-        .velocimetro-container.visible { display: block; }
-        .velocimetro-svg { transform: rotate(-90deg); filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.3)); }
-        .velocimetro-fondo { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 6; }
-        .velocimetro-aguja {
-            fill: none; stroke: #00d2ff; stroke-width: 6; stroke-linecap: round;
-            transition: stroke-dashoffset 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            filter: drop-shadow(0 0 6px #00d2ff);
-        }
-        .velocimetro-aguja.alerta { stroke: #ff3b30; filter: drop-shadow(0 0 6px #ff3b30); }
-        .velocimetro-aguja.advertencia { stroke: #ffcc00; filter: drop-shadow(0 0 6px #ffcc00); }
-        .velocimetro-centro { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
-        .velocimetro-valor { color: white; font-size: 22px; font-weight: 800; line-height: 1; }
-        .velocimetro-unidad { color: #888; font-size: 9px; font-weight: 600; }
-
-        /* PANEL ANUNCIO */
+        /* PANEL DIRECCIÓN / NAVEGACIÓN SUPERIOR */
         #panel-anuncio-parada {
-            position: absolute; top: 195px; left: 50%; transform: translateX(-50%);
-            z-index: 1001; background: linear-gradient(135deg, rgba(10,10,30,0.95) 0%, rgba(26,26,62,0.95) 100%);
-            backdrop-filter: blur(15px); color: #00d2ff; padding: 16px 28px;
-            border-radius: 24px; border: 2px solid rgba(0, 210, 255, 0.5);
-            display: none; text-align: center;
-            box-shadow: 0 0 40px rgba(0, 210, 255, 0.2), inset 0 0 20px rgba(0, 210, 255, 0.05);
-            animation: slideInHUD 0.5s ease; max-width: 92%; min-width: 260px; pointer-events: auto;
+            background: linear-gradient(135deg, rgba(10,25,50,0.92) 0%, rgba(5,10,20,0.95) 100%);
+            backdrop-filter: blur(20px); border: 1px solid rgba(0, 210, 255, 0.3);
+            padding: 12px 16px; border-radius: 20px; display: none; pointer-events: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4); text-align: left;
         }
-        #panel-anuncio-parada.visible { display: block; animation: slideInHUD 0.5s ease, glowPulse 2s infinite; }
-        #panel-anuncio-parada .anuncio-titulo { color: #00d2ff; font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px; text-shadow: 0 0 10px rgba(0, 210, 255, 0.5); }
-        #panel-anuncio-parada .anuncio-nombre { color: white; font-size: 20px; font-weight: 800; text-shadow: 0 0 20px rgba(255, 255, 255, 0.2); line-height: 1.3; }
-        #panel-anuncio-parada .anuncio-pasajero { color: #ffcc00; font-size: 14px; font-weight: 600; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255, 204, 0, 0.2); }
-        #panel-anuncio-parada .anuncio-distancia { color: #888; font-size: 11px; margin-top: 4px; }
-        @keyframes glowPulse { 0%, 100% { box-shadow: 0 0 40px rgba(0, 210, 255, 0.2); } 50% { box-shadow: 0 0 60px rgba(0, 210, 255, 0.4); } }
-        @keyframes slideInHUD { from { transform: translateX(-50%) translateY(-20px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+        #panel-anuncio-parada.visible { display: block; animation: fadeInDown 0.4s ease; }
+        .anuncio-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+        .anuncio-titulo { color: #00d2ff; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; }
+        #anuncio-parada-distancia { color: #fff; background: rgba(0,210,255,0.2); padding: 2px 8px; border-radius: 8px; font-size: 11px; font-weight: 700; }
+        .anuncio-nombre { font-size: 17px; font-weight: 800; color: #fff; margin-top: 2px; }
+        #anuncio-parada-pasajero { color: #ffcc00; font-size: 12px; font-weight: 600; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); }
 
-        /* HUD PARADAS */
+        /* HUD MINI PARADAS TRASSERAS DEL CARTEL */
         .hud-paradas {
-            position: absolute; bottom: 210px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 6px; z-index: 1001; background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(10px); padding: 10px 16px; border-radius: 20px;
-            border: 1px solid rgba(0, 210, 255, 0.15); pointer-events: auto;
-            overflow-x: auto; max-width: 95%; scrollbar-width: none;
+            display: flex; gap: 4px; overflow-x: auto; padding: 4px 0; scrollbar-width: none; pointer-events: auto;
         }
         .hud-paradas::-webkit-scrollbar { display: none; }
-        .parada-pill { min-width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            font-size: 10px; font-weight: 800; color: #555; background: #1a1a1a; border: 2px solid #333;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: relative; flex-shrink: 0;
+        .parada-pill {
+            padding: 4px 10px; border-radius: 10px; font-size: 9px; font-weight: 700; background: rgba(0,0,0,0.6);
+            color: #777; border: 1px solid rgba(255,255,255,0.05); white-space: nowrap; transition: all 0.3s;
         }
-        .parada-pill.proxima { min-width: 44px; height: 44px; background: linear-gradient(135deg, #00d2ff, #0088cc); color: white;
-            border-color: #00d2ff; box-shadow: 0 0 20px rgba(0, 210, 255, 0.4); animation: pulseParada 2s infinite; font-size: 14px; margin: -6px 0;
-        }
-        .parada-pill.visitada { background: #4cd964; border-color: #4cd964; color: black; }
-        .parada-pill .nombre-mini { position: absolute; bottom: -16px; font-size: 7px; white-space: nowrap; color: #888; opacity: 0; transition: opacity 0.3s; }
-        .parada-pill.proxima .nombre-mini { opacity: 1; color: white; }
-        @keyframes pulseParada { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+        .parada-pill.proxima { background: #00d2ff; color: #000; border-color: #00d2ff; font-weight: 800; }
+        .parada-pill.visitada { background: rgba(52, 199, 89, 0.2); color: #34c759; border-color: rgba(52, 199, 89, 0.4); }
 
-        /* BOTTOM UI */
-        .bottom-ui {
-            position: absolute; bottom: env(safe-area-inset-bottom, 20px);
-            width: 100%; display: flex; flex-direction: column; align-items: center;
-            z-index: 1000; padding: 0 16px;
+        /* MENÚ INFERIOR DESLIZABLE (BOTTOM SHEET) */
+        .bottom-sheet {
+            position: absolute; bottom: 0; left: 0; right: 0; z-index: 1001;
+            background: rgba(15, 15, 15, 0.92); backdrop-filter: blur(25px);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            border-radius: 28px 28px 0 0; padding: 10px 16px env(safe-area-inset-bottom, 16px) 16px;
+            box-shadow: 0 -8px 36px rgba(0,0,0,0.5);
+            transform: translateY(calc(100% - 110px)); /* Deja afuera solo los stats y velocimetro principal */
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+            pointer-events: auto;
         }
-        .asientos-pills { display: flex; gap: 10px; margin-bottom: 14px; pointer-events: auto; }
+        .bottom-sheet.expanded { transform: translateY(0); }
+        
+        /* Tirador para arrastrar el menú */
+        .drag-handle {
+            width: 40px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px;
+            margin: 0 auto 10px auto; cursor: pointer;
+        }
+
+        /* CUADRO PRINCIPAL DE INFORMACIÓN (Siempre visible arriba del sheet) */
+        .sheet-visible-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;
+        }
+        
+        .quick-stats { display: flex; gap: 12px; flex: 1; }
+        .q-stat { background: rgba(255,255,255,0.04); padding: 8px 14px; border-radius: 16px; flex: 1; border: 1px solid rgba(255,255,255,0.05); }
+        .q-label { font-size: 9px; color: #888; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+        .q-value { font-size: 20px; font-weight: 900; margin-top: 1px; }
+        .q-value.green { color: #34c759; }
+
+        /* VELOCIMETRO INTEGRADO COMPACTO */
+        .speed-box {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #111, #222); width: 64px; height: 64px; 
+            border-radius: 50%; border: 2px solid #00d2ff; margin-left: 12px;
+            transition: border-color 0.3s;
+        }
+        .speed-box.advertencia { border-color: #ffcc00; }
+        .speed-box.alerta { border-color: #ff3b30; }
+        #txt-velocidad { font-size: 22px; font-weight: 900; line-height: 1; }
+        .speed-unit { font-size: 8px; color: #666; font-weight: 700; text-transform: uppercase; }
+
+        /* CONTENIDO INTERNO DEL PANEL (Oculto hasta deslizar) */
+        .sheet-content { margin-top: 5px; }
+
+        .parada-actual-inline {
+            background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.2);
+            padding: 8px 12px; border-radius: 12px; font-size: 12px; color: #ffcc00;
+            font-weight: 700; text-align: center; margin-bottom: 15px;
+        }
+
+        /* CASILLEROS DE ASIENTOS */
+        .asientos-grid { display: flex; gap: 10px; margin-bottom: 15px; }
         .pill {
-            width: 56px; height: 56px; border: 2px solid rgba(255, 215, 0, 0.4); border-radius: 16px;
-            color: #FFD700; display: flex; align-items: center; justify-content: center;
-            font-weight: 800; font-size: 18px; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
-            position: relative; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            flex: 1; height: 52px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 16px; color: #888; position: relative; cursor: pointer; transition: all 0.25s;
         }
-        .pill:active { transform: scale(0.92); }
-        .pill.active { background: linear-gradient(135deg, #4cd964, #34c759); border-color: #4cd964; color: black; box-shadow: 0 0 20px rgba(76, 217, 100, 0.3); }
-        .pill.a-bordo { background: linear-gradient(135deg, #00d2ff, #0088cc); border-color: #00d2ff; color: black; box-shadow: 0 0 20px rgba(0, 210, 255, 0.3); }
-        .pill .nombre-pax { position: absolute; bottom: -18px; font-size: 9px; color: white; white-space: nowrap;
-            background: rgba(0,0,0,0.9); padding: 2px 6px; border-radius: 6px; display: none; font-weight: 600;
-        }
-        .pill.active .nombre-pax, .pill.a-bordo .nombre-pax { display: block; }
+        .pill .seat-num { font-size: 14px; }
+        .pill .nombre-pax { font-size: 9px; color: #fff; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; margin-top: 1px; }
+        
+        .pill.active { background: rgba(255, 204, 0, 0.15); border-color: #ffcc00; color: #ffcc00; }
+        .pill.a-bordo { background: linear-gradient(135deg, #00d2ff, #0088cc); border-color: #00d2ff; color: #000; }
+        .pill.a-bordo .nombre-pax { color: #000; font-weight: 700; }
 
+        /* BOTONES DE ACCIÓN */
+        .action-group { display: flex; flex-direction: column; gap: 8px; }
         .btn-action {
-            border: none; padding: 14px 32px; border-radius: 28px; font-weight: 800; font-size: 15px;
-            pointer-events: auto; margin-bottom: 10px; cursor: pointer; transition: all 0.3s ease;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: none;
+            width: 100%; border: none; padding: 14px; border-radius: 16px; font-weight: 800;
+            font-size: 14px; cursor: pointer; display: none; transition: transform 0.1s;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
-        .btn-action:active { transform: scale(0.96); }
-        .btn-subir-abordo { background: linear-gradient(135deg, #00d2ff, #0088cc); color: white; animation: pulseBtn 1.5s infinite; }
-        .btn-llego-destino { background: linear-gradient(135deg, #4cd964, #34c759); color: white; }
-        .btn-vaciar { background: linear-gradient(135deg, #ff3b30, #c0392b); color: white; }
-        @keyframes pulseBtn { 0%, 100% { transform: scale(1); box-shadow: 0 0 15px rgba(0, 210, 255, 0.3); } 50% { transform: scale(1.03); box-shadow: 0 0 30px rgba(0, 210, 255, 0.5); } }
+        .btn-action:active { transform: scale(0.98); }
+        .btn-subir-abordo { background: #00d2ff; color: #000; }
+        .btn-llego-destino { background: #34c759; color: #fff; }
+        .btn-vaciar { background: rgba(255, 59, 48, 0.1); color: #ff3b30; border: 1px solid rgba(255, 59, 48, 0.3); margin-top: 5px; }
 
-        /* WAKE LOCK */
+        /* WAKE LOCK INDICATOR */
         .wakelock-indicator {
-            position: absolute; top: 280px; left: 50%; transform: translateX(-50%);
-            z-index: 1001; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
-            color: #4cd964; padding: 4px 12px; border-radius: 16px; font-size: 10px; font-weight: 600;
-            display: none; border: 1px solid rgba(76, 217, 100, 0.3); pointer-events: auto;
+            position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
+            background: #34c759; color: #000; padding: 3px 10px; border-radius: 10px;
+            font-size: 9px; font-weight: 800; display: none; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
         .wakelock-indicator.activo { display: block; }
 
-        /* ALERTA RESERVA */
+        /* ALERTAS Y TOASTS */
         .alerta-reserva {
-            position: fixed; top: 0; left: 0; right: 0;
-            background: linear-gradient(180deg, #ff3b30 0%, #c0392b 100%);
-            color: white; padding: 24px 20px; text-align: center;
-            z-index: 10000; transform: translateY(-100%);
-            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            box-shadow: 0 10px 40px rgba(255, 59, 48, 0.5);
+            position: fixed; top: 0; left: 0; right: 0; background: #ff3b30; color: white;
+            padding: 20px; text-align: center; z-index: 10000; transform: translateY(-100%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 10px 30px rgba(255,59,48,0.4);
         }
         .alerta-reserva.mostrar { transform: translateY(0); }
-        .alerta-reserva h2 { margin: 0 0 8px 0; font-size: 24px; font-weight: 900; animation: pulseText 1s infinite; }
-        .alerta-reserva p { margin: 0; font-size: 15px; opacity: 0.9; }
-        .btn-atender { background: white; color: #ff3b30; border: none; padding: 14px 36px; border-radius: 28px;
-            font-weight: 800; font-size: 17px; margin-top: 14px; cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.2); transition: transform 0.2s;
-        }
-        .btn-atender:active { transform: scale(0.95); }
-        @keyframes pulseText { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+        .alerta-reserva h2 { font-size: 20px; font-weight: 900; margin-bottom: 4px; }
+        .btn-atender { background: white; color: #ff3b30; border: none; padding: 10px 28px; border-radius: 12px; font-weight: 800; margin-top: 10px; cursor: pointer; }
 
-        /* TOASTS */
-        .toast-container { position: fixed; top: 100px; left: 50%; transform: translateX(-50%);
-            z-index: 10001; display: flex; flex-direction: column; gap: 8px; pointer-events: none;
-        }
-        .toast {
-            background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); color: white;
-            padding: 12px 20px; border-radius: 16px; font-size: 13px; font-weight: 600;
-            border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            animation: toastIn 0.4s ease, toastOut 0.4s ease 2.6s forwards;
-            max-width: 90vw; text-align: center;
-        }
-        .toast.success { border-color: rgba(76, 217, 100, 0.4); color: #4cd964; }
-        .toast.warning { border-color: rgba(255, 204, 0, 0.4); color: #ffcc00; }
-        .toast.error { border-color: rgba(255, 59, 48, 0.4); color: #ff3b30; }
+        .toast-container { position: fixed; top: 140px; left: 50%; transform: translateX(-50%); z-index: 10001; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+        .toast { background: rgba(10,10,10,0.95); backdrop-filter: blur(10px); color: white; padding: 10px 16px; border-radius: 12px; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,0.1); animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards; }
+        .toast.success { border-color: #34c759; color: #34c759; }
+        .toast.warning { border-color: #ffcc00; color: #ffcc00; }
+        .toast.error { border-color: #ff3b30; color: #ff3b30; }
+
         @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes toastOut { to { opacity: 0; transform: translateY(-10px); } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-15px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* LEAFLET */
-        .leaflet-tooltip {
-            background: rgba(0,0,0,0.85) !important; backdrop-filter: blur(5px) !important;
-            color: #FFD700 !important; border: 1.5px solid #FFD700 !important;
-            font-weight: 700 !important; font-size: 12px !important; border-radius: 10px !important;
-            padding: 6px 12px !important;
-        }
-
-        @media (max-height: 600px) {
-            .hud-paradas { bottom: 180px; }
-            .velocimetro-container { width: 70px; height: 70px; }
-            .velocimetro-valor { font-size: 18px; }
-        }
+        .leaflet-tooltip { background: #111 !important; color: #ffcc00 !important; border: 1px solid #ffcc00 !important; font-weight: 700 !important; border-radius: 8px !important; }
     </style>
 </head>
 <body>
+
     <div id="splash">
-        <div class="logo-ring"><span style="font-size: 55px;">🚕</span></div>
+        <div class="logo-ring"><span style="font-size: 45px;">🚕</span></div>
         <h1>TUMOVIL</h1>
-        <p>Conductor Oficial</p>
+        <p>Conductor Oficial • Premium HUD</p>
         <div class="loading-bar"><div class="loading-bar-inner"></div></div>
     </div>
 
     <div class="alerta-reserva" id="alerta-reserva">
         <h2>🔔 ¡NUEVA SOLICITUD!</h2>
         <p id="alerta-texto">Alguien quiere subir a tu coche</p>
-        <button class="btn-atender" onclick="cerrarAlerta()">ATENDER</button>
+        <button class="btn-atender" onclick="cerrarAlerta()">ATENDER VIAJE</button>
     </div>
 
     <div class="toast-container" id="toast-container"></div>
 
     <div id="map"></div>
 
-    <div class="ui-overlay top-stats">
-        <div class="stat-card" id="stat-plata">
-            <div class="stat-label">RECAUDACIÓN</div>
-            <div class="stat-value green" id="txt-plata">$0</div>
+    <div class="top-nav">
+        <div class="header-bar">
+            <div class="connection-status">
+                <label class="switch">
+                    <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
+                    <span class="slider"></span>
+                </label>
+                <span id="status-label">DESCONECTADO</span>
+            </div>
+            <button id="btn-sentido" onclick="cambiarSentido()">IDA</button>
         </div>
-        <div class="stat-card" id="stat-pax">
-            <div class="stat-label">PASAJEROS</div>
-            <div class="stat-value" id="txt-pax">0</div>
+
+        <div id="panel-anuncio-parada">
+            <div class="anuncio-header">
+                <span class="anuncio-titulo">🚏 PRÓXIMA PARADA</span>
+                <span id="anuncio-parada-distancia">-- m</span>
+            </div>
+            <div class="anuncio-nombre" id="anuncio-parada-nombre">--</div>
+            <div class="anuncio-pasajero" id="anuncio-parada-pasajero" style="display:none;"></div>
         </div>
+
+        <div class="hud-paradas" id="hud-paradas" style="display:none;"></div>
     </div>
 
-    <div class="connection-panel">
-        <span id="status-label">DESCONECTADO</span>
-        <label class="switch">
-            <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
-            <span class="slider"></span>
-        </label>
-        <button id="btn-sentido" onclick="cambiarSentido()">IDA</button>
-    </div>
+    <div class="bottom-sheet" id="driver-sheet">
+        <div class="drag-handle" onclick="toggleSheet()"></div>
+        
+        <div class="wakelock-indicator" id="wakelock-indicator">☀️ PANTALLA ACTIVA</div>
 
-    <div id="panel-parada">
-        <span class="parada-icono">📍</span>Parada: <span id="txt-parada">--</span>
-    </div>
-
-    <div class="velocimetro-container" id="panel-velocidad">
-        <svg class="velocimetro-svg" width="85" height="85" viewBox="0 0 100 100">
-            <circle class="velocimetro-fondo" cx="50" cy="50" r="42"/>
-            <circle class="velocimetro-aguja" id="velocimetro-aguja" cx="50" cy="50" r="42" stroke-dasharray="264" stroke-dashoffset="264"/>
-        </svg>
-        <div class="velocimetro-centro">
-            <div class="velocimetro-valor" id="txt-velocidad">0</div>
-            <div class="velocimetro-unidad">km/h</div>
+        <div class="sheet-visible-header" onclick="toggleSheet()">
+            <div class="quick-stats">
+                <div class="q-stat">
+                    <div class="q-label">Recaudado</div>
+                    <div class="q-value green" id="txt-plata">$0</div>
+                </div>
+                <div class="q-stat">
+                    <div class="q-label">Pasajeros</div>
+                    <div class="q-value" id="txt-pax">0</div>
+                </div>
+            </div>
+            
+            <div class="speed-box" id="panel-velocidad">
+                <div id="txt-velocidad">0</div>
+                <div class="speed-unit">km/h</div>
+            </div>
         </div>
-    </div>
 
-    <div id="panel-anuncio-parada">
-        <div class="anuncio-titulo">🚏 PRÓXIMA PARADA</div>
-        <div class="anuncio-nombre" id="anuncio-parada-nombre">--</div>
-        <div class="anuncio-pasajero" id="anuncio-parada-pasajero" style="display:none;"></div>
-        <div class="anuncio-distancia" id="anuncio-parada-distancia"></div>
-    </div>
+        <div class="sheet-content">
+            <div class="parada-actual-inline">
+                📍 Parada Actual: <span id="txt-parada">Buscando GPS...</span>
+            </div>
 
-    <div class="wakelock-indicator" id="wakelock-indicator">🔒 Pantalla activa</div>
+            <div class="asientos-grid">
+                <div id="pill1" class="pill" onclick="liberarAsiento(1)"><span class="seat-num">1</span><span class="nombre-pax" id="nombre-pax-1"></span></div>
+                <div id="pill2" class="pill" onclick="liberarAsiento(2)"><span class="seat-num">2</span><span class="nombre-pax" id="nombre-pax-2"></span></div>
+                <div id="pill3" class="pill" onclick="liberarAsiento(3)"><span class="seat-num">3</span><span class="nombre-pax" id="nombre-pax-3"></span></div>
+                <div id="pill4" class="pill" onclick="liberarAsiento(4)"><span class="seat-num">4</span><span class="nombre-pax" id="nombre-pax-4"></span></div>
+            </div>
 
-    <div class="hud-paradas" id="hud-paradas" style="display:none;"></div>
-
-    <div class="bottom-ui">
-        <div class="asientos-pills">
-            <div id="pill1" class="pill" onclick="liberarAsiento(1)">1<span class="nombre-pax" id="nombre-pax-1"></span></div>
-            <div id="pill2" class="pill" onclick="liberarAsiento(2)">2<span class="nombre-pax" id="nombre-pax-2"></span></div>
-            <div id="pill3" class="pill" onclick="liberarAsiento(3)">3<span class="nombre-pax" id="nombre-pax-3"></span></div>
-            <div id="pill4" class="pill" onclick="liberarAsiento(4)">4<span class="nombre-pax" id="nombre-pax-4"></span></div>
+            <div class="action-group">
+                <button class="btn-action btn-subir-abordo" id="btn-subir-abordo" onclick="marcarPasajeroABordo()">✅ PASAJERO SUBIÓ</button>
+                <button class="btn-action btn-llego-destino" id="btn-llego-destino" onclick="llegoADestino()">🏁 LLEGÓ A DESTINO</button>
+                <button class="btn-action btn-vaciar" id="btn-vaciar" onclick="confirmarVaciar()">🧹 VACIAR TODO</button>
+            </div>
         </div>
-        <button class="btn-action btn-subir-abordo" id="btn-subir-abordo" onclick="marcarPasajeroABordo()">✅ PASAJERO SUBIÓ</button>
-        <button class="btn-action btn-llego-destino" id="btn-llego-destino" onclick="llegoADestino()">🏁 LLEGÓ A DESTINO</button>
-        <button class="btn-action btn-vaciar" id="btn-vaciar" onclick="confirmarVaciar()">🧹 VACIAR TODO</button>
     </div>
 
 <script>
@@ -381,10 +339,10 @@
     const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#FF0000', weight: 8, opacity: 0.6 }).addTo(map);
+    const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#FF0000', weight: 6, opacity: 0.6 }).addTo(map);
 
     paradas.forEach((p, i) => {
-        L.circleMarker(p.c, { radius: 6, color: '#000', weight: 2, fillColor: '#00BFFF', fillOpacity: 0.9 })
+        L.circleMarker(p.c, { radius: 5, color: '#000', weight: 2, fillColor: '#00BFFF', fillOpacity: 0.9 })
             .addTo(map).bindTooltip(p.n, { permanent: false, direction: 'top' });
     });
 
@@ -392,52 +350,37 @@
 
     function crearIconoAuto(angulo, velocidad) {
         const colorVelocidad = velocidad > 50 ? '#ff3b30' : velocidad > 30 ? '#ffcc00' : '#00d2ff';
-        const pulsoSize = 25 + Math.min(velocidad * 0.4, 20);
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="55" height="73">
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="44" height="58">
             <defs>
                 <radialGradient id="radarG" cx="50%" cy="50%" r="50%">
                     <stop offset="0%" style="stop-color:${colorVelocidad};stop-opacity:0.5"/>
-                    <stop offset="50%" style="stop-color:${colorVelocidad};stop-opacity:0.15"/>
                     <stop offset="100%" style="stop-color:${colorVelocidad};stop-opacity:0"/>
                 </radialGradient>
-                <filter id="glowG"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
                 <linearGradient id="carG" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:#FFD700"/><stop offset="50%" style="stop-color:#FFC800"/><stop offset="100%" style="stop-color:#E6B800"/>
-                </linearGradient>
-                <linearGradient id="roofG" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:#FFF2A8"/><stop offset="100%" style="stop-color:#E6C200"/>
+                    <stop offset="0%" style="stop-color:#FFD700"/><stop offset="100%" style="stop-color:#E6B800"/>
                 </linearGradient>
             </defs>
-            <circle cx="60" cy="80" r="${pulsoSize}" fill="url(#radarG)" opacity="0.5">
-                <animate attributeName="r" values="${pulsoSize};${pulsoSize+18};${pulsoSize}" dur="2.2s" repeatCount="indefinite"/>
-                <animate attributeName="opacity" values="0.5;0.1;0.5" dur="2.2s" repeatCount="indefinite"/>
+            <circle cx="60" cy="80" r="35" fill="url(#radarG)" opacity="0.4">
+                <animate attributeName="r" values="25;45;25" dur="2s" repeatCount="indefinite"/>
             </circle>
-            <circle cx="60" cy="80" r="${pulsoSize*0.6}" fill="url(#radarG)" opacity="0.3">
-                <animate attributeName="r" values="${pulsoSize*0.6};${pulsoSize*0.6+14};${pulsoSize*0.6}" dur="2.2s" begin="0.4s" repeatCount="indefinite"/>
-            </circle>
-            <g filter="url(#glowG)">
+            <g>
                 <rect x="22" y="28" width="76" height="92" rx="18" fill="url(#carG)" stroke="#1a1a1a" stroke-width="2.5"/>
-                <path d="M26 36 Q60 22 94 36" fill="#1a2a3a" stroke="#333" stroke-width="1.5"/>
-                <path d="M26 112 Q60 126 94 112" fill="#1a2a3a" stroke="#333" stroke-width="1.5"/>
-                <rect x="30" y="46" width="60" height="56" rx="10" fill="url(#roofG)" stroke="#1a1a1a" stroke-width="1.2"/>
-                <line x1="22" y1="74" x2="98" y2="74" stroke="#1a1a1a" stroke-width="0.8" opacity="0.3"/>
-                <ellipse cx="26" cy="34" rx="8" ry="4" fill="#fff" opacity="0.95"/>
-                <ellipse cx="94" cy="34" rx="8" ry="4" fill="#fff" opacity="0.95"/>
-                <ellipse cx="26" cy="114" rx="8" ry="4" fill="#ff3b30" opacity="0.95"/>
-                <ellipse cx="94" cy="114" rx="8" ry="4" fill="#ff3b30" opacity="0.95"/>
-                <rect x="14" y="58" width="8" height="14" rx="3" fill="#FFD700" stroke="#1a1a1a" stroke-width="1.5"/>
-                <rect x="98" y="58" width="8" height="14" rx="3" fill="#FFD700" stroke="#1a1a1a" stroke-width="1.5"/>
+                <rect x="30" y="46" width="60" height="56" rx="10" fill="#fff" opacity="0.2"/>
                 <polygon points="60,8 46,26 74,26" fill="${colorVelocidad}" stroke="#1a1a1a" stroke-width="1.5"/>
-                <line x1="60" y1="28" x2="60" y2="10" stroke="#444" stroke-width="2" stroke-linecap="round"/>
-                <circle cx="60" cy="10" r="3" fill="#00d2ff" stroke="#1a1a1a" stroke-width="1"/>
             </g>
         </svg>`;
         const svgBase64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
-        return L.icon({ iconUrl: svgBase64, iconSize: [55, 73], iconAnchor: [27, 36], popupAnchor: [0, -36], className: 'auto-radar-icon' });
+        return L.icon({ iconUrl: svgBase64, iconSize: [44, 58], iconAnchor: [22, 29], className: 'auto-radar-icon' });
     }
 
     let markerCoche = L.marker(paradas[0].c, { icon: crearIconoAuto(0, 0), zIndexOffset: 1000 }).addTo(map);
     let markersPax = [], markersDest = [];
+
+    // TOGGLE MENÚ DESLIZABLE
+    function toggleSheet() {
+        const sheet = document.getElementById('driver-sheet');
+        sheet.classList.toggle('expanded');
+    }
 
     function mostrarToast(mensaje, tipo) {
         const container = document.getElementById('toast-container');
@@ -453,15 +396,12 @@
             if ('wakeLock' in navigator) {
                 wakeLock = await navigator.wakeLock.request('screen');
                 document.getElementById('wakelock-indicator').classList.add('activo');
-                wakeLock.addEventListener('release', () => {
-                    document.getElementById('wakelock-indicator').classList.remove('activo');
-                });
             }
         } catch (err) { console.error('Wake Lock error:', err); }
     }
 
     async function liberarWakeLock() {
-        if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+        if (wakeLock) { await wakeLock.release(); wakeLock = null; document.getElementById('wakelock-indicator').classList.remove('activo'); }
     }
 
     function inicializarAudio() {
@@ -477,34 +417,29 @@
         gainNode.connect(audioContext.destination);
         oscillator.type = 'square';
         oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-        oscillator.frequency.setValueAtTime(1100, audioContext.currentTime + 0.1);
-        oscillator.frequency.setValueAtTime(880, audioContext.currentTime + 0.2);
-        gainNode.gain.setValueAtTime(0.7, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
         oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.4);
+        oscillator.stop(audioContext.currentTime + 0.3);
     }
 
     function vibrarAlarma() {
-        if ('vibrate' in navigator) navigator.vibrate([400, 150, 400, 150, 800]);
+        if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]);
     }
 
     function mostrarAlertaReserva(nombrePasajero, asientos) {
         const alerta = document.getElementById('alerta-reserva');
         const texto = document.getElementById('alerta-texto');
-        texto.innerText = nombrePasajero + ' reservo ' + asientos.length + ' asiento(s): ' + asientos.join(', ');
+        texto.innerText = nombrePasajero + ' reservó: ' + asientos.join(', ');
         alerta.classList.add('mostrar');
         reproducirAlarma();
         vibrarAlarma();
-        window.alertaInterval = setInterval(() => {
-            if (alerta.classList.contains('mostrar')) { reproducirAlarma(); vibrarAlarma(); }
-        }, 3000);
+        // Si hay una alerta nueva, abrimos automáticamente el sheet para que opere rápido
+        document.getElementById('driver-sheet').classList.add('expanded');
     }
 
     function cerrarAlerta() {
         const alerta = document.getElementById('alerta-reserva');
         alerta.classList.remove('mostrar');
-        if (window.alertaInterval) { clearInterval(window.alertaInterval); window.alertaInterval = null; }
     }
 
     function calcularAnguloDireccion(lat1, lon1, lat2, lon2) {
@@ -513,8 +448,7 @@
         const Δλ = (lon2 - lon1) * Math.PI / 180;
         const y = Math.sin(Δλ) * Math.cos(φ2);
         const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-        let θ = Math.atan2(y, x);
-        return (θ * 180 / Math.PI + 360) % 360;
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
     }
 
     function suavizarRotacion(anguloNuevo, anguloActual, factor) {
@@ -532,14 +466,10 @@
     }
 
     function actualizarVelocimetro(velocidad) {
-        const maxVelocidad = 120;
-        const circunferencia = 2 * Math.PI * 42;
-        const offset = circunferencia - (Math.min(velocidad, maxVelocidad) / maxVelocidad) * circunferencia;
-        const aguja = document.getElementById('velocimetro-aguja');
-        aguja.style.strokeDashoffset = offset;
-        aguja.classList.remove('alerta', 'advertencia');
-        if (velocidad > 60) aguja.classList.add('alerta');
-        else if (velocidad > 40) aguja.classList.add('advertencia');
+        const box = document.getElementById('panel-velocidad');
+        box.classList.remove('alerta', 'advertencia');
+        if (velocidad > 60) box.classList.add('alerta');
+        else if (velocidad > 40) box.classList.add('advertencia');
         document.getElementById('txt-velocidad').textContent = velocidad;
     }
 
@@ -548,20 +478,15 @@
         if (!estaOnline) { hud.style.display = 'none'; return; }
         hud.style.display = 'flex';
         hud.innerHTML = '';
-        const direccion = direccionDetectada;
-        const rango = direccion === 'IDA'
-            ? { start: Math.max(0, paradaActualIdx - 2), end: Math.min(paradas.length - 1, paradaActualIdx + 4) }
-            : { start: Math.max(0, paradaActualIdx - 4), end: Math.min(paradas.length - 1, paradaActualIdx + 2) };
-        for (let i = rango.start; i <= rango.end; i++) {
+        const start = Math.max(0, paradaActualIdx - 1);
+        const end = Math.min(paradas.length - 1, paradaActualIdx + 4);
+        
+        for (let i = start; i <= end; i++) {
             const pill = document.createElement('div');
             pill.className = 'parada-pill';
-            pill.textContent = i + 1;
-            const nombreMini = document.createElement('span');
-            nombreMini.className = 'nombre-mini';
-            nombreMini.textContent = paradas[i].n.split(' ')[0];
-            pill.appendChild(nombreMini);
-            if (i === paradaActualIdx) { pill.classList.add('proxima'); }
-            else if (paradasVisitadas.has(i)) { pill.classList.add('visitada'); }
+            pill.textContent = (i + 1) + ". " + paradas[i].n.split(' ')[0];
+            if (i === paradaActualIdx) pill.classList.add('proxima');
+            else if (paradasVisitadas.has(i)) pill.classList.add('visitada');
             hud.appendChild(pill);
         }
     }
@@ -578,101 +503,54 @@
         const nuevaDireccion = tendencia >= 0 ? 'IDA' : 'VUELTA';
         if (Math.abs(tendencia) >= 2 && nuevaDireccion !== direccionDetectada) {
             direccionDetectada = nuevaDireccion;
-            if (estaOnline) {
-                _s.from('estado_movil').update({ sentido_flujo: direccionDetectada }).eq('id', MI_ID_MOVIL);
-            }
+            if (estaOnline) { _s.from('estado_movil').update({ sentido_flujo: direccionDetectada }).eq('id', MI_ID_MOVIL); }
             sentidoActual = direccionDetectada;
             document.getElementById('btn-sentido').innerText = sentidoActual;
             rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
-            mostrarToast('Direccion: ' + sentidoActual, 'success');
+            mostrarToast('Dirección: ' + sentidoActual, 'success');
         }
         return direccionDetectada;
     }
 
     async function marcarPasajeroABordo() {
         try {
-            const { data: reservas, error } = await _s.from('reservas_activas')
-                .select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso').eq('estado_pasajero', 'esperando');
+            const { data: reservas, error } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso').eq('estado_pasajero', 'esperando');
             if (error) throw error;
             if (!reservas || reservas.length === 0) { mostrarToast('No hay pasajeros esperando', 'warning'); return; }
             for (const r of reservas) {
-                const { error: updateError } = await _s.from('reservas_activas').update({ estado_pasajero: 'a_bordo' }).eq('id', r.id);
-                if (!updateError) { mostrarToast('OK ' + r.nombre_pasajero + ' a bordo', 'success'); }
+                await _s.from('reservas_activas').update({ estado_pasajero: 'a_bordo' }).eq('id', r.id);
             }
+            mostrarToast('Pasajeros a bordo', 'success');
             actualizar();
-        } catch (err) { console.error('Error marcar a bordo:', err); mostrarToast('Error al marcar a bordo', 'error'); }
+        } catch (err) { mostrarToast('Error al actualizar', 'error'); }
     }
 
     async function llegoADestino() {
         try {
-            const { data: reservas, error } = await _s.from('reservas_activas')
-                .select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso').eq('estado_pasajero', 'a_bordo');
+            const { data: reservas, error } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso').eq('estado_pasajero', 'a_bordo');
             if (error) throw error;
             if (!reservas || reservas.length === 0) { mostrarToast('No hay pasajeros a bordo', 'warning'); return; }
-            const nombres = reservas.map(r => r.nombre_pasajero).join(', ');
-            if (!confirm('¿Finalizar viaje de: ' + nombres + '?')) return;
+            if (!confirm('¿Finalizar viajes en destino?')) return;
             for (const r of reservas) {
                 await _s.from('viajes').insert({
                     nombre_pasajero: r.nombre_pasajero, id_movil: MI_ID_MOVIL, asiento_num: r.asiento_num,
-                    destino_idx: r.destino_idx, pasajero_lat: r.pasajero_lat, pasajero_lon: r.pasajero_lon,
+                    destino_idx: r.destino_idx, passenger_lat: r.pasajero_lat, passenger_lon: r.pasajero_lon,
                     precio: 1000, estado: 'finalizado', fecha: new Date().toISOString()
                 });
                 await _s.from('reservas_activas').delete().eq('id', r.id);
             }
-            mostrarToast('Viajes finalizados: $' + (reservas.length * 1000), 'success');
-            paradasAnunciadas.clear(); ultimaParadaAnunciada = -1; paradasVisitadas.clear();
+            mostrarToast('Viajes Completados', 'success');
             actualizar();
-        } catch (err) { console.error('Error finalizando:', err); mostrarToast('Error al finalizar', 'error'); }
-    }
-
-    function inicializarAudioNavegacion() {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
+        } catch (err) { mostrarToast('Error al finalizar', 'error'); }
     }
 
     function anunciarParadaNavegacion(nombreParada, nombrePasajero) {
         if (!('speechSynthesis' in window)) return;
         window.speechSynthesis.cancel();
-        let texto = nombrePasajero
-            ? 'Proxima parada: ' + nombreParada + '. Baja ' + nombrePasajero + '.'
-            : 'Siguiente parada: ' + nombreParada + '.';
+        let texto = nombrePasajero ? 'Próxima parada: ' + nombreParada + '. Baja ' + nombrePasajero : 'Siguiente parada: ' + nombreParada;
         const utterance = new SpeechSynthesisUtterance(texto);
-        utterance.lang = 'es-AR'; utterance.rate = 0.9; utterance.pitch = 1; utterance.volume = 1;
+        utterance.lang = 'es-AR'; utterance.rate = 0.95;
         window.speechSynthesis.speak(utterance);
-        reproducirCampanaSuave();
-    }
-
-    function reproducirCampanaSuave() {
-        inicializarAudioNavegacion();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-        osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.4);
-        setTimeout(() => {
-            const osc2 = audioCtx.createOscillator();
-            const gain2 = audioCtx.createGain();
-            osc2.connect(gain2); gain2.connect(audioCtx.destination);
-            osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(1174.66, audioCtx.currentTime);
-            gain2.gain.setValueAtTime(0.15, audioCtx.currentTime);
-            gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-            osc2.start(audioCtx.currentTime); osc2.stop(audioCtx.currentTime + 0.3);
-        }, 150);
-    }
-
-    function obtenerPasajeroQueBaja(destinoIdx, reservasActivas) {
-        const reserva = reservasActivas.find(r => r.destino_idx === destinoIdx && r.estado === 'en_curso' && r.estado_pasajero === 'a_bordo');
-        return reserva ? reserva.nombre_pasajero : null;
-    }
-
-    function obtenerSiguienteParadaDesdePosicion(paradaActualIdx) {
-        const direccion = direccionDetectada;
-        if (direccion === 'IDA') { for (let i = paradaActualIdx + 1; i < paradas.length; i++) return i; return -1; }
-        else { for (let i = paradaActualIdx - 1; i >= 0; i--) return i; return -1; }
     }
 
     async function verificarNavegacionParadas(lat, lon, reservasActivas) {
@@ -682,48 +560,28 @@
         detectarDireccionPorSecuencia(paradaActualIdx);
         actualizarHUDParadas(paradaActualIdx);
 
-        const siguienteParadaIdx = obtenerSiguienteParadaDesdePosicion(paradaActualIdx);
-        if (siguienteParadaIdx === -1) {
+        let sigIdx = direccionDetectada === 'IDA' ? paradaActualIdx + 1 : paradaActualIdx - 1;
+        if (sigIdx < 0 || sigIdx >= paradas.length) {
             document.getElementById('panel-anuncio-parada').classList.remove('visible');
             return;
         }
-        const siguienteParada = paradas[siguienteParadaIdx];
-        const distanciaMetros = calcularDistanciaMetros(lat, lon, siguienteParada.c[0], siguienteParada.c[1]);
-        const panelAnuncio = document.getElementById('panel-anuncio-parada');
-        const nombreAnuncio = document.getElementById('anuncio-parada-nombre');
-        const pasajeroEl = document.getElementById('anuncio-parada-pasajero');
-        const distanciaEl = document.getElementById('anuncio-parada-distancia');
-        const pasajeroBaja = obtenerPasajeroQueBaja(siguienteParadaIdx, reservasActivas);
-        nombreAnuncio.innerText = siguienteParada.n;
-        if (pasajeroBaja) { pasajeroEl.style.display = 'block'; pasajeroEl.innerText = '👤 ' + pasajeroBaja + ', preparate para bajar'; }
-        else { pasajeroEl.style.display = 'none'; }
-        distanciaEl.innerText = distanciaMetros < 1000 ? Math.round(distanciaMetros) + ' m' : (distanciaMetros / 1000).toFixed(1) + ' km';
-        panelAnuncio.classList.add('visible');
+
+        const siguienteParada = paradas[sigIdx];
+        const dist = calcularDistanciaMetros(lat, lon, siguienteParada.c[0], siguienteParada.c[1]);
+        
+        document.getElementById('anuncio-parada-nombre').innerText = siguienteParada.n;
+        document.getElementById('anuncio-parada-distancia').innerText = dist < 1000 ? Math.round(dist) + ' m' : (dist / 1000).toFixed(1) + ' km';
+        document.getElementById('panel-anuncio-parada').classList.add('visible');
+
+        const paxBaja = reservasActivas.find(r => r.destino_idx === sigIdx && r.estado_pasajero === 'a_bordo');
+        const paxEl = document.getElementById('anuncio-parada-pasajero');
+        if (paxBaja) { paxEl.style.display = 'block'; paxEl.innerText = '👤 Baja: ' + paxBaja.nombre_pasajero; } else { paxEl.style.display = 'none'; }
 
         const ahora = Date.now();
-        const ultimaVezAnunciada = paradasAnunciadas.get(siguienteParadaIdx) || 0;
-        const tiempoDesdeUltimoAnuncio = ahora - ultimaVezAnunciada;
-        const enRango = distanciaMetros >= 50 && distanciaMetros <= 400;
-        const puedeAnunciar = tiempoDesdeUltimoAnuncio > 60000;
-
-        if (enRango && puedeAnunciar) {
-            anunciarParadaNavegacion(siguienteParada.n, pasajeroBaja);
-            paradasAnunciadas.set(siguienteParadaIdx, ahora);
-            ultimaParadaAnunciada = siguienteParadaIdx;
-            const mensajeDB = pasajeroBaja
-                ? 'Proxima parada: ' + siguienteParada.n + '\n👤 ' + pasajeroBaja + ', preparate para bajar'
-                : 'Proxima parada: ' + siguienteParada.n;
-            try {
-                const { data: reservasDestino } = await _s.from('reservas_activas')
-                    .select('id, nombre_pasajero').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso').eq('destino_idx', siguienteParadaIdx);
-                if (reservasDestino) {
-                    for (const r of reservasDestino) {
-                        await _s.from('reservas_activas').update({ anuncio_parada: mensajeDB, anuncio_visto: false }).eq('id', r.id);
-                    }
-                }
-            } catch (err) { console.error('Error guardando anuncio:', err); }
+        if (dist >= 60 && dist <= 300 && (ahora - (paradasAnunciadas.get(sigIdx) || 0) > 60000)) {
+            anunciarParadaNavegacion(siguienteParada.n, paxBaja?.nombre_pasajero);
+            paradasAnunciadas.set(sigIdx, ahora);
         }
-        paradasAnunciadas.forEach((timestamp, idx) => { if (ahora - timestamp > 300000) paradasAnunciadas.delete(idx); });
     }
 
     function calcularCercana(lat, lon) {
@@ -732,7 +590,7 @@
             let d = Math.sqrt(Math.pow(p.c[0]-lat,2) + Math.pow(p.c[1]-lon,2));
             if(d < min) { min = d; idx = i; nombre = p.n; }
         });
-        return { nombre, idx, min };
+        return { nombre, idx };
     }
 
     async function gestionarConexion() {
@@ -741,159 +599,99 @@
         estaOnline = toggle.checked;
         if (estaOnline) {
             label.innerText = "CONECTANDO...";
-            inicializarAudio();
-            const { data: cocheActual } = await _s.from('estado_movil').select('sentido_flujo').eq('id', MI_ID_MOVIL).single();
-            if (cocheActual && cocheActual.sentido_flujo) {
-                sentidoActual = cocheActual.sentido_flujo;
-                direccionDetectada = sentidoActual;
-                document.getElementById('btn-sentido').innerText = sentidoActual;
-                rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
-            }
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 const lat = pos.coords.latitude, lon = pos.coords.longitude;
-                const paradaInfo = calcularCercana(lat, lon);
-                const datos = { esta_online: true, latitud: lat, longitud: lon, sentido_flujo: sentidoActual, disponible_desde: paradaInfo.idx, ultima_actualizacion: new Date().toISOString(), chofer: MI_NOMBRE };
-                let { error } = await _s.from('estado_movil').update(datos).eq('id', MI_ID_MOVIL);
-                if (error) {
-                    label.innerText = "ERROR DB"; toggle.checked = false;
-                    mostrarToast('Error de conexion', 'error');
-                } else {
-                    label.innerText = "EN LINEA"; label.style.color = "#4cd964";
-                    document.getElementById('panel-parada').style.display = 'block';
-                    document.getElementById('panel-velocidad').classList.add('visible');
-                    document.getElementById('btn-vaciar').style.display = 'block';
-                    activarWakeLock();
-                    iniciarGPS();
-                    mostrarToast('Conectado - GPS activo', 'success');
-                }
-            }, (err) => { toggle.checked = false; label.innerText = "ERROR GPS"; mostrarToast('GPS no disponible', 'error'); }, { enableHighAccuracy: true, timeout: 10000 });
+                const datos = { esta_online: true, latitud: lat, longitud: lon, sentido_flujo: sentidoActual, disponible_desde: calcularCercana(lat, lon).idx, ultima_actualizacion: new Date().toISOString(), chofer: MI_NOMBRE };
+                await _s.from('estado_movil').update(datos).eq('id', MI_ID_MOVIL);
+                label.innerText = "EN LÍNEA"; label.style.color = "#34c759";
+                activarWakeLock(); iniciarGPS();
+            }, () => { toggle.checked = false; label.innerText = "ERROR GPS"; }, { enableHighAccuracy: true });
         } else {
             if (watchId) navigator.geolocation.clearWatch(watchId);
             await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
-            label.innerText = "DESCONECTADO"; label.style.color = "white";
-            document.getElementById('panel-parada').style.display = 'none';
+            label.innerText = "DESCONECTADO"; label.style.color = "#aaa";
             document.getElementById('panel-anuncio-parada').classList.remove('visible');
-            document.getElementById('panel-velocidad').classList.remove('visible');
-            document.getElementById('btn-vaciar').style.display = 'none';
             document.getElementById('hud-paradas').style.display = 'none';
             liberarWakeLock();
-            cerrarAlerta();
         }
     }
 
     function iniciarGPS() {
-        const opcionesGPS = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
         watchId = navigator.geolocation.watchPosition(async (p) => {
-            const ahora = Date.now();
-            const lat = p.coords.latitude;
-            const lon = p.coords.longitude;
-            const velocidadMs = p.coords.speed || 0;
-            const headingNativo = p.coords.heading;
-            velocidadActual = Math.round(velocidadMs * 3.6);
+            const lat = p.coords.latitude, lon = p.coords.longitude;
+            velocidadActual = Math.round((p.coords.speed || 0) * 3.6);
             actualizarVelocimetro(velocidadActual);
-            historialPosiciones.push({ lat, lon, tiempo: ahora });
-            if (historialPosiciones.length > 8) historialPosiciones.shift();
-            let anguloNuevo = null;
-            if (headingNativo !== null && !isNaN(headingNativo) && velocidadMs > 0.5) {
-                anguloNuevo = headingNativo;
-            } else if (historialPosiciones.length >= 2) {
-                const anterior = historialPosiciones[historialPosiciones.length - 2];
-                const distancia = calcularDistanciaMetros(anterior.lat, anterior.lon, lat, lon);
-                if (distancia > 2) { anguloNuevo = calcularAnguloDireccion(anterior.lat, anterior.lon, lat, lon); }
+            
+            if (historialPosiciones.length > 0) {
+                const ant = historialPosiciones[historialPosiciones.length - 1];
+                if (calcularDistanciaMetros(ant.lat, ant.lon, lat, lon) > 2) {
+                    anguloActual = suavizarRotacion(calcularAnguloDireccion(ant.lat, ant.lon, lat, lon), anguloActual, 0.25);
+                }
             }
-            if (anguloNuevo !== null) {
-                suavizadoAngulo = suavizarRotacion(anguloNuevo, suavizadoAngulo, 0.2);
-                anguloActual = suavizadoAngulo;
-            }
-            ultimaPosicionGPS = { lat, lon };
+            historialPosiciones.push({ lat, lon });
+            
             markerCoche.setLatLng([lat, lon]);
-            markerCoche.setIcon(crearIconoAuto(anguloActual, velocidadActual));
-            const iconoElement = markerCoche.getElement();
-            if (iconoElement) {
-                const img = iconoElement.querySelector('img');
-                if (img) { img.style.transform = `rotate(${anguloActual}deg)`; img.style.transition = 'transform 0.3s ease-out'; }
-            }
+            const iconEl = markerCoche.getElement();
+            if (iconEl) { const img = iconEl.querySelector('g'); if (img) img.style.transform = `rotate(${anguloActual}deg)`; }
+            
             puntosRastro.push([lat, lon]);
             if (puntosRastro.length > MAX_PUNTOS_RASTRO) puntosRastro.shift();
             rastroPolyline.setLatLngs(puntosRastro);
             map.panTo([lat, lon]);
+
             const paradaInfo = calcularCercana(lat, lon);
             document.getElementById('txt-parada').innerText = paradaInfo.nombre;
-            if (estaOnline && (ahora - ultimaVezEnviado > 5000)) {
+
+            const ahora = Date.now();
+            if (estaOnline && (ahora - ultimaVezEnviado > 4000)) {
                 ultimaVezEnviado = ahora;
-                await _s.from('estado_movil').update({
-                    latitud: lat, longitud: lon, disponible_desde: paradaInfo.idx,
-                    sentido_flujo: direccionDetectada, ultima_actualizacion: new Date().toISOString()
-                }).eq('id', MI_ID_MOVIL);
+                await _s.from('estado_movil').update({ latitud: lat, longitud: lon, disponible_desde: paradaInfo.idx, sentido_flujo: direccionDetectada, ultima_actualizacion: new Date().toISOString() }).eq('id', MI_ID_MOVIL);
             }
-        }, null, opcionesGPS);
+        }, null, { enableHighAccuracy: true });
     }
 
     async function actualizar() {
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
         if (reservas) {
             if (reservas.length > ultimaCantidadReservas && estaOnline) {
-                const nuevasReservas = reservas.slice(ultimaCantidadReservas);
-                const nombresNuevos = nuevasReservas.map(r => r.nombre_pasajero).join(', ');
-                const asientosNuevos = nuevasReservas.map(r => r.asiento_num);
-                mostrarAlertaReserva(nombresNuevos, asientosNuevos);
+                const nuevas = reservas.slice(ultimaCantidadReservas);
+                mostrarAlertaReserva(nuevas.map(r=>r.nombre_pasajero).join(', '), nuevas.map(r=>r.asiento_num));
             }
             ultimaCantidadReservas = reservas.length;
-            markersPax.forEach(m => map.removeLayer(m));
-            markersDest.forEach(m => map.removeLayer(m));
+            markersPax.forEach(m => map.removeLayer(m)); markersDest.forEach(m => map.removeLayer(m));
             markersPax = []; markersDest = [];
+
             document.getElementById('txt-pax').innerText = reservas.length;
             document.getElementById('txt-plata').innerText = "$" + (reservas.length * 1000);
+
             for(let i=1; i<=4; i++) { document.getElementById('pill'+i).className = 'pill'; document.getElementById('nombre-pax-'+i).innerText = ''; }
-            let pasajerosEsperando = 0;
-            let pasajerosABordo = 0;
+            let esperando = 0, abordo = 0;
+
             reservas.forEach(r => {
                 if(r.asiento_num <= 4) {
                     const pill = document.getElementById('pill'+r.asiento_num);
-                    if (r.estado_pasajero === 'a_bordo') { pill.className = 'pill a-bordo'; pasajerosABordo++; }
-                    else { pill.className = 'pill active'; pasajerosEsperando++; }
-                    document.getElementById('nombre-pax-'+r.asiento_num).innerText = r.nombre_pasajero;
+                    if (r.estado_pasajero === 'a_bordo') { pill.className = 'pill a-bordo'; abordo++; }
+                    else { pill.className = 'pill active'; esperando++; }
+                    document.getElementById('nombre-pax-'+r.asiento_num).innerText = r.nombre_pasajero.split(' ')[0];
                 }
-                if (r.pasajero_lat) {
-                    const mp = L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: 'red', radius: 8 }).addTo(map).bindTooltip(r.nombre_pasajero);
-                    markersPax.push(mp);
-                }
-                if (paradas[r.destino_idx]) {
-                    const md = L.marker(paradas[r.destino_idx].c).addTo(map).bindTooltip('BAJA: ' + r.nombre_pasajero, { permanent: true, direction: 'top' });
-                    markersDest.push(md);
-                }
+                if (r.pasajero_lat) { markersPax.push(L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: 'red', radius: 6 }).addTo(map)); }
+                if (paradas[r.destino_idx]) { markersDest.push(L.marker(paradas[r.destino_idx].c).addTo(map).bindTooltip('Baja: ' + r.nombre_pasajero)); }
             });
-            const btnSubir = document.getElementById('btn-subir-abordo');
-            const btnLlego = document.getElementById('btn-llego-destino');
-            if (pasajerosEsperando > 0) { btnSubir.style.display = 'block'; btnSubir.innerText = '✅ PASAJERO SUBIO (' + pasajerosEsperando + ')'; }
-            else { btnSubir.style.display = 'none'; }
-            if (pasajerosABordo > 0) { btnLlego.style.display = 'block'; btnLlego.innerText = '🏁 LLEGO A DESTINO (' + pasajerosABordo + ')'; }
-            else { btnLlego.style.display = 'none'; }
+
+            document.getElementById('btn-subir-abordo').style.display = esperando > 0 ? 'block' : 'none';
+            document.getElementById('btn-llego-destino').style.display = abordo > 0 ? 'block' : 'none';
+
             const latLng = markerCoche.getLatLng();
             if (latLng) verificarNavegacionParadas(latLng.lat, latLng.lng, reservas);
-        } else {
-            document.getElementById('btn-subir-abordo').style.display = 'none';
-            document.getElementById('btn-llego-destino').style.display = 'none';
-            document.getElementById('txt-pax').innerText = '0';
-            document.getElementById('txt-plata').innerText = '$0';
         }
     }
 
     async function cambiarSentido() {
-        const sentidoAnterior = sentidoActual;
         sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
         direccionDetectada = sentidoActual;
         document.getElementById('btn-sentido').innerText = sentidoActual;
         rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
-        paradasAnunciadas.clear(); ultimaParadaAnunciada = -1; historialParadas = [];
-        if (estaOnline) {
-            const { error } = await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL);
-            if (error) {
-                sentidoActual = sentidoAnterior; direccionDetectada = sentidoAnterior;
-                document.getElementById('btn-sentido').innerText = sentidoActual;
-                rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
-            }
-        }
+        if (estaOnline) { await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL); }
     }
 
     async function liberarAsiento(n) {
@@ -904,48 +702,20 @@
     }
 
     async function confirmarVaciar() {
-        if(confirm("⚠️ ¿VACIAR TODOS los asientos? Esto finalizara TODOS los viajes.")) {
-            const { data: reservas } = await _s.from('reservas_activas')
-                .select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
-            if (reservas) {
-                for (const r of reservas) {
-                    await _s.from('viajes').insert({
-                        nombre_pasajero: r.nombre_pasajero, id_movil: MI_ID_MOVIL, asiento_num: r.asiento_num,
-                        destino_idx: r.destino_idx, pasajero_lat: r.pasajero_lat, pasajero_lon: r.pasajero_lon,
-                        precio: 1000, estado: 'finalizado', fecha: new Date().toISOString()
-                    });
-                    await _s.from('reservas_activas').delete().eq('id', r.id);
-                }
+        if(confirm("¿Vaciar todos los asientos?")) {
+            const { data: res } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
+            if (res) {
+                for (const r of res) { await _s.from('reservas_activas').delete().eq('id', r.id); }
             }
-            paradasAnunciadas.clear(); ultimaParadaAnunciada = -1; historialParadas = []; paradasVisitadas.clear();
             actualizar();
         }
     }
 
-    document.addEventListener('visibilitychange', async () => {
-        if (estaOnline && document.visibilityState === 'visible') { if (!wakeLock) await activarWakeLock(); }
-    });
-
-    async function sincronizarSentidoInicial() {
-        try {
-            const { data: coche, error } = await _s.from('estado_movil').select('sentido_flujo').eq('id', MI_ID_MOVIL).single();
-            if (error) return;
-            if (coche && coche.sentido_flujo) {
-                sentidoActual = coche.sentido_flujo;
-                direccionDetectada = sentidoActual;
-                document.getElementById('btn-sentido').innerText = sentidoActual;
-                rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
-            }
-        } catch (err) { console.error('Error sincronizando sentido:', err); }
-    }
-
-    // Splash screen auto-hide
     setTimeout(() => {
         const splash = document.getElementById('splash');
-        if (splash) { splash.style.opacity = '0'; setTimeout(() => splash.style.visibility = 'hidden', 800); }
-    }, 2000);
+        if (splash) { splash.style.opacity = '0'; setTimeout(() => splash.style.visibility = 'hidden', 600); }
+    }, 1500);
 
-    sincronizarSentidoInicial();
     setInterval(actualizar, 4000);
 </script>
 </body>
