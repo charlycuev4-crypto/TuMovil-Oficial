@@ -1,755 +1,121 @@
-<script>
-    const _s = supabase.createClient(
-        'https://nvumdlxervrewqiiaicl.supabase.co',
-        'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE',
-        { global: { headers: { 'x-app-secret': '2Awy7XGP0SBmBRprB3PBzfvz9VcbDd04' } } }
-    );
-
-    function sanitizarInput(texto) {
-        if (!texto || typeof texto !== 'string') return '';
-        return texto.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\-]/g, '').trim().substring(0, 20);
-    }
-
-    function escaparHTML(texto) {
-        if (!texto || typeof texto !== 'string') return '';
-        const div = document.createElement('div');
-        div.textContent = texto;
-        return div.innerHTML;
-    }
-
-    function mostrarToast(mensaje, tipo) {
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        toast.className = 'toast ' + tipo;
-        toast.textContent = mensaje;
-        container.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
-    }
-
-    const paradas = [
-        {n:'Universidad Tecnológica', c:[-34.549295, -58.783648]},
-        {n:'Parque Tecnológico', c:[-34.551586, -58.781403]},
-        {n:'Base Aérea', c:[-34.554132, -58.778927]},
-        {n:'Miguel Cané', c:[-34.561264, -58.770506]},
-        {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
-        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]},
-        {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
-        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]},
-        {n:'Murillo 601', c:[-34.565342, -58.772061]},
-        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]},
-        {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
-        {n:'A. Prado 2555', c:[-34.571016, -58.764443]},
-        {n:'Prado y Payró', c:[-34.571956, -58.763201]},
-        {n:'Prado 1744', c:[-34.577371, -58.755909]},
-        {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
-        {n:'Caveri y Azara', c:[-34.579296, -58.755864]},
-        {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
-        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]},
-        {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
-        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]},
-        {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
-        {n:'Libertador y Aero', c:[-34.585554, -58.749812]},
-        {n:'Libertador 7300', c:[-34.586494, -58.750574]},
-        {n:'Libertador 7200', c:[-34.588041, -58.751542]},
-        {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
-        {n:'Maza y Albatros', c:[-34.588771, -58.750804]},
-        {n:'Maternidad', c:[-34.588244, -58.749877]},
-        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
-    ];
-
-    const map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    paradas.forEach(p => L.circleMarker(p.c, { radius: 6, color: '#000000', weight: 2, fillColor: '#00d2ff', fillOpacity: 0.9 }).addTo(map));
-
-    const iconP = L.divIcon({ html: '<div style="font-size:30px;">🚶</div>', className: 'p-mark', iconAnchor: [15, 30] });
-    const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:22px solid #007AFF; filter: drop-shadow(0 0 8px #007AFF);"></div>', className: 'dest-arrow', iconAnchor: [10, 11] });
-    const iconT = L.divIcon({ html: '<span style="font-size:25px;">🚕</span>', iconAnchor: [12, 12] });
-    const iconTPasado = L.divIcon({ html: '<span style="font-size:25px; opacity:0.4; filter: grayscale(1);">🚕</span>', iconAnchor: [12, 12] });
-    const iconMiCoche = L.divIcon({ html: '<div style="font-size:30px; filter: drop-shadow(0 0 8px #00d2ff);">🚕</div>', iconAnchor: [15, 15] });
-
-    let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
-    let markerDestinoFlecha = L.marker([0,0], { icon: iconDest });
-    let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '8, 8', weight: 4 }).addTo(map);
-    let markerTaxis = {};
-    let markerMiCoche = null;
-
-    let miLat = 0, miLon = 0;
-    let asientosElegidos = [];
-    let miViajeActivo = false;
-    let cocheSeleccionado = null;
-    let ultimaFlotaHTML = '';
-    let ultimoEstadoBoton = '';
-    let gpsListo = false;
-    let datosViajeActivo = null;
-    let cocheYaPaso = false;
-    let pasajeroABordo = false;
-    let intervaloVerificarLlegada = null;
-    let timerLlegada = null;
-    let segundosRestantes = 30;
-    let llegadaMostrada = false;
-    let miNombrePasajero = '';
-    let canalRealtime = null;
-    let canalSeguimientoAuto = null; // Canal WebSocket para seguir el coche asignado
-    let intervaloPolling = null;
-    let timerAutoCerrarAnuncio = null;
-
-    const selDest = document.getElementById('destino-select');
-    paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = p.n; selDest.appendChild(opt); });
-
-    function calcularParadaMasCerca(lat, lon) {
-        let minDist = Infinity, paradaIdx = -1;
-        paradas.forEach((p, i) => {
-            const dist = Math.sqrt(Math.pow(lat - p.c[0], 2) + Math.pow(lon - p.c[1], 2));
-            if (dist < minDist) { minDist = dist; paradaIdx = i; }
-        });
-        return paradaIdx;
-    }
-
-    function movilPuedeRecoger(movilParada, paradaPasajero, sentido) {
-        if (sentido === 'IDA') return movilParada <= paradaPasajero;
-        return movilParada >= paradaPasajero;
-    }
-
-    function iniciarVerificacionLlegada() {
-        if (intervaloVerificarLlegada) clearInterval(intervaloVerificarLlegada);
-        verificarLlegadaCoche();
-        intervaloVerificarLlegada = setInterval(verificarLlegadaCoche, 8000);
-    }
-
-    async function verificarLlegadaCoche() {
-        if (!miViajeActivo || pasajeroABordo || llegadaMostrada) return;
-        const nom = miNombrePasajero;
-        if (!nom) return;
-        try {
-            const { data: rpcData, error } = await _s.rpc('verificar_llegada_coche', { p_nombre: nom });
-            if (error) throw error;
-            if (!rpcData || !rpcData.encontrado) return;
-            if (!rpcData.llego) return;
-            mostrarBannerLlegada();
-        } catch (err) { console.error("Error verificando llegada:", err); }
-    }
-
-    function mostrarBannerLlegada() {
-        if (llegadaMostrada) return;
-        llegadaMostrada = true;
-        const banner = document.getElementById('banner-llegada');
-        const timerEl = document.getElementById('llegada-timer');
-        banner.classList.add('visible');
-        segundosRestantes = 30;
-        timerEl.textContent = segundosRestantes;
-        timerEl.style.background = 'rgba(0,0,0,0.3)';
-        reproducirAlarmaLlegada();
-        vibrarAlarma();
-        timerLlegada = setInterval(() => {
-            segundosRestantes--;
-            timerEl.textContent = segundosRestantes;
-            if (segundosRestantes <= 10) timerEl.style.background = 'rgba(255, 59, 48, 0.5)';
-            if (segundosRestantes <= 0) { clearInterval(timerLlegada); confirmarSubida(true); }
-        }, 1000);
-    }
-
-    async function confirmarSubida(autoConfirmado) {
-        const nom = miNombrePasajero;
-        if (timerLlegada) { clearInterval(timerLlegada); timerLlegada = null; }
-        document.getElementById('banner-llegada').classList.remove('visible');
-        try {
-            const { data: rpcData, error } = await _s.rpc('confirmar_abordo', { p_nombre: nom });
-            if (error) throw error;
-            if (rpcData && rpcData.success) {
-                pasajeroABordo = true;
-                activarModoABordo();
-                if (autoConfirmado) mostrarToast('✅ Subida confirmada automáticamente', 'success');
-                iniciarEscuchaAnuncios();
-            }
-        } catch (err) { console.error("Error confirmando abordo:", err); }
-    }
-
-    async function rechazarViaje() {
-        let nom = miNombrePasajero;
-        if (!nom) { nom = document.getElementById('nombre-input').value.trim(); }
-        if (!nom) {
-            const guardado = localStorage.getItem('usuario_nombre');
-            if (guardado) { nom = guardado; miNombrePasajero = guardado; }
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TuMovil - Pasajero Oficial</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        :root {
+            --celeste: #00d2ff;
+            --amarillo: #ffcc00;
+            --dark: #0a0a1a;
+            --panel: rgba(20, 20, 40, 0.85);
+            --success: #4cd964;
+            --danger: #ff3b30;
+            --glass: rgba(0, 0, 0, 0.75);
         }
-        if (!nom) { alert("Error: no se encontró tu nombre."); return; }
-        if (!confirm("¿Estás seguro de que querés cancelar tu reserva? El conductor será notificado.")) return;
-        if (timerLlegada) { clearInterval(timerLlegada); timerLlegada = null; }
-        document.getElementById('banner-llegada').classList.remove('visible');
-        let cancelado = false;
-        try {
-            const { data: rpcData, error } = await _s.rpc('cancelar_viaje_pasajero', { p_nombre: nom });
-            if (error) throw error;
-            if (rpcData && rpcData.success) { cancelado = true; }
-        } catch (err) { console.warn("RPC cancelar falló:", err); }
-        if (!cancelado) {
-            try {
-                const { data, error } = await _s.from('reservas_activas')
-                    .update({ estado: 'cancelado_por_pasajero' })
-                    .eq('nombre_pasajero', nom)
-                    .eq('estado', 'en_curso')
-                    .select();
-                if (!error && data && data.length > 0) { cancelado = true; }
-                else if (!error && (!data || data.length === 0)) { cancelado = true; }
-            } catch (err2) { console.error("Directo también falló:", err2); }
+        body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden;
+            display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+        /* SPLASH SCREEN */
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(180deg, #0a0a1a 0%, #1a1a3e 50%, #0d2b3a 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 10000; transition: opacity 0.8s ease, visibility 0.8s; }
+        .splash-ring { width: 160px; height: 160px; border: 3px solid var(--celeste); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 40px rgba(0, 210, 255, 0.4), inset 0 0 20px rgba(0, 210, 255, 0.1);
+            animation: pulseRing 2s infinite; }
+        @keyframes pulseRing { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+        #splash h2 { color: var(--celeste); margin-top: 20px; font-size: 24px; letter-spacing: 4px; font-weight: 800; }
+        #splash p { color: #888; font-size: 13px; margin-top: 6px; }
+        .splash-loading { width: 160px; height: 3px; background: #222; border-radius: 3px; margin-top: 16px; overflow: hidden; }
+        .splash-loading-inner { width: 0%; height: 100%; background: linear-gradient(90deg, var(--celeste), var(--amarillo));
+            border-radius: 3px; animation: loadBar 1.5s ease forwards; }
+        @keyframes loadBar { to { width: 100%; } }
+
+        /* HEADER */
+        .header { background: var(--glass); backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(0, 210, 255, 0.3); padding: 12px; text-align: center; flex-shrink: 0; }
+        .header h1 { margin: 0; font-size: 18px; color: var(--celeste); letter-spacing: 3px; font-weight: 800; }
+
+        #map { flex-grow: 1; width: 100%; transition: all 0.4s ease; }
+
+        /* ESTADOS DE VIAJE */
+        body.viaje-activo #map { height: 55vh !important; flex: none !important; }
+        body.viaje-activo .bottom-ui { max-height: 45vh; }
+        body.a-bordo #map { height: 85vh !important; flex: none !important; }
+        body.a-bordo .header { display: none; }
+        body.a-bordo .bottom-ui {
+            max-height: 15vh; min-height: 70px; padding: 10px 15px env(safe-area-inset-bottom);
+            gap: 8px; border-radius: 20px 20px 0 0; overflow: hidden;
+            display: flex; flex-direction: row; align-items: center; justify-content: space-between;
         }
-        mostrarToast(cancelado ? 'Viaje cancelado' : 'Se limpió la pantalla', cancelado ? 'success' : 'warning');
-        limpiarEstadoViaje();
-    }
+        body.a-bordo .bottom-ui > *:not(#btn-cancelar):not(#info-viaje-abordo):not(#panel-anuncio-parada) { display: none !important; }
+        body.a-bordo #btn-cancelar { display: block !important; margin: 0; padding: 14px 22px;
+            font-size: 15px; height: auto; white-space: nowrap; flex-shrink: 0; }
+        #info-viaje-abordo { display: none; color: white; font-size: 14px; text-align: left;
+            flex: 1; padding-right: 10px; min-width: 0; }
+        body.a-bordo #info-viaje-abordo { display: block !important; }
 
-    function posponerSubida() {
-        if (timerLlegada) { clearInterval(timerLlegada); timerLlegada = null; }
-        document.getElementById('banner-llegada').classList.remove('visible');
-        llegadaMostrada = false;
-        setTimeout(() => verificarLlegadaCoche(), 15000);
-    }
+        /* BOTTOM UI */
+        .bottom-ui { background: var(--glass); backdrop-filter: blur(15px);
+            border-top: 1px solid rgba(0, 210, 255, 0.3); padding: 16px 16px env(safe-area-inset-bottom);
+            display: flex; flex-direction: column; gap: 10px; border-radius: 25px 25px 0 0;
+            z-index: 100; box-shadow: 0 -10px 25px rgba(0,0,0,0.5);
+            max-height: 55vh; overflow-y: auto; transition: all 0.4s ease; }
 
-    function activarModoABordo() {
-        document.body.classList.remove('viaje-activo');
-        document.body.classList.add('a-bordo');
-        if (datosViajeActivo && datosViajeActivo.length > 0) {
-            const viaje = datosViajeActivo[0];
-            const destino = paradas[viaje.destino_idx];
-            document.getElementById('info-coche-id').textContent = viaje.id_movil || '--';
-            document.getElementById('info-destino-abordo').textContent = destino ? destino.n : '--';
+        body.viaje-activo .form-element { display: none !important; }
+        body.viaje-activo #btn-pedir { display: none !important; }
+
+        /* TARJETA PROMO */
+        .promo-card { background: linear-gradient(135deg, rgba(0, 210, 255, 0.08), rgba(255, 204, 0, 0.05));
+            border: 1px solid rgba(0, 210, 255, 0.3); border-radius: 14px; padding: 12px;
+            text-align: center; font-size: 15px; font-weight: 700; }
+
+        input, select { background: rgba(42, 42, 42, 0.9); border: 1px solid #444; color: white;
+            padding: 14px; border-radius: 12px; font-size: 16px; width: 100%; box-sizing: border-box;
+            backdrop-filter: blur(5px); transition: all 0.2s; }
+        input:focus, select:focus { border-color: var(--celeste); box-shadow: 0 0 10px rgba(0, 210, 255, 0.2); outline: none; }
+
+        /* PANEL VIAJE ACTIVO */
+        .viaje-activo-panel {
+            background: linear-gradient(135deg, rgba(26, 26, 62, 0.9) 0%, rgba(13, 43, 58, 0.9) 100%);
+            backdrop-filter: blur(15px); border: 1px solid rgba(0, 210, 255, 0.4);
+            border-radius: 20px; padding: 18px; margin-bottom: 10px;
+            animation: slideIn 0.5s ease; transition: border-color 0.5s ease;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
         }
-        setTimeout(() => {
-            map.invalidateSize();
-            if (markerMiCoche) { const latLng = markerMiCoche.getLatLng(); map.setView(latLng, 17); }
-        }, 400);
-        if (intervaloVerificarLlegada) { clearInterval(intervaloVerificarLlegada); intervaloVerificarLlegada = null; }
-    }
-
-    function iniciarEscuchaAnuncios() {
-        if (canalRealtime) return;
-        if (!miNombrePasajero) return;
-        verificarAnuncioPendiente();
-        canalRealtime = _s.channel('anuncios-parada-' + miNombrePasajero)
-            .on('postgres_changes', {
-                event: 'UPDATE', schema: 'public', table: 'reservas_activas',
-                filter: 'nombre_pasajero=eq.' + miNombrePasajero
-            }, (payload) => {
-                const nuevo = payload.new;
-                if (nuevo.anuncio_parada && !nuevo.anuncio_visto) {
-                    mostrarAnuncioParada(nuevo.anuncio_parada);
-                }
-            })
-            .subscribe();
-    }
-
-    async function verificarAnuncioPendiente() {
-        try {
-            const { data, error } = await _s.from('reservas_activas')
-                .select('anuncio_parada, anuncio_visto')
-                .eq('nombre_pasajero', miNombrePasajero)
-                .eq('estado', 'en_curso')
-                .single();
-            if (error) throw error;
-            if (data && data.anuncio_parada && !data.anuncio_visto) {
-                mostrarAnuncioParada(data.anuncio_parada);
-            }
-        } catch (err) { console.error('Error verificando anuncio pendiente:', err); }
-    }
-
-    function mostrarAnuncioParada(mensaje) {
-        const panel = document.getElementById('panel-anuncio-parada');
-        const texto = document.getElementById('anuncio-mensaje-texto');
-        texto.innerText = mensaje;
-        panel.classList.add('visible');
-        reproducirAlarmaLlegada();
-        vibrarAlarma();
-        if (timerAutoCerrarAnuncio) clearTimeout(timerAutoCerrarAnuncio);
-        timerAutoCerrarAnuncio = setTimeout(() => {
-            if (panel.classList.contains('visible')) { marcarAnuncioVisto(); }
-        }, 12000);
-    }
-
-    async function marcarAnuncioVisto() {
-        const panel = document.getElementById('panel-anuncio-parada');
-        panel.classList.remove('visible');
-        if (timerAutoCerrarAnuncio) { clearTimeout(timerAutoCerrarAnuncio); timerAutoCerrarAnuncio = null; }
-        if (!miNombrePasajero) return;
-        try { await _s.rpc('marcar_anuncio_visto', { p_nombre: miNombrePasajero }); }
-        catch (err) { console.error("Error marcando anuncio visto:", err); }
-    }
-
-    let audioCtx = null;
-    function inicializarAudio() {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-    }
-
-    // 🔊 ALARMA BITONAL DE ALTA INTENSIDAD (Actualizada)
-    function reproducirAlarmaLlegada() {
-        inicializarAudio();
-        const ahora = audioCtx.currentTime;
-        
-        for (let i = 0; i < 3; i++) {
-            const tiempoInicio = ahora + (i * 0.25);
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            
-            oscillator.type = 'sawtooth'; // Onda penetrante tipo sierra
-            
-            // Alternancia de frecuencias agudas llamativas (Notas B5 y E6)
-            const frecuencia = (i % 2 === 0) ? 987.77 : 1318.51;
-            oscillator.frequency.setValueAtTime(frecuencia, tiempoInicio);
-            
-            gainNode.gain.setValueAtTime(0.5, tiempoInicio);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, tiempoInicio + 0.2);
-            
-            oscillator.start(tiempoInicio);
-            oscillator.stop(tiempoInicio + 0.22);
-        }
-    }
-
-    function vibrarAlarma() {
-        if ('vibrate' in navigator) navigator.vibrate([300, 100, 300, 100, 500]);
-    }
-
-    window.onload = async () => {
-        const nombreGuardado = localStorage.getItem('usuario_nombre');
-        if (nombreGuardado) {
-            document.getElementById('nombre-input').value = nombreGuardado;
-            miNombrePasajero = nombreGuardado;
-            await cargarDatosViajeActivo(nombreGuardado);
-        }
-        setTimeout(() => {
-            const splash = document.getElementById('splash');
-            if (splash) { splash.style.opacity = '0'; setTimeout(() => splash.style.visibility = 'hidden', 800); }
-        }, 2000);
-    };
-
-    async function cargarDatosViajeActivo(nombre) {
-        miNombrePasajero = nombre;
-        try {
-            const { data: rpcData, error } = await _s.rpc('obtener_viaje_activo', { p_nombre: nombre });
-            if (error) throw error;
-            const data = (rpcData && rpcData.viaje && Array.isArray(rpcData.viaje)) ? rpcData.viaje : [];
-            if (data.length > 0) {
-                miViajeActivo = true;
-                datosViajeActivo = data;
-                asientosElegidos = data.map(r => r.asiento_num);
-                const primerViaje = data[0];
-                if (primerViaje.estado_pasajero === 'a_bordo') {
-                    pasajeroABordo = true;
-                    activarModoABordo();
-                    iniciarEscuchaAnuncios();
-                }
-                if (primerViaje.destino_idx !== undefined) document.getElementById('destino-select').value = primerViaje.destino_idx;
-                if (primerViaje.estado_movil && primerViaje.estado_movil.sentido_flujo) document.getElementById('sentido-select').value = primerViaje.estado_movil.sentido_flujo;
-                if (primerViaje.destino_idx !== undefined && miLat !== 0) actualizarMapaRuta();
-                bloquearPanelParaViajeActivo();
-                if (!pasajeroABordo) { iniciarSeguimientoAutoRealtime(primerViaje.id_movil); iniciarVerificacionLlegada(); }
-                iniciarPollingEstado();
-            } else { limpiarUI(); }
-        } catch (err) { console.error("Error al cargar viaje activo:", err); }
-    }
-
-    function iniciarPollingEstado() {
-        if (intervaloPolling) clearInterval(intervaloPolling);
-        if (pasajeroABordo) return;
-        intervaloPolling = setInterval(async () => {
-            if (pasajeroABordo || !miNombrePasajero) { clearInterval(intervaloPolling); return; }
-            try {
-                const { data: rpcData, error } = await _s.rpc('obtener_viaje_activo', { p_nombre: miNombrePasajero });
-                if (error) return;
-                const data = (rpcData && rpcData.viaje && Array.isArray(rpcData.viaje)) ? rpcData.viaje : [];
-                if (data.length > 0 && data[0].estado_pasajero === 'a_bordo') {
-                    pasajeroABordo = true;
-                    activarModoABordo();
-                    iniciarEscuchaAnuncios();
-                    if (canalSeguimientoAuto) { canalSeguimientoAuto.unsubscribe(); canalSeguimientoAuto = null; }
-                    clearInterval(intervaloPolling);
-                } else if (data.length === 0) { limpiarEstadoViaje(); }
-            } catch (e) { console.error('Error polling:', e); }
-        }, 5000);
-    }
-
-    // 📡 SEGUIMIENTO EN TIEMPO REAL VÍA WEBSOCKETS (Actualizado)
-    function iniciarSeguimientoAutoRealtime(idMovil) {
-        if (!idMovil) return;
-        if (canalSeguimientoAuto) { canalSeguimientoAuto.unsubscribe(); }
-
-        // Primero hacemos una consulta inicial rápida para situarlo
-        _s.from('estado_movil').select('latitud, longitud').eq('id', idMovil).single().then(({data}) => {
-            if(data) procesarNuevaUbicacionCoche(data.latitud, data.longitud);
-        });
-
-        // Nos suscribimos a los cambios de posición exactos de ese coche en Supabase
-        canalSeguimientoAuto = _s.channel('seguimiento-chofer-' + idMovil)
-            .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'estado_movil',
-                filter: 'id=eq.' + idMovil
-            }, (payload) => {
-                const movilActualizado = payload.new;
-                procesarNuevaUbicacionCoche(movilActualizado.latitud, movilActualizado.longitud);
-            })
-            .subscribe();
-    }
-
-    function procesarNuevaUbicacionCoche(lat, lon) {
-        if (!miViajeActivo || !datosViajeActivo || datosViajeActivo.length === 0 || pasajeroABordo) return;
-        
-        const viaje = datosViajeActivo[0];
-        const sentido = (viaje.estado_movil && viaje.estado_movil.sentido_flujo) ? viaje.estado_movil.sentido_flujo : document.getElementById('sentido-select').value;
-        const paradaPasajero = calcularParadaMasCerca(viaje.pasajero_lat || miLat, viaje.pasajero_lon || miLon);
-        
-        const paradaCoche = calcularParadaMasCerca(lat, lon);
-        const puedeRecoger = movilPuedeRecoger(paradaCoche, paradaPasajero, sentido);
-        
-        if (!puedeRecoger && !cocheYaPaso) { 
-            cocheYaPaso = true; 
-            mostrarAlertaCochePasado(); 
-        } else if (puedeRecoger && cocheYaPaso) { 
-            cocheYaPaso = false; 
-            actualizarPanelViajeActivo(false); 
-        }
-        
-        actualizarMarcadorMiCoche(lat, lon, cocheYaPaso);
-    }
-
-    function mostrarAlertaCochePasado() {
-        actualizarPanelViajeActivo(true);
-        const container = document.getElementById('viaje-activo-container');
-        const panel = container.querySelector('.viaje-activo-panel');
-        if (panel) {
-            const alertaExistente = panel.querySelector('.alerta-parada');
-            if (!alertaExistente) {
-                const alerta = document.createElement('div');
-                alerta.className = 'alerta-parada';
-                alerta.innerHTML = '<div class="alerta-parada-texto">EL COCHE YA PASO TU PARADA</div><div class="alerta-parada-sub">El conductor no puede retroceder. Finaliza el viaje para liberar tu asiento.</div>';
-                const statusElement = panel.querySelector('.viaje-activo-status');
-                if (statusElement) panel.insertBefore(alerta, statusElement);
-            }
-        }
-        const btn = document.getElementById('btn-cancelar');
-        btn.innerText = "FINALIZAR VIAJE (COCHE PASO)";
-        btn.style.background = "linear-gradient(135deg, #ff4444, #c0392b)";
-    }
-
-    function actualizarPanelViajeActivo(alerta) {
-        const container = document.getElementById('viaje-activo-container');
-        const panel = container.querySelector('.viaje-activo-panel');
-        if (!panel) return;
-        if (alerta) {
-            panel.classList.add('alerta-pasado');
-            const status = panel.querySelector('.viaje-activo-status');
-            if (status) { status.classList.add('alerta'); status.innerHTML = '<div class="status-dot alerta"></div><span>COCHE YA PASO - NO PUEDE RETROCEDER</span>'; }
-        } else {
-            panel.classList.remove('alerta-pasado');
-            const status = panel.querySelector('.viaje-activo-status');
-            if (status) { status.classList.remove('alerta'); status.innerHTML = '<div class="status-dot"></div><span>Conductor en camino...</span>'; }
-        }
-    }
-
-    function actualizarMarcadorMiCoche(lat, lon, pasado) {
-        if (markerMiCoche) map.removeLayer(markerMiCoche);
-        const icono = pasado ? L.divIcon({ html: '<div style="font-size:30px; opacity:0.5; filter: grayscale(1);">🚕</div>', iconAnchor: [15, 15] }) : iconMiCoche;
-        markerMiCoche = L.marker([lat, lon], { icon: icono, zIndexOffset: 1000 }).addTo(map);
-        if (miLat !== 0) map.fitBounds(L.latLngBounds([miLat, miLon], [lat, lon]), { padding: [100, 100] });
-    }
-
-    function bloquearPanelParaViajeActivo() {
-        document.body.classList.add('viaje-activo');
-        document.getElementById('btn-pedir').style.display = 'none';
-        document.getElementById('btn-cancelar').style.display = 'block';
-        document.getElementById('nombre-input').disabled = true;
-        document.getElementById('destino-select').disabled = true;
-        document.getElementById('sentido-select').disabled = true;
-        renderizarPanelViajeActivo();
-        setTimeout(() => map.invalidateSize(), 350);
-    }
-
-    function renderizarPanelViajeActivo() {
-        const container = document.getElementById('viaje-activo-container');
-        container.style.display = 'block';
-        if (!datosViajeActivo || datosViajeActivo.length === 0) { container.innerHTML = '<div class="sin-coches">Ya tenes un viaje activo</div>'; return; }
-        const viaje = datosViajeActivo[0];
-        const movil = viaje.estado_movil || {};
-        const destino = paradas[viaje.destino_idx] || {n: 'Destino'};
-        const asientos = datosViajeActivo.map(v => v.asiento_num).join(', ');
-        const estadoPax = viaje.estado_pasajero || 'esperando';
-        container.innerHTML = '';
-        const panel = document.createElement('div');
-        panel.className = 'viaje-activo-panel';
-        panel.id = 'viaje-activo-panel';
-        const header = document.createElement('div');
-        header.className = 'viaje-activo-header';
-        const icono = document.createElement('div');
-        icono.className = 'viaje-activo-icono';
-        icono.textContent = estadoPax === 'a_bordo' ? '✅' : '🚗';
-        const titulo = document.createElement('div');
-        titulo.className = 'viaje-activo-titulo';
-        titulo.innerHTML = '<p class="coche-numero">Coche ' + (viaje.id_movil || '---') + '</p><p class="conductor-nombre">' + (movil.chofer || 'Conductor') + '</p>';
-        header.appendChild(icono); header.appendChild(titulo); panel.appendChild(header);
-        const infoBox = document.createElement('div');
-        infoBox.className = 'viaje-activo-info';
-        infoBox.innerHTML = '<div class="info-box"><div class="info-box-label">Asiento(s)</div><div class="info-box-valor">' + asientos + '</div></div><div class="info-box"><div class="info-box-label">Tarifa</div><div class="info-box-valor">$' + (datosViajeActivo.length * 1000) + '</div></div>';
-        panel.appendChild(infoBox);
-        const destinoDiv = document.createElement('div');
-        destinoDiv.className = 'viaje-activo-destino';
-        destinoDiv.textContent = 'Destino: ' + destino.n;
-        panel.appendChild(destinoDiv);
-        const status = document.createElement('div');
-        status.className = 'viaje-activo-status';
-        status.id = 'viaje-status';
-        if (estadoPax === 'a_bordo') status.innerHTML = '<div class="status-dot" style="background:#00d2ff;animation:none;box-shadow:0 0 8px #00d2ff;"></div><span>Ya estas a bordo - Viajando a destino</span>';
-        else status.innerHTML = '<div class="status-dot"></div><span>Conductor en camino...</span>';
-        panel.appendChild(status);
-        container.appendChild(panel);
-    }
-
-    navigator.geolocation.watchPosition(p => {
-        miLat = p.coords.latitude; miLon = p.coords.longitude;
-        markerPasajero.setLatLng([miLat, miLon]);
-        actualizarMapaRuta();
-        if (!gpsListo) {
-            gpsListo = true;
-            document.getElementById('btn-pedir').disabled = false;
-            if (!miViajeActivo) document.getElementById('btn-pedir').innerText = "SELECCIONA TU DESTINO";
-        }
-    }, (err) => { console.error("GPS Error:", err); document.getElementById('btn-pedir').innerText = "GPS NO DISPONIBLE"; }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
-
-    function actualizarMapaRuta() {
-        const val = document.getElementById('destino-select').value;
-        if (val !== "" && miLat !== 0) {
-            const dest = paradas[val].c;
-            guiaDestino.setLatLngs([[miLat, miLon], dest]);
-            markerDestinoFlecha.setLatLng(dest).addTo(map);
-            const bounds = L.latLngBounds([miLat, miLon], dest);
-            map.fitBounds(bounds, { padding: [80, 80] });
-        }
-    }
-
-    document.getElementById('destino-select').addEventListener('change', () => { actualizarMapaRuta(); renderizarFlotaDisponible(); });
-    document.getElementById('sentido-select').addEventListener('change', () => { renderizarFlotaDisponible(); });
-
-    function seleccionarAsiento(cocheId, numAsiento) {
-        if (miViajeActivo) return;
-        if (cocheSeleccionado && cocheSeleccionado !== cocheId) {
-            asientosElegidos = [];
-            document.querySelectorAll('.asiento-libre').forEach(el => el.classList.remove('seleccionado'));
-            document.querySelectorAll('.coche-card').forEach(el => el.classList.remove('seleccionado'));
-        }
-        cocheSeleccionado = cocheId;
-        const idx = asientosElegidos.indexOf(numAsiento);
-        const el = document.getElementById('as-' + cocheId + '-' + numAsiento);
-        if (idx > -1) {
-            asientosElegidos.splice(idx, 1);
-            if (el) el.classList.remove('seleccionado');
-        } else {
-            if (asientosElegidos.length >= 2) { alert("Maximo 2 asientos por pasajero"); return; }
-            asientosElegidos.push(numAsiento);
-            if (el) el.classList.add('seleccionado');
-        }
-        document.querySelectorAll('.coche-card').forEach(el => el.classList.remove('seleccionado'));
-        const card = document.getElementById('coche-card-' + cocheId);
-        if (card) card.classList.add('seleccionado');
-        actualizarBoton();
-    }
-
-    function actualizarBoton() {
-        const btn = document.getElementById('btn-pedir');
-        let nuevoTexto = '', nuevoDisabled = true;
-        if (!gpsListo) nuevoTexto = "BUSCANDO GPS...";
-        else if (!document.getElementById('destino-select').value) nuevoTexto = "SELECCIONA TU DESTINO";
-        else if (asientosElegidos.length > 0) { nuevoTexto = 'RESERVAR ' + asientosElegidos.length + ' ASIENTO(S)'; nuevoDisabled = false; }
-        else nuevoTexto = "SELECCIONA UN ASIENTO";
-        if (nuevoTexto !== ultimoEstadoBoton) { btn.innerText = nuevoTexto; btn.disabled = nuevoDisabled; ultimoEstadoBoton = nuevoTexto; }
-    }
-
-    async function renderizarFlotaDisponible() {
-        if (miViajeActivo) return;
-        const container = document.getElementById('flota-container');
-        const sentido = document.getElementById('sentido-select').value;
-        const destIdx = document.getElementById('destino-select').value;
-        if (!destIdx) { container.innerHTML = '<div class="sin-coches">Selecciona tu destino para ver coches</div>'; ultimaFlotaHTML = ''; actualizarBoton(); return; }
-        if (!gpsListo) { container.innerHTML = '<div class="sin-coches">Esperando señal GPS...</div>'; ultimaFlotaHTML = ''; actualizarBoton(); return; }
-        container.innerHTML = '<div class="sin-coches"><span class="spinner"></span>Buscando moviles...</div>';
-        actualizarBoton();
-        try {
-            const { data: rpcData, error: errMoviles } = await _s.rpc('obtener_flota', { p_sentido: sentido, p_destino_idx: parseInt(destIdx), p_lat: miLat, p_lon: miLon });
-            if (errMoviles) throw errMoviles;
-            const movilesRaw = (rpcData && rpcData.moviles) ? rpcData.moviles : [];
-            const moviles = movilesRaw || [];
-            const movilesConParada = moviles.map(m => ({ ...m, paradaCalculada: calcularParadaMasCerca(m.latitud, m.longitud), distancia: m.distancia || Math.sqrt(Math.pow(miLat - m.latitud, 2) + Math.pow(miLon - m.longitud, 2)) }));
-            const movilesValidos = movilesConParada.filter(m => movilPuedeRecoger(m.paradaCalculada, parseInt(destIdx), sentido)).sort((a, b) => a.distancia - b.distancia);
-            if (movilesValidos.length === 0) { container.innerHTML = '<div class="sin-coches"><b>No hay moviles disponibles</b><br>Todos ya pasaron tu parada o no hay online</div>'; ultimaFlotaHTML = ''; ultimoEstadoBoton = ''; actualizarBoton(); return; }
-            let hayCochesConLugar = false;
-            container.innerHTML = '';
-            for (const movil of movilesValidos) {
-                const asientosOcupados = {};
-                const ocupadosArray = movil.asientos_ocupados || [];
-                ocupadosArray.forEach(r => { asientosOcupados[r.asiento_num] = r.nombre_pasajero; });
-                const asientosLibres = [1,2,3,4].filter(n => !asientosOcupados[n]);
-                if (asientosLibres.length > 0) hayCochesConLugar = true;
-                const estaSeleccionado = cocheSeleccionado === movil.id;
-                const distanciaKm = (movil.distancia * 111).toFixed(1);
-                const card = document.createElement('div');
-                card.className = 'coche-card ' + (estaSeleccionado ? 'seleccionado' : '');
-                card.id = 'coche-card-' + movil.id;
-                card.innerHTML = '<div class="coche-header"><div><span class="coche-num">Coche ' + movil.id + '</span><div class="coche-info">' + (movil.chofer || 'Conductor') + '</div></div><div class="coche-dist">' + distanciaKm + ' km</div></div><div class="asientos-row" id="asientos-row-' + movil.id + '"></div><div class="coche-info" style="margin-top:4px;text-align:center;" id="disp-' + movil.id + '"></div>';
-                const asientosRow = card.querySelector('#asientos-row-' + movil.id);
-                for (let num = 1; num <= 4; num++) {
-                    const nombreOcupante = asientosOcupados[num];
-                    const seleccionado = estaSeleccionado && asientosElegidos.includes(num);
-                    const asientoBox = document.createElement('div');
-                    asientoBox.className = 'asiento-box ' + (nombreOcupante ? 'asiento-ocupado' : 'asiento-libre') + ' ' + (seleccionado ? 'seleccionado' : '');
-                    asientoBox.id = 'as-' + movil.id + '-' + num;
-                    if (!nombreOcupante) asientoBox.onclick = () => seleccionarAsiento(movil.id, num);
-                    if (nombreOcupante) {
-                        const nombreLimpio = escaparHTML(sanitizarInput(nombreOcupante));
-                        const nombreCorto = nombreLimpio.length > 7 ? nombreLimpio.substring(0,6)+'...' : nombreLimpio;
-                        asientoBox.innerHTML = '<div class="asiento-num">' + num + '</div><div class="asiento-nombre">' + nombreCorto + '</div><div class="asiento-lock">🔒</div>';
-                        asientoBox.title = nombreLimpio;
-                    } else {
-                        asientoBox.innerHTML = '<div class="asiento-num">' + num + '</div><div style="font-size:9px;">LIBRE</div>';
-                    }
-                    asientosRow.appendChild(asientoBox);
-                }
-                const disp = card.querySelector('#disp-' + movil.id);
-                if (asientosLibres.length === 0) disp.innerHTML = '<span style="color:#ff4444;">LLENO</span>';
-                else if (asientosLibres.length === 4) disp.innerHTML = '<span style="color:#4cd964;">Todos libres</span>';
-                else disp.textContent = asientosLibres.length + ' libre(s)';
-                container.appendChild(card);
-            }
-            if (!hayCochesConLugar) { container.innerHTML = '<div class="sin-coches"><b>Todos los moviles estan llenos</b><br>Intenta en unos minutos</div>'; ultimaFlotaHTML = ''; ultimoEstadoBoton = ''; actualizarBoton(); return; }
-            ultimaFlotaHTML = container.innerHTML;
-            actualizarBoton();
-        } catch (err) {
-            console.error("Error:", err);
-            container.innerHTML = '<div class="sin-coches"><b>Error de conexion</b><br>Verifica tu internet</div>';
-            ultimaFlotaHTML = ''; ultimoEstadoBoton = ''; actualizarBoton();
-        }
-    }
-
-    async function confirmarViajePasajero() {
-        const nomRaw = document.getElementById('nombre-input').value.trim();
-        const nom = sanitizarInput(nomRaw);
-        if (!nom || nom.length < 2) { alert("Ingresa un nombre valido (solo letras, maximo 20 caracteres)."); document.getElementById('nombre-input').value = ''; return; }
-        document.getElementById('nombre-input').value = nom;
-        const destIdx = parseInt(document.getElementById('destino-select').value);
-        if (isNaN(destIdx)) { alert("Selecciona una parada de destino."); return; }
-        if (!cocheSeleccionado || asientosElegidos.length === 0) { alert("Selecciona un coche y al menos un asiento."); return; }
-        const btn = document.getElementById('btn-pedir');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span>RESERVANDO...';
-        try {
-            const { data: rpcData, error } = await _s.rpc('reservar_asientos', { p_nombre: nom, p_id_movil: cocheSeleccionado, p_asientos: asientosElegidos, p_destino_idx: destIdx, p_lat: miLat, p_lon: miLon });
-            if (error) throw error;
-            if (rpcData && rpcData.colision) { alert("Algunos asientos ya fueron tomados. Eleji otros."); asientosElegidos = []; cocheSeleccionado = null; ultimaFlotaHTML = ''; renderizarFlotaDisponible(); return; }
-            if (rpcData && rpcData.success) {
-                localStorage.setItem('usuario_nombre', nom);
-                miNombrePasajero = nom;
-                location.reload();
-            } else { throw new Error("Respuesta inesperada del servidor"); }
-        } catch (err) {
-            console.error("Error:", err);
-            alert(err.message || "Error de conexion.");
-            btn.disabled = false;
-            btn.innerText = "SELECCIONA UN ASIENTO";
-        }
-    }
-
-    async function finalizarViaje() {
-        const btn = document.getElementById('btn-cancelar');
-        let nombreFinal = miNombrePasajero;
-        if (!nombreFinal) { nombreFinal = document.getElementById('nombre-input').value.trim(); }
-        if (!nombreFinal) {
-            const nombreGuardado = localStorage.getItem('usuario_nombre');
-            if (nombreGuardado) { nombreFinal = nombreGuardado; miNombrePasajero = nombreGuardado; }
-        }
-        if (!nombreFinal) { alert("Error: No se encontro tu nombre."); btn.disabled = false; btn.innerText = "TERMINAR MI VIAJE"; return; }
-        if (btn.disabled) return;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span>FINALIZANDO...';
-        let finalizado = false;
-        try {
-            const { data: rpcData, error } = await _s.rpc('finalizar_viaje', { p_nombre: nombreFinal });
-            if (!error && rpcData && rpcData.success) { finalizado = true; }
-        } catch (err) { console.warn("RPC finalizar fallo:", err); }
-        if (!finalizado) {
-            try {
-                const { data, error } = await _s.from('reservas_activas')
-                    .update({ estado: 'finalizado' })
-                    .eq('nombre_pasajero', nombreFinal)
-                    .eq('estado', 'en_curso')
-                    .select();
-                if (!error && data && data.length > 0) { finalizado = true; }
-                else if (!error && (!data || data.length === 0)) { finalizado = true; }
-            } catch (err2) { console.error("Directo tambien fallo:", err2); }
-        }
-        mostrarToast(finalizado ? 'Viaje finalizado' : 'Se limpio la pantalla', finalizado ? 'success' : 'warning');
-        limpiarEstadoViaje();
-    }
-
-    function limpiarEstadoViaje() {
-        if (intervaloVerificarLlegada) clearInterval(intervaloVerificarLlegada);
-        if (timerLlegada) clearInterval(timerLlegada);
-        if (intervaloPolling) clearInterval(intervaloPolling);
-        if (timerAutoCerrarAnuncio) clearTimeout(timerAutoCerrarAnuncio);
-        if (canalRealtime) { try { canalRealtime.unsubscribe(); } catch(e) {} canalRealtime = null; }
-        if (canalSeguimientoAuto) { try { canalSeguimientoAuto.unsubscribe(); } catch(e) {} canalSeguimientoAuto = null; }
-        localStorage.removeItem('usuario_nombre');
-        miNombrePasajero = '';
-        miViajeActivo = false;
-        pasajeroABordo = false;
-        asientosElegidos = [];
-        cocheSeleccionado = null;
-        datosViajeActivo = null;
-        cocheYaPaso = false;
-        llegadaMostrada = false;
-        limpiarUI();
-        const splash = document.getElementById('splash');
-        if (splash) splash.style.visibility = 'hidden';
-        location.reload();
-    }
-
-    function limpiarUI() {
-        document.body.classList.remove('viaje-activo', 'a-bordo');
-        document.getElementById('btn-pedir').style.display = 'block';
-        document.getElementById('btn-cancelar').style.display = 'none';
-        document.getElementById('nombre-input').disabled = false;
-        document.getElementById('destino-select').disabled = false;
-        document.getElementById('sentido-select').disabled = false;
-        document.getElementById('viaje-activo-container').style.display = 'none';
-        document.getElementById('viaje-activo-container').innerHTML = '';
-        document.getElementById('btn-cancelar').innerText = "TERMINAR MI VIAJE";
-        document.getElementById('btn-cancelar').style.background = "linear-gradient(135deg, #ff3b30, #c0392b)";
-    }
-
-    async function actualizarMapaTaxis() {
-        if (miViajeActivo) return; // Si el viaje está activo, se encarga el canal realtime individual
-        const sentidoSeleccionado = document.getElementById('sentido-select').value;
-        const destIdx = document.getElementById('destino-select').value;
-        try {
-            const { data: rpcData, error } = await _s.rpc('obtener_taxis', { p_sentido: sentidoSeleccionado });
-            if (error) throw error;
-            const moviles = (rpcData && Array.isArray(rpcData)) ? rpcData : (rpcData && rpcData.taxis && Array.isArray(rpcData.taxis)) ? rpcData.taxis : [];
-            if (moviles.length > 0) {
-                const idsOnline = moviles.map(m => m.id.toString());
-                Object.keys(markerTaxis).forEach(id => {
-                    if (!idsOnline.includes(id)) { map.removeLayer(markerTaxis[id]); delete markerTaxis[id]; }
-                });
-                moviles.forEach(t => {
-                    let yaPaso = false;
-                    if (destIdx !== "") { const paradaMovil = calcularParadaMasCerca(t.latitud || t.lat, t.longitud || t.lon); yaPaso = !movilPuedeRecoger(paradaMovil, parseInt(destIdx), sentidoSeleccionado); }
-                    const iconoUsar = yaPaso ? iconTPasado : iconT;
-                    const lat = t.latitud || t.lat || 0;
-                    const lon = t.longitud || t.lon || 0;
-                    if (markerTaxis[t.id]) { markerTaxis[t.id].setLatLng([lat, lon]); markerTaxis[t.id].setIcon(iconoUsar); }
-                    else { markerTaxis[t.id] = L.marker([lat, lon], { icon: iconoUsar }).addTo(map); }
-                });
-            }
-        } catch (err) { console.error("Error actualizando flota:", err); }
-    }
-
-    setInterval(() => { if (!miViajeActivo) actualizarMapaTaxis(); }, 15000);
-    actualizarMapaTaxis();
-</script>
+        .viaje-activo-panel.alerta-pasado { border-color: var(--danger);
+            animation: shake 0.5s ease; box-shadow: 0 8px 32px rgba(255, 59, 48, 0.3); }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        .viaje-activo-header { display: flex; align-items: center; gap: 14px; margin-bottom: 14px;
+            padding-bottom: 14px; border-bottom: 1px solid rgba(0, 210, 255, 0.15); }
+        .viaje-activo-icono { width: 56px; height: 56px; background: linear-gradient(135deg, var(--celeste), #0088cc);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 26px; flex-shrink: 0; transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.3); }
+        .viaje-activo-panel.alerta-pasado .viaje-activo-icono {
+            background: linear-gradient(135deg, var(--danger), #c0392b);
+            animation: pulseDanger 1s infinite; box-shadow: 0 0 20px rgba(255, 59, 48, 0.4); }
+        @keyframes pulseDanger { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        .viaje-activo-titulo { flex: 1; }
+        .viaje-activo-titulo .coche-numero { font-size: 22px; font-weight: 800; color: var(--amarillo); margin: 0; text-shadow: 0 0 10px rgba(255, 204, 0, 0.3); }
+        .viaje-activo-titulo .conductor-nombre { font-size: 14px; color: rgba(255,255,255,0.8); margin: 4px 0 0 0; }
+        .viaje-activo-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+        .info-box { background: rgba(0, 0, 0, 0.3); border-radius: 12px; padding: 12px; text-align: center;
+            border: 1px solid rgba(255,255,255,0.05); }
+        .info-box-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
+        .info-box-valor { font-size: 16px; color: var(--celeste); font-weight: 800; margin-top: 4px; }
+        .viaje-activo-destino { background: rgba(255, 204, 0, 0.08); border: 1px solid rgba(255, 204, 0, 0.3);
+            border-radius: 12px; padding: 12px; text-align: center; font-size: 14px;
+            color: var(--amarillo); margin-bottom: 14px; font-weight: 600; }
+        .viaje-activo-status { display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-size: 13px; color: var(--success); padding: 12px; border-radius: 12px;
+            background: rgba(76, 217, 100, 0.08); border: 1px solid rgba(76, 217, 100, 0.2); }
+        .viaje-activo-status.alerta { color: var(--danger); background: rgba(255, 59, 48, 0.08); border-
