@@ -1,1 +1,589 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TuMovil - Pasajero Oficial</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --celeste: #00d2ff;
+            --amarillo: #ffcc00;
+            --dark: #0a0a1a;
+            --success: #4cd964;
+            --danger: #ff3b30;
+            --glass: rgba(10, 10, 26, 0.92);
+        }
+        body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden;
+            display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 
+        /* SPLASH SCREEN */
+        #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(180deg, #0a0a1a 0%, #1a1a3e 50%, #0d2b3a 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 10000; transition: opacity 0.6s ease, visibility 0.6s; }
+        .splash-ring { width: 140px; height: 140px; border: 3px solid var(--celeste); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 40px rgba(0, 210, 255, 0.4); animation: pulseRing 2s infinite; }
+        @keyframes pulseRing { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+        #splash h2 { color: var(--celeste); margin-top: 20px; font-size: 24px; letter-spacing: 4px; font-weight: 800; }
+        .splash-loading { width: 140px; height: 3px; background: #222; border-radius: 3px; margin-top: 16px; overflow: hidden; }
+        .splash-loading-inner { width: 0%; height: 100%; background: linear-gradient(90deg, var(--celeste), var(--amarillo)); animation: loadBar 1.5s ease forwards; }
+        @keyframes loadBar { to { width: 100%; } }
+
+        /* HEADER SUPERIOR FLOTANTE */
+        .header { position: absolute; top: 15px; left: 15px; right: 15px; background: var(--glass); 
+            backdrop-filter: blur(12px); border: 1px solid rgba(0, 210, 255, 0.2); padding: 12px; 
+            text-align: center; border-radius: 16px; z-index: 999; transition: transform 0.4s ease; }
+        .header h1 { margin: 0; font-size: 16px; color: var(--celeste); letter-spacing: 3px; font-weight: 800; }
+
+        /* MAPA: Ocupa siempre el 100% del fondo */
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
+
+        /* BOTÓN DE CONFIGURACIÓN/RESETEO RÁPIDO */
+        .btn-floating-reset { position: absolute; top: 80px; right: 15px; background: var(--glass);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; width: 44px; height: 44px;
+            display: flex; align-items: center; justify-content: center; font-size: 18px; z-index: 999; cursor: pointer; }
+
+        /* CAJÓN DE MENÚ INFERIOR (ESTILO HOJA DESPLAZABLE) */
+        .bottom-ui { 
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: var(--glass); backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(0, 210, 255, 0.25); 
+            padding: 16px 16px cubic-bezier(0.1, 0.7, 0.1, 1);
+            padding-bottom: calc(16px + env(safe-area-inset-bottom));
+            display: flex; flex-direction: column; gap: 10px; 
+            border-radius: 24px 24px 0 0;
+            z-index: 998; box-shadow: 0 -10px 35px rgba(0,0,0,0.6);
+            max-height: 40vh; overflow-y: auto; 
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.12), max-height 0.4s ease; 
+        }
+
+        /* CUANDO EL VIAJE ESTÁ ACTIVO: Escondemos el menú de configuración al 100% fuera de pantalla */
+        body.viaje-activo .bottom-ui { transform: translateY(100%); pointer-events: none; }
+        body.viaje-activo .header { transform: translateY(-150%); }
+
+        /* PANEL FLOTANTE MINIMALISTA DE VIAJE ACTIVO */
+        #mini-panel-viaje {
+            position: absolute; bottom: calc(15px + env(safe-area-inset-bottom)); left: 15px; right: 15px;
+            background: linear-gradient(135deg, rgba(10, 10, 30, 0.95) 0%, rgba(20, 20, 50, 0.95) 100%);
+            border: 2px solid var(--celeste); border-radius: 20px; padding: 16px; z-index: 999;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7); display: none; animation: slideUpFlotante 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        body.viaje-activo #mini-panel-viaje { display: block; }
+        @keyframes slideUpFlotante { from { transform: translateY(120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .mini-viaje-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .mini-viaje-info { display: flex; align-items: center; gap: 10px; }
+        .mini-viaje-car { font-size: 20px; font-weight: 900; color: var(--amarillo); }
+        .mini-viaje-chofer { font-size: 13px; color: #ccc; }
+        .mini-viaje-status { font-size: 12px; color: var(--success); font-weight: 700; display: flex; align-items: center; gap: 6px; }
+        
+        /* ELEMENTOS FORMULARIO COMPACTOS */
+        .promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid rgba(0, 210, 255, 0.2); border-radius: 10px; padding: 8px; text-align: center; font-size: 13px; font-weight: 700; }
+        .form-row { display: flex; gap: 8px; }
+        input, select { background: rgba(20, 20, 35, 0.85); border: 1px solid #333; color: white; padding: 12px; border-radius: 12px; font-size: 15px; width: 100%; box-sizing: border-box; }
+        input:focus, select:focus { border-color: var(--celeste); outline: none; }
+
+        /* PANEL ANUNCIO PARADA METRO */
+        #panel-anuncio-parada { position: fixed; top: 20px; left: 15px; right: 15px; z-index: 10001;
+            background: rgba(10,10,25,0.96); border: 2px solid var(--amarillo); border-radius: 20px; padding: 18px; display: none; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.8); }
+        #panel-anuncio-parada.visible { display: block; }
+
+        /* BANNER LLEGADA INDEPENDIENTE */
+        #banner-llegada { position: fixed; top: 0; left: 0; right: 0; background: linear-gradient(180deg, var(--celeste) 0%, #0088cc 100%); color: white; padding: 20px 16px; text-align: center; z-index: 10002; transform: translateY(-120%); transition: transform 0.4s cubic-bezier(0.1, 0.8, 0.2, 1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #banner-llegada.visible { transform: translateY(0); }
+
+        /* FLOTA CONTENEDOR REDISEÑADO CON SCROLL INTERNO */
+        .flota-container { max-height: 140px; overflow-y: auto; border-radius: 10px; }
+        .coche-card { background: rgba(20, 20, 30, 0.7); border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05); transition: all 0.2s; }
+        .coche-card.seleccionado { border-color: var(--celeste); background: rgba(0, 210, 255, 0.05); }
+        .coche-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .asientos-row { display: flex; gap: 6px; justify-content: center; }
+        .asiento-box { width: 55px; height: 44px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; }
+        .asiento-libre { background: rgba(40,40,60,0.5); border: 1px solid var(--celeste); color: var(--celeste); cursor: pointer; }
+        .asiento-libre.seleccionado { background: var(--amarillo); border-color: var(--amarillo); color: black; font-weight: 800; }
+        .asiento-ocupado { background: rgba(15,15,15,0.8); border: 1px solid #222; color: #555; }
+
+        /* BOTONES DE ACCIÓN PRINCIPALES */
+        .btn-pedir { background: linear-gradient(135deg, var(--success), #34c759); color: white; border: none; padding: 14px; border-radius: 14px; font-weight: 800; font-size: 16px; transition: all 0.2s; width: 100%; cursor: pointer; }
+        .btn-pedir:disabled { background: #252530; color: #555; cursor: not-allowed; }
+        .btn-cancelar-mini { background: linear-gradient(135deg, var(--danger), #c0392b); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 800; font-size: 14px; width: 100%; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 59, 48, 0.2); }
+
+        /* TOASTS POPUPS */
+        .toast-container { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 10005; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+        .toast { background: rgba(0,0,0,0.9); color: white; padding: 10px 20px; border-radius: 12px; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,255,255,0.1); animation: toastIn 0.3s ease forwards; }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s infinite linear; margin-right: 6px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .sin-coches { text-align: center; padding: 10px; color: #777; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <div id="splash">
+        <div class="splash-ring"><span style="font-size: 50px;">🚕</span></div>
+        <h2>TUMOVIL</h2>
+        <p>Pasajero Oficial</p>
+        <div class="splash-loading"><div class="splash-loading-inner"></div></div>
+    </div>
+
+    <div id="banner-llegada">
+        <div style="font-size: 20px; font-weight: 900; margin-bottom: 2px;">🚗 ¡TU COCHE LLEGÓ! (<span id="llegada-timer">30</span>s)</div>
+        <div style="font-size: 13px; opacity: 0.9; margin-bottom: 12px;">El conductor se encuentra estacionado en tu parada asignada</div>
+        <div style="display: flex; gap: 8px; justify-content: center;">
+            <button class="btn-pedir" style="padding: 10px; font-size: 14px; width: auto;" onclick="confirmarSubida()">✅ YA SUBÍ</button>
+            <button style="background: rgba(255,255,255,0.15); border: 1px solid white; color: white; padding: 10px; border-radius: 10px; font-weight:700;" onclick="posponerSubida()">⏱️ AGUANTAME</button>
+            <button style="background: var(--danger); border: none; color: white; padding: 10px; border-radius: 10px; font-weight:700;" onclick="rechazarViaje()">❌ CANCELAR</button>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <div class="header"><h1>SOLICITAR VIAJE</h1></div>
+    
+    <div class="btn-floating-reset" onclick="if(confirm('¿Limpiar aplicación y reestablecer?')) limpiarEstadoViaje();" title="Resetear App">🔄</div>
+
+    <div id="map"></div>
+
+    <div class="bottom-ui" id="menu-configuracion">
+        <div class="promo-card"><b style="color:var(--amarillo);">TARIFA FIJA: $1000 POR ASIENTO</b></div>
+        
+        <div class="form-row">
+            <select id="sentido-select" style="flex: 1;">
+                <option value="IDA">Hacia IDA</option>
+                <option value="VUELTA">Hacia VUELTA</option>
+            </select>
+            <input type="text" id="nombre-input" style="flex: 1.5;" placeholder="Tu Nombre" maxlength="20">
+        </div>
+
+        <select id="destino-select">
+            <option value="" disabled selected>¿A qué parada vas?</option>
+        </select>
+
+        <div class="flota-container" id="flota-container">
+            <div class="sin-coches">📍 Elegí un destino para ver coches activos</div>
+        </div>
+
+        <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ ESPERANDO GPS...</button>
+    </div>
+
+    <div id="mini-panel-viaje">
+        <div class="mini-viaje-row">
+            <div class="mini-viaje-info">
+                <span style="font-size: 26px;">🚕</span>
+                <div>
+                    <div class="mini-viaje-car">Coche <span id="info-coche-id">--</span></div>
+                    <div class="mini-viaje-chofer" id="info-chofer-nombre">Buscando conductor...</div>
+                </div>
+            </div>
+            <div class="mini-viaje-status" id="viaje-status-texto">
+                <div style="width:8px; height:8px; background:var(--success); border-radius:50%; animation: blink 1.2s infinite;"></div>
+                <span>En camino</span>
+            </div>
+        </div>
+        
+        <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 12px; display: flex; justify-content: space-between;">
+            <span style="color: #888;">Destino: <b id="info-destino-abordo" style="color: var(--amarillo);">--</b></span>
+            <span style="color: var(--celeste); font-weight:800;">Asiento(s): <span id="info-asientos-detalles">--</span></span>
+        </div>
+
+        <button class="btn-cancelar-mini" id="btn-cancelar" onclick="finalizarViaje()">FINALIZAR MI VIAJE</button>
+    </div>
+
+    <div id="panel-anuncio-parada">
+        <div style="font-size: 24px; margin-bottom: 4px;">🔔</div>
+        <div style="color: var(--amarillo); font-size: 11px; font-weight: 800; letter-spacing: 2px; margin-bottom: 6px;">ANUNCIO DEL CHOFER</div>
+        <div style="color: white; font-size: 15px; font-weight: 700; margin-bottom: 12px;" id="anuncio-mensaje-texto">--</div>
+        <button class="btn-pedir" style="padding: 10px; font-size: 13px;" onclick="marcarAnuncioVisto()">ENTENDIDO</button>
+    </div>
+
+<script>
+    // Inicialización Base de Datos Supabase con Token Ofuscado Oficial
+    const _s = supabase.createClient(
+        'https://nvumdlxervrewqiiaicl.supabase.co',
+        'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE',
+        { global: { headers: { 'x-app-secret': '2Awy7XGP0SBmBRprB3PBzfvz9VcbDd04' } } }
+    );
+
+    // Sanitización Extrema contra Inyecciones o Caracteres Raros
+    function sanitizarInput(t) { return t ? t.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\-]/g, '').trim().substring(0, 20) : ''; }
+    function escaparHTML(t) { if(!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+    
+    function mostrarToast(m, tipo) {
+        const c = document.getElementById('toast-container');
+        const t = document.createElement('div'); t.className = 'toast';
+        if(tipo === 'error') t.style.borderColor = 'var(--danger)';
+        if(tipo === 'success') t.style.borderColor = 'var(--success)';
+        t.textContent = m; c.appendChild(t); setTimeout(() => t.remove(), 3000);
+    }
+
+    const paradas = [
+        {n:'Universidad Tecnológica', c:[-34.549295, -58.783648]}, {n:'Parque Tecnológico', c:[-34.551586, -58.781403]},
+        {n:'Base Aérea', c:[-34.54132, -58.778927]}, {n:'Miguel Cané', c:[-34.561264, -58.770506]},
+        {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]}, {n:'Los Aromos 11016', c:[-34.562494, -58.772133]},
+        {n:'Los Aromos 10874', c:[-34.563541, -58.773244]}, {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]},
+        {n:'Murillo 601', c:[-34.565342, -58.772061]}, {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]},
+        {n:'Murillo y Watt', c:[-34.569090, -58.767095]}, {n:'A. Prado 2555', c:[-34.571016, -58.764443]},
+        {n:'Prado y Payró', c:[-34.571956, -58.763201]}, {n:'Prado 1744', c:[-34.577371, -58.755909]},
+        {n:'Boulevard Caveri', c:[-34.578528, -58.757064]}, {n:'Caveri y Azara', c:[-34.579296, -58.755864]},
+        {n:'Caveri y Vedia', c:[-34.580020, -58.755063]}, {n:'Caveri y Tablada', c:[-34.580901, -58.753842]},
+        {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]}, {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]},
+        {n:'Caveri (Final)', c:[-34.584740, -58.748804]}, {n:'Libertador y Aero', c:[-34.585554, -58.749812]},
+        {n:'Libertador 7300', c:[-34.586494, -58.750574]}, {n:'Libertador 7200', c:[-34.588041, -58.751542]},
+        {n:'Libertador y Maza', c:[-34.588273, -58.751338]}, {n:'Maza y Albatros', c:[-34.588771, -58.750804]},
+        {n:'Maternidad', c:[-34.588244, -58.749877]}, {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+    ];
+
+    // Configuración Base de Mapa Leaflet
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(paradas[0].c, 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // Renderizado estético de paradas fijas
+    paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#000', weight: 1.5, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map));
+
+    const iconP = L.divIcon({ html: '<div style="font-size:26px; filter:drop-shadow(0 2px 5px rgba(0,0,0,0.5));">🚶</div>', iconAnchor: [13, 26], className: 'p-mark' });
+    const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:18px solid #ffcc00; filter: drop-shadow(0 0 6px #ffcc00);"></div>', iconAnchor: [8, 9], className: 'dest-arrow' });
+    const iconT = L.divIcon({ html: '<span style="font-size:22px;">🚕</span>', iconAnchor: [11, 11] });
+    const iconTPasado = L.divIcon({ html: '<span style="font-size:22px; opacity:0.3; filter: grayscale(1);">🚕</span>', iconAnchor: [11, 11] });
+    const iconMiCoche = L.divIcon({ html: '<div style="font-size:28px; filter: drop-shadow(0 0 10px #00d2ff); animation: pulseRing 1.5s infinite;">🚕</div>', iconAnchor: [14, 14] });
+
+    let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
+    let markerDestinoFlecha = L.marker([0,0], { icon: iconDest });
+    let guiaDestino = L.polyline([], { color: '#ffcc00', dashArray: '6, 6', weight: 3 }).addTo(map);
+    
+    let markerTaxis = {}, markerMiCoche = null;
+    let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
+    let cocheSeleccionado = null, ultimoEstadoBoton = '', gpsListo = false, datosViajeActivo = null;
+    let cocheYaPaso = false, intervaloViajeActivo = null, pasajeroABordo = false;
+    let intervaloVerificarLlegada = null, timerLlegada = null, segundosRestantes = 30, llegadaMostrada = false;
+    let miNombrePasajero = '', canalRealtime = null, intervaloPolling = null, timerAutoCerrarAnuncio = null;
+
+    // Poblar Selector de Destinos
+    const selDest = document.getElementById('destino-select');
+    paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = (i+1) + ". " + p.n; selDest.appendChild(opt); });
+
+    function calcularParadaMasCerca(lat, lon) {
+        let minDist = Infinity, idx = -1;
+        paradas.forEach((p, i) => {
+            const dist = Math.sqrt(Math.pow(lat - p.c[0], 2) + Math.pow(lon - p.c[1], 2));
+            if (dist < minDist) { minDist = dist; idx = i; }
+        });
+        return idx;
+    }
+
+    function movilPuedeRecoger(movilParada, paradaPasajero, sentido) {
+        return sentido === 'IDA' ? movilParada <= paradaPasajero : movilParada >= paradaPasajero;
+    }
+
+    // Monitoreo Automático de Geolocalización en Vivo
+    navigator.geolocation.watchPosition(p => {
+        miLat = p.coords.latitude; miLon = p.coords.longitude;
+        markerPasajero.setLatLng([miLat, miLon]);
+        actualizarMapaRuta();
+        if (!gpsListo) {
+            gpsListo = true;
+            document.getElementById('btn-pedir').disabled = false;
+            if (!miViajeActivo) document.getElementById('btn-pedir').innerText = "SELECCIONÁ TU DESTINO";
+        }
+    }, (err) => { console.error("Error de GPS:", err); document.getElementById('btn-pedir').innerText = "GPS NO DISPONIBLE"; }, { enableHighAccuracy: true, timeout: 8000 });
+
+    function actualizarMapaRuta() {
+        const val = document.getElementById('destino-select').value;
+        if (val !== "" && miLat !== 0) {
+            const dest = paradas[val].c;
+            guiaDestino.setLatLngs([[miLat, miLon], dest]);
+            markerDestinoFlecha.setLatLng(dest).addTo(map);
+            if (!miViajeActivo) map.fitBounds(L.latLngBounds([miLat, miLon], dest), { padding: [50, 50] });
+        }
+    }
+
+    document.getElementById('destino-select').addEventListener('change', () => { actualizarMapaRuta(); renderizarFlotaDisponible(); });
+    document.getElementById('sentido-select').addEventListener('change', () => { renderizarFlotaDisponible(); });
+
+    // Selección Dinámica de Asientos en la lista de coches
+    function seleccionarAsiento(cocheId, numAsiento) {
+        if (miViajeActivo) return;
+        if (cocheSeleccionado && cocheSeleccionado !== cocheId) {
+            asientosElegidos = [];
+            document.querySelectorAll('.asiento-libre').forEach(el => el.classList.remove('seleccionado'));
+            document.querySelectorAll('.coche-card').forEach(el => el.classList.remove('seleccionado'));
+        }
+        cocheSeleccionado = cocheId;
+        const idx = asientosElegidos.indexOf(numAsiento);
+        const el = document.getElementById('as-' + cocheId + '-' + numAsiento);
+        if (idx > -1) {
+            asientosElegidos.splice(idx, 1);
+            if (el) el.classList.remove('seleccionado');
+        } else {
+            if (asientosElegidos.length >= 2) { alert("Máximo 2 asientos por reserva"); return; }
+            asientosElegidos.push(numAsiento);
+            if (el) el.classList.add('seleccionado');
+        }
+        document.querySelectorAll('.coche-card').forEach(el => el.classList.remove('seleccionado'));
+        const card = document.getElementById('coche-card-' + cocheId);
+        if (card) card.classList.add('seleccionado');
+        actualizarBoton();
+    }
+
+    function actualizarBoton() {
+        const btn = document.getElementById('btn-pedir');
+        let txt = '', dis = true;
+        if (!gpsListo) txt = "BUSCANDO GPS...";
+        else if (!document.getElementById('destino-select').value) txt = "SELECCIONÁ TU DESTINO";
+        else if (asientosElegidos.length > 0) { txt = 'RESERVAR VIAJE (' + asientosElegidos.length + ' LUGAR)'; dis = false; }
+        else txt = "SELECCIONÁ UN ASIENTO LIBRE";
+        if (txt !== ultimoEstadoBoton) { btn.innerText = txt; btn.disabled = dis; ultimoEstadoBoton = txt; }
+    }
+
+    // Render de Flota de Coches en Línea filtrados por disponibilidad real
+    async function renderizarFlotaDisponible() {
+        if (miViajeActivo) return;
+        const container = document.getElementById('flota-container');
+        const sentido = document.getElementById('sentido-select').value;
+        const destIdx = document.getElementById('destino-select').value;
+        if (!destIdx || !gpsListo) return;
+
+        container.innerHTML = '<div class="sin-coches"><span class="spinner"></span>Filtrando flota...</div>';
+        try {
+            const { data: rpcData, error } = await _s.rpc('obtener_flota', { p_sentido: sentido, p_destino_idx: parseInt(destIdx), p_lat: miLat, p_lon: miLon });
+            if (error) throw error;
+            const moviles = rpcData?.moviles || [];
+            const movilesValidos = moviles.map(m => ({ ...m, paradaCalculada: calcularParadaMasCerca(m.latitud, m.longitud), distancia: m.distancia || 0 }))
+                                          .filter(m => movilPuedeRecoger(m.paradaCalculada, parseInt(destIdx), sentido))
+                                          .sort((a,b) => a.distancia - b.distancia);
+
+            if (movilesValidos.length === 0) { container.innerHTML = '<div class="sin-coches"><b style="color:var(--danger)">Sin unidades cerca</b>Todos ya pasaron tu parada.</div>'; return; }
+            
+            container.innerHTML = '';
+            movilesValidos.forEach(movil => {
+                const ocupados = {};
+                (movil.asientos_ocupados || []).forEach(r => { ocupados[r.asiento_num] = r.nombre_pasajero; });
+                const estaSeleccionado = cocheSeleccionado === movil.id;
+
+                const card = document.createElement('div');
+                card.className = 'coche-card ' + (estaSeleccionado ? 'seleccionado' : '');
+                card.id = 'coche-card-' + movil.id;
+                card.innerHTML = `<div class="coche-header">
+                    <div><b style="color:white;">Coche ${movil.id}</b> <span style="color:#666; font-size:11px;">(${movil.chofer || 'Chofer'})</span></div>
+                    <div style="color:var(--amarillo);font-size:12px;font-weight:700;">${(movil.distancia * 111).toFixed(1)} km</div>
+                </div><div class="asientos-row" id="as-row-${movil.id}"></div>`;
+                
+                const row = card.querySelector('#as-row-' + movil.id);
+                for(let num=1; num<=4; num++) {
+                    const box = document.createElement('div');
+                    const ocupante = ocupados[num];
+                    box.id = 'as-' + movil.id + '-' + num;
+                    if(ocupante) {
+                        box.className = 'asiento-box asiento-ocupado';
+                        box.innerHTML = `<div>${num}</div><div style="font-size:8px;">🔒</div>`;
+                    } else {
+                        box.className = 'asiento-box asiento-libre ' + (estaSeleccionado && asientosElegidos.includes(num) ? 'seleccionado' : '');
+                        box.innerHTML = `<div>${num}</div><div style="font-size:8px;">LIBRE</div>`;
+                        box.onclick = () => seleccionarAsiento(movil.id, num);
+                    }
+                    row.appendChild(box);
+                }
+                container.appendChild(card);
+            });
+            actualizarBoton();
+        } catch (e) { container.innerHTML = '<div class="sin-coches">Error cargando coches.</div>'; }
+    }
+
+    // Confirmación de reserva y pasaje a FASE 2
+    async function confirmarViajePasajero() {
+        const nom =方 = sanitizarInput(document.getElementById('nombre-input').value);
+        const destIdx = parseInt(document.getElementById('destino-select').value);
+        if(!nom || nom.length < 2) { alert("Ingresá un nombre válido."); return; }
+        if(!cocheSeleccionado || asientosElegidos.length === 0) { alert("Falta elegir asiento."); return; }
+
+        const btn = document.getElementById('btn-pedir');
+        btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Procesando reserva...';
+
+        try {
+            const { data, error } = await _s.rpc('reservar_asientos', { p_nombre: nom, p_id_movil: cocheSeleccionado, p_asientos: asientosElegidos, p_destino_idx: destIdx, p_lat: miLat, p_lon: miLon });
+            if (error) throw error;
+            if (data?.colision) { alert("¡Esos asientos acaban de ser tomados! Elige otros."); renderizarFlotaDisponible(); return; }
+            if (data?.success) {
+                localStorage.setItem('usuario_nombre', nom);
+                miNombrePasajero = nom;
+                // Efecto visual: Desaparece el menú y reinicia la app en modo activo en pantalla completa
+                document.getElementById('menu-configuracion').style.transform = 'translateY(100%)';
+                setTimeout(() => location.reload(), 300);
+            }
+        } catch (err) { alert("Error de red."); btn.disabled = false; actualizarBoton(); }
+    }
+
+    // AL CARGAR LA APP: Detectar si ya hay un viaje guardado en Supabase
+    window.onload = async () => {
+        const guardado = localStorage.getItem('usuario_nombre');
+        if (guardado) {
+            document.getElementById('nombre-input').value = guardado;
+            miNombrePasajero = guardado;
+            await verificarViajesActivosBaseDatos(guardado);
+        }
+        setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.visibility = 'hidden', 600); }, 1200);
+    };
+
+    async function verificarViajesActivosBaseDatos(nombre) {
+        try {
+            const { data: rpcData } = await _s.rpc('obtener_viaje_activo', { p_nombre: nombre });
+            const data = rpcData?.viaje || [];
+            if(data.length > 0) {
+                miViajeActivo = true; datosViajeActivo = data;
+                const primerViaje = data[0];
+                asientosElegidos = data.map(v => v.asiento_num);
+
+                // Activar modo VIAJE ACTIVO (Ocultar menús mecánicos, liberar 100% pantalla al mapa)
+                document.body.classList.add('viaje-activo');
+                
+                // Actualizar interfaz del mini panel flotante
+                document.getElementById('info-coche-id').textContent = primerViaje.id_movil;
+                document.getElementById('info-chofer-nombre').textContent = primerViaje.estado_movil?.chofer || 'Conductor';
+                document.getElementById('info-destino-abordo').textContent = paradas[primerViaje.destino_idx]?.n || 'Destino';
+                document.getElementById('info-asientos-detalles').textContent = asientosElegidos.join(', ');
+
+                if (primerViaje.estado_pasajero === 'a_bordo') {
+                    pasajeroABordo = true;
+                    document.getElementById('viaje-status-texto').innerHTML = '<span>Ya estás a bordo</span>';
+                    iniciarEscuchaAnuncios();
+                }
+
+                setTimeout(() => {
+                    map.invalidateSize();
+                    actualizarMapaRuta();
+                }, 400);
+
+                if(!pasajeroABordo) { iniciarMonitoreoViajeActivo(); iniciarVerificacionLlegada(); }
+                iniciarPollingEstado();
+            } else { limpiarUI(); }
+        } catch(e) { console.error(e); }
+    }
+
+    // Monitoreo en tiempo real de posición del coche asignado
+    function iniciarMonitoreoViajeActivo() {
+        const track = async () => {
+            if(!miViajeActivo || pasajeroABordo) return;
+            const viaje = datosViajeActivo[0];
+            try {
+                const { data } = await _s.rpc('verificar_posicion_coche', { p_id_movil: viaje.id_movil });
+                if(!data || !data.encontrado) return;
+                
+                const paradaCoche = calcularParadaMasCerca(data.lat, data.lon);
+                const paradaPasajero = calcularParadaMasCerca(viaje.pasajero_lat || miLat, viaje.pasajero_lon || miLon);
+                const sentido = viaje.estado_movil?.sentido_flujo || 'IDA';
+
+                const puedeRecoger = movilPuedeRecoger(paradaCoche, paradaPasajero, sentido);
+                
+                if(!puedeRecoger && !cocheYaPaso) {
+                    cocheYaPaso = true;
+                    document.getElementById('viaje-status-texto').innerHTML = '<span style="color:var(--danger)">EL COCHE YA PASÓ</span>';
+                    mostrarToast("El coche ya pasó de largo tu parada.", "error");
+                }
+                
+                if (markerMiCoche) map.removeLayer(markerMiCoche);
+                markerMiCoche = L.marker([data.lat, data.lon], { icon: cocheYaPaso ? iconTPasado : iconMiCoche }).addTo(map);
+                
+                // Centrado automático inteligente que engloba al pasajero y al taxi
+                const bounds = L.latLngBounds([[miLat, miLon], [data.lat, data.lon]]);
+                map.fitBounds(bounds, { padding: [100, 100] });
+
+            } catch(err) { console.error(err); }
+        };
+        track(); setInterval(track, 8000);
+    }
+
+    // Verificación de llegada a parada e interactividad con Banner
+    function iniciarVerificacionLlegada() {
+        intervaloVerificarLlegada = setInterval(async () => {
+            if (!miViajeActivo || pasajeroABordo || llegadaMostrada) return;
+            try {
+                const { data } = await _s.rpc('verificar_llegada_coche', { p_nombre: miNombrePasajero });
+                if (data?.llego) {
+                    llegadaMostrada = true;
+                    document.getElementById('banner-llegada').classList.add('visible');
+                    timerLlegada = setInterval(() => {
+                        segundosRestantes--;
+                        document.getElementById('llegada-timer').textContent = segundosRestantes;
+                        if(segundosRestantes <= 0) { clearInterval(timerLlegada); confirmarSubida(); }
+                    }, 1000);
+                }
+            } catch(e){}
+        }, 5000);
+    }
+
+    async function confirmarSubida() {
+        if(timerLlegada) clearInterval(timerLlegada);
+        document.getElementById('banner-llegada').classList.remove('visible');
+        try {
+            await _s.rpc('confirmar_abordo', { p_nombre: miNombrePasajero });
+            pasajeroABordo = true; location.reload();
+        } catch(e){}
+    }
+
+    async function finalizarViaje() {
+        if(!confirm("¿Deseas finalizar o liberar tu asiento actual?")) return;
+        const btn = document.getElementById('btn-cancelar');
+        btn.disabled = true; btn.innerText = "FINALIZANDO...";
+        try {
+            await _s.rpc('finalizar_viaje', { p_nombre: miNombrePasajero });
+            limpiarEstadoViaje();
+        } catch(e) { limpiarEstadoViaje(); }
+    }
+
+    function limpiarEstadoViaje() {
+        localStorage.removeItem('usuario_nombre');
+        location.reload();
+    }
+
+    function limpiarUI() {
+        document.body.classList.remove('viaje-activo');
+        document.getElementById('menu-configuracion').style.transform = 'translateY(0)';
+        document.getElementById('mini-panel-viaje').style.display = 'none';
+    }
+
+    // Polling secundario por si el chofer cancela el viaje repentinamente
+    function iniciarPollingEstado() {
+        intervaloPolling = setInterval(async () => {
+            if(!miNombrePasajero) return;
+            const { data } = await _s.rpc('obtener_viaje_activo', { p_nombre: miNombrePasajero });
+            if(!data || !data.viaje || data.viaje.length === 0) { limpiarEstadoViaje(); }
+        }, 10000);
+    }
+
+    // Escucha en tiempo real de anuncios emitidos por megáfono del chofer
+    function iniciarEscuchaAnuncios() {
+        _s.channel('anuncios-' + miNombrePasajero).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'reservas_activas', filter: 'nombre_pasajero=eq.'+miNombrePasajero }, payload => {
+            if (payload.new?.anuncio_parada && !payload.new?.anuncio_visto) {
+                document.getElementById('anuncio-mensaje-texto').innerText = payload.new.anuncio_parada;
+                document.getElementById('panel-anuncio-parada').classList.add('visible');
+            }
+        }).subscribe();
+    }
+
+    async function marcarAnuncioVisto() {
+        document.getElementById('panel-anuncio-parada').classList.remove('visible');
+        try { await _s.rpc('marcar_anuncio_visto', { p_nombre: miNombrePasajero }); } catch(e){}
+    }
+
+    // Render global de marcadores de taxis libres en segundo plano (para pasajeros sin viajes aún)
+    async function actualizarMapaTaxis() {
+        if(miViajeActivo) return;
+        try {
+            const { data } = await _s.rpc('obtener_taxis', { p_sentido: document.getElementById('sentido-select').value });
+            if(!data) return;
+            const taxis = Array.isArray(data) ? data : data.taxis || [];
+            taxis.forEach(t => {
+                const lat = t.latitud || t.lat; const lon = t.longitud || t.lon;
+                if(markerTaxis[t.id]) markerTaxis[t.id].setLatLng([lat, lon]);
+                else markerTaxis[t.id] = L.marker([lat, lon], { icon: iconT }).addTo(map);
+            });
+        } catch(e){}
+    }
+    setInterval(actualizarMapaTaxis, 12000); actualizarMapaTaxis();
+</script>
+</body>
+</html>
