@@ -14,7 +14,6 @@
         input, select { width: 100%; padding: 14px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; color: white; font-size: 15px; font-weight: 600; outline: none; transition: border-color 0.2s; }
         input:focus, select:focus { border-color: #00d2ff; }
         
-        /* CONTENEDOR PRECIO DINÁMICO */
         .price-tag { background: rgba(52, 199, 89, 0.1); border: 1px solid rgba(52, 199, 89, 0.2); border-radius: 14px; padding: 12px; margin-top: 15px; text-align: center; display: flex; justify-content: space-between; align-items: center; }
         .price-label { font-size: 12px; font-weight: 700; color: #34c759; text-transform: uppercase; }
         .price-val { font-size: 20px; font-weight: 900; color: #34c759; }
@@ -43,7 +42,8 @@
 
         <label>¿Hasta qué parada vas?</label>
         <select id="pax-dest" onchange="calcularPrecioDinamico()">
-            </select>
+            <!-- Paradas dinámicas -->
+        </select>
 
         <div class="price-tag">
             <span class="price-label">Valor del Viaje</span>
@@ -70,7 +70,6 @@
         {n:'Libertador y Maza'}, {n:'Maza y Albatros'}, {n:'Maternidad'}, {n:'Abasto y Roca'}
     ];
 
-    // CARGA DE LISTA DESPLEGABLE
     const selectDest = document.getElementById('pax-dest');
     paradas.forEach((p, idx) => {
         let opt = document.createElement('option');
@@ -79,7 +78,6 @@
         selectDest.appendChild(opt);
     });
 
-    // SISTEMA DE ESCALONADO AUTOMÁTICO EN LA INTERFAZ
     function calcularPrecioDinamico() {
         const destIdx = parseInt(document.getElementById('pax-dest').value);
         const displayVal = document.getElementById('display-precio');
@@ -105,23 +103,26 @@
         info.innerText = "Verificando disponibilidad en el auto de Carlos...";
 
         try {
-            // Verificar si el chofer está en servicio
             const { data: movil } = await _s.from('estado_movil').select('esta_online').eq('id', MI_ID_MOVIL).single();
             if (!movil || !movil.esta_online) {
+                info.style.background = "rgba(255, 59, 48, 0.1)";
+                info.style.borderColor = "#ff3b30";
+                info.style.color = "#ff3b30";
                 info.innerText = "❌ El conductor no se encuentra en línea en este momento.";
                 btn.disabled = false;
                 return;
             }
 
-            // Verificar si el asiento ya está ocupado
             const { data: ocupado } = await _s.from('reservas_activas').select('id').eq('id_movil', MI_ID_MOVIL).eq('asiento_num', asiento).eq('estado', 'en_curso');
             if (ocupado && ocupado.length > 0) {
+                info.style.background = "rgba(255, 204, 0, 0.1)";
+                info.style.borderColor = "#ffcc00";
+                info.style.color = "#ffcc00";
                 info.innerText = "⚠️ El asiento " + asiento + " ya está reservado por otro pasajero.";
                 btn.disabled = false;
                 return;
             }
 
-            // Obtener coordenadas de geolocalización opcionales del pasajero
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 await guardarReserva(nombre, asiento, destino, pos.coords.latitude, pos.coords.longitude);
             }, async () => {
@@ -138,14 +139,28 @@
         const info = document.getElementById('info-box');
         const btn = document.getElementById('btn-pedir');
         
+        // CORRECCIÓN: Calculamos el precio correcto para enviarlo a la Base de Datos
+        let precioFinal = (destino > 10) ? 1500 : 1000;
+
         const nuevaReserva = {
-            id_movil: MI_ID_MOVIL, nombre_pasajero: nombre, asiento_num: asiento,
-            destino_idx: destino, estado: 'en_curso', estado_pasajero: 'esperando',
-            pasajero_lat: lat, pasajero_lon: lon, fecha_reserva: new Date().toISOString()
+            id_movil: MI_ID_MOVIL, 
+            nombre_pasajero: nombre, 
+            asiento_num: asiento,
+            destino_idx: destino, 
+            precio: precioFinal, // Campo agregado para solucionar el crash
+            estado: 'en_curso', 
+            estado_pasajero: 'esperando',
+            pasajero_lat: lat, 
+            pasajero_lon: lon, 
+            fecha_reserva: new Date().toISOString()
         };
 
         const { error } = await _s.from('reservas_activas').insert(nuevaReserva);
         if (error) {
+            console.error(error); // Para debug
+            info.style.background = "rgba(255, 59, 48, 0.1)";
+            info.style.borderColor = "#ff3b30";
+            info.style.color = "#ff3b30";
             info.innerText = "❌ Error al confirmar tu lugar.";
             btn.disabled = false;
         } else {
@@ -154,10 +169,10 @@
             info.style.color = "#34c759";
             info.innerText = "¡Listo! Tu lugar fue reservado. El auto está en camino.";
             document.getElementById('pax-name').value = "";
+            btn.disabled = false;
         }
     }
     
-    // Ejecutar cálculo la primera vez al abrir
     calcularPrecioDinamico();
 </script>
 </body>
