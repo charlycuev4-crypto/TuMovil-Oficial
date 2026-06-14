@@ -85,7 +85,7 @@
         .parada-pill.proxima { background: #00d2ff; color: #000; border-color: #00d2ff; font-weight: 800; }
         .parada-pill.visitada { background: rgba(52, 199, 89, 0.2); color: #34c759; border-color: rgba(52, 199, 89, 0.4); }
 
-        /* BOTÓN FLOTANTE PARA VOLVER A ABRIR EL MENU CUANDO ESTÁ SUBIDO COMPLETAMENTE */
+        /* BOTÓN FLOTANTE */
         #btn-abrir-sheet {
             position: absolute; bottom: 16px; right: 16px; z-index: 999;
             background: #ffcc00; color: #000; border: none; width: 56px; height: 56px;
@@ -95,7 +95,7 @@
         }
         #btn-abrir-sheet:active { transform: scale(0.9); }
 
-        /* MENÚ INFERIOR MEJORADO (Escondido al 100% por defecto) */
+        /* MENÚ INFERIOR */
         .bottom-sheet {
             position: absolute; bottom: 0; left: 0; right: 0; z-index: 1001;
             background: rgba(15, 15, 15, 0.96); backdrop-filter: blur(25px);
@@ -151,7 +151,6 @@
         .btn-subir-abordo { background: #00d2ff; color: #000; }
         .btn-llego-destino { background: #34c759; color: #fff; }
         .btn-vaciar { background: rgba(255, 59, 48, 0.05); color: #ff3b30; border: 1px solid rgba(255, 59, 48, 0.2); margin-top: 2px; padding: 10px; font-size: 12px; }
-        
         .btn-finalizar-jornada { display: block !important; background: linear-gradient(135deg, #bd2113 0%, #7a0f05 100%); color: #fff; border: 1px solid #ff3b30; margin-top: 6px; box-shadow: 0 4px 15px rgba(255,59,48,0.2); }
 
         /* WAKE LOCK */
@@ -270,27 +269,9 @@
     </div>
 
 <script>
-    const MI_ID_MOVIL = 1;
-    const MI_NOMBRE = "Carlos - Ford Fiesta JCP 478";
-    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
-
-    let estaOnline = false, watchId = null, sentidoActual = 'IDA';
-    let ultimaVezEnviado = 0;
-    let ultimaCantidadReservas = 0;
-    let wakeLock = null;
-    let audioContext = null;
-    let paradasAnunciadas = new Map();
-    let historialParadas = [];
-    let direccionDetectada = 'IDA';
-    let paradasVisitadas = new Set();
-    let historialPosiciones = [];
-    let anguloActual = 0;
-    let velocidadActual = 0;
-    let puntosRastro = [];
-    const MAX_PUNTOS_RASTRO = 80;
-
+    // --- LISTADO TOTAL ACTUALIZADO DE 28 PARADAS (INICIO EN CRUCE ERQUI) ---
     const paradas = [
-        {n:'Universidad Tecnológica', c:[-34.549295, -58.783648]},
+        {n:'Cruce Erqui / Castelar', c:[-34.549295, -58.783648]},
         {n:'Parque Tecnológico', c:[-34.551586, -58.781403]},
         {n:'Base Aérea', c:[-34.554132, -58.778927]},
         {n:'Miguel Cané', c:[-34.561264, -58.770506]},
@@ -320,6 +301,17 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
+    const MI_ID_MOVIL = 1;
+    const MI_NOMBRE = "Carlos - Ford Fiesta JCP 478";
+    const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+
+    let estaOnline = false, watchId = null, sentidoActual = 'IDA';
+    let ultimaVezEnviado = 0, ultimaCantidadReservas = 0;
+    let wakeLock = null, audioContext = null;
+    let paradasAnunciadas = new Map(), paradasVisitadas = new Set(), historialParadas = [];
+    let direccionDetectada = 'IDA', historialPosiciones = [], anguloActual = 0, velocidadActual = 0, puntosRastro = [];
+    const MAX_PUNTOS_RASTRO = 80;
+
     const map = L.map('map', { zoomControl: false, rotate: true }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -327,7 +319,7 @@
 
     paradas.forEach((p, i) => {
         L.circleMarker(p.c, { radius: 5, color: '#000', weight: 2, fillColor: '#00BFFF', fillOpacity: 0.9 })
-            .addTo(map).bindTooltip(p.n, { permanent: false, direction: 'top' });
+            .addTo(map).bindTooltip((i + 1) + ". " + p.n, { permanent: false, direction: 'top' });
     });
 
     let rastroPolyline = L.polyline([], { color: '#00d2ff', weight: 4, opacity: 0.5, dashArray: '6, 4' }).addTo(map);
@@ -375,6 +367,7 @@
 
     function mostrarToast(mensaje, tipo) {
         const container = document.getElementById('toast-container');
+        if (!container) return;
         const toast = document.createElement('div');
         toast.className = 'toast ' + tipo;
         toast.textContent = mensaje;
@@ -401,16 +394,18 @@
     }
 
     function reproducirAlarma() {
-        inicializarAudio();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.type = 'square';
-        oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.3);
+        try {
+            inicializarAudio();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        } catch(e) { console.warn("Interacción de audio pre-bloqueada."); }
     }
 
     function vibrarAlarma() {
@@ -449,14 +444,19 @@
     }
 
     function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
-        const R = 111320;
-        const dLat = (lat2 - lat1) * R;
-        const dLon = (lon2 - lon1) * R * Math.cos(lat1 * Math.PI / 180);
-        return Math.sqrt(dLat * dLat + dLon * dLon);
+        const R = 6371000;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
     }
 
     function actualizarVelocimetro(velocidad) {
         const box = document.getElementById('panel-velocidad');
+        if(!box) return;
         box.classList.remove('alerta', 'advertencia');
         if (velocidad > 60) box.classList.add('alerta');
         else if (velocidad > 40) box.classList.add('advertencia');
@@ -517,7 +517,6 @@
         } catch (err) { mostrarToast('Error al actualizar', 'error'); }
     }
 
-    // LÓGICA DE TARIFAS RESTAURADA AQUÍ
     async function llegoADestino() {
         try {
             const { data: reservas, error } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso').eq('estado_pasajero', 'a_bordo');
@@ -526,11 +525,7 @@
             if (!confirm('¿Finalizar viajes en destino?')) return;
             
             for (const r of reservas) {
-                // Cálculo de tarifa dinámica por índice de parada
-                let precioCalculado = 1000; 
-                if (r.destino_idx > 10) {
-                    precioCalculado = 1500;
-                }
+                let precioCalculado = r.destino_idx > 10 ? 1500 : 1000;
 
                 await _s.from('viajes').insert({
                     nombre_pasajero: r.nombre_pasajero, id_movil: MI_ID_MOVIL, asiento_num: r.asiento_num,
@@ -578,9 +573,7 @@
         const paxEl = document.getElementById('anuncio-parada-pasajero');
         if (paxBaja) { paxEl.style.display = 'block'; paxEl.innerText = '👤 Baja: ' + paxBaja.nombre_pasajero; } else { paxEl.style.display = 'none'; }
 
-        if (dist <= 50 && paxBaja) {
-            abrirSheet();
-        }
+        if (dist <= 50 && paxBaja) { abrirSheet(); }
 
         const ahora = Date.now();
         if (dist >= 60 && dist <= 300 && (ahora - (paradasAnunciadas.get(sigIdx) || 0) > 60000)) {
@@ -616,7 +609,7 @@
                 setTimeout(cerrarSheet, 2000);
             }, () => { toggle.checked = false; label.innerText = "ERROR GPS"; localStorage.setItem('driver_online', 'false'); }, { enableHighAccuracy: true });
         } else {
-            if (watchId) navigator.geolocation.clearWatch(watchId);
+            if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
             await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
             label.innerText = "DESCONECTADO"; label.style.color = "#aaa";
             document.getElementById('panel-anuncio-parada').classList.remove('visible');
@@ -670,45 +663,45 @@
     }
 
     async function actualizar() {
-        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
-        if (reservas) {
-            if (reservas.length > ultimaCantidadReservas && estaOnline) {
-                const nuevas = reservas.slice(ultimaCantidadReservas);
-                mostrarAlertaReserva(nuevas.map(r=>r.nombre_pasajero).join(', '), nuevas.map(r=>r.asiento_num));
-            }
-            ultimaCantidadReservas = reservas.length;
-            markersPax.forEach(m => map.removeLayer(m)); markersDest.forEach(m => map.removeLayer(m));
-            markersPax = []; markersDest = [];
-
-            document.getElementById('txt-pax').innerText = reservas.length;
-            
-            // ACTUALIZACIÓN DE MARCADOR EN VIVO DE RECAUDACIÓN CON TARIFAS NUEVAS
-            let totalAcumulado = 0;
-            reservas.forEach(r => {
-                totalAcumulado += (r.destino_idx > 10) ? 1500 : 1000;
-            });
-            document.getElementById('txt-plata').innerText = "$" + totalAcumulado;
-
-            for(let i=1; i<=4; i++) { document.getElementById('pill'+i).className = 'pill'; document.getElementById('nombre-pax-'+i).innerText = ''; }
-            let esperando = 0, abordo = 0;
-
-            reservas.forEach(r => {
-                if(r.asiento_num <= 4) {
-                    const pill = document.getElementById('pill'+r.asiento_num);
-                    if (r.estado_pasajero === 'a_bordo') { pill.className = 'pill a-bordo'; abordo++; }
-                    else { pill.className = 'pill active'; esperando++; }
-                    document.getElementById('nombre-pax-'+r.asiento_num).innerText = r.nombre_pasajero.split(' ')[0];
+        try {
+            const { data: reservas, error } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
+            if (error) throw error;
+            if (reservas) {
+                if (reservas.length > ultimaCantidadReservas && estaOnline) {
+                    const nuevas = reservas.slice(ultimaCantidadReservas);
+                    mostrarAlertaReserva(nuevas.map(r=>r.nombre_pasajero).join(', '), nuevas.map(r=>r.asiento_num));
                 }
-                if (r.pasajero_lat) { markersPax.push(L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: 'red', radius: 6 }).addTo(map)); }
-                if (paradas[r.destino_idx]) { markersDest.push(L.marker(paradas[r.destino_idx].c).addTo(map).bindTooltip('Baja: ' + r.nombre_pasajero)); }
-            });
+                ultimaCantidadReservas = reservas.length;
+                markersPax.forEach(m => map.removeLayer(m)); markersDest.forEach(m => map.removeLayer(m));
+                markersPax = []; markersDest = [];
 
-            document.getElementById('btn-subir-abordo').style.display = esperando > 0 ? 'block' : 'none';
-            document.getElementById('btn-llego-destino').style.display = abordo > 0 ? 'block' : 'none';
+                document.getElementById('txt-pax').innerText = reservas.length;
+                
+                let totalAcumulado = 0;
+                reservas.forEach(r => { totalAcumulado += (r.destino_idx > 10) ? 1500 : 1000; });
+                document.getElementById('txt-plata').innerText = "$" + totalAcumulado;
 
-            const latLng = markerCoche.getLatLng();
-            if (latLng) verificarNavegacionParadas(latLng.lat, latLng.lng, reservas);
-        }
+                for(let i=1; i<=4; i++) { document.getElementById('pill'+i).className = 'pill'; document.getElementById('nombre-pax-'+i).innerText = ''; }
+                let esperando = 0, abordo = 0;
+
+                reservas.forEach(r => {
+                    if(r.asiento_num <= 4) {
+                        const pill = document.getElementById('pill'+r.asiento_num);
+                        if (r.estado_pasajero === 'a_bordo') { pill.className = 'pill a-bordo'; abordo++; }
+                        else { pill.className = 'pill active'; esperando++; }
+                        document.getElementById('nombre-pax-'+r.asiento_num).innerText = r.nombre_pasajero.split(' ')[0];
+                    }
+                    if (r.pasajero_lat) { markersPax.push(L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: 'red', radius: 6 }).addTo(map)); }
+                    if (paradas[r.destino_idx]) { markersDest.push(L.marker(paradas[r.destino_idx].c).addTo(map).bindTooltip('Baja: ' + r.nombre_pasajero)); }
+                });
+
+                document.getElementById('btn-subir-abordo').style.display = esperando > 0 ? 'block' : 'none';
+                document.getElementById('btn-llego-destino').style.display = abordo > 0 ? 'block' : 'none';
+
+                const latLng = markerCoche.getLatLng();
+                if (latLng) verificarNavegacionParadas(latLng.lat, latLng.lng, reservas);
+            }
+        } catch (err) { console.error("Error en pooling:", err); }
     }
 
     async function cambiarSentido() {
@@ -739,7 +732,6 @@
 
     async function finalizarJornada() {
         if (!confirm("🏁 ¿Estás seguro de que deseas finalizar tu jornada laboral?\nEsto te desconectará del sistema por completo y vaciará el coche.")) return;
-        
         if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
         
         try {
@@ -764,7 +756,6 @@
         liberarWakeLock();
         actualizar();
         abrirSheet();
-        
         mostrarToast('Jornada finalizada correctamente. ¡Buen descanso!', 'warning');
     }
 
