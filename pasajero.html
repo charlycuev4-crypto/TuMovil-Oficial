@@ -52,7 +52,7 @@
             position: absolute; bottom: 0; left: 0; right: 0;
             background: var(--glass); backdrop-filter: blur(20px);
             border-top: 1px solid rgba(0, 210, 255, 0.25); 
-            padding: 16px 16px cubic-bezier(0.1, 0.7, 0.1, 1);
+            padding: 16px;
             padding-bottom: calc(16px + env(safe-area-inset-bottom));
             display: flex; flex-direction: column; gap: 10px; 
             border-radius: 24px 24px 0 0;
@@ -120,6 +120,14 @@
         .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s infinite linear; margin-right: 6px; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .sin-coches { text-align: center; padding: 10px; color: #777; font-size: 12px; }
+        
+        /* ESTILO ICONO FLOTA CON ROTACIÓN */
+        .coche-icono-rotativo {
+            font-size: 28px;
+            display: inline-block;
+            transition: transform 0.4s ease-out;
+            filter: drop-shadow(0 0 8px #00d2ff);
+        }
     </style>
 </head>
 <body>
@@ -213,6 +221,15 @@
     function sanitizarInput(t) { return t ? t.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\-]/g, '').trim().substring(0, 20) : ''; }
     function escaparHTML(t) { if(!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
     
+    // Cálculo de Ángulo/Rumbo para orientar el coche en el mapa
+    function obtenerAngulo(lat1, lon1, lat2, lon2) {
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+        const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                  Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
     function mostrarToast(m, tipo) {
         const c = document.getElementById('toast-container');
         const t = document.createElement('div'); t.className = 'toast';
@@ -271,7 +288,13 @@
     const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:18px solid #ffcc00; filter: drop-shadow(0 0 6px #ffcc00);"></div>', iconAnchor: [8, 9], className: 'dest-arrow' });
     const iconT = L.divIcon({ html: '<span style="font-size:22px;">🚕</span>', iconAnchor: [11, 11] });
     const iconTPasado = L.divIcon({ html: '<span style="font-size:22px; opacity:0.3; filter: grayscale(1);">🚕</span>', iconAnchor: [11, 11] });
-    const iconMiCoche = L.divIcon({ html: '<div style="font-size:28px; filter: drop-shadow(0 0 10px #00d2ff); animation: pulseRing 1.5s infinite;">🚕</div>', iconAnchor: [14, 14] });
+    
+    // Icono con Rotación Dynamica
+    const iconMiCoche = L.divIcon({ 
+        html: '<div class="coche-icono-rotativo">🚕</div>', 
+        iconAnchor: [14, 14], 
+        className: 'marker-coche-dinamico' 
+    });
 
     let markerPasajero = L.marker([0,0], { icon: iconP }).addTo(map);
     let markerDestinoFlecha = L.marker([0,0], { icon: iconDest });
@@ -432,7 +455,6 @@
             if (data?.success) {
                 localStorage.setItem('usuario_nombre', nom);
                 miNombrePasajero = nom;
-                // Efecto visual: Desaparece el menú y reinicia la app en modo activo en pantalla completa
                 document.getElementById('menu-configuracion').style.transform = 'translateY(100%)';
                 setTimeout(() => location.reload(), 300);
             }
@@ -459,10 +481,8 @@
                 const primerViaje = data[0];
                 asientosElegidos = data.map(v => v.asiento_num);
 
-                // Activar modo VIAJE ACTIVO (Ocultar menús mecánicos, liberar 100% pantalla al mapa)
                 document.body.classList.add('viaje-activo');
                 
-                // Actualizar interfaz del mini panel flotante
                 document.getElementById('info-coche-id').textContent = primerViaje.id_movil;
                 document.getElementById('info-chofer-nombre').textContent = primerViaje.estado_movil?.chofer || 'Conductor';
                 document.getElementById('info-destino-abordo').textContent = paradas[primerViaje.destino_idx]?.n || 'Destino';
@@ -485,7 +505,7 @@
         } catch(e) { console.error(e); }
     }
 
-    // Monitoreo en tiempo real de posición del coche asignado
+    // Monitoreo en tiempo real de posición del coche asignado (Con rotación y animaciones)
     function iniciarMonitoreoViajeActivo() {
         const track = async () => {
             if(!miViajeActivo || pasajeroABordo) return;
@@ -505,17 +525,32 @@
                     document.getElementById('viaje-status-texto').innerHTML = '<span style="color:var(--danger)">EL COCHE YA PASÓ</span>';
                     mostrarToast("El coche ya pasó de largo tu parada.", "error");
                 }
+
+                if (!markerMiCoche) {
+                    markerMiCoche = L.marker([data.lat, data.lon], { icon: cocheYaPaso ? iconTPasado : iconMiCoche }).addTo(map);
+                } else {
+                    const posPrev = markerMiCoche.getLatLng();
+                    
+                    // Solo calcula el ángulo y rota si hubo un cambio real de posición
+                    if (posPrev.lat !== data.lat || posPrev.lng !== data.lon) {
+                        const angulo = obtenerAngulo(posPrev.lat, posPrev.lng, data.lat, data.lon);
+                        markerMiCoche.setLatLng([data.lat, data.lon]);
+                        
+                        const el = markerMiCoche.getElement();
+                        if (el) {
+                            const inner = el.querySelector('.coche-icono-rotativo');
+                            if (inner) inner.style.transform = `rotate(${angulo}deg)`;
+                        }
+                    }
+                }
                 
-                if (markerMiCoche) map.removeLayer(markerMiCoche);
-                markerMiCoche = L.marker([data.lat, data.lon], { icon: cocheYaPaso ? iconTPasado : iconMiCoche }).addTo(map);
-                
-                // Centrado automático inteligente que engloba al pasajero y al taxi
+                // Centrado dinámico del mapa entre el pasajero y el vehículo
                 const bounds = L.latLngBounds([[miLat, miLon], [data.lat, data.lon]]);
-                map.fitBounds(bounds, { padding: [100, 100] });
+                map.fitBounds(bounds, { padding: [100, 100], maxZoom: 17 });
 
             } catch(err) { console.error(err); }
         };
-        track(); setInterval(track, 8000);
+        track(); setInterval(track, 5000);
     }
 
     // Verificación de llegada a parada e interactividad con Banner
@@ -567,7 +602,7 @@
         document.getElementById('mini-panel-viaje').style.display = 'none';
     }
 
-    // Polling secundario por si el chofer cancela el viaje repentinamente
+    // Polling secundario por si el chofer cancela el viaje
     function iniciarPollingEstado() {
         intervaloPolling = setInterval(async () => {
             if(!miNombrePasajero) return;
@@ -591,7 +626,7 @@
         try { await _s.rpc('marcar_anuncio_visto', { p_nombre: miNombrePasajero }); } catch(e){}
     }
 
-    // Render global de marcadores de taxis libres en segundo plano (para pasajeros sin viajes aún)
+    // Render global de marcadores de taxis libres en segundo plano
     async function actualizarMapaTaxis() {
         if(miViajeActivo) return;
         try {
