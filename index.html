@@ -298,16 +298,25 @@
 <script>
     const TARIFA_UNICA = 1500; // TARIFA PLANA UNIFICADA $1500
 
+    // LISTA DE PARADAS COMPLETA Y ORDENADA (36 PARADAS: CRUCE DERQUI -> ABASTO Y ROCA)
     const paradas = [
-        {n:'Cruce Erqui / Castelar', c:[-34.549295, -58.783648]},
-        {n:'Parque Tecnológico', c:[-34.551586, -58.781403]},
-        {n:'Base Aérea', c:[-34.554132, -58.778927]},
-        {n:'Miguel Cané', c:[-34.561264, -58.770506]},
-        {n:'Cané y Los Aromos', c:[-34.562160, -58.771380]},
-        {n:'Los Aromos 11016', c:[-34.562494, -58.772133]},
-        {n:'Los Aromos 10874', c:[-34.563541, -58.773244]},
-        {n:'Los Aromos y Murillo', c:[-34.564109, -58.773759]},
-        {n:'Murillo 601', c:[-34.565342, -58.772061]},
+        {n:'Av. Derqui y P197 (Cruce Derqui)', c:[-34.537898, -58.794848]},
+        {n:'Fray Antonio Marchena y Carlos Eberth', c:[-34.539274, -58.793441]},
+        {n:'Fray Antonio Marchena y Descartes', c:[-34.540553, -58.792168]},
+        {n:'Av. Derqui y Gral. Juan Lavalle', c:[-34.541319, -58.791487]},
+        {n:'Av. Derqui y José C. Paz', c:[-34.542679, -58.790175]},
+        {n:'Av. Derqui y Av. José Altuve', c:[-34.544123, -58.788772]},
+        {n:'Av. Derqui y Dr. Enrique Finochietto', c:[-34.545472, -58.787421]},
+        {n:'Universidad Tecnológica Robotics', c:[-34.548500, -58.784200]},
+        {n:'Parque Industrial', c:[-34.552000, -58.780800]},
+        {n:'Base Aérea (Entrada Cuartel V / José C. Paz)', c:[-34.555000, -58.778000]},
+        {n:'Av. Derqui y C. Bartolomé Hidalgo', c:[-34.557029, -58.776122]},
+        {n:'Fray Antonio Marchena y Pedro de Mendoza', c:[-34.558350, -58.774500]},
+        {n:'Fray Antonio Marchena y Marcos Paz', c:[-34.559853, -58.772330]},
+        {n:'Fray Antonio Marchena y Miguel Cané', c:[-34.561176, -58.770641]},
+        {n:'Los Aromos y Santander', c:[-34.562495, -58.772093]},
+        {n:'Los Aromos y Murillo', c:[-34.564006, -58.773679]},
+        {n:'Murillo y Moctezuma', c:[-34.565289, -58.772213]},
         {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]},
         {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
         {n:'A. Prado 2555', c:[-34.571016, -58.764443]},
@@ -343,7 +352,7 @@
     const map = L.map('map', { zoomControl: false, rotate: true }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { keepBuffer: 8 }).addTo(map);
 
-    const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#FF0000', weight: 6, opacity: 0.6 }).addTo(map);
+    const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#ff3b30', weight: 6, opacity: 0.6 }).addTo(map);
 
     paradas.forEach((p, i) => {
         L.circleMarker(p.c, { radius: 5, color: '#000', weight: 2, fillColor: '#00BFFF', fillOpacity: 0.9 })
@@ -505,7 +514,7 @@
             localStorage.setItem('driver_sentido', sentidoActual);
             if (estaOnline) { _s.from('estado_movil').update({ sentido_flujo: direccionDetectada }).eq('id', MI_ID_MOVIL); }
             document.getElementById('btn-sentido').innerText = sentidoActual;
-            rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
+            rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff3b30' : '#007aff' });
             mostrarToast('Sentido: ' + sentidoActual, 'success');
         }
         return direccionDetectada;
@@ -726,7 +735,7 @@
         direccionDetectada = sentidoActual;
         localStorage.setItem('driver_sentido', sentidoActual);
         document.getElementById('btn-sentido').innerText = sentidoActual;
-        rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
+        rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff3b30' : '#007aff' });
         if (estaOnline) { await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL); }
     }
 
@@ -789,7 +798,7 @@
             sentidoActual = sentidoGuardado;
             direccionDetectada = sentidoGuardado;
             document.getElementById('btn-sentido').innerText = sentidoActual;
-            rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#FF0000' : '#00BFFF' });
+            rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff3b30' : '#007aff' });
         }
 
         const onlineGuardado = localStorage.getItem('driver_online');
