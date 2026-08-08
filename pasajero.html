@@ -39,15 +39,13 @@
             text-align: center; border-radius: 16px; z-index: 999; transition: transform 0.4s ease; }
         .header h1 { margin: 0; font-size: 16px; color: var(--celeste); letter-spacing: 3px; font-weight: 800; }
 
-        /* MAPA */
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
+        /* MAPA: Optimizado para evitar inestabilidad al hacer zoom */
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; touch-action: none; }
 
-        /* BOTÓN DE CONFIGURACIÓN/RESETEO RÁPIDO */
         .btn-floating-reset { position: absolute; top: 80px; right: 15px; background: var(--glass);
             border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; width: 44px; height: 44px;
             display: flex; align-items: center; justify-content: center; font-size: 18px; z-index: 999; cursor: pointer; }
 
-        /* CAJÓN DE MENÚ INFERIOR */
         .bottom-ui { 
             position: absolute; bottom: 0; left: 0; right: 0;
             background: var(--glass); backdrop-filter: blur(20px);
@@ -64,7 +62,6 @@
         body.viaje-activo .bottom-ui { transform: translateY(100%); pointer-events: none; }
         body.viaje-activo .header { transform: translateY(-150%); }
 
-        /* PANEL FLOTANTE DE VIAJE ACTIVO */
         #mini-panel-viaje {
             position: absolute; bottom: calc(15px + env(safe-area-inset-bottom)); left: 15px; right: 15px;
             background: linear-gradient(135deg, rgba(10, 10, 30, 0.95) 0%, rgba(20, 20, 50, 0.95) 100%);
@@ -143,7 +140,6 @@
     <div id="map"></div>
 
     <div class="bottom-ui" id="menu-configuracion">
-        <!-- CORRECCIÓN DE TARIFA A $1500 -->
         <div class="promo-card"><b style="color:var(--amarillo);">TARIFA FIJA: $1500 POR ASIENTO</b></div>
         
         <div class="form-row">
@@ -250,10 +246,40 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView(paradas[0].c, 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    // CONFIGURACIÓN DE MAPA ESTABLE: Evita temblores al hacer zoom o scroll
+    const map = L.map('map', { 
+        zoomControl: false, 
+        attributionControl: false,
+        zoomSnap: 0.5,
+        zoomDelta: 0.5,
+        wheelPxPerZoomLevel: 120,
+        tap: false
+    }).setView(paradas[0].c, 14);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        updateWhenZooming: false,
+        updateWhenIdle: true
+    }).addTo(map);
 
-    paradas.forEach(p => L.circleMarker(p.c, { radius: 5, color: '#000', weight: 1.5, fillColor: '#00d2ff', fillOpacity: 1 }).addTo(map));
+    // TRAZADO CONTINUO DE LA RUTA (Rojo para IDA, Azul para VUELTA)
+    const puntosRuta = paradas.map(p => p.c);
+    const lineaRuta = L.polyline(puntosRuta, {
+        color: '#ff3b30', // Default IDA (Rojo)
+        weight: 5,
+        opacity: 0.8,
+        lineCap: 'round',
+        lineJoin: 'round'
+    }).addTo(map);
+
+    // Renderizado estético de las bolitas de paradas
+    paradas.forEach(p => L.circleMarker(p.c, { 
+        radius: 6, 
+        color: '#000', 
+        weight: 1.5, 
+        fillColor: '#00d2ff', 
+        fillOpacity: 1 
+    }).addTo(map));
 
     const iconP = L.divIcon({ html: '<div style="font-size:26px; filter:drop-shadow(0 2px 5px rgba(0,0,0,0.5));">🚶</div>', iconAnchor: [13, 26], className: 'p-mark' });
     const iconDest = L.divIcon({ html: '<div style="width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:18px solid #ffcc00; filter: drop-shadow(0 0 6px #ffcc00);"></div>', iconAnchor: [8, 9], className: 'dest-arrow' });
@@ -288,6 +314,15 @@
         return sentido === 'IDA' ? movilParada <= paradaPasajero : movilParada >= paradaPasajero;
     }
 
+    // Actualización de color según el trazado (IDA = Rojo, VUELTA = Azul)
+    function actualizarColorTrazado(sentido) {
+        if (sentido === 'IDA') {
+            lineaRuta.setStyle({ color: '#ff3b30' });
+        } else {
+            lineaRuta.setStyle({ color: '#007aff' });
+        }
+    }
+
     navigator.geolocation.watchPosition(p => {
         miLat = p.coords.latitude; miLon = p.coords.longitude;
         markerPasajero.setLatLng([miLat, miLon]);
@@ -310,9 +345,11 @@
     }
 
     document.getElementById('destino-select').addEventListener('change', () => { actualizarMapaRuta(); renderizarFlotaDisponible(); });
-    document.getElementById('sentido-select').addEventListener('change', () => { renderizarFlotaDisponible(); });
+    document.getElementById('sentido-select').addEventListener('change', (e) => { 
+        actualizarColorTrazado(e.target.value);
+        renderizarFlotaDisponible(); 
+    });
 
-    // SELECCIÓN FLUIDA DE ASIENTOS SIN TRABAS
     function seleccionarAsiento(cocheId, numAsiento) {
         if (miViajeActivo) return;
         if (cocheSeleccionado && cocheSeleccionado !== cocheId) {
@@ -451,6 +488,8 @@
                 document.getElementById('info-chofer-nombre').textContent = primerViaje.estado_movil?.chofer || 'Conductor';
                 document.getElementById('info-destino-abordo').textContent = paradas[primerViaje.destino_idx]?.n || 'Destino';
                 document.getElementById('info-asientos-detalles').textContent = asientosElegidos.join(', ');
+
+                actualizarColorTrazado(primerViaje.estado_movil?.sentido_flujo || 'IDA');
 
                 if (primerViaje.estado_pasajero === 'a_bordo') {
                     pasajeroABordo = true;
