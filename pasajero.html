@@ -39,7 +39,7 @@
             text-align: center; border-radius: 16px; z-index: 999; transition: transform 0.4s ease; }
         .header h1 { margin: 0; font-size: 16px; color: var(--celeste); letter-spacing: 3px; font-weight: 800; }
 
-        /* MAPA: Optimizado para evitar inestabilidad al hacer zoom */
+        /* MAPA: Optimizado para estabilidad en zoom */
         #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; touch-action: none; }
 
         .btn-floating-reset { position: absolute; top: 80px; right: 15px; background: var(--glass);
@@ -208,9 +208,8 @@
         t.textContent = m; c.appendChild(t); setTimeout(() => t.remove(), 3000);
     }
 
+    // LISTA DE PARADAS SINCRONIZADA (33 PARADAS: CRUCE DERQUI -> ABASTO Y ROCA)
     const paradas = [
-        {n:'Universidad Tecnológica', c:[-34.549295, -58.783648]},
-        {n:'Parque Tecnológico', c:[-34.551586, -58.781403]},
         {n:'Av. Derqui y P197 (Cruce Derqui)', c:[-34.537898, -58.794848]},
         {n:'Fray Antonio Marchena y Carlos Eberth', c:[-34.539274, -58.793441]},
         {n:'Fray Antonio Marchena y Descartes', c:[-34.540553, -58.792168]},
@@ -246,7 +245,7 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    // CONFIGURACIÓN DE MAPA ESTABLE: Evita temblores al hacer zoom o scroll
+    // CONFIGURACIÓN DE MAPA ESTABLE
     const map = L.map('map', { 
         zoomControl: false, 
         attributionControl: false,
@@ -265,14 +264,14 @@
     // TRAZADO CONTINUO DE LA RUTA (Rojo para IDA, Azul para VUELTA)
     const puntosRuta = paradas.map(p => p.c);
     const lineaRuta = L.polyline(puntosRuta, {
-        color: '#ff3b30', // Default IDA (Rojo)
+        color: '#ff3b30', // Default IDA
         weight: 5,
         opacity: 0.8,
         lineCap: 'round',
         lineJoin: 'round'
     }).addTo(map);
 
-    // Renderizado estético de las bolitas de paradas
+    // Renderizado de paradas en el mapa
     paradas.forEach(p => L.circleMarker(p.c, { 
         radius: 6, 
         color: '#000', 
@@ -314,7 +313,6 @@
         return sentido === 'IDA' ? movilParada <= paradaPasajero : movilParada >= paradaPasajero;
     }
 
-    // Actualización de color según el trazado (IDA = Rojo, VUELTA = Azul)
     function actualizarColorTrazado(sentido) {
         if (sentido === 'IDA') {
             lineaRuta.setStyle({ color: '#ff3b30' });
@@ -332,7 +330,7 @@
             document.getElementById('btn-pedir').disabled = false;
             if (!miViajeActivo) document.getElementById('btn-pedir').innerText = "SELECCIONÁ TU DESTINO";
         }
-    }, (err) => { console.error("Error de GPS:", err); document.getElementById('btn-pedir').innerText = "GPS NO DISPONIBLE"; }, { enableHighAccuracy: true, timeout: 8000 });
+    }, (err) => { console.error("Error GPS:", err); document.getElementById('btn-pedir').innerText = "GPS NO DISPONIBLE"; }, { enableHighAccuracy: true, timeout: 8000 });
 
     function actualizarMapaRuta() {
         const val = document.getElementById('destino-select').value;
