@@ -11,7 +11,18 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #0a0a0a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; color: #fff; }
         
-        #map-wrapper { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; overflow: hidden; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.175); }
+        /* OVER-SCALING PARA EVITAR BORDES NEGROS AL ROTAR */
+        #map-wrapper { 
+            position: absolute; 
+            top: -30%; 
+            left: -30%; 
+            width: 160%; 
+            height: 160%; 
+            z-index: 1; 
+            overflow: hidden; 
+            transform-origin: center center;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.175); 
+        }
         #map { width: 100%; height: 100%; }
 
         /* SPLASH SCREEN */
@@ -132,17 +143,20 @@
         .parada-actual-inline { background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.2); padding: 8px 12px; border-radius: 12px; font-size: 12px; color: #ffcc00; font-weight: 700; text-align: center; margin-bottom: 15px; }
 
         /* CASILLEROS DE ASIENTOS */
-        .asientos-grid { display: flex; gap: 10px; margin-bottom: 15px; }
+        .asientos-grid { display: flex; gap: 8px; margin-bottom: 15px; }
         .pill {
-            flex: 1; height: 52px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+            flex: 1; height: 58px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
             border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-weight: 800; font-size: 16px; color: #888; position: relative; cursor: pointer; transition: all 0.25s;
+            font-weight: 800; font-size: 15px; color: #888; position: relative; cursor: pointer; transition: all 0.25s;
+            padding: 2px;
         }
-        .pill .seat-num { font-size: 14px; }
-        .pill .nombre-pax { font-size: 9px; color: #fff; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; margin-top: 1px; }
+        .pill .seat-num { font-size: 13px; }
+        .pill .nombre-pax { font-size: 9px; color: #fff; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; margin-top: 1px; }
+        .pill .destino-pax { font-size: 8px; color: #ffcc00; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
         .pill.active { background: rgba(255, 204, 0, 0.15); border-color: #ffcc00; color: #ffcc00; }
         .pill.a-bordo { background: linear-gradient(135deg, #00d2ff, #0088cc); border-color: #00d2ff; color: #000; }
-        .pill.a-bordo .nombre-pax { color: #000; font-weight: 700; }
+        .pill.a-bordo .nombre-pax { color: #000; font-weight: 800; }
+        .pill.a-bordo .destino-pax { color: #002244; font-weight: 700; }
 
         /* BOTONES DE ACCIÓN */
         .action-group { display: flex; flex-direction: column; gap: 8px; }
@@ -173,7 +187,25 @@
         @keyframes toastOut { to { opacity: 0; transform: translateY(-10px); } }
         @keyframes fadeInDown { from { opacity: 0; transform: translateY(-15px); } to { opacity: 1; transform: translateY(0); } }
 
-        .leaflet-tooltip { background: #111 !important; color: #ffcc00 !important; border: 1px solid #ffcc00 !important; font-weight: 700 !important; border-radius: 8px !important; }
+        /* ESTILO ETIQUETA PERMANENTE MAPA */
+        .leaflet-tooltip.etiqueta-baja { 
+            background: #ffffff !important; 
+            color: #000000 !important; 
+            border: 2px solid #00d2ff !important; 
+            font-weight: 800 !important; 
+            font-size: 11px !important;
+            border-radius: 8px !important; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
+        }
+        .leaflet-tooltip.etiqueta-sube { 
+            background: #ffcc00 !important; 
+            color: #000000 !important; 
+            border: 2px solid #ff3b30 !important; 
+            font-weight: 800 !important; 
+            font-size: 11px !important;
+            border-radius: 8px !important; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
+        }
         .auto-radar-icon { transition: transform 0.25s linear; }
     </style>
 </head>
@@ -253,10 +285,10 @@
             </div>
 
             <div class="asientos-grid">
-                <div id="pill1" class="pill" onclick="liberarAsiento(1)"><span class="seat-num">1</span><span class="nombre-pax" id="nombre-pax-1"></span></div>
-                <div id="pill2" class="pill" onclick="liberarAsiento(2)"><span class="seat-num">2</span><span class="nombre-pax" id="nombre-pax-2"></span></div>
-                <div id="pill3" class="pill" onclick="liberarAsiento(3)"><span class="seat-num">3</span><span class="nombre-pax" id="nombre-pax-3"></span></div>
-                <div id="pill4" class="pill" onclick="liberarAsiento(4)"><span class="seat-num">4</span><span class="nombre-pax" id="nombre-pax-4"></span></div>
+                <div id="pill1" class="pill" onclick="liberarAsiento(1)"><span class="seat-num">1</span><span class="nombre-pax" id="nombre-pax-1"></span><span class="destino-pax" id="destino-pax-1"></span></div>
+                <div id="pill2" class="pill" onclick="liberarAsiento(2)"><span class="seat-num">2</span><span class="nombre-pax" id="nombre-pax-2"></span><span class="destino-pax" id="destino-pax-2"></span></div>
+                <div id="pill3" class="pill" onclick="liberarAsiento(3)"><span class="seat-num">3</span><span class="nombre-pax" id="nombre-pax-3"></span><span class="destino-pax" id="destino-pax-3"></span></div>
+                <div id="pill4" class="pill" onclick="liberarAsiento(4)"><span class="seat-num">4</span><span class="nombre-pax" id="nombre-pax-4"></span><span class="destino-pax" id="destino-pax-4"></span></div>
             </div>
 
             <div class="action-group">
@@ -269,7 +301,8 @@
     </div>
 
 <script>
-    // --- LISTADO TOTAL ACTUALIZADO DE 28 PARADAS (INICIO EN CRUCE ERQUI) ---
+    const TARIFA_UNICA = 1500; // TARIFA PLANA UNIFICADA DE $1500
+
     const paradas = [
         {n:'Cruce Erqui / Castelar', c:[-34.549295, -58.783648]},
         {n:'Parque Tecnológico', c:[-34.551586, -58.781403]},
@@ -313,7 +346,9 @@
     const MAX_PUNTOS_RASTRO = 80;
 
     const map = L.map('map', { zoomControl: false, rotate: true }).setView(paradas[0].c, 16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
+    // TILELAYER CON KEEPBUFFER PARA EVITAR HUECOS NEGROS AL ROTAR
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { keepBuffer: 8 }).addTo(map);
 
     const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#FF0000', weight: 6, opacity: 0.6 }).addTo(map);
 
@@ -525,16 +560,18 @@
             if (!confirm('¿Finalizar viajes en destino?')) return;
             
             for (const r of reservas) {
-                let precioCalculado = r.destino_idx > 10 ? 1500 : 1000;
-
+                // TARIFA UNIFICADA A $1500
                 await _s.from('viajes').insert({
                     nombre_pasajero: r.nombre_pasajero, id_movil: MI_ID_MOVIL, asiento_num: r.asiento_num,
                     destino_idx: r.destino_idx, passenger_lat: r.pasajero_lat, passenger_lon: r.pasajero_lon,
-                    precio: precioCalculado, estado: 'finalizado', fecha: new Date().toISOString()
+                    precio: TARIFA_UNICA, estado: 'finalizado', fecha: new Date().toISOString()
                 });
+                
+                // MARCAR COMO FINALIZADO Y ELIMINAR PARA EVITAR REGISTROS FANTASMA
+                await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', r.id);
                 await _s.from('reservas_activas').delete().eq('id', r.id);
             }
-            mostrarToast('Viajes Completados', 'success');
+            mostrarToast('Viajes Completados ($' + (reservas.length * TARIFA_UNICA) + ')', 'success');
             actualizar();
             setTimeout(cerrarSheet, 1500);
         } catch (err) { mostrarToast('Error al finalizar', 'error'); }
@@ -576,7 +613,7 @@
         if (dist <= 50 && paxBaja) { abrirSheet(); }
 
         const ahora = Date.now();
-        if (dist >= 60 && dist <= 300 && (ahora - (paradasAnunciadas.get(sigIdx) || 0) > 60000)) {
+        if (dist >= 30 && dist <= 400 && (ahora - (paradasAnunciadas.get(sigIdx) || 0) > 45000)) {
             anunciarParadaNavegacion(siguienteParada.n, paxBaja?.nombre_pasajero);
             paradasAnunciadas.set(sigIdx, ahora);
         }
@@ -643,6 +680,7 @@
             if (estaOnline && velocidadActual > 3) {
                 document.getElementById('map-wrapper').style.transform = `rotate(${-anguloActual}deg)`;
                 map.setView([lat, lon], map.getZoom(), { animate: false });
+                map.invalidateSize(); // EVITA HUECOS NEGROS RECALCULANDO TAMAÑO
             } else {
                 map.panTo([lat, lon]);
             }
@@ -677,22 +715,41 @@
 
                 document.getElementById('txt-pax').innerText = reservas.length;
                 
-                let totalAcumulado = 0;
-                reservas.forEach(r => { totalAcumulado += (r.destino_idx > 10) ? 1500 : 1000; });
+                // RECAUDACIÓN BASADA EN TARIFA ÚNICA DE $1500
+                let totalAcumulado = reservas.length * TARIFA_UNICA;
                 document.getElementById('txt-plata').innerText = "$" + totalAcumulado;
 
-                for(let i=1; i<=4; i++) { document.getElementById('pill'+i).className = 'pill'; document.getElementById('nombre-pax-'+i).innerText = ''; }
+                for(let i=1; i<=4; i++) { 
+                    document.getElementById('pill'+i).className = 'pill'; 
+                    document.getElementById('nombre-pax-'+i).innerText = ''; 
+                    document.getElementById('destino-pax-'+i).innerText = ''; 
+                }
                 let esperando = 0, abordo = 0;
 
                 reservas.forEach(r => {
+                    const nombreDestino = paradas[r.destino_idx] ? paradas[r.destino_idx].n.split(' ')[0] : 'Destino';
                     if(r.asiento_num <= 4) {
                         const pill = document.getElementById('pill'+r.asiento_num);
                         if (r.estado_pasajero === 'a_bordo') { pill.className = 'pill a-bordo'; abordo++; }
                         else { pill.className = 'pill active'; esperando++; }
+                        
                         document.getElementById('nombre-pax-'+r.asiento_num).innerText = r.nombre_pasajero.split(' ')[0];
+                        document.getElementById('destino-pax-'+r.asiento_num).innerText = '➔ ' + nombreDestino;
                     }
-                    if (r.pasajero_lat) { markersPax.push(L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: 'red', radius: 6 }).addTo(map)); }
-                    if (paradas[r.destino_idx]) { markersDest.push(L.marker(paradas[r.destino_idx].c).addTo(map).bindTooltip('Baja: ' + r.nombre_pasajero)); }
+                    
+                    // ORIGEN EN EL MAPA (SI TIENE COORDENADAS)
+                    if (r.pasajero_lat) { 
+                        let mSub = L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: '#ffcc00', radius: 7, fillColor: '#ff3b30', fillOpacity: 0.9 }).addTo(map);
+                        mSub.bindTooltip('Sube: ' + r.nombre_pasajero, { permanent: true, direction: 'top', className: 'etiqueta-sube' });
+                        markersPax.push(mSub);
+                    }
+                    
+                    // BAJADA / DESTINO CON ETIQUETA FIJA
+                    if (paradas[r.destino_idx]) { 
+                        let mBaj = L.marker(paradas[r.destino_idx].c).addTo(map);
+                        mBaj.bindTooltip('Baja: ' + r.nombre_pasajero, { permanent: true, direction: 'top', className: 'etiqueta-baja' });
+                        markersDest.push(mBaj); 
+                    }
                 });
 
                 document.getElementById('btn-subir-abordo').style.display = esperando > 0 ? 'block' : 'none';
@@ -716,6 +773,7 @@
     async function liberarAsiento(n) {
         if(confirm('¿Liberar asiento ' + n + '?')) {
             await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL).eq('asiento_num', n).eq('estado', 'en_curso');
+            await _s.from('reservas_activas').delete().eq('id_movil', MI_ID_MOVIL).eq('asiento_num', n).eq('estado', 'finalizado');
             actualizar();
         }
     }
@@ -724,7 +782,10 @@
         if(confirm("¿Vaciar todos los asientos?")) {
             const { data: res } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
             if (res) {
-                for (const r of res) { await _s.from('reservas_activas').delete().eq('id', r.id); }
+                for (const r of res) { 
+                    await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', r.id);
+                    await _s.from('reservas_activas').delete().eq('id', r.id); 
+                }
             }
             actualizar();
         }
@@ -738,7 +799,10 @@
             await _s.from('estado_movil').update({ esta_online: false, ultima_actualizacion: new Date().toISOString() }).eq('id', MI_ID_MOVIL);
             const { data: res } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
             if (res) {
-                for (const r of res) { await _s.from('reservas_activas').delete().eq('id', r.id); }
+                for (const r of res) { 
+                    await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', r.id);
+                    await _s.from('reservas_activas').delete().eq('id', r.id); 
+                }
             }
         } catch(e) { console.error(e); }
 
