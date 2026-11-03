@@ -190,7 +190,7 @@
         @keyframes toastOut { to { opacity: 0; transform: translateY(-10px); } }
         @keyframes fadeInDown { from { opacity: 0; transform: translateY(-15px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* ESTILO ETIQUETA PERMANENTE MAPA */
+        /* ESTILO ETIQUETA PERMANENTE MAPA Y ANIMACIÓN FLUIDA DEL AUTO */
         .leaflet-tooltip.etiqueta-baja { 
             background: #ffffff !important; color: #000000 !important; border: 2px solid #00d2ff !important; 
             font-weight: 800 !important; font-size: 11px !important; border-radius: 8px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
@@ -199,7 +199,9 @@
             background: #ffcc00 !important; color: #000000 !important; border: 2px solid #ff3b30 !important; 
             font-weight: 800 !important; font-size: 11px !important; border-radius: 8px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
         }
-        .auto-radar-icon { transition: transform 0.25s linear; }
+        .leaflet-marker-icon.auto-radar-icon { 
+            transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1), top 0.4s linear, left 0.4s linear !important; 
+        }
     </style>
 </head>
 <body>
@@ -637,12 +639,12 @@
             velocidadActual = Math.round((p.coords.speed || 0) * 3.6);
             document.getElementById('txt-velocidad').textContent = velocidadActual;
             
-            if (p.coords.heading !== null && p.coords.heading !== undefined && velocidadActual > 5) {
-                anguloActual = suavizarRotacion(p.coords.heading, anguloActual, 0.40);
+            if (p.coords.heading !== null && p.coords.heading !== undefined && velocidadActual > 3) {
+                anguloActual = suavizarRotacion(p.coords.heading, anguloActual, 0.35);
             } else if (historialPosiciones.length > 0) {
                 const ant = historialPosiciones[historialPosiciones.length - 1];
-                if (calcularDistanciaMetros(ant.lat, ant.lon, lat, lon) > 1.5) {
-                    anguloActual = suavizarRotacion(calcularAnguloDireccion(ant.lat, ant.lon, lat, lon), anguloActual, 0.30);
+                if (calcularDistanciaMetros(ant.lat, ant.lon, lat, lon) > 1.2) {
+                    anguloActual = suavizarRotacion(calcularAnguloDireccion(ant.lat, ant.lon, lat, lon), anguloActual, 0.25);
                 }
             }
             historialPosiciones.push({ lat, lon });
@@ -650,10 +652,9 @@
             
             markerCoche.setLatLng([lat, lon]);
             
-            if (estaOnline && velocidadActual > 3) {
+            if (estaOnline && velocidadActual > 2) {
                 document.getElementById('map-wrapper').style.transform = `rotate(${-anguloActual}deg)`;
-                map.setView([lat, lon], map.getZoom(), { animate: false });
-                map.invalidateSize();
+                map.panTo([lat, lon], { animate: true, duration: 0.4 });
             } else {
                 map.panTo([lat, lon]);
             }
@@ -666,11 +667,11 @@
             document.getElementById('txt-parada').innerText = paradaInfo.nombre;
 
             const ahora = Date.now();
-            if (estaOnline && (ahora - ultimaVezEnviado > 4000)) {
+            if (estaOnline && (ahora - ultimaVezEnviado > 3500)) {
                 ultimaVezEnviado = ahora;
                 await _s.from('estado_movil').update({ latitud: lat, longitud: lon, disponible_desde: paradaInfo.idx, sentido_flujo: direccionDetectada, ultima_actualizacion: new Date().toISOString() }).eq('id', MI_ID_MOVIL);
             }
-        }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
+        }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 4000 });
     }
 
     async function actualizar() {
@@ -706,14 +707,12 @@
                         document.getElementById('destino-pax-'+r.asiento_num).innerText = '➔ ' + nombreDestino;
                     }
                     
-                    // ORIGEN SUBIDA
                     if (r.pasajero_lat) { 
                         let mSub = L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: '#ffcc00', radius: 7, fillColor: '#ff3b30', fillOpacity: 0.9 }).addTo(map);
                         mSub.bindTooltip('Sube: ' + r.nombre_pasajero, { permanent: true, direction: 'top', className: 'etiqueta-sube' });
                         markersPax.push(mSub);
                     }
                     
-                    // DESTINO BAJADA
                     if (paradas[r.destino_idx]) { 
                         let mBaj = L.marker(paradas[r.destino_idx].c).addTo(map);
                         mBaj.bindTooltip('Baja: ' + r.nombre_pasajero, { permanent: true, direction: 'top', className: 'etiqueta-baja' });
