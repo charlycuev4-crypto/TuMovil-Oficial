@@ -1,0 +1,102 @@
+:root {
+    --celeste: #00d2ff;
+    --amarillo: #ffcc00;
+    --dark: #0a0a1a;
+    --success: #4cd964;
+    --danger: #ff3b30;
+    --glass: rgba(10, 10, 26, 0.92);
+}
+body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden;
+    display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+/* SPLASH SCREEN */
+#splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(180deg, #0a0a1a 0%, #1a1a3e 50%, #0d2b3a 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 10000; transition: opacity 0.6s ease, visibility 0.6s; }
+.splash-ring { width: 140px; height: 140px; border: 3px solid var(--celeste); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 40px rgba(0, 210, 255, 0.4); animation: pulseRing 2s infinite; }
+@keyframes pulseRing { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+#splash h2 { color: var(--celeste); margin-top: 20px; font-size: 24px; letter-spacing: 4px; font-weight: 800; }
+.splash-loading { width: 140px; height: 3px; background: #222; border-radius: 3px; margin-top: 16px; overflow: hidden; }
+.splash-loading-inner { width: 0%; height: 100%; background: linear-gradient(90deg, var(--celeste), var(--amarillo)); animation: loadBar 1.5s ease forwards; }
+@keyframes loadBar { to { width: 100%; } }
+
+/* HEADER SUPERIOR FLOTANTE */
+.header { position: absolute; top: 15px; left: 15px; right: 15px; background: var(--glass); 
+    backdrop-filter: blur(12px); border: 1px solid rgba(0, 210, 255, 0.2); padding: 12px; 
+    text-align: center; border-radius: 16px; z-index: 999; transition: transform 0.4s ease; }
+.header h1 { margin: 0; font-size: 16px; color: var(--celeste); letter-spacing: 3px; font-weight: 800; }
+
+/* MAPA */
+#map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; touch-action: none; }
+
+.btn-floating-reset { position: absolute; top: 80px; right: 15px; background: var(--glass);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; z-index: 999; cursor: pointer; }
+
+.bottom-ui { 
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: var(--glass); backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(0, 210, 255, 0.25); 
+    padding: 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 10px; 
+    border-radius: 24px 24px 0 0;
+    z-index: 998; box-shadow: 0 -10px 35px rgba(0,0,0,0.6);
+    max-height: 40vh; overflow-y: auto; 
+    transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.12), max-height 0.4s ease; 
+}
+
+body.viaje-activo .bottom-ui { transform: translateY(100%); pointer-events: none; }
+body.viaje-activo .header { transform: translateY(-150%); }
+
+#mini-panel-viaje {
+    position: absolute; bottom: calc(15px + env(safe-area-inset-bottom)); left: 15px; right: 15px;
+    background: linear-gradient(135deg, rgba(10, 10, 30, 0.95) 0%, rgba(20, 20, 50, 0.95) 100%);
+    border: 2px solid var(--celeste); border-radius: 20px; padding: 16px; z-index: 999;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.7); display: none; animation: slideUpFlotante 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+body.viaje-activo #mini-panel-viaje { display: block; }
+@keyframes slideUpFlotante { from { transform: translateY(120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.mini-viaje-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.mini-viaje-info { display: flex; align-items: center; gap: 10px; }
+.mini-viaje-car { font-size: 20px; font-weight: 900; color: var(--amarillo); }
+.mini-viaje-chofer { font-size: 13px; color: #ccc; }
+.mini-viaje-status { font-size: 12px; color: var(--success); font-weight: 700; display: flex; align-items: center; gap: 6px; }
+
+.promo-card { background: rgba(0, 210, 255, 0.05); border: 1px solid rgba(0, 210, 255, 0.2); border-radius: 10px; padding: 8px; text-align: center; font-size: 13px; font-weight: 700; }
+.form-row { display: flex; gap: 8px; }
+input, select { background: rgba(20, 20, 35, 0.85); border: 1px solid #333; color: white; padding: 12px; border-radius: 12px; font-size: 15px; width: 100%; box-sizing: border-box; }
+input:focus, select:focus { border-color: var(--celeste); outline: none; }
+
+#panel-anuncio-parada { position: fixed; top: 20px; left: 15px; right: 15px; z-index: 10001;
+    background: rgba(10,10,25,0.96); border: 2px solid var(--amarillo); border-radius: 20px; padding: 18px; display: none; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.8); }
+#panel-anuncio-parada.visible { display: block; }
+
+#banner-llegada { position: fixed; top: 0; left: 0; right: 0; background: linear-gradient(180deg, var(--celeste) 0%, #0088cc 100%); color: white; padding: 20px 16px; text-align: center; z-index: 10002; transform: translateY(-120%); transition: transform 0.4s cubic-bezier(0.1, 0.8, 0.2, 1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+#banner-llegada.visible { transform: translateY(0); }
+
+.flota-container { max-height: 140px; overflow-y: auto; border-radius: 10px; }
+.coche-card { background: rgba(20, 20, 30, 0.7); border-radius: 12px; padding: 10px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05); transition: all 0.2s; }
+.coche-card.seleccionado { border-color: var(--celeste); background: rgba(0, 210, 255, 0.05); }
+.coche-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.asientos-row { display: flex; gap: 6px; justify-content: center; }
+.asiento-box { width: 55px; height: 44px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; }
+.asiento-libre { background: rgba(40,40,60,0.5); border: 1px solid var(--celeste); color: var(--celeste); cursor: pointer; }
+.asiento-libre.seleccionado { background: var(--amarillo); border-color: var(--amarillo); color: black; font-weight: 800; }
+.asiento-ocupado { background: rgba(15,15,15,0.8); border: 1px solid #222; color: #555; }
+
+.btn-pedir { background: linear-gradient(135deg, var(--success), #34c759); color: white; border: none; padding: 14px; border-radius: 14px; font-weight: 800; font-size: 16px; transition: all 0.2s; width: 100%; cursor: pointer; }
+.btn-pedir:disabled { background: #252530; color: #555; cursor: not-allowed; }
+.btn-cancelar-mini { background: linear-gradient(135deg, var(--danger), #c0392b); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 800; font-size: 14px; width: 100%; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 59, 48, 0.2); }
+
+.toast-container { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 10005; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+.toast { background: rgba(0,0,0,0.9); color: white; padding: 10px 20px; border-radius: 12px; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,255,255,0.1); animation: toastIn 0.3s ease forwards; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s infinite linear; margin-right: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.sin-coches { text-align: center; padding: 10px; color: #777; font-size: 12px; }
