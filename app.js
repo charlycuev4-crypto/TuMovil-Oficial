@@ -1,4 +1,4 @@
-const _s = supabase.createClient(
+Const _s = supabase.createClient(
     'https://nvumdlxervrewqiiaicl.supabase.co',
     'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE',
     { global: { headers: { 'x-app-secret': '2Awy7XGP0SBmBRprB3PBzfvz9VcbDd04' } } }
@@ -8,7 +8,6 @@ function sanitizarInput(t) { return t ? t.replace(/[^a-zA-ZáéíóúÁÉÍÓÚ�
 
 function mostrarToast(m, tipo) {
     const c = document.getElementById('toast-container');
-    if (!c) return;
     const t = document.createElement('div'); t.className = 'toast';
     if(tipo === 'error') t.style.borderColor = 'var(--danger)';
     if(tipo === 'success') t.style.borderColor = 'var(--success)';
@@ -116,9 +115,7 @@ let timerLlegada = null, segundosRestantes = 30, llegadaMostrada = false;
 let miNombrePasajero = '', intervaloPolling = null;
 
 const selDest = document.getElementById('destino-select');
-if (selDest) {
-    paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = (i+1) + ". " + p.n; selDest.appendChild(opt); });
-}
+paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = (i+1) + ". " + p.n; selDest.appendChild(opt); });
 
 function calcularParadaMasCerca(lat, lon) {
     let minDist = Infinity, idx = -1;
@@ -147,22 +144,13 @@ navigator.geolocation.watchPosition(p => {
     actualizarMapaRuta();
     if (!gpsListo) {
         gpsListo = true;
-        const btnPedir = document.getElementById('btn-pedir');
-        if (btnPedir) {
-            btnPedir.disabled = false;
-            if (!miViajeActivo) btnPedir.innerText = "SELECCIONÁ TU DESTINO";
-        }
+        document.getElementById('btn-pedir').disabled = false;
+        if (!miViajeActivo) document.getElementById('btn-pedir').innerText = "SELECCIONÁ TU DESTINO";
     }
-}, (err) => { 
-    console.error("Error GPS:", err); 
-    const btnPedir = document.getElementById('btn-pedir');
-    if (btnPedir) btnPedir.innerText = "GPS NO DISPONIBLE"; 
-}, { enableHighAccuracy: true, timeout: 8000 });
+}, (err) => { console.error("Error GPS:", err); document.getElementById('btn-pedir').innerText = "GPS NO DISPONIBLE"; }, { enableHighAccuracy: true, timeout: 8000 });
 
 function actualizarMapaRuta() {
-    const destinoEl = document.getElementById('destino-select');
-    if (!destinoEl) return;
-    const val = destinoEl.value;
+    const val = document.getElementById('destino-select').value;
     if (val !== "" && miLat !== 0) {
         const dest = paradas[val].c;
         guiaDestino.setLatLngs([[miLat, miLon], dest]);
@@ -171,17 +159,11 @@ function actualizarMapaRuta() {
     }
 }
 
-const destinoSelect = document.getElementById('destino-select');
-if (destinoSelect) {
-    destinoSelect.addEventListener('change', () => { actualizarMapaRuta(); renderizarFlotaDisponible(); });
-}
-const sentidoSelect = document.getElementById('sentido-select');
-if (sentidoSelect) {
-    sentidoSelect.addEventListener('change', (e) => { 
-        actualizarColorTrazado(e.target.value);
-        renderizarFlotaDisponible(); 
-    });
-}
+document.getElementById('destino-select').addEventListener('change', () => { actualizarMapaRuta(); renderizarFlotaDisponible(); });
+document.getElementById('sentido-select').addEventListener('change', (e) => { 
+    actualizarColorTrazado(e.target.value);
+    renderizarFlotaDisponible(); 
+});
 
 function seleccionarAsiento(cocheId, numAsiento) {
     if (miViajeActivo) return;
@@ -210,11 +192,9 @@ function seleccionarAsiento(cocheId, numAsiento) {
 
 function actualizarBoton() {
     const btn = document.getElementById('btn-pedir');
-    if (!btn) return;
     let txt = '', dis = true;
-    const destinoEl = document.getElementById('destino-select');
     if (!gpsListo) txt = "BUSCANDO GPS...";
-    else if (!destinoEl || !destinoEl.value) txt = "SELECCIONÁ TU DESTINO";
+    else if (!document.getElementById('destino-select').value) txt = "SELECCIONÁ TU DESTINO";
     else if (asientosElegidos.length > 0) { 
         txt = `RESERVAR VIAJE (${asientosElegidos.length} LUGAR${asientosElegidos.length > 1 ? 'ES' : ''})`; 
         dis = false; 
@@ -227,11 +207,8 @@ function actualizarBoton() {
 async function renderizarFlotaDisponible() {
     if (miViajeActivo) return;
     const container = document.getElementById('flota-container');
-    if (!container) return;
-    const sentidoEl = document.getElementById('sentido-select');
-    const destEl = document.getElementById('destino-select');
-    const sentido = sentidoEl ? sentidoEl.value : 'IDA';
-    const destIdx = destEl ? destEl.value : '';
+    const sentido = document.getElementById('sentido-select').value;
+    const destIdx = document.getElementById('destino-select').value;
     if (!destIdx || !gpsListo) return;
 
     container.innerHTML = '<div class="sin-coches"><span class="spinner"></span>Filtrando flota...</div>';
@@ -281,48 +258,18 @@ async function renderizarFlotaDisponible() {
 }
 
 async function confirmarViajePasajero() {
-    const nombreInput = document.getElementById('nombre-input');
-    const destEl = document.getElementById('destino-select');
-    const nom = sanitizarInput(nombreInput ? nombreInput.value : '');
-    const destIdx = parseInt(destEl ? destEl.value : 0);
-    
-    if(!nom || nom.length < 2) { 
-        alert("Ingresá un nombre válido."); 
-        return; 
-    }
-    if(asientosElegidos.length === 0) { 
-        alert("Falta elegir al menos un asiento."); 
-        return; 
-    }
+    const nom = sanitizarInput(document.getElementById('nombre-input').value);
+    const destIdx = parseInt(document.getElementById('destino-select').value);
+    if(!nom || nom.length < 2) { alert("Ingresá un nombre válido."); return; }
+    if(!cocheSeleccionado || asientosElegidos.length === 0) { alert("Falta elegir asiento."); return; }
 
     const btn = document.getElementById('btn-pedir');
-    if (btn) {
-        btn.disabled = true; 
-        btn.innerHTML = '<span class="spinner"></span>Asignando unidad inteligente...';
-    }
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Procesando reserva...';
 
     try {
-        // Llamada a la función automática en Supabase (FIFO + Control de Grupo)
-        const { data, error } = await _s.rpc('reservas_asientos_automatico', { 
-            p_nombre: nom, 
-            p_asientos: asientosElegidos, 
-            p_destino_idx: destIdx, 
-            p_lat: miLat, 
-            p_lon: miLon 
-        });
-
+        const { data, error } = await _s.rpc('reservar_asientos', { p_nombre: nom, p_id_movil: cocheSeleccionado, p_asientos: asientosElegidos, p_destino_idx: destIdx, p_lat: miLat, p_lon: miLon });
         if (error) throw error;
-
-        if (data?.colision || data?.sin_espacio) { 
-            alert(data.mensaje || "No hay unidades con suficiente lugar disponible en este momento."); 
-            if (btn) {
-                btn.disabled = false; 
-            }
-            actualizarBoton(); 
-            renderizarFlotaDisponible(); 
-            return; 
-        }
-
+        if (data?.colision) { alert("¡Esos asientos acaban de ser tomados! Elige otros."); renderizarFlotaDisponible(); return; }
         if (data?.success) {
             localStorage.setItem('usuario_nombre', nom);
             miNombrePasajero = nom;
@@ -331,31 +278,17 @@ async function confirmarViajePasajero() {
 
             await verificarViajesActivosBaseDatos(nom);
         }
-    } catch (err) { 
-        console.error("Error al reservar:", err);
-        alert("Error de red al procesar la reserva."); 
-        if (btn) {
-            btn.disabled = false; 
-        }
-        actualizarBoton(); 
-    }
+    } catch (err) { alert("Error de red."); btn.disabled = false; actualizarBoton(); }
 }
 
 window.onload = async () => {
     const guardado = localStorage.getItem('usuario_nombre');
     if (guardado) {
-        const nombreInput = document.getElementById('nombre-input');
-        if (nombreInput) nombreInput.value = guardado;
+        document.getElementById('nombre-input').value = guardado;
         miNombrePasajero = guardado;
         await verificarViajesActivosBaseDatos(guardado);
     }
-    setTimeout(() => { 
-        const splash = document.getElementById('splash');
-        if (splash) { 
-            splash.style.opacity = '0'; 
-            setTimeout(() => splash.style.visibility = 'hidden', 600); 
-        } 
-    }, 1200);
+    setTimeout(() => { document.getElementById('splash').style.opacity = '0'; setTimeout(() => document.getElementById('splash').style.visibility = 'hidden', 600); }, 1200);
 };
 
 async function verificarViajesActivosBaseDatos(nombre) {
@@ -369,22 +302,16 @@ async function verificarViajesActivosBaseDatos(nombre) {
 
             document.body.classList.add('viaje-activo');
             
-            const cId = document.getElementById('info-coche-id');
-            const cNom = document.getElementById('info-chofer-nombre');
-            const cDest = document.getElementById('info-destino-abordo');
-            const cAs = document.getElementById('info-asientos-detalles');
-
-            if (cId) cId.textContent = primerViaje.id_movil;
-            if (cNom) cNom.textContent = primerViaje.estado_movil?.chofer || 'Conductor';
-            if (cDest) cDest.textContent = paradas[primerViaje.destino_idx]?.n || 'Destino';
-            if (cAs) cAs.textContent = asientosElegidos.join(', ');
+            document.getElementById('info-coche-id').textContent = primerViaje.id_movil;
+            document.getElementById('info-chofer-nombre').textContent = primerViaje.estado_movil?.chofer || 'Conductor';
+            document.getElementById('info-destino-abordo').textContent = paradas[primerViaje.destino_idx]?.n || 'Destino';
+            document.getElementById('info-asientos-detalles').textContent = asientosElegidos.join(', ');
 
             actualizarColorTrazado(primerViaje.estado_movil?.sentido_flujo || 'IDA');
 
             if (primerViaje.estado_pasajero === 'a_bordo') {
                 pasajeroABordo = true;
-                const statusTxt = document.getElementById('viaje-status-texto');
-                if (statusTxt) statusTxt.innerHTML = '<span>Ya estás a bordo</span>';
+                document.getElementById('viaje-status-texto').innerHTML = '<span>Ya estás a bordo</span>';
                 iniciarEscuchaAnuncios();
             }
 
@@ -415,8 +342,7 @@ function iniciarMonitoreoViajeActivo() {
             
             if(!puedeRecoger && !cocheYaPaso) {
                 cocheYaPaso = true;
-                const statusTxt = document.getElementById('viaje-status-texto');
-                if (statusTxt) statusTxt.innerHTML = '<span style="color:var(--danger)">EL COCHE YA PASÓ</span>';
+                document.getElementById('viaje-status-texto').innerHTML = '<span style="color:var(--danger)">EL COCHE YA PASÓ</span>';
                 mostrarToast("El coche ya pasó de largo tu parada.", "error");
             }
             
@@ -438,12 +364,10 @@ function iniciarVerificacionLlegada() {
             const { data } = await _s.rpc('verificar_llegada_coche', { p_nombre: miNombrePasajero });
             if (data?.llego) {
                 llegadaMostrada = true;
-                const banner = document.getElementById('banner-llegada');
-                if (banner) banner.classList.add('visible');
+                document.getElementById('banner-llegada').classList.add('visible');
                 timerLlegada = setInterval(() => {
                     segundosRestantes--;
-                    const timerEl = document.getElementById('llegada-timer');
-                    if (timerEl) timerEl.textContent = segundosRestantes;
+                    document.getElementById('llegada-timer').textContent = segundosRestantes;
                     if(segundosRestantes <= 0) { clearInterval(timerLlegada); confirmarSubida(); }
                 }, 1000);
             }
@@ -453,8 +377,7 @@ function iniciarVerificacionLlegada() {
 
 async function confirmarSubida() {
     if(timerLlegada) clearInterval(timerLlegada);
-    const banner = document.getElementById('banner-llegada');
-    if (banner) banner.classList.remove('visible');
+    document.getElementById('banner-llegada').classList.remove('visible');
     try {
         await _s.rpc('confirmar_abordo', { p_nombre: miNombrePasajero });
         pasajeroABordo = true; location.reload();
@@ -464,10 +387,7 @@ async function confirmarSubida() {
 async function finalizarViaje() {
     if(!confirm("¿Deseas finalizar o liberar tu asiento actual?")) return;
     const btn = document.getElementById('btn-cancelar');
-    if (btn) {
-        btn.disabled = true; 
-        btn.innerText = "FINALIZANDO...";
-    }
+    btn.disabled = true; btn.innerText = "FINALIZANDO...";
     try {
         await _s.rpc('finalizar_viaje', { p_nombre: miNombrePasajero });
         limpiarEstadoViaje();
@@ -481,10 +401,8 @@ function limpiarEstadoViaje() {
 
 function limpiarUI() {
     document.body.classList.remove('viaje-activo');
-    const menuCfg = document.getElementById('menu-configuracion');
-    const miniPanel = document.getElementById('mini-panel-viaje');
-    if (menuCfg) menuCfg.style.transform = 'translateY(0)';
-    if (miniPanel) miniPanel.style.display = 'none';
+    document.getElementById('menu-configuracion').style.transform = 'translateY(0)';
+    document.getElementById('mini-panel-viaje').style.display = 'none';
 }
 
 function iniciarPollingEstado() {
@@ -498,32 +416,27 @@ function iniciarPollingEstado() {
 function iniciarEscuchaAnuncios() {
     _s.channel('anuncios-' + miNombrePasajero).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'reservas_activas', filter: 'nombre_pasajero=eq.'+miNombrePasajero }, payload => {
         if (payload.new?.anuncio_parada && !payload.new?.anuncio_visto) {
-            const anuncioTexto = document.getElementById('anuncio-mensaje-texto');
-            const panelAnuncio = document.getElementById('panel-anuncio-parada');
-            if (anuncioTexto) anuncioTexto.innerText = payload.new.anuncio_parada;
-            if (panelAnuncio) panelAnuncio.classList.add('visible');
+            document.getElementById('anuncio-mensaje-texto').innerText = payload.new.anuncio_parada;
+            document.getElementById('panel-anuncio-parada').classList.add('visible');
         }
     }).subscribe();
 }
 
 async function marcarAnuncioVisto() {
-    const panelAnuncio = document.getElementById('panel-anuncio-parada');
-    if (panelAnuncio) panelAnuncio.classList.remove('visible');
+    document.getElementById('panel-anuncio-parada').classList.remove('visible');
     try { await _s.rpc('marcar_anuncio_visto', { p_nombre: miNombrePasajero }); } catch(e){}
 }
 
 async function actualizarMapaTaxis() {
     if(miViajeActivo) return;
     try {
-        const sentidoEl = document.getElementById('sentido-select');
-        const sentidoVal = sentidoEl ? sentidoEl.value : 'IDA';
-        const { data } = await _s.rpc('obtener_taxis', { p_sentido: sentidoVal });
+        const { data } = await _s.rpc('obtener_taxis', { p_sentido: document.getElementById('sentido-select').value });
         if(!data) return;
         const taxis = Array.isArray(data) ? data : data.taxis || [];
         taxis.forEach(t => {
             const lat = t.latitud || t.lat; const lon = t.longitud || t.lon;
             if(markerTaxis[t.id]) markerTaxis[t.id].setLatLng([lat, lon]);
-            else markerTaxis[t.id] = L.marker([lat, lon], { icon: iconT }).addTo(map); // Corregido 'mapa' a 'map'
+            else markerTaxis[t.id] = L.marker([lat, lon], { icon: iconT }).addTo(mapa);
         });
     } catch(e){}
 }
