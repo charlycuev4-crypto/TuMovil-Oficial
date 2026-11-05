@@ -1,4 +1,4 @@
-const TARIFA_UNICA = 1500; // TARIFA PLANA UNIFICADA $1500
+Const TARIFA_UNICA = 1500; // TARIFA PLANA UNIFICADA $1500
 
 // LISTA DE PARADAS COMPLETA Y ORDENADA (36 PARADAS: CRUCE DERQUI -> ABASTO Y ROCA)
 const paradas = [
@@ -40,7 +40,7 @@ const paradas = [
     {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
 ];
 
-const MI_ID_MOVIL = 1; // Cambiar a 2 para el segundo chofer en las pruebas
+const MI_ID_MOVIL = 1;
 const MI_NOMBRE = "Carlos - Ford Fiesta JCP 478";
 const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
@@ -315,16 +315,7 @@ async function gestionarConexion() {
         label.innerText = "CONECTANDO...";
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const lat = pos.coords.latitude, lon = pos.coords.longitude;
-            const datos = { 
-                esta_online: true, 
-                latitud: lat, 
-                longitud: lon, 
-                sentido_flujo: sentidoActual, 
-                disponible_desde: calcularCercana(lat, lon).idx, 
-                ultima_actualizacion: new Date().toISOString(), 
-                fecha_conexion: new Date().toISOString(), // 👈 INCLUIDO PARA MANTENER EL ORDEN FIFO EN SUPABASE
-                chofer: MI_NOMBRE 
-            };
+            const datos = { esta_online: true, latitud: lat, longitud: lon, sentido_flujo: sentidoActual, disponible_desde: calcularCercana(lat, lon).idx, ultima_actualizacion: new Date().toISOString(), chofer: MI_NOMBRE };
             await _s.from('estado_movil').update(datos).eq('id', MI_ID_MOVIL);
             label.innerText = "EN LÍNEA"; label.style.color = "#34c759";
             activarWakeLock(); iniciarGPS();
@@ -435,7 +426,7 @@ async function actualizar() {
             const latLng = markerCoche.getLatLng();
             if (latLng) verificarNavegacionParadas(latLng.lat, latLng.lng, reservas);
         }
-    } catch (err) { console.error("Error en polling:", err); }
+    } catch (err) { console.error("Error en pooling:", err); }
 }
 
 async function cambiarSentido() {
