@@ -91,15 +91,35 @@ let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [44, 58], iconAn
 let markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
 let markersPax = [], markersDest = [];
 
+// ==========================================
+// INYECCIÓN AUTOMÁTICA DEL GLOBITO DE RECAUDACIÓN
+// ==========================================
+function inyectarGlobitoRecaudacion() {
+    const anuncioHeader = document.querySelector('.anuncio-header');
+    if (anuncioHeader && !document.getElementById('txt-recaudacion-total')) {
+        const contenedorDerecha = document.createElement('div');
+        contenedorDerecha.style.cssText = 'display: flex; align-items: center; gap: 6px;';
+        
+        const globitoBox = document.createElement('div');
+        globitoBox.className = 'recaudacion-flotante-box';
+        globitoBox.innerHTML = '<span>💰</span><span id="txt-recaudacion-total">$0</span>';
+        
+        const distanciaElem = document.getElementById('anuncio-parada-distancia');
+        if (distanciaElem) {
+            distanciaElem.parentNode.insertBefore(globitoBox, distanciaElem);
+        }
+    }
+}
+
 function abrirSheet() {
-    const sheet = document.getElementById('driver-sheet');
+    const sheet = document.getElementById('bottom-sheet');
     const btnSheet = document.getElementById('btn-abrir-sheet');
     if (sheet) sheet.classList.add('expanded');
     if (btnSheet) btnSheet.style.display = 'none';
 }
 
 function cerrarSheet() {
-    const sheet = document.getElementById('driver-sheet');
+    const sheet = document.getElementById('bottom-sheet');
     const btnSheet = document.getElementById('btn-abrir-sheet');
     if (sheet) sheet.classList.remove('expanded');
     if (btnSheet) btnSheet.style.display = 'flex';
@@ -119,7 +139,7 @@ async function activarWakeLock() {
     try {
         if ('wakeLock' in navigator) {
             wakeLock = await navigator.wakeLock.request('screen');
-            const indicator = document.getElementById('wakelock-indicator');
+            const indicator = document.getElementById('wakelock-status');
             if (indicator) indicator.classList.add('activo');
         }
     } catch (err) { console.error('Wake Lock error:', err); }
@@ -129,7 +149,7 @@ async function liberarWakeLock() {
     if (wakeLock) { 
         await wakeLock.release(); 
         wakeLock = null; 
-        const indicator = document.getElementById('wakelock-indicator');
+        const indicator = document.getElementById('wakelock-status');
         if (indicator) indicator.classList.remove('activo'); 
     }
 }
@@ -158,7 +178,7 @@ function vibrarAlarma() { if ('vibrate' in navigator) navigator.vibrate([300, 10
 
 function mostrarAlertaReserva(nombrePasajero, asientos) {
     const alerta = document.getElementById('alerta-reserva');
-    const txt = document.getElementById('alerta-texto');
+    const txt = document.getElementById('alerta-detalle');
     if (txt) txt.innerText = nombrePasajero + ' reservó: ' + asientos.join(', ');
     if (alerta) alerta.classList.add('mostrar');
     reproducirAlarma();
@@ -196,7 +216,7 @@ function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
 }
 
 function actualizarHUDParadas(paradaActualIdx) {
-    const hud = document.getElementById('hud-paradas');
+    const hud = document.getElementById('hud-paradas-container');
     if (!hud) return;
     if (!estaOnline) { hud.style.display = 'none'; return; }
     hud.style.display = 'flex';
@@ -297,7 +317,7 @@ async function verificarNavegacionParadas(lat, lon, reservasActivas) {
     const siguienteParada = paradas[sigIdx];
     const dist = calcularDistanciaMetros(lat, lon, siguienteParada.c[0], siguienteParada.c[1]);
     
-    const txtNombre = document.getElementById('anuncio-parada-nombre');
+    const txtNombre = document.getElementById('anuncio-parada-texto');
     const txtDist = document.getElementById('anuncio-parada-distancia');
     if (txtNombre) txtNombre.innerText = siguienteParada.n;
     if (txtDist) txtDist.innerText = dist < 1000 ? Math.round(dist) + ' m' : (dist / 1000).toFixed(1) + ' km';
@@ -327,7 +347,7 @@ function calcularCercana(lat, lon) {
 }
 
 async function gestionarConexion() {
-    const toggle = document.getElementById('online-toggle');
+    const toggle = document.getElementById('toggle-activo');
     const label = document.getElementById('status-label');
     estaOnline = toggle ? toggle.checked : false;
     localStorage.setItem('driver_online', estaOnline ? 'true' : 'false');
@@ -360,7 +380,7 @@ async function gestionarConexion() {
         await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
         if (label) { label.innerText = "DESCONECTADO"; label.style.color = "#aaa"; }
         const panelParada = document.getElementById('panel-anuncio-parada');
-        const hudParadas = document.getElementById('hud-paradas');
+        const hudParadas = document.getElementById('hud-paradas-container');
         const mapWrapper = document.getElementById('map-wrapper');
         if (panelParada) panelParada.classList.remove('visible');
         if (hudParadas) hudParadas.style.display = 'none';
@@ -403,8 +423,8 @@ function iniciarGPS() {
         rastroPolyline.setLatLngs(puntosRastro);
 
         const paradaInfo = calcularCercana(lat, lon);
-        const txtParada = document.getElementById('txt-parada');
-        if (txtParada) txtParada.innerText = paradaInfo.nombre;
+        const txtParadaActual = document.getElementById('parada-actual-texto');
+        if (txtParadaActual) txtParadaActual.innerText = "Parada actual: " + paradaInfo.nombre;
 
         const ahora = Date.now();
         if (estaOnline && (ahora - ultimaVezEnviado > 3500)) {
@@ -416,6 +436,9 @@ function iniciarGPS() {
 
 async function actualizar() {
     try {
+        // Asegurar que el globito esté inyectado en el cuadro superior
+        inyectarGlobitoRecaudacion();
+
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
         if (reservas) {
             if (reservas.length > ultimaCantidadReservas && estaOnline) {
@@ -426,15 +449,21 @@ async function actualizar() {
             markersPax.forEach(m => map.removeLayer(m)); markersDest.forEach(m => map.removeLayer(m));
             markersPax = []; markersDest = [];
 
-            const txtPax = document.getElementById('txt-pax');
-            const txtPlata = document.getElementById('txt-plata');
-            if (txtPax) txtPax.innerText = reservas.length;
-            if (txtPlata) txtPlata.innerText = "$" + (reservas.length * TARIFA_UNICA);
+            const statABordo = document.getElementById('stat-a-bordo');
+            const statDisponibles = document.getElementById('stat-disponibles');
+            const txtRecaudacion = document.getElementById('txt-recaudacion-total');
+            
+            let aBordoCount = reservas.filter(r => r.estado_pasajero === 'a_bordo').length;
+            let totalRecaudado = reservas.length * TARIFA_UNICA;
+
+            if (statABordo) statABordo.innerText = aBordoCount;
+            if (statDisponibles) statDisponibles.innerText = Math.max(0, 4 - reservas.length);
+            if (txtRecaudacion) txtRecaudacion.innerText = "$" + totalRecaudado;
 
             for(let i=1; i<=4; i++) { 
-                const pill = document.getElementById('pill'+i);
                 const nombrePax = document.getElementById('nombre-pax-'+i);
                 const destPax = document.getElementById('destino-pax-'+i);
+                const pill = document.querySelector(`.bar-asientos-fija .pill:nth-child(${i})`);
                 if (pill) pill.className = 'pill'; 
                 if (nombrePax) nombrePax.innerText = ''; 
                 if (destPax) destPax.innerText = ''; 
@@ -443,8 +472,8 @@ async function actualizar() {
 
             reservas.forEach(r => {
                 const nombreDestino = paradas[r.destino_idx] ? paradas[r.destino_idx].n.split(' ')[0] : 'Destino';
-                if(r.asiento_num <= 4) {
-                    const pill = document.getElementById('pill'+r.asiento_num);
+                if(r.asiento_num >= 1 && r.asiento_num <= 4) {
+                    const pill = document.querySelector(`.bar-asientos-fija .pill:nth-child(${r.asiento_num})`);
                     const nombrePax = document.getElementById('nombre-pax-'+r.asiento_num);
                     const destPax = document.getElementById('destino-pax-'+r.asiento_num);
                     
@@ -491,12 +520,8 @@ async function cambiarSentido() {
     if (estaOnline) { await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL); }
 }
 
-// ==========================================
-// FUNCIÓN ACTUALIZADA: LIBERAR ASIENTO INDIVIDUAL POR RPC
-// ==========================================
 async function liberarAsiento(n) {
     if (confirm('¿Finalizar viaje y liberar el asiento ' + n + '?')) {
-        // Llama a la función RPC de Supabase para aislar el cierre a este asiento y móvil
         const { error } = await _s.rpc('finalizar_asiento_individual', { 
             p_id_movil: MI_ID_MOVIL, 
             p_asiento: n 
@@ -544,10 +569,10 @@ async function finalizarJornada() {
     localStorage.removeItem('driver_sentido');
 
     estaOnline = false;
-    const toggle = document.getElementById('online-toggle');
+    const toggle = document.getElementById('toggle-activo');
     const label = document.getElementById('status-label');
     const panelParada = document.getElementById('panel-anuncio-parada');
-    const hudParadas = document.getElementById('hud-paradas');
+    const hudParadas = document.getElementById('hud-paradas-container');
     const mapWrapper = document.getElementById('map-wrapper');
 
     if (toggle) toggle.checked = false;
@@ -563,6 +588,8 @@ async function finalizarJornada() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+    inyectarGlobitoRecaudacion();
+
     const sentidoGuardado = localStorage.getItem('driver_sentido');
     if (sentidoGuardado) {
         sentidoActual = sentidoGuardado;
@@ -574,10 +601,38 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const onlineGuardado = localStorage.getItem('driver_online');
     if (onlineGuardado === 'true') {
-        const toggle = document.getElementById('online-toggle');
+        const toggle = document.getElementById('toggle-activo');
         if (toggle) toggle.checked = true;
         gestionarConexion();
     }
+
+    // Enlaces de eventos a botones de la interfaz
+    const toggleElem = document.getElementById('toggle-activo');
+    if (toggleElem) toggleElem.addEventListener('change', gestionarConexion);
+
+    const btnSentidoElem = document.getElementById('btn-sentido');
+    if (btnSentidoElem) btnSentidoElem.addEventListener('click', cambiarSentido);
+
+    const btnAbrirSheet = document.getElementById('btn-abrir-sheet');
+    if (btnAbrirSheet) btnAbrirSheet.addEventListener('click', abrirSheet);
+
+    const dragHandle = document.getElementById('drag-handle');
+    if (dragHandle) dragHandle.addEventListener('click', cerrarSheet);
+
+    const btnSubirAbordo = document.getElementById('btn-subir-abordo');
+    if (btnSubirAbordo) btnSubirAbordo.addEventListener('click', marcarPasajeroABordo);
+
+    const btnLlegoDestino = document.getElementById('btn-llego-destino');
+    if (btnLlegoDestino) btnLlegoDestino.addEventListener('click', llegoADestino);
+
+    const btnVaciarParada = document.getElementById('btn-vaciar-parada');
+    if (btnVaciarParada) btnVaciarParada.addEventListener('click', confirmarVaciar);
+
+    const btnFinalizarJornada = document.getElementById('btn-finalizar-jornada');
+    if (btnFinalizarJornada) btnFinalizarJornada.addEventListener('click', finalizarJornada);
+
+    const btnAtenderReserva = document.getElementById('btn-atender-reserva');
+    if (btnAtenderReserva) btnAtenderReserva.addEventListener('click', cerrarAlerta);
 });
 
 // CIERRE DE SEGURIDAD GARANTIZADO DEL SPLASH
