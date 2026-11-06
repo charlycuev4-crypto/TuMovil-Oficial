@@ -1,14 +1,3 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>CONDUCTOR 01 - TuMovil PRO</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- ESTILOS INTEGRADOS -->
     <style>
         :root {
             --celeste: #00d2ff;
@@ -58,9 +47,9 @@
         @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .btn-atender { background: var(--amarillo); color: #000; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 800; font-size: 15px; margin-top: 15px; cursor: pointer; width: 100%; }
 
-        /* MAPA Y CONTENEDOR */
-        #map-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; transition: transform 0.3s ease; }
-        #map { width: 100%; height: 100%; background: var(--dark); }
+        /* MAPA Y CONTENEDOR - CORREGIDO PARA QUE SE VEA EL GPS */
+        #map-wrapper { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #map { width: 100%; height: 100%; background: #111; }
 
         /* TOP NAV Y HUD */
         .top-nav { position: absolute; top: 12px; left: 12px; right: 12px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
@@ -137,116 +126,3 @@
         .toast.warning { border-color: var(--amarillo); }
         .toast.error { border-color: var(--danger); }
     </style>
-</head>
-<body>
-
-    <div id="splash">
-        <div class="logo-ring"><span style="font-size: 45px;">🚕</span></div>
-        <h1>TUMOVIL</h1>
-        <p>Conductor Oficial • HUD Minimizado</p>
-        <div class="loading-bar"><div class="loading-bar-inner"></div></div>
-    </div>
-
-    <div class="wakelock-indicator" id="wakelock-indicator">☀️ PANTALLA ACTIVA</div>
-
-    <div class="alerta-reserva" id="alerta-reserva">
-        <h2>🔔 ¡NUEVA SOLICITUD!</h2>
-        <p id="alerta-texto">Alguien quiere subir a tu coche</p>
-        <button class="btn-atender" onclick="cerrarAlerta()">ATENDER VIAJE</button>
-    </div>
-
-    <div class="toast-container" id="toast-container"></div>
-
-    <div id="map-wrapper">
-        <div id="map"></div>
-    </div>
-
-    <!-- BARRA SUPERIOR -->
-    <div class="top-nav">
-        <div class="header-bar">
-            <div class="connection-status">
-                <label class="switch">
-                    <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
-                    <span class="slider"></span>
-                </label>
-                <span id="status-label">DESCONECTADO</span>
-            </div>
-
-            <div class="header-right-controls">
-                <div class="speed-box-top">
-                    <span id="txt-velocidad">0</span>
-                    <span class="speed-unit">km/h</span>
-                </div>
-                <button id="btn-sentido" onclick="cambiarSentido()">IDA</button>
-            </div>
-        </div>
-
-        <div id="panel-anuncio-parada">
-            <div class="anuncio-header">
-                <span class="anuncio-titulo">🚏 PRÓXIMA PARADA</span>
-                <span id="anuncio-parada-distancia">-- m</span>
-            </div>
-            <div class="anuncio-nombre" id="anuncio-parada-nombre">--</div>
-            <div class="anuncio-pasajero" id="anuncio-parada-pasajero" style="display:none;"></div>
-        </div>
-
-        <div class="hud-paradas" id="hud-paradas" style="display:none;"></div>
-    </div>
-
-    <!-- ASIENTOS FLOTANTES SIEMPRE EN PANTALLA -->
-    <div class="bar-asientos-fija">
-        <div id="pill1" class="pill" onclick="liberarAsiento(1)"><span class="seat-num">1</span><span class="nombre-pax" id="nombre-pax-1"></span><span class="destino-pax" id="destino-pax-1"></span></div>
-        <div id="pill2" class="pill" onclick="liberarAsiento(2)"><span class="seat-num">2</span><span class="nombre-pax" id="nombre-pax-2"></span><span class="destino-pax" id="destino-pax-2"></span></div>
-        <div id="pill3" class="pill" onclick="liberarAsiento(3)"><span class="seat-num">3</span><span class="nombre-pax" id="nombre-pax-3"></span><span class="destino-pax" id="destino-pax-3"></span></div>
-        <div id="pill4" class="pill" onclick="liberarAsiento(4)"><span class="seat-num">4</span><span class="nombre-pax" id="nombre-pax-4"></span><span class="destino-pax" id="destino-pax-4"></span></div>
-    </div>
-
-    <!-- BOTÓN CORDÓN AMARILLO (DESPLEGAR OPERACIONES) -->
-    <button id="btn-abrir-sheet" onclick="abrirSheet()">📋</button>
-
-    <!-- BOTTOM SHEET COMPLETO CON SCROLL -->
-    <div class="bottom-sheet" id="driver-sheet">
-        <div class="drag-handle" onclick="cerrarSheet()"></div>
-        
-        <div class="sheet-stats-grid">
-            <div class="q-stat">
-                <div class="q-label">Recaudado</div>
-                <div class="q-value green" id="txt-plata">$0</div>
-            </div>
-            <div class="q-stat">
-                <div class="q-label">Pasajeros</div>
-                <div class="q-value" id="txt-pax">0</div>
-            </div>
-        </div>
-
-        <div class="parada-actual-inline">
-            📍 Parada Actual: <span id="txt-parada">Buscando GPS...</span>
-        </div>
-
-        <div class="action-group">
-            <button class="btn-action btn-subir-abordo" id="btn-subir-abordo" onclick="marcarPasajeroABordo()">✅ PASAJERO SUBIÓ</button>
-            <button class="btn-action btn-llego-destino" id="btn-llego-destino" onclick="llegoADestino()">🏁 LLEGÓ A DESTINO</button>
-            <button class="btn-action btn-vaciar" id="btn-vaciar" onclick="confirmarVaciar()">🧹 VACIAR ASIENTOS</button>
-            <button class="btn-action btn-finalizar-jornada" id="btn-finalizar" onclick="finalizarJornada()">🛑 FINALIZAR JORNADA</button>
-        </div>
-    </div>
-
-    <script src="app-conductor.js"></script>
-
-    <!-- SCRIPT DE SEGURIDAD PARA FORZAR EL CIERRE DEL SPLASH -->
-    <script>
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                const splash = document.getElementById('splash');
-                if (splash) {
-                    splash.style.opacity = '0';
-                    setTimeout(() => {
-                        splash.style.visibility = 'hidden';
-                        splash.style.display = 'none';
-                    }, 600);
-                }
-            }, 1200);
-        });
-    </script>
-</body>
-</html>
