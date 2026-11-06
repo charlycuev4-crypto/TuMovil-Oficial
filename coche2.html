@@ -66,7 +66,6 @@
 
         .header-right-controls { display: flex; align-items: center; gap: 8px; }
 
-        /* RECAUDACIÓN DEL DÍA FLOTANTE */
         .recaudacion-flotante-box {
             background: rgba(10, 10, 10, 0.9); border: 1.5px solid #34c759; padding: 4px 10px; border-radius: 12px;
             display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; color: #34c759;
@@ -203,7 +202,7 @@
     <div id="splash">
         <div class="logo-ring"><span style="font-size: 45px;">🚕</span></div>
         <h1>TUMOVIL 02</h1>
-        <p>Conductor Secundario • HUD Minimizado</p>
+        <p>Unidad Conductor 02 • HUD Minimizado</p>
         <div class="loading-bar"><div class="loading-bar-inner"></div></div>
     </div>
 
@@ -339,9 +338,9 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    // CONFIGURACIÓN ADAPTADA PARA EL CONDUCTOR 2
+    // CONFIGURACIÓN ESTRICTA PARA EL CONDUCTOR 02
     const MI_ID_MOVIL = 2;
-    const MI_NOMBRE = "Carlos - Móvil 02";
+    const MI_NOMBRE = "Conductor - Móvil 02";
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
     let estaOnline = false, watchId = null, sentidoActual = 'IDA';
@@ -357,14 +356,14 @@
     const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#ff3b30', weight: 6, opacity: 0.6 }).addTo(map);
 
     paradas.forEach((p, i) => {
-        L.circleMarker(p.c, { radius: 5, color: '#000', weight: 2, fillColor: '#00BFFF', fillOpacity: 0.9 })
+        L.circleMarker(p.c, { radius: 5, color: '#000', weight: 2, fillColor: '#ff9500', fillOpacity: 0.9 })
             .addTo(map).bindTooltip((i + 1) + ". " + p.n, { permanent: false, direction: 'top' });
     });
 
-    let rastroPolyline = L.polyline([], { color: '#00d2ff', weight: 4, opacity: 0.5, dashArray: '6, 4' }).addTo(map);
+    let rastroPolyline = L.polyline([], { color: '#ff9500', weight: 4, opacity: 0.5, dashArray: '6, 4' }).addTo(map);
 
     function crearIconoAuto(angulo, velocidad) {
-        const colorVelocidad = velocidad > 50 ? '#ff3b30' : velocidad > 30 ? '#ffcc00' : '#00d2ff';
+        const colorVelocidad = velocidad > 50 ? '#ff3b30' : velocidad > 30 ? '#ffcc00' : '#ff9500';
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="44" height="58">
             <defs>
                 <radialGradient id="radarG" cx="50%" cy="50%" r="50%">
