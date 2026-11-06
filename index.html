@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- CONEXIÓN AL ESTILO INDEPENDIENTE DEL CONDUCTOR -->
+    <!-- ENLACE AL ESTILO CORRECTO DEL CONDUCTOR -->
     <link rel="stylesheet" href="style-conductor.css">
 </head>
 <body>
@@ -103,7 +103,23 @@
         </div>
     </div>
 
-    <!-- CONEXIÓN AL SCRIPT DEL CONDUCTOR -->
+    <!-- SCRIPT DE LÓGICA DEL CONDUCTOR -->
     <script src="app-conductor.js"></script>
+
+    <!-- CIERRE DE SEGURIDAD DEL SPLASH SCREEN -->
+    <script>
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const splash = document.getElementById('splash');
+                if (splash) {
+                    splash.style.opacity = '0';
+                    setTimeout(() => {
+                        splash.style.visibility = 'hidden';
+                        splash.style.display = 'none';
+                    }, 600);
+                }
+            }, 1200);
+        });
+    </script>
 </body>
 </html>
