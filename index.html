@@ -66,6 +66,13 @@
 
         .header-right-controls { display: flex; align-items: center; gap: 8px; }
 
+        /* RECAUDACIÓN DEL DÍA FLOTANTE */
+        .recaudacion-flotante-box {
+            background: rgba(10, 10, 10, 0.9); border: 1.5px solid #34c759; padding: 4px 10px; border-radius: 12px;
+            display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; color: #34c759;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
         .speed-box-top {
             display: flex; align-items: center; justify-content: center; gap: 2px;
             background: #151515; border: 1.5px solid #00d2ff; padding: 4px 10px; border-radius: 12px;
@@ -76,13 +83,6 @@
         #btn-sentido {
             background: #ffcc00; border: none; padding: 6px 12px; border-radius: 12px;
             font-weight: 800; font-size: 10px; color: #000; cursor: pointer; transition: 0.2s;
-        }
-
-        /* BOTÓN FLOTANTE RECAUDACIÓN DEL DÍA */
-        .recaudacion-flotante-box {
-            background: rgba(10, 10, 10, 0.9); border: 1.5px solid #34c759; padding: 4px 10px; border-radius: 12px;
-            display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; color: #34c759;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
 
         #panel-anuncio-parada {
@@ -750,7 +750,7 @@
                 const latLng = markerCoche.getLatLng();
                 if (latLng) verificarNavegacionParadas(latLng.lat, latLng.lng, reservas);
             }
-        } catch (err) { console.error("Error en pooling:", err); }
+        } catch (err) { console.error("Error en polling:", err); }
     }
 
     async function cambiarSentido() {
@@ -763,19 +763,11 @@
     }
 
     async function liberarAsiento(n) {
-        if (confirm('¿Finalizar viaje del asiento ' + n + '?')) {
-            const { error } = await _s.rpc('finalizar_asiento_individual', { 
-                p_id_movil: MI_ID_MOVIL, 
-                p_asiento: n 
-            });
-
-            if (error) {
-                mostrarToast('Error al liberar asiento', 'error');
-                console.error(error);
-            } else {
-                mostrarToast('Asiento ' + n + ' liberado', 'success');
-                actualizar();
-            }
+        if(confirm('¿Liberar asiento ' + n + '?')) {
+            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL).eq('asiento_num', n).eq('estado', 'en_curso');
+            await _s.from('reservas_activas').delete().eq('id_movil', MI_ID_MOVIL).eq('asiento_num', n).eq('estado', 'finalizado');
+            actualizar();
+            mostrarToast('Asiento ' + n + ' liberado', 'success');
         }
     }
 
