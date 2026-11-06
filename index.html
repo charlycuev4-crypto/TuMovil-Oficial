@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- ESTILOS UNIFICADOS DIRECTOS: CERO DEPENDENCIAS EXTERNAS QUE FALLEN -->
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #0a0a0a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; color: #fff; }
@@ -249,7 +248,7 @@
         <div id="pill1" class="pill" onclick="liberarAsiento(1)"><span class="seat-num">1</span><span class="nombre-pax" id="nombre-pax-1"></span><span class="destino-pax" id="destino-pax-1"></span></div>
         <div id="pill2" class="pill" onclick="liberarAsiento(2)"><span class="seat-num">2</span><span class="nombre-pax" id="nombre-pax-2"></span><span class="destino-pax" id="destino-pax-2"></span></div>
         <div id="pill3" class="pill" onclick="liberarAsiento(3)"><span class="seat-num">3</span><span class="nombre-pax" id="nombre-pax-3"></span><span class="destino-pax" id="destino-pax-3"></span></div>
-        <div id="pill4" class="pill" onclick="liberarAsientoo(4)"><span class="seat-num">4</span><span class="nombre-pax" id="nombre-pax-4"></span><span class="destino-pax" id="destino-pax-4"></span></div>
+        <div id="pill4" class="pill" onclick="liberarAsiento(4)"><span class="seat-num">4</span><span class="nombre-pax" id="nombre-pax-4"></span><span class="destino-pax" id="destino-pax-4"></span></div>
     </div>
 
     <!-- BOTÓN CORDÓN AMARILLO -->
@@ -283,5 +282,21 @@
     </div>
 
     <script src="app-conductor.js"></script>
+
+    <!-- SCRIPT DE SEGURIDAD PARA OCULTAR EL SPLASH AUTOMÁTICAMENTE -->
+    <script>
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const splash = document.getElementById('splash');
+                if (splash) {
+                    splash.style.opacity = '0';
+                    setTimeout(() => {
+                        splash.style.visibility = 'hidden';
+                        splash.style.display = 'none';
+                    }, 600);
+                }
+            }, 1500);
+        });
+    </script>
 </body>
 </html>
