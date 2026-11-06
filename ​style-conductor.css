@@ -59,6 +59,21 @@ input:checked + .slider:before { transform: translateX(22px); }
 
 .header-right-controls { display: flex; align-items: center; gap: 8px; }
 
+/* RECAUDACIÓN DEL DÍA FLOTANTE (GLOBITO) */
+.recaudacion-flotante-box {
+    background: rgba(10, 10, 10, 0.9);
+    border: 1.5px solid #34c759;
+    padding: 4px 10px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #34c759;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
 /* VELOCIMETRO COMPACTO ARRIBA */
 .speed-box-top {
     display: flex; align-items: center; justify-content: center; gap: 2px;
