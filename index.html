@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- ESTILOS INTEGRADOS PARA EVITAR ERRORES DE CARGA EXTERNA -->
+    <!-- ESTILOS INTEGRADOS -->
     <style>
         :root {
             --celeste: #00d2ff;
@@ -232,5 +232,21 @@
     </div>
 
     <script src="app-conductor.js"></script>
+
+    <!-- SCRIPT DE SEGURIDAD PARA FORZAR EL CIERRE DEL SPLASH -->
+    <script>
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const splash = document.getElementById('splash');
+                if (splash) {
+                    splash.style.opacity = '0';
+                    setTimeout(() => {
+                        splash.style.visibility = 'hidden';
+                        splash.style.display = 'none';
+                    }, 600);
+                }
+            }, 1200);
+        });
+    </script>
 </body>
 </html>
