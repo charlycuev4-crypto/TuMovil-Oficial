@@ -1,4 +1,4 @@
-Const _s = supabase.createClient(
+const _s = supabase.createClient(
     'https://nvumdlxervrewqiiaicl.supabase.co',
     'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE',
     { global: { headers: { 'x-app-secret': '2Awy7XGP0SBmBRprB3PBzfvz9VcbDd04' } } }
@@ -369,11 +369,25 @@ async function verificarViajesActivosBaseDatos(nombre) {
 
             actualizarColorTrazado(primerViaje.estado_movil?.sentido_flujo || 'IDA');
 
+            const statusTxt = document.getElementById('viaje-status-texto');
+
+            // --- SINCRONIZACIÓN ACTUALIZADA PARA EL PASAJERO ---
             if (primerViaje.estado_pasajero === 'a_bordo') {
                 pasajeroABordo = true;
-                const statusTxt = document.getElementById('viaje-status-texto');
-                if (statusTxt) statusTxt.innerHTML = '<span>Ya estás a bordo</span>';
+                if (statusTxt) {
+                    statusTxt.innerHTML = `
+                        <div style="background: rgba(52, 199, 89, 0.2); border: 1px solid #34c759; padding: 10px; border-radius: 12px; text-align: center;">
+                            <b style="color: #34c759; font-size: 14px;">🚗 VIAJE EN CURSO A DESTINO</b>
+                            <p style="font-size: 11px; color: #fff; margin-top: 4px;">Ya estás a bordo con rumbo a tu parada final.</p>
+                        </div>
+                    `;
+                }
                 iniciarEscuchaAnuncios();
+            } else {
+                pasajeroABordo = false;
+                if (statusTxt) statusTxt.innerHTML = '<span style="color:var(--amarillo)">Coche en camino a buscarte...</span>';
+                iniciarMonitoreoViajeActivo(); 
+                iniciarVerificacionLlegada();
             }
 
             setTimeout(() => {
@@ -381,7 +395,6 @@ async function verificarViajesActivosBaseDatos(nombre) {
                 actualizarMapaRuta();
             }, 400);
 
-            if(!pasajeroABordo) { iniciarMonitoreoViajeActivo(); iniciarVerificacionLlegada(); }
             iniciarPollingEstado();
         } else { limpiarUI(); }
     } catch(e) { console.error(e); }
@@ -478,9 +491,18 @@ function limpiarUI() {
 function iniciarPollingEstado() {
     intervaloPolling = setInterval(async () => {
         if(!miNombrePasajero) return;
-        const { data } = await _s.rpc('obtener_viaje_activo', { p_nombre: miNombrePasajero });
-        if(!data || !data.viaje || data.viaje.length === 0) { limpiarEstadoViaje(); }
-    }, 10000);
+        const { data: rpcData } = await _s.rpc('obtener_viaje_activo', { p_nombre: miNombrePasajero });
+        const data = rpcData?.viaje || [];
+        if(!data || data.length === 0) { 
+            limpiarEstadoViaje(); 
+        } else {
+            // Si el chofer marca a bordo desde su panel, actualizamos dinámicamente sin recargar la página a la fuerza
+            const vActual = data[0];
+            if (vActual.estado_pasajero === 'a_bordo' && !pasajeroABordo) {
+                verificarViajesActivosBaseDatos(miNombrePasajero);
+            }
+        }
+    }, 4000);
 }
 
 function iniciarEscuchaAnuncios() {
@@ -511,7 +533,7 @@ async function actualizarMapaTaxis() {
         taxis.forEach(t => {
             const lat = t.latitud || t.lat; const lon = t.longitud || t.lon;
             if(markerTaxis[t.id]) markerTaxis[t.id].setLatLng([lat, lon]);
-            else markerTaxis[t.id] = L.marker([lat, lon], { icon: iconT }).addTo(map); // <-- Corregido aquí (map en lugar de mapa)
+            else markerTaxis[t.id] = L.marker([lat, lon], { icon: iconT }).addTo(map);
         });
     } catch(e){}
 }
