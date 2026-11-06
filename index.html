@@ -1,128 +1,109 @@
-    <style>
-        :root {
-            --celeste: #00d2ff;
-            --amarillo: #ffcc00;
-            --dark: #0a0a1a;
-            --success: #4cd964;
-            --danger: #ff3b30;
-            --glass: rgba(10, 10, 26, 0.94);
-        }
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>CONDUCTOR 01 - TuMovil PRO</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- CONEXIÓN AL ESTILO DEL CONDUCTOR -->
+    <link rel="stylesheet" href="style-conductor.css">
+</head>
+<body>
 
-        *, *::before, *::after { box-sizing: border-box; }
+    <div id="splash">
+        <div class="logo-ring"><span style="font-size: 45px;">🚕</span></div>
+        <h1>TUMOVIL</h1>
+        <p>Conductor Oficial • HUD Minimizado</p>
+        <div class="loading-bar"><div class="loading-bar-inner"></div></div>
+    </div>
 
-        body, html { 
-            margin: 0; padding: 0; background: var(--dark); 
-            height: 100%; width: 100%; overflow: hidden; 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
-            color: #ffffff;
-        }
+    <div class="wakelock-indicator" id="wakelock-indicator">☀️ PANTALLA ACTIVA</div>
 
-        /* SPLASH SCREEN */
-        #splash { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(180deg, #0a0a1a 0%, #1a1a3e 50%, #0d2b3a 100%);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 10000; transition: opacity 0.6s ease, visibility 0.6s; 
-        }
+    <div class="alerta-reserva" id="alerta-reserva">
+        <h2>🔔 ¡NUEVA SOLICITUD!</h2>
+        <p id="alerta-texto">Alguien quiere subir a tu coche</p>
+        <button class="btn-atender" onclick="cerrarAlerta()">ATENDER VIAJE</button>
+    </div>
 
-        .logo-ring { 
-            width: 100px; height: 100px; border: 3px solid var(--celeste); 
-            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-            box-shadow: 0 0 30px rgba(0, 210, 255, 0.4); 
-        }
+    <div class="toast-container" id="toast-container"></div>
 
-        #splash h1 { color: var(--celeste); margin: 15px 0 5px 0; font-size: 24px; letter-spacing: 3px; }
-        #splash p { color: #aaa; font-size: 13px; margin: 0; }
-        .loading-bar { width: 120px; height: 3px; background: #222; border-radius: 3px; margin-top: 15px; overflow: hidden; }
-        .loading-bar-inner { width: 100%; height: 100%; background: linear-gradient(90deg, var(--celeste), var(--amarillo)); animation: loadBar 1.5s infinite; }
+    <div id="map-wrapper">
+        <div id="map"></div>
+    </div>
 
-        @keyframes loadBar { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+    <!-- BARRA SUPERIOR -->
+    <div class="top-nav">
+        <div class="header-bar">
+            <div class="connection-status">
+                <label class="switch">
+                    <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
+                    <span class="slider"></span>
+                </label>
+                <span id="status-label">DESCONECTADO</span>
+            </div>
 
-        /* WAKELOCK & ALERTAS */
-        .wakelock-indicator { position: fixed; top: 10px; right: 10px; background: rgba(76, 217, 100, 0.2); border: 1px solid var(--success); color: var(--success); font-size: 10px; padding: 4px 8px; border-radius: 8px; z-index: 999; display: none; }
-        .wakelock-indicator.activo { display: block; }
+            <div class="header-right-controls">
+                <div class="speed-box-top">
+                    <span id="txt-velocidad">0</span>
+                    <span class="speed-unit">km/h</span>
+                </div>
+                <button id="btn-sentido" onclick="cambiarSentido()">IDA</button>
+            </div>
+        </div>
 
-        .alerta-reserva { position: fixed; top: 20%; left: 15px; right: 15px; background: rgba(15, 15, 30, 0.98); border: 2px solid var(--amarillo); border-radius: 20px; padding: 20px; text-align: center; z-index: 20000; display: none; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
-        .alerta-reserva.mostrar { display: block; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .btn-atender { background: var(--amarillo); color: #000; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 800; font-size: 15px; margin-top: 15px; cursor: pointer; width: 100%; }
+        <div id="panel-anuncio-parada">
+            <div class="anuncio-header">
+                <span class="anuncio-titulo">🚏 PRÓXIMA PARADA</span>
+                <span id="anuncio-parada-distancia">-- m</span>
+            </div>
+            <div class="anuncio-nombre" id="anuncio-parada-nombre">--</div>
+            <div class="anuncio-pasajero" id="anuncio-parada-pasajero" style="display:none;"></div>
+        </div>
 
-        /* MAPA Y CONTENEDOR - CORREGIDO PARA QUE SE VEA EL GPS */
-        #map-wrapper { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        #map { width: 100%; height: 100%; background: #111; }
+        <div class="hud-paradas" id="hud-paradas" style="display:none;"></div>
+    </div>
 
-        /* TOP NAV Y HUD */
-        .top-nav { position: absolute; top: 12px; left: 12px; right: 12px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-        .top-nav > * { pointer-events: auto; }
+    <!-- ASIENTOS FLOTANTES SIEMPRE EN PANTALLA -->
+    <div class="bar-asientos-fija">
+        <div id="pill1" class="pill" onclick="liberarAsiento(1)"><span class="seat-num">1</span><span class="nombre-pax" id="nombre-pax-1"></span><span class="destino-pax" id="destino-pax-1"></span></div>
+        <div id="pill2" class="pill" onclick="liberarAsiento(2)"><span class="seat-num">2</span><span class="nombre-pax" id="nombre-pax-2"></span><span class="destino-pax" id="destino-pax-2"></span></div>
+        <div id="pill3" class="pill" onclick="liberarAsiento(3)"><span class="seat-num">3</span><span class="nombre-pax" id="nombre-pax-3"></span><span class="destino-pax" id="destino-pax-3"></span></div>
+        <div id="pill4" class="pill" onclick="liberarAsiento(4)"><span class="seat-num">4</span><span class="nombre-pax" id="nombre-pax-4"></span><span class="destino-pax" id="destino-pax-4"></span></div>
+    </div>
 
-        .header-bar { background: var(--glass); backdrop-filter: blur(12px); border: 1px solid rgba(0, 210, 255, 0.2); padding: 10px 14px; border-radius: 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
-        .connection-status { display: flex; align-items: center; gap: 10px; }
-        #status-label { font-size: 12px; font-weight: 700; color: #aaa; }
+    <!-- BOTÓN CORDÓN AMARILLO (DESPLEGAR OPERACIONES) -->
+    <button id="btn-abrir-sheet" onclick="abrirSheet()">📋</button>
 
-        .header-right-controls { display: flex; align-items: center; gap: 10px; }
-        .speed-box-top { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 10px; text-align: center; }
-        #txt-velocidad { font-size: 16px; font-weight: 900; color: var(--celeste); }
-        .speed-unit { font-size: 9px; color: #888; display: block; margin-top: -3px; }
-        #btn-sentido { background: rgba(0, 210, 255, 0.15); border: 1px solid var(--celeste); color: var(--celeste); padding: 6px 12px; border-radius: 10px; font-weight: 800; font-size: 12px; cursor: pointer; }
+    <!-- BOTTOM SHEET COMPLETO CON SCROLL -->
+    <div class="bottom-sheet" id="driver-sheet">
+        <div class="drag-handle" onclick="cerrarSheet()"></div>
+        
+        <div class="sheet-stats-grid">
+            <div class="q-stat">
+                <div class="q-label">Recaudado</div>
+                <div class="q-value green" id="txt-plata">$0</div>
+            </div>
+            <div class="q-stat">
+                <div class="q-label">Pasajeros</div>
+                <div class="q-value" id="txt-pax">0</div>
+            </div>
+        </div>
 
-        /* ANUNCIO PARADA */
-        #panel-anuncio-parada { background: var(--glass); backdrop-filter: blur(12px); border: 1px solid var(--amarillo); border-radius: 14px; padding: 12px; display: none; }
-        #panel-anuncio-parada.visible { display: block; }
-        .anuncio-header { display: flex; justify-content: space-between; font-size: 11px; color: var(--amarillo); font-weight: 700; }
-        .anuncio-nombre { font-size: 14px; font-weight: 800; color: white; margin-top: 4px; }
-        .anuncio-pasajero { font-size: 11px; color: var(--success); margin-top: 4px; font-weight: 700; }
+        <div class="parada-actual-inline">
+            📍 Parada Actual: <span id="txt-parada">Buscando GPS...</span>
+        </div>
 
-        /* HUD PARADAS PILAS */
-        .hud-paradas { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
-        .hud-paradas::-webkit-scrollbar { display: none; }
-        .parada-pill { background: rgba(20,20,35,0.85); border: 1px solid #333; color: #888; padding: 6px 12px; border-radius: 20px; font-size: 11px; white-space: nowrap; font-weight: 600; }
-        .parada-pill.proxima { background: var(--celeste); color: #000; border-color: var(--celeste); font-weight: 800; box-shadow: 0 0 10px rgba(0, 210, 255, 0.5); }
-        .parada-pill.visitada { background: rgba(10,10,20,0.5); color: #444; border-color: #222; }
+        <div class="action-group">
+            <button class="btn-action btn-subir-abordo" id="btn-subir-abordo" onclick="marcarPasajeroABordo()">✅ PASAJERO SUBIÓ</button>
+            <button class="btn-action btn-llego-destino" id="btn-llego-destino" onclick="llegoADestino()">🏁 LLEGÓ A DESTINO</button>
+            <button class="btn-action btn-vaciar" id="btn-vaciar" onclick="confirmarVaciar()">🧹 VACIAR ASIENTOS</button>
+            <button class="btn-action btn-finalizar-jornada" id="btn-finalizar" onclick="finalizarJornada()">🛑 FINALIZAR JORNADA</button>
+        </div>
+    </div>
 
-        /* BARRA FIJA DE ASIENTOS */
-        .bar-asientos-fija { position: absolute; bottom: 85px; left: 12px; right: 12px; z-index: 1000; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-        .pill { background: var(--glass); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 8px 4px; text-align: center; cursor: pointer; transition: all 0.2s; }
-        .pill.active { border-color: var(--amarillo); background: rgba(255, 204, 0, 0.1); }
-        .pill.a-bordo { border-color: var(--success); background: rgba(76, 217, 100, 0.15); }
-        .seat-num { font-size: 10px; color: #888; display: block; font-weight: 700; }
-        .nombre-pax { font-size: 11px; color: white; font-weight: 800; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .destino-pax { font-size: 9px; color: var(--celeste); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        /* BOTÓN CORDÓN AMARILLO */
-        #btn-abrir-sheet { position: absolute; bottom: 20px; right: 15px; width: 50px; height: 50px; background: var(--amarillo); border: none; border-radius: 50%; font-size: 22px; z-index: 1001; box-shadow: 0 5px 20px rgba(0,0,0,0.6); cursor: pointer; display: flex; align-items: center; justify-content: center; }
-
-        /* BOTTOM SHEET */
-        .bottom-sheet { position: absolute; bottom: -100%; left: 0; right: 0; background: var(--glass); backdrop-filter: blur(20px); border-top: 2px solid var(--celeste); border-radius: 24px 24px 0 0; padding: 16px; z-index: 2000; transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 -10px 40px rgba(0,0,0,0.7); max-height: 60vh; overflow-y: auto; }
-        .bottom-sheet.expanded { bottom: 0; }
-        .drag-handle { width: 40px; height: 4px; background: #444; border-radius: 2px; margin: 0 auto 14px auto; cursor: pointer; }
-
-        .sheet-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-        .q-stat { background: rgba(20,20,35,0.8); border: 1px solid rgba(255,255,255,0.05); padding: 10px; border-radius: 12px; text-align: center; }
-        .q-label { font-size: 11px; color: #888; }
-        .q-value { font-size: 18px; font-weight: 900; color: white; }
-        .q-value.green { color: var(--success); }
-
-        .parada-actual-inline { background: rgba(0, 210, 255, 0.08); border: 1px solid rgba(0, 210, 255, 0.2); padding: 10px; border-radius: 12px; font-size: 13px; color: white; margin-bottom: 12px; font-weight: 600; text-align: center; }
-
-        .action-group { display: flex; flex-direction: column; gap: 8px; }
-        .btn-action { width: 100%; padding: 13px; border-radius: 12px; border: none; font-weight: 800; font-size: 14px; cursor: pointer; text-align: center; }
-        .btn-subir-abordo { background: var(--success); color: #000; display: none; }
-        .btn-llego-destino { background: var(--celeste); color: #000; display: none; }
-        .btn-vaciar { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.1); }
-        .btn-finalizar-jornada { background: var(--danger); color: white; }
-
-        /* SWITCH TOGGLE */
-        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #222; transition: .3s; border-radius: 24px; border: 1px solid #444; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--success); }
-        input:checked + .slider:before { transform: translateX(20px); }
-
-        /* TOASTS */
-        .toast-container { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 30000; display: flex; flex-direction: column; gap: 6px; pointer-events: none; width: 90%; max-width: 300px; text-align: center; }
-        .toast { background: rgba(0,0,0,0.9); color: white; padding: 10px 16px; border-radius: 12px; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,0.1); }
-        .toast.success { border-color: var(--success); }
-        .toast.warning { border-color: var(--amarillo); }
-        .toast.error { border-color: var(--danger); }
-    </style>
+    <!-- CONEXIÓN A LA LÓGICA DEL CONDUCTOR -->
+    <script src="app-conductor.js"></script>
+</body>
+</html>
