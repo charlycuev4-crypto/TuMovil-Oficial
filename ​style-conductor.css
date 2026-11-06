@@ -18,20 +18,20 @@ body { background: #0a0a0a; font-family: -apple-system, BlinkMacSystemFont, 'Seg
 /* SPLASH SCREEN */
 #splash {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: radial-gradient(circle at center, #2a1a0a 0%, #0a0500 100%);
+    background: radial-gradient(circle at center, #1a1a3e 0%, #05050f 100%);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     z-index: 99999; transition: opacity 0.6s ease, visibility 0.6s;
 }
 #splash .logo-ring {
-    width: 120px; height: 120px; border: 3px solid #ff8c00; border-radius: 50%;
+    width: 120px; height: 120px; border: 3px solid #00d2ff; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 0 30px rgba(255, 140, 0, 0.3); animation: pulseRing 2s infinite;
+    box-shadow: 0 0 30px rgba(0, 210, 255, 0.3); animation: pulseRing 2s infinite;
 }
 @keyframes pulseRing { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
-#splash h1 { color: #ff8c00; margin-top: 20px; font-size: 26px; letter-spacing: 3px; font-weight: 800; }
-#splash p { color: #888; margin-top: 6px; font-size: 13px; }
+#splash h1 { color: #00d2ff; margin-top: 20px; font-size: 26px; letter-spacing: 3px; font-weight: 800; }
+#splash p { color: #666; margin-top: 6px; font-size: 13px; }
 #splash .loading-bar { width: 140px; height: 3px; background: #222; border-radius: 3px; margin-top: 20px; overflow: hidden; }
-#splash .loading-bar-inner { width: 0%; height: 100%; background: linear-gradient(90deg, #ff8c00, #ffcc00); animation: loadBar 1.5s ease forwards; }
+#splash .loading-bar-inner { width: 0%; height: 100%; background: linear-gradient(90deg, #00d2ff, #ffcc00); animation: loadBar 1.5s ease forwards; }
 @keyframes loadBar { to { width: 100%; } }
 
 /* CONTROLES SUPERIORES FLOTANTES */
@@ -42,7 +42,7 @@ body { background: #0a0a0a; font-family: -apple-system, BlinkMacSystemFont, 'Seg
 
 .header-bar {
     background: rgba(10, 10, 10, 0.88); backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,140,0,0.2); padding: 8px 14px; border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.08); padding: 8px 14px; border-radius: 20px;
     display: flex; justify-content: space-between; align-items: center; pointer-events: auto;
     box-shadow: 0 4px 20px rgba(0,0,0,0.4);
 }
@@ -59,45 +59,30 @@ input:checked + .slider:before { transform: translateX(22px); }
 
 .header-right-controls { display: flex; align-items: center; gap: 8px; }
 
-/* RECAUDACIÓN DEL DÍA FLOTANTE (GLOBITO VERDE) */
-.recaudacion-flotante-box {
-    background: rgba(10, 10, 10, 0.85);
-    border: 1.5px solid #34c759;
-    padding: 3px 8px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    font-weight: 800;
-    color: #34c759;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-}
-
 /* VELOCIMETRO COMPACTO ARRIBA */
 .speed-box-top {
     display: flex; align-items: center; justify-content: center; gap: 2px;
-    background: #151515; border: 1.5px solid #ff8c00; padding: 4px 10px; border-radius: 12px;
+    background: #151515; border: 1.5px solid #00d2ff; padding: 4px 10px; border-radius: 12px;
 }
 .speed-box-top #txt-velocidad { font-size: 14px; font-weight: 900; color: #fff; }
-.speed-box-top .speed-unit { font-size: 8px; color: #ff8c00; font-weight: 800; text-transform: uppercase; }
+.speed-box-top .speed-unit { font-size: 8px; color: #00d2ff; font-weight: 800; text-transform: uppercase; }
 
 #btn-sentido {
-    background: #ff8c00; border: none; padding: 6px 12px; border-radius: 12px;
+    background: #ffcc00; border: none; padding: 6px 12px; border-radius: 12px;
     font-weight: 800; font-size: 10px; color: #000; cursor: pointer; transition: 0.2s;
 }
 
 /* PANEL DIRECCIÓN / NAVEGACIÓN SUPERIOR */
 #panel-anuncio-parada {
-    background: linear-gradient(135deg, rgba(50,25,10,0.92) 0%, rgba(20,10,5,0.95) 100%);
-    backdrop-filter: blur(20px); border: 1px solid rgba(255, 140, 0, 0.4);
+    background: linear-gradient(135deg, rgba(10,25,50,0.92) 0%, rgba(5,10,20,0.95) 100%);
+    backdrop-filter: blur(20px); border: 1px solid rgba(0, 210, 255, 0.3);
     padding: 10px 14px; border-radius: 18px; display: none; pointer-events: auto;
     box-shadow: 0 8px 32px rgba(0,0,0,0.4); text-align: left;
 }
 #panel-anuncio-parada.visible { display: block; animation: fadeInDown 0.4s ease; }
 .anuncio-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
-.anuncio-titulo { color: #ff8c00; font-size: 9px; font-weight: 800; letter-spacing: 1.5px; }
-#anuncio-parada-distancia { color: #fff; background: rgba(255,140,0,0.2); padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+.anuncio-titulo { color: #00d2ff; font-size: 9px; font-weight: 800; letter-spacing: 1.5px; }
+#anuncio-parada-distancia { color: #fff; background: rgba(0,210,255,0.2); padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; }
 .anuncio-nombre { font-size: 15px; font-weight: 800; color: #fff; margin-top: 1px; }
 #anuncio-parada-pasajero { color: #ffcc00; font-size: 11px; font-weight: 600; margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); }
 
@@ -108,7 +93,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     padding: 4px 8px; border-radius: 8px; font-size: 9px; font-weight: 700; background: rgba(0,0,0,0.6);
     color: #777; border: 1px solid rgba(255,255,255,0.05); white-space: nowrap; transition: all 0.3s;
 }
-.parada-pill.proxima { background: #ff8c00; color: #000; border-color: #ff8c00; font-weight: 800; }
+.parada-pill.proxima { background: #00d2ff; color: #000; border-color: #00d2ff; font-weight: 800; }
 .parada-pill.visitada { background: rgba(52, 199, 89, 0.2); color: #34c759; border-color: rgba(52, 199, 89, 0.4); }
 
 /* WAKE LOCK */
@@ -118,7 +103,7 @@ input:checked + .slider:before { transform: translateX(22px); }
 /* BOTÓN FLOTANTE AMARILLO (MENÚ OPERATIVO) */
 #btn-abrir-sheet {
     position: absolute; bottom: 82px; right: 16px; z-index: 999;
-    background: #ff8c00; color: #000; border: none; width: 52px; height: 52px;
+    background: #ffcc00; color: #000; border: none; width: 52px; height: 52px;
     border-radius: 50%; font-size: 22px; font-weight: bold; display: flex;
     align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     cursor: pointer; transition: transform 0.2s; pointer-events: auto;
@@ -129,7 +114,7 @@ input:checked + .slider:before { transform: translateX(22px); }
 .bar-asientos-fija {
     position: absolute; bottom: env(safe-area-inset-bottom, 12px); left: 12px; right: 12px;
     z-index: 998; background: rgba(12, 12, 12, 0.92); backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,140,0,0.2); border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 20px;
     padding: 8px; display: flex; gap: 6px; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
     pointer-events: auto;
 }
@@ -140,18 +125,18 @@ input:checked + .slider:before { transform: translateX(22px); }
 }
 .pill .seat-num { font-size: 13px; color: #777; }
 .pill .nombre-pax { font-size: 9px; color: #fff; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
-.pill .destino-pax { font-size: 8px; color: #ff8c00; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-.pill.active { background: rgba(255, 140, 0, 0.15); border-color: #ff8c00; }
-.pill.a-bordo { background: linear-gradient(135deg, #ff8c00, #cc7000); border-color: #ff8c00; }
+.pill .destino-pax { font-size: 8px; color: #ffcc00; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.pill.active { background: rgba(255, 204, 0, 0.15); border-color: #ffcc00; }
+.pill.a-bordo { background: linear-gradient(135deg, #00d2ff, #0088cc); border-color: #00d2ff; }
 .pill.a-bordo .seat-num { color: #000; font-weight: 900; }
 .pill.a-bordo .nombre-pax { color: #000; font-weight: 800; }
-.pill.a-bordo .destino-pax { color: #fff; font-weight: 800; }
+.pill.a-bordo .destino-pax { color: #002244; font-weight: 800; }
 
 /* BOTTOM SHEET PANEL OPERATIVO CON SCROLL */
 .bottom-sheet {
     position: absolute; bottom: 0; left: 0; right: 0; z-index: 1001;
     background: rgba(15, 15, 15, 0.98); backdrop-filter: blur(25px);
-    border-top: 1px solid rgba(255,140,0,0.3);
+    border-top: 1px solid rgba(255,255,255,0.15);
     border-radius: 28px 28px 0 0; padding: 12px 16px env(safe-area-inset-bottom, 20px) 16px;
     box-shadow: 0 -8px 36px rgba(0,0,0,0.8);
     max-height: 80vh; overflow-y: auto;
@@ -168,27 +153,27 @@ input:checked + .slider:before { transform: translateX(22px); }
 .q-value { font-size: 22px; font-weight: 900; margin-top: 2px; }
 .q-value.green { color: #34c759; }
 
-.parada-actual-inline { background: rgba(255,140,0,0.1); border: 1px solid rgba(255,140,0,0.2); padding: 10px; border-radius: 14px; font-size: 12px; color: #ff8c00; font-weight: 700; text-align: center; margin-bottom: 15px; }
+.parada-actual-inline { background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.2); padding: 10px; border-radius: 14px; font-size: 12px; color: #ffcc00; font-weight: 700; text-align: center; margin-bottom: 15px; }
 
 /* ACCIONES DENTRO DEL PANEL */
 .action-group { display: flex; flex-direction: column; gap: 8px; }
 .btn-action { width: 100%; border: none; padding: 14px; border-radius: 16px; font-weight: 800; font-size: 14px; cursor: pointer; display: none; transition: transform 0.1s; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
 .btn-action:active { transform: scale(0.98); }
-.btn-subir-abordo { background: #ff8c00; color: #000; }
+.btn-subir-abordo { background: #00d2ff; color: #000; }
 .btn-llego-destino { background: #34c759; color: #fff; }
 .btn-vaciar { background: rgba(255, 59, 48, 0.05); color: #ff3b30; border: 1px solid rgba(255, 59, 48, 0.2); margin-top: 4px; padding: 10px; font-size: 12px; display: block; }
 .btn-finalizar-jornada { display: block !important; background: linear-gradient(135deg, #bd2113 0%, #7a0f05 100%); color: #fff; border: 1px solid #ff3b30; margin-top: 8px; box-shadow: 0 4px 15px rgba(255,59,48,0.2); }
 
 /* ALERTAS Y TOASTS */
-.alerta-reserva { position: fixed; top: 0; left: 0; right: 0; background: #ff8c00; color: #000; padding: 18px; text-align: center; z-index: 10000; transform: translateY(-100%); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 10px 30px rgba(255,140,0,0.4); }
+.alerta-reserva { position: fixed; top: 0; left: 0; right: 0; background: #ff3b30; color: white; padding: 18px; text-align: center; z-index: 10000; transform: translateY(-100%); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 10px 30px rgba(255,59,48,0.4); }
 .alerta-reserva.mostrar { transform: translateY(0); }
 .alerta-reserva h2 { font-size: 18px; font-weight: 900; margin-bottom: 2px; }
-.btn-atender { background: #000; color: #ff8c00; border: none; padding: 8px 24px; border-radius: 12px; font-weight: 800; margin-top: 8px; cursor: pointer; }
+.btn-atender { background: white; color: #ff3b30; border: none; padding: 8px 24px; border-radius: 12px; font-weight: 800; margin-top: 8px; cursor: pointer; }
 
 .toast-container { position: fixed; top: 120px; left: 50%; transform: translateX(-50%); z-index: 10001; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
 .toast { background: rgba(10,10,10,0.95); backdrop-filter: blur(10px); color: white; padding: 10px 16px; border-radius: 12px; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,0.1); animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards; }
 .toast.success { border-color: #34c759; color: #34c759; }
-.toast.warning { border-color: #ff8c00; color: #ff8c00; }
+.toast.warning { border-color: #ffcc00; color: #ffcc00; }
 .toast.error { border-color: #ff3b30; color: #ff3b30; }
 
 @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
@@ -197,7 +182,7 @@ input:checked + .slider:before { transform: translateX(22px); }
 
 /* ESTILO ETIQUETA PERMANENTE MAPA Y ANIMACIÓN FLUIDA DEL AUTO */
 .leaflet-tooltip.etiqueta-baja { 
-    background: #ffffff !important; color: #000000 !important; border: 2px solid #ff8c00 !important; 
+    background: #ffffff !important; color: #000000 !important; border: 2px solid #00d2ff !important; 
     font-weight: 800 !important; font-size: 11px !important; border-radius: 8px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
 }
 .leaflet-tooltip.etiqueta-sube { 
