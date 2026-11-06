@@ -1,196 +1,777 @@
-            <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CONDUCTOR 02 - TuMovil (Modo Directo)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>CONDUCTOR 02 - TuMovil PRO</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        /* Reutilizamos el estilo visual del Maestro pero con colores Naranja/Uber */
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #000; font-family: sans-serif; height: 100vh; overflow: hidden; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
-        .ui-overlay { position: absolute; width: 100%; z-index: 1000; pointer-events: none; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a0a0a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; color: #fff; }
         
-        /* Panel Superior Naranja */
-        .top-stats { top: 10px; display: flex; justify-content: space-around; padding: 0 10px; }
-        .stat-box { background: rgba(0,0,0,0.9); border: 2px solid #FF8C00; border-radius: 12px; padding: 8px; width: 45%; text-align: center; color: white; pointer-events: auto; }
-        .stat-label { color: #FF8C00; font-size: 11px; font-weight: 700; }
-        .stat-value { font-size: 24px; font-weight: 800; color: #4cd964; }
-
-        .connection-panel { position: absolute; top: 95px; left: 50%; transform: translateX(-50%); z-index: 1001; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.9); padding: 8px 12px; border-radius: 30px; border: 2px solid #FF8C00; pointer-events: auto; }
-        
-        /* Alerta de Viaje (Estilo Uber) */
-        .alerta-uber {
-            position: fixed; top: 0; left: 0; right: 0;
-            background: #FF8C00; color: #000; padding: 20px;
-            text-align: center; z-index: 10000; transform: translateY(-100%);
-            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 10px 30px rgba(255, 140, 0, 0.5); font-weight: bold;
+        #map-wrapper { 
+            position: absolute; top: -30%; left: -30%; width: 160%; height: 160%; 
+            z-index: 1; overflow: hidden; transform-origin: center center;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.175); 
         }
-        .alerta-uber.mostrar { transform: translateY(0); }
-        .btn-aceptar { background: #000; color: #fff; border: none; padding: 12px 30px; border-radius: 25px; font-weight: bold; margin-top: 10px; }
+        #map { width: 100%; height: 100%; }
 
-        .bottom-ui { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 1000; }
-        .btn-finalizar { background: #ff3b30; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-weight: bold; pointer-events: auto; }
+        /* SPLASH SCREEN */
+        #splash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, #2a1a0a 0%, #0a0500 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 99999; transition: opacity 0.6s ease, visibility 0.6s;
+        }
+        #splash .logo-ring {
+            width: 120px; height: 120px; border: 3px solid #ff8c00; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 30px rgba(255, 140, 0, 0.3); animation: pulseRing 2s infinite;
+        }
+        @keyframes pulseRing { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+        #splash h1 { color: #ff8c00; margin-top: 20px; font-size: 26px; letter-spacing: 3px; font-weight: 800; }
+        #splash p { color: #888; margin-top: 6px; font-size: 13px; }
+        #splash .loading-bar { width: 140px; height: 3px; background: #222; border-radius: 3px; margin-top: 20px; overflow: hidden; }
+        #splash .loading-bar-inner { width: 0%; height: 100%; background: linear-gradient(90deg, #ff8c00, #ffcc00); animation: loadBar 1.5s ease forwards; }
+        @keyframes loadBar { to { width: 100%; } }
+
+        /* CONTROLES SUPERIORES */
+        .top-nav {
+            position: absolute; top: env(safe-area-inset-top, 12px); left: 12px; right: 12px;
+            z-index: 1000; display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+        }
+        .header-bar {
+            background: rgba(10, 10, 10, 0.88); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,140,0,0.2); padding: 8px 14px; border-radius: 20px;
+            display: flex; justify-content: space-between; align-items: center; pointer-events: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .connection-status { display: flex; align-items: center; gap: 8px; }
+        #status-label { font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #aaa; }
         
-        .taxi-icon { font-size: 50px; text-align: center; line-height: 50px; }
-        #status-label { color: white; font-size: 11px; font-weight: bold; }
-        
-        /* Switch Estilo */
-        .switch { position: relative; width: 46px; height: 22px; display: inline-block; }
+        .switch { position: relative; width: 44px; height: 22px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #444; border-radius: 22px; transition: .4s; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .4s; }
-        input:checked + .slider { background: #4cd964; }
-        input:checked + .slider:before { transform: translateX(24px); }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #333; border-radius: 22px; transition: .3s; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; }
+        input:checked + .slider { background: #34c759; }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .header-right-controls { display: flex; align-items: center; gap: 8px; }
+        .speed-box-top {
+            display: flex; align-items: center; justify-content: center; gap: 2px;
+            background: #151515; border: 1.5px solid #ff8c00; padding: 4px 10px; border-radius: 12px;
+        }
+        .speed-box-top #txt-velocidad { font-size: 14px; font-weight: 900; color: #fff; }
+        .speed-box-top .speed-unit { font-size: 8px; color: #ff8c00; font-weight: 800; text-transform: uppercase; }
+
+        #btn-sentido {
+            background: #ff8c00; border: none; padding: 6px 12px; border-radius: 12px;
+            font-weight: 800; font-size: 10px; color: #000; cursor: pointer; transition: 0.2s;
+        }
+
+        #panel-anuncio-parada {
+            background: linear-gradient(135deg, rgba(50,25,10,0.92) 0%, rgba(20,10,5,0.95) 100%);
+            backdrop-filter: blur(20px); border: 1px solid rgba(255, 140, 0, 0.4);
+            padding: 10px 14px; border-radius: 18px; display: none; pointer-events: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4); text-align: left;
+        }
+        #panel-anuncio-parada.visible { display: block; animation: fadeInDown 0.4s ease; }
+        .anuncio-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+        .anuncio-titulo { color: #ff8c00; font-size: 9px; font-weight: 800; letter-spacing: 1.5px; }
+        #anuncio-parada-distancia { color: #fff; background: rgba(255,140,0,0.2); padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+        .anuncio-nombre { font-size: 15px; font-weight: 800; color: #fff; margin-top: 1px; }
+        #anuncio-parada-pasajero { color: #ffcc00; font-size: 11px; font-weight: 600; margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); }
+
+        .hud-paradas { display: flex; gap: 4px; overflow-x: auto; padding: 2px 0; scrollbar-width: none; pointer-events: auto; }
+        .hud-paradas::-webkit-scrollbar { display: none; }
+        .parada-pill {
+            padding: 4px 8px; border-radius: 8px; font-size: 9px; font-weight: 700; background: rgba(0,0,0,0.6);
+            color: #777; border: 1px solid rgba(255,255,255,0.05); white-space: nowrap; transition: all 0.3s;
+        }
+        .parada-pill.proxima { background: #ff8c00; color: #000; border-color: #ff8c00; font-weight: 800; }
+        .parada-pill.visitada { background: rgba(52, 199, 89, 0.2); color: #34c759; border-color: rgba(52, 199, 89, 0.4); }
+
+        .wakelock-indicator { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: #34c759; color: #000; padding: 2px 8px; border-radius: 8px; font-size: 8px; font-weight: 800; display: none; box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 1001; }
+        .wakelock-indicator.activo { display: block; }
+
+        #btn-abrir-sheet {
+            position: absolute; bottom: 82px; right: 16px; z-index: 999;
+            background: #ff8c00; color: #000; border: none; width: 52px; height: 52px;
+            border-radius: 50%; font-size: 22px; font-weight: bold; display: flex;
+            align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            cursor: pointer; transition: transform 0.2s; pointer-events: auto;
+        }
+        #btn-abrir-sheet:active { transform: scale(0.9); }
+
+        /* ASIENTOS ABAJO */
+        .bar-asientos-fija {
+            position: absolute; bottom: env(safe-area-inset-bottom, 12px); left: 12px; right: 12px;
+            z-index: 998; background: rgba(12, 12, 12, 0.92); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,140,0,0.2); border-radius: 20px;
+            padding: 8px; display: flex; gap: 6px; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            pointer-events: auto;
+        }
+        .pill {
+            flex: 1; height: 50px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-weight: 800; color: #888; cursor: pointer; transition: all 0.25s; padding: 2px;
+        }
+        .pill .seat-num { font-size: 13px; color: #777; }
+        .pill .nombre-pax { font-size: 9px; color: #fff; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+        .pill .destino-pax { font-size: 8px; color: #ff8c00; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+        .pill.active { background: rgba(255, 140, 0, 0.15); border-color: #ff8c00; }
+        .pill.a-bordo { background: linear-gradient(135deg, #ff8c00, #cc7000); border-color: #ff8c00; }
+        .pill.a-bordo .seat-num { color: #000; font-weight: 900; }
+        .pill.a-bordo .nombre-pax { color: #000; font-weight: 800; }
+        .pill.a-bordo .destino-pax { color: #fff; font-weight: 800; }
+
+        /* BOTTOM SHEET */
+        .bottom-sheet {
+            position: absolute; bottom: 0; left: 0; right: 0; z-index: 1001;
+            background: rgba(15, 15, 15, 0.98); backdrop-filter: blur(25px);
+            border-top: 1px solid rgba(255,140,0,0.3);
+            border-radius: 28px 28px 0 0; padding: 12px 16px env(safe-area-inset-bottom, 20px) 16px;
+            box-shadow: 0 -8px 36px rgba(0,0,0,0.8);
+            max-height: 80vh; overflow-y: auto;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.1, 0.9, 0.2, 1);
+            pointer-events: auto;
+        }
+        .bottom-sheet.expanded { transform: translateY(0%); }
+        .drag-handle { width: 40px; height: 5px; background: rgba(255,255,255,0.3); border-radius: 3px; margin: 0 auto 12px auto; cursor: pointer; }
+
+        .sheet-stats-grid { display: flex; gap: 10px; margin-bottom: 12px; }
+        .q-stat { background: rgba(255,255,255,0.04); padding: 10px; border-radius: 16px; flex: 1; border: 1px solid rgba(255,255,255,0.05); text-align: center; }
+        .q-label { font-size: 9px; color: #888; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+        .q-value { font-size: 22px; font-weight: 900; margin-top: 2px; }
+        .q-value.green { color: #34c759; }
+
+        .parada-actual-inline { background: rgba(255,140,0,0.1); border: 1px solid rgba(255,140,0,0.2); padding: 10px; border-radius: 14px; font-size: 12px; color: #ff8c00; font-weight: 700; text-align: center; margin-bottom: 15px; }
+
+        .action-group { display: flex; flex-direction: column; gap: 8px; }
+        .btn-action { width: 100%; border: none; padding: 14px; border-radius: 16px; font-weight: 800; font-size: 14px; cursor: pointer; display: none; transition: transform 0.1s; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        .btn-action:active { transform: scale(0.98); }
+        .btn-subir-abordo { background: #ff8c00; color: #000; }
+        .btn-llego-destino { background: #34c759; color: #fff; }
+        .btn-vaciar { background: rgba(255, 59, 48, 0.05); color: #ff3b30; border: 1px solid rgba(255, 59, 48, 0.2); margin-top: 4px; padding: 10px; font-size: 12px; display: block; }
+        .btn-finalizar-jornada { display: block !important; background: linear-gradient(135deg, #bd2113 0%, #7a0f05 100%); color: #fff; border: 1px solid #ff3b30; margin-top: 8px; box-shadow: 0 4px 15px rgba(255,59,48,0.2); }
+
+        .alerta-reserva { position: fixed; top: 0; left: 0; right: 0; background: #ff8c00; color: #000; padding: 18px; text-align: center; z-index: 10000; transform: translateY(-100%); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 10px 30px rgba(255,140,0,0.4); }
+        .alerta-reserva.mostrar { transform: translateY(0); }
+        .alerta-reserva h2 { font-size: 18px; font-weight: 900; margin-bottom: 2px; }
+        .btn-atender { background: #000; color: #ff8c00; border: none; padding: 8px 24px; border-radius: 12px; font-weight: 800; margin-top: 8px; cursor: pointer; }
+
+        .toast-container { position: fixed; top: 120px; left: 50%; transform: translateX(-50%); z-index: 10001; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+        .toast { background: rgba(10,10,10,0.95); backdrop-filter: blur(10px); color: white; padding: 10px 16px; border-radius: 12px; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,0.1); animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards; }
+        .toast.success { border-color: #34c759; color: #34c759; }
+        .toast.warning { border-color: #ff8c00; color: #ff8c00; }
+        .toast.error { border-color: #ff3b30; color: #ff3b30; }
+
+        @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastOut { to { opacity: 0; transform: translateY(-10px); } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .leaflet-tooltip.etiqueta-baja { background: #ffffff !important; color: #000000 !important; border: 2px solid #ff8c00 !important; font-weight: 800 !important; font-size: 11px !important; border-radius: 8px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important; }
+        .leaflet-tooltip.etiqueta-sube { background: #ffcc00 !important; color: #000000 !important; border: 2px solid #ff3b30 !important; font-weight: 800 !important; font-size: 11px !important; border-radius: 8px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important; }
+        .leaflet-marker-icon.auto-radar-icon { transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1), top 0.4s linear, left 0.4s linear !important; }
     </style>
 </head>
 <body>
 
-    <div class="alerta-uber" id="alerta-uber">
-        <div style="font-size: 1.2em;">🔔 NUEVO VIAJE PUERTA A PUERTA</div>
-        <div id="pax-nombre" style="font-size: 1.5em; margin: 5px 0;">--</div>
-        <button class="btn-aceptar" onclick="cerrarAlerta()">ENTENDIDO</button>
+    <div id="splash">
+        <div class="logo-ring"><span style="font-size: 45px;">🚕</span></div>
+        <h1>TUMOVIL</h1>
+        <p>Conductor 02 (Flota Oficial)</p>
+        <div class="loading-bar"><div class="loading-bar-inner"></div></div>
     </div>
 
-    <div id="map"></div>
+    <div class="wakelock-indicator" id="wakelock-indicator">☀️ PANTALLA ACTIVA</div>
 
-    <div class="ui-overlay top-stats">
-        <div class="stat-box"><div class="stat-label">RECAUDACIÓN ESTIMADA</div><div id="txt-plata" class="stat-value">$0</div></div>
-        <div class="stat-box"><div class="stat-label">VIAJES ACTIVOS</div><div id="txt-pax" class="stat-value" style="color:white">0</div></div>
+    <div class="alerta-reserva" id="alerta-reserva">
+        <h2>🔔 ¡NUEVA SOLICITUD!</h2>
+        <p id="alerta-texto">Alguien quiere subir a tu coche</p>
+        <button class="btn-atender" onclick="cerrarAlerta()">ATENDER VIAJE</button>
     </div>
 
-    <div class="connection-panel">
-        <span id="status-label">FUERA DE LÍNEA</span>
-        <label class="switch"><input type="checkbox" id="online-toggle" onchange="gestionarConexion()"><span class="slider"></span></label>
+    <div class="toast-container" id="toast-container"></div>
+
+    <div id="map-wrapper">
+        <div id="map"></div>
     </div>
 
-    <div class="bottom-ui">
-        <button class="btn-finalizar" onclick="confirmarVaciar()">🏁 FINALIZAR VIAJE ACTUAL</button>
+    <!-- BARRA SUPERIOR -->
+    <div class="top-nav">
+        <div class="header-bar">
+            <div class="connection-status">
+                <label class="switch">
+                    <input type="checkbox" id="online-toggle" onchange="gestionarConexion()">
+                    <span class="slider"></span>
+                </label>
+                <span id="status-label">DESCONECTADO</span>
+            </div>
+
+            <div class="header-right-controls">
+                <div class="speed-box-top">
+                    <span id="txt-velocidad">0</span>
+                    <span class="speed-unit">km/h</span>
+                </div>
+                <button id="btn-sentido" onclick="cambiarSentido()">IDA</button>
+            </div>
+        </div>
+
+        <div id="panel-anuncio-parada">
+            <div class="anuncio-header">
+                <span class="anuncio-titulo">🚏 PRÓXIMA PARADA</span>
+                <span id="anuncio-parada-distancia">-- m</span>
+            </div>
+            <div class="anuncio-nombre" id="anuncio-parada-nombre">--</div>
+            <div class="anuncio-pasajero" id="anuncio-parada-pasajero" style="display:none;"></div>
+        </div>
+
+        <div class="hud-paradas" id="hud-paradas" style="display:none;"></div>
+    </div>
+
+    <!-- ASIENTOS FLOTANTES SIEMPRE EN PANTALLA -->
+    <div class="bar-asientos-fija">
+        <div id="pill1" class="pill" onclick="liberarAsiento(1)"><span class="seat-num">1</span><span class="nombre-pax" id="nombre-pax-1"></span><span class="destino-pax" id="destino-pax-1"></span></div>
+        <div id="pill2" class="pill" onclick="liberarAsiento(2)"><span class="seat-num">2</span><span class="nombre-pax" id="nombre-pax-2"></span><span class="destino-pax" id="destino-pax-2"></span></div>
+        <div id="pill3" class="pill" onclick="liberarAsiento(3)"><span class="seat-num">3</span><span class="nombre-pax" id="nombre-pax-3"></span><span class="destino-pax" id="destino-pax-3"></span></div>
+        <div id="pill4" class="pill" onclick="liberarAsiento(4)"><span class="seat-num">4</span><span class="nombre-pax" id="nombre-pax-4"></span><span class="destino-pax" id="destino-pax-4"></span></div>
+    </div>
+
+    <!-- BOTÓN CORDÓN AMARILLO (DESPLEGAR OPERACIONES) -->
+    <button id="btn-abrir-sheet" onclick="abrirSheet()">📋</button>
+
+    <!-- BOTTOM SHEET COMPLETO CON SCROLL -->
+    <div class="bottom-sheet" id="driver-sheet">
+        <div class="drag-handle" onclick="cerrarSheet()"></div>
+        
+        <div class="sheet-stats-grid">
+            <div class="q-stat">
+                <div class="q-label">Recaudado</div>
+                <div class="q-value green" id="txt-plata">$0</div>
+            </div>
+            <div class="q-stat">
+                <div class="q-label">Pasajeros</div>
+                <div class="q-value" id="txt-pax">0</div>
+            </div>
+        </div>
+
+        <div class="parada-actual-inline">
+            📍 Parada Actual: <span id="txt-parada">Buscando GPS...</span>
+        </div>
+
+        <div class="action-group">
+            <button class="btn-action btn-subir-abordo" id="btn-subir-abordo" onclick="marcarPasajeroABordo()">✅ PASAJERO SUBIÓ</button>
+            <button class="btn-action btn-llego-destino" id="btn-llego-destino" onclick="llegoADestino()">🏁 LLEGÓ A DESTINO</button>
+            <button class="btn-action btn-vaciar" id="btn-vaciar" onclick="confirmarVaciar()">🧹 VACIAR ASIENTOS</button>
+            <button class="btn-action btn-finalizar-jornada" id="btn-finalizar" onclick="finalizarJornada()">🛑 FINALIZAR JORNADA</button>
+        </div>
     </div>
 
 <script>
+    const TARIFA_UNICA = 1500;
+
+    const paradas = [
+        {n:'Av. Derqui y P197 (Cruce Derqui)', c:[-34.537898, -58.794848]},
+        {n:'Fray Antonio Marchena y Carlos Eberth', c:[-34.539274, -58.793441]},
+        {n:'Fray Antonio Marchena y Descartes', c:[-34.540553, -58.792168]},
+        {n:'Av. Derqui y Gral. Juan Lavalle', c:[-34.541319, -58.791487]},
+        {n:'Av. Derqui y José C. Paz', c:[-34.542679, -58.790175]},
+        {n:'Av. Derqui y Av. José Altuve', c:[-34.544123, -58.788772]},
+        {n:'Av. Derqui y Dr. Enrique Finochietto', c:[-34.545472, -58.787421]},
+        {n:'Universidad Tecnológica Robotics', c:[-34.548500, -58.784200]},
+        {n:'Parque Industrial', c:[-34.552000, -58.780800]},
+        {n:'Base Aérea (Entrada Cuartel V / José C. Paz)', c:[-34.555000, -58.778000]},
+        {n:'Av. Derqui y C. Bartolomé Hidalgo', c:[-34.557029, -58.776122]},
+        {n:'Fray Antonio Marchena y Pedro de Mendoza', c:[-34.558350, -58.774500]},
+        {n:'Fray Antonio Marchena y Marcos Paz', c:[-34.559853, -58.772330]},
+        {n:'Fray Antonio Marchena y Miguel Cané', c:[-34.561176, -58.770641]},
+        {n:'Los Aromos y Santander', c:[-34.562495, -58.772093]},
+        {n:'Los Aromos y Murillo', c:[-34.564006, -58.773679]},
+        {n:'Murillo y Moctezuma', c:[-34.565289, -58.772213]},
+        {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]},
+        {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
+        {n:'A. Prado 2555', c:[-34.571016, -58.764443]},
+        {n:'Prado y Payró', c:[-34.571956, -58.763201]},
+        {n:'Prado 1744', c:[-34.577371, -58.755909]},
+        {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
+        {n:'Caveri y Azara', c:[-34.579296, -58.755864]},
+        {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
+        {n:'Caveri y Tablada', c:[-34.580901, -58.753842]},
+        {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
+        {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]},
+        {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
+        {n:'Libertador y Aero', c:[-34.585554, -58.749812]},
+        {n:'Libertador 7300', c:[-34.586494, -58.750574]},
+        {n:'Libertador 7200', c:[-34.588041, -58.751542]},
+        {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
+        {n:'Maza y Albatros', c:[-34.588771, -58.750804]},
+        {n:'Maternidad', c:[-34.588244, -58.749877]},
+        {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
+    ];
+
+    // IDENTIFICADOR ÚNICO DEL SEGUNDO CONDUCTOR
     const MI_ID_MOVIL = 2;
-    const TARIFA_BASE = 3000;
-    const PRECIO_KM = 600; // Ajustá este valor por kilómetro
+    const MI_NOMBRE = "Chofer 02 - Flota Oficial";
     const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-    let estaOnline = false, watchId = null, markersPax = [], markersDest = [];
-    let audioContext = null;
+    let estaOnline = false, watchId = null, sentidoActual = 'IDA';
+    let ultimaVezEnviado = 0, ultimaCantidadReservas = 0;
+    let wakeLock = null, audioContext = null;
+    let paradasAnunciadas = new Map(), paradasVisitadas = new Set(), historialParadas = [];
+    let direccionDetectada = 'IDA', historialPosiciones = [], anguloActual = 0, velocidadActual = 0, puntosRastro = [];
+    const MAX_PUNTOS_RASTRO = 80;
 
-    const map = L.map('map', { zoomControl: false }).setView([-34.588244, -58.749877], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    const map = L.map('map', { zoomControl: false, rotate: true }).setView(paradas[0].c, 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { keepBuffer: 8 }).addTo(map);
 
-    const markerCoche = L.marker([-34.588244, -58.749877], { 
-        icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconAnchor: [25, 25] }) 
-    }).addTo(map);
+    const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#ff8c00', weight: 6, opacity: 0.6 }).addTo(map);
 
-    // --- LÓGICA DE ALARMAS (Copiada del Maestro) ---
-    function reproducirAlarma() {
-        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.connect(gain); gain.connect(audioContext.destination);
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(880, audioContext.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-        osc.start(); osc.stop(audioContext.currentTime + 0.5);
+    paradas.forEach((p, i) => {
+        L.circleMarker(p.c, { radius: 5, color: '#000', weight: 2, fillColor: '#ff8c00', fillOpacity: 0.9 })
+            .addTo(map).bindTooltip((i + 1) + ". " + p.n, { permanent: false, direction: 'top' });
+    });
+
+    let rastroPolyline = L.polyline([], { color: '#ff8c00', weight: 4, opacity: 0.5, dashArray: '6, 4' }).addTo(map);
+
+    function crearIconoAuto(angulo, velocidad) {
+        const colorVelocidad = velocidad > 50 ? '#ff3b30' : velocidad > 30 ? '#ffcc00' : '#ff8c00';
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="44" height="58">
+            <defs>
+                <radialGradient id="radarG" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" style="stop-color:${colorVelocidad};stop-opacity:0.5"/>
+                    <stop offset="100%" style="stop-color:${colorVelocidad};stop-opacity:0"/>
+                </radialGradient>
+                <linearGradient id="carG" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#FF8C00"/><stop offset="100%" style="stop-color:#CC7000"/>
+                </linearGradient>
+            </defs>
+            <circle cx="60" cy="80" r="35" fill="url(#radarG)" opacity="0.4">
+                <animate attributeName="r" values="25;45;25" dur="2s" repeatCount="indefinite"/>
+            </circle>
+            <g>
+                <rect x="22" y="28" width="76" height="92" rx="18" fill="url(#carG)" stroke="#1a1a1a" stroke-width="2.5"/>
+                <rect x="30" y="46" width="60" height="56" rx="10" fill="#fff" opacity="0.2"/>
+                <polygon points="60,8 46,26 74,26" fill="${colorVelocidad}" stroke="#1a1a1a" stroke-width="1.5"/>
+            </g>
+        </svg>`;
+        return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
     }
 
-    function mostrarAlerta(nombre) {
-        document.getElementById('pax-nombre').innerText = nombre;
-        document.getElementById('alerta-uber').classList.add('mostrar');
+    let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [44, 58], iconAnchor: [22, 29], className: 'auto-radar-icon' });
+    let markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
+    let markersPax = [], markersDest = [];
+
+    function abrirSheet() {
+        document.getElementById('driver-sheet').classList.add('expanded');
+        document.getElementById('btn-abrir-sheet').style.display = 'none';
+    }
+    function cerrarSheet() {
+        document.getElementById('driver-sheet').classList.remove('expanded');
+        document.getElementById('btn-abrir-sheet').style.display = 'flex';
+    }
+
+    function mostrarToast(mensaje, tipo) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = 'toast ' + tipo;
+        toast.textContent = mensaje;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    async function activarWakeLock() {
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+                document.getElementById('wakelock-indicator').classList.add('activo');
+            }
+        } catch (err) { console.error('Wake Lock error:', err); }
+    }
+
+    async function liberarWakeLock() {
+        if (wakeLock) { await wakeLock.release(); wakeLock = null; document.getElementById('wakelock-indicator').classList.remove('activo'); }
+    }
+
+    function inicializarAudio() {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') audioContext.resume();
+    }
+
+    function reproducirAlarma() {
+        try {
+            inicializarAudio();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        } catch(e) { console.warn("Audio bloqueado"); }
+    }
+
+    function vibrarAlarma() { if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]); }
+
+    function mostrarAlertaReserva(nombrePasajero, asientos) {
+        const alerta = document.getElementById('alerta-reserva');
+        document.getElementById('alerta-texto').innerText = nombrePasajero + ' reservó: ' + asientos.join(', ');
+        alerta.classList.add('mostrar');
         reproducirAlarma();
-        if ('vibrate' in navigator) navigator.vibrate([500, 200, 500]);
+        vibrarAlarma();
     }
 
     function cerrarAlerta() {
-        document.getElementById('alerta-uber').classList.remove('mostrar');
+        document.getElementById('alerta-reserva').classList.remove('mostrar');
     }
 
-    // --- CÁLCULO DE TARIFA DINÁMICA ---
-    function calcularPrecio(lat1, lon1, lat2, lon2) {
-        const R = 6371;
-        const dLat = (lat2-lat1) * Math.PI/180;
-        const dLon = (lon2-lon1) * Math.PI/180;
-        const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        const kms = R * c;
-        return Math.round((TARIFA_BASE + (kms * PRECIO_KM)) / 100) * 100;
+    function calcularAnguloDireccion(lat1, lon1, lat2, lon2) {
+        const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+        const Δλ = (lon2 - lon1) * Math.PI / 180;
+        const y = Math.sin(Δλ) * Math.cos(φ2);
+        const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
     }
 
-    // --- GPS Y CONEXIÓN ---
+    function suavizarRotacion(anguloNuevo, anguloActual, factor) {
+        let diff = anguloNuevo - anguloActual;
+        while (diff > 180) diff -= 360;
+        while (diff < -180) diff += 360;
+        return (anguloActual + diff * factor + 360) % 360;
+    }
+
+    function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
+        const R = 6371000;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+    }
+
+    function actualizarHUDParadas(paradaActualIdx) {
+        const hud = document.getElementById('hud-paradas');
+        if (!estaOnline) { hud.style.display = 'none'; return; }
+        hud.style.display = 'flex';
+        hud.innerHTML = '';
+        const start = Math.max(0, paradaActualIdx - 1);
+        const end = Math.min(paradas.length - 1, paradaActualIdx + 4);
+        
+        for (let i = start; i <= end; i++) {
+            const pill = document.createElement('div');
+            pill.className = 'parada-pill';
+            pill.textContent = (i + 1) + ". " + paradas[i].n.split(' ')[0];
+            if (i === paradaActualIdx) pill.classList.add('proxima');
+            else if (paradasVisitadas.has(i)) pill.classList.add('visitada');
+            hud.appendChild(pill);
+        }
+    }
+
+    function detectarDireccionPorSecuencia(paradaActualIdx) {
+        historialParadas.push(paradaActualIdx);
+        if (historialParadas.length > 5) historialParadas.shift();
+        if (historialParadas.length < 2) return sentidoActual;
+        let tendencia = 0;
+        for (let i = 1; i < historialParadas.length; i++) {
+            if (historialParadas[i] > historialParadas[i-1]) tendencia++;
+            else if (historialParadas[i] < historialParadas[i-1]) tendencia--;
+        }
+        const nuevaDireccion = tendencia >= 0 ? 'IDA' : 'VUELTA';
+        if (Math.abs(tendencia) >= 2 && nuevaDireccion !== direccionDetectada) {
+            direccionDetectada = nuevaDireccion;
+            sentidoActual = direccionDetectada;
+            localStorage.setItem('driver2_sentido', sentidoActual);
+            if (estaOnline) { _s.from('estado_movil').update({ sentido_flujo: direccionDetectada }).eq('id', MI_ID_MOVIL); }
+            document.getElementById('btn-sentido').innerText = sentidoActual;
+            rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff8c00' : '#007aff' });
+            mostrarToast('Sentido: ' + sentidoActual, 'success');
+        }
+        return direccionDetectada;
+    }
+
+    async function marcarPasajeroABordo() {
+        try {
+            const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso').eq('estado_pasajero', 'esperando');
+            if (!reservas || reservas.length === 0) { mostrarToast('No hay pasajeros esperando', 'warning'); return; }
+            for (const r of reservas) {
+                await _s.from('reservas_activas').update({ estado_pasajero: 'a_bordo' }).eq('id', r.id);
+            }
+            mostrarToast('Pasajeros a bordo', 'success');
+            actualizar();
+            cerrarSheet();
+        } catch (err) { mostrarToast('Error al actualizar', 'error'); }
+    }
+
+    async function llegoADestino() {
+        try {
+            const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso').eq('estado_pasajero', 'a_bordo');
+            if (!reservas || reservas.length === 0) { mostrarToast('No hay pasajeros a bordo', 'warning'); return; }
+            if (!confirm('¿Finalizar viajes en destino?')) return;
+            
+            for (const r of reservas) {
+                await _s.from('viajes').insert({
+                    nombre_pasajero: r.nombre_pasajero, id_movil: MI_ID_MOVIL, asiento_num: r.asiento_num,
+                    destino_idx: r.destino_idx, passenger_lat: r.pasajero_lat, passenger_lon: r.pasajero_lon,
+                    precio: TARIFA_UNICA, estado: 'finalizado', fecha: new Date().toISOString()
+                });
+                await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', r.id);
+                await _s.from('reservas_activas').delete().eq('id', r.id);
+            }
+            mostrarToast('Viajes Completados ($' + (reservas.length * TARIFA_UNICA) + ')', 'success');
+            actualizar();
+            cerrarSheet();
+        } catch (err) { mostrarToast('Error al finalizar', 'error'); }
+    }
+
+    async function verificarNavegacionParadas(lat, lon, reservasActivas) {
+        const paradaActual = calcularCercana(lat, lon);
+        const paradaActualIdx = paradaActual.idx;
+        paradasVisitadas.add(paradaActualIdx);
+        detectarDireccionPorSecuencia(paradaActualIdx);
+        actualizarHUDParadas(paradaActualIdx);
+
+        let sigIdx = direccionDetectada === 'IDA' ? paradaActualIdx + 1 : paradaActualIdx - 1;
+        if (sigIdx < 0 || sigIdx >= paradas.length) {
+            document.getElementById('panel-anuncio-parada').classList.remove('visible');
+            return;
+        }
+
+        const siguienteParada = paradas[sigIdx];
+        const dist = calcularDistanciaMetros(lat, lon, siguienteParada.c[0], siguienteParada.c[1]);
+        
+        document.getElementById('anuncio-parada-nombre').innerText = siguienteParada.n;
+        document.getElementById('anuncio-parada-distancia').innerText = dist < 1000 ? Math.round(dist) + ' m' : (dist / 1000).toFixed(1) + ' km';
+        document.getElementById('panel-anuncio-parada').classList.add('visible');
+
+        const paxBaja = reservasActivas.find(r => r.destino_idx === sigIdx && r.estado_pasajero === 'a_bordo');
+        const paxEl = document.getElementById('anuncio-parada-pasajero');
+        if (paxBaja) { paxEl.style.display = 'block'; paxEl.innerText = '👤 Baja: ' + paxBaja.nombre_pasajero; } else { paxEl.style.display = 'none'; }
+    }
+
+    function calcularCercana(lat, lon) {
+        let min = Infinity, idx = -1, nombre = "";
+        paradas.forEach((p, i) => {
+            let d = Math.sqrt(Math.pow(p.c[0]-lat,2) + Math.pow(p.c[1]-lon,2));
+            if(d < min) { min = d; idx = i; nombre = p.n; }
+        });
+        return { nombre, idx };
+    }
+
     async function gestionarConexion() {
-        estaOnline = document.getElementById('online-toggle').checked;
+        const toggle = document.getElementById('online-toggle');
         const label = document.getElementById('status-label');
+        estaOnline = toggle.checked;
+        localStorage.setItem('driver2_online', estaOnline ? 'true' : 'false');
+
         if (estaOnline) {
-            label.innerText = "EN LÍNEA"; label.style.color = "#4cd964";
-            iniciarGPS();
+            label.innerText = "CONECTANDO...";
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude, lon = pos.coords.longitude;
+                const datos = { esta_online: true, latitud: lat, longitud: lon, sentido_flujo: sentidoActual, disponible_desde: calcularCercana(lat, lon).idx, ultima_actualizacion: new Date().toISOString(), chofer: MI_NOMBRE };
+                await _s.from('estado_movil').update(datos).eq('id', MI_ID_MOVIL);
+                label.innerText = "EN LÍNEA"; label.style.color = "#34c759";
+                activarWakeLock(); iniciarGPS();
+                cerrarSheet();
+            }, () => { toggle.checked = false; label.innerText = "ERROR GPS"; localStorage.setItem('driver2_online', 'false'); }, { enableHighAccuracy: true });
         } else {
-            label.innerText = "FUERA DE LÍNEA"; label.style.color = "white";
-            if (watchId) navigator.geolocation.clearWatch(watchId);
+            if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
             await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
+            label.innerText = "DESCONECTADO"; label.style.color = "#aaa";
+            document.getElementById('panel-anuncio-parada').classList.remove('visible');
+            document.getElementById('hud-paradas').style.display = 'none';
+            document.getElementById('map-wrapper').style.transform = `rotate(0deg)`;
+            liberarWakeLock();
         }
     }
 
     function iniciarGPS() {
+        if (watchId) navigator.geolocation.clearWatch(watchId);
         watchId = navigator.geolocation.watchPosition(async (p) => {
-            const { latitude: lat, longitude: lon } = p.coords;
+            const lat = p.coords.latitude, lon = p.coords.longitude;
+            velocidadActual = Math.round((p.coords.speed || 0) * 3.6);
+            document.getElementById('txt-velocidad').textContent = velocidadActual;
+            
+            if (p.coords.heading !== null && p.coords.heading !== undefined && velocidadActual > 3) {
+                anguloActual = suavizarRotacion(p.coords.heading, anguloActual, 0.35);
+            } else if (historialPosiciones.length > 0) {
+                const ant = historialPosiciones[historialPosiciones.length - 1];
+                if (calcularDistanciaMetros(ant.lat, ant.lon, lat, lon) > 1.2) {
+                    anguloActual = suavizarRotacion(calcularAnguloDireccion(ant.lat, ant.lon, lat, lon), anguloActual, 0.25);
+                }
+            }
+            historialPosiciones.push({ lat, lon });
+            if(historialPosiciones.length > 10) historialPosiciones.shift();
+            
             markerCoche.setLatLng([lat, lon]);
-            map.panTo([lat, lon]);
-            await _s.from('estado_movil').update({ latitud: lat, longitud: lon, esta_online: true }).eq('id', MI_ID_MOVIL);
-        }, null, { enableHighAccuracy: true });
+            
+            if (estaOnline && velocidadActual > 2) {
+                document.getElementById('map-wrapper').style.transform = `rotate(${-anguloActual}deg)`;
+                map.panTo([lat, lon], { animate: true, duration: 0.4 });
+            } else {
+                map.panTo([lat, lon]);
+            }
+
+            puntosRastro.push([lat, lon]);
+            if (puntosRastro.length > MAX_PUNTOS_RASTRO) puntosRastro.shift();
+            rastroPolyline.setLatLngs(puntosRastro);
+
+            const paradaInfo = calcularCercana(lat, lon);
+            document.getElementById('txt-parada').innerText = paradaInfo.nombre;
+
+            const ahora = Date.now();
+            if (estaOnline && (ahora - ultimaVezEnviado > 3500)) {
+                ultimaVezEnviado = ahora;
+                await _s.from('estado_movil').update({ latitud: lat, longitud: lon, disponible_desde: paradaInfo.idx, sentido_flujo: direccionDetectada, ultima_actualizacion: new Date().toISOString() }).eq('id', MI_ID_MOVIL);
+            }
+        }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 4000 });
     }
 
     async function actualizar() {
-        const { data: reservas } = await _s.from('reservas_activas')
-            .select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
-        
-        if (reservas) {
-            let totalPlata = 0;
-            // Limpiar mapa
-            markersPax.forEach(m => map.removeLayer(m));
-            markersDest.forEach(m => map.removeLayer(m));
-            markersPax = []; markersDest = [];
-
-            reservas.forEach(r => {
-                // Cálculo de precio para cada viaje
-                if(r.pasajero_lat && r.destino_idx !== null) {
-                    // Nota: En modo Uber, usaremos las coordenadas del destino guardadas en la DB
-                    // Por ahora, si no tenés coordenadas de destino, calculamos sobre la parada destino
-                    totalPlata += TARIFA_BASE; // O tu lógica de precio guardada
+        try {
+            const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
+            if (reservas) {
+                if (reservas.length > ultimaCantidadReservas && estaOnline) {
+                    const nuevas = reservas.slice(ultimaCantidadReservas);
+                    mostrarAlertaReserva(nuevas.map(r=>r.nombre_pasajero).join(', '), nuevas.map(r=>r.asiento_num));
                 }
+                ultimaCantidadReservas = reservas.length;
+                markersPax.forEach(m => map.removeLayer(m)); markersDest.forEach(m => map.removeLayer(m));
+                markersPax = []; markersDest = [];
 
-                // Dibujar Pasajero
-                const mp = L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: '#FF8C00', radius: 10 }).addTo(map)
-                    .bindTooltip("RECOGER: " + r.nombre_pasajero, { permanent: true });
-                markersPax.push(mp);
-            });
+                document.getElementById('txt-pax').innerText = reservas.length;
+                document.getElementById('txt-plata').innerText = "$" + (reservas.length * TARIFA_UNICA);
 
-            document.getElementById('txt-pax').innerText = reservas.length;
-            document.getElementById('txt-plata').innerText = "$" + (reservas.length * TARIFA_BASE); // Simulación base
+                for(let i=1; i<=4; i++) { 
+                    document.getElementById('pill'+i).className = 'pill'; 
+                    document.getElementById('nombre-pax-'+i).innerText = ''; 
+                    document.getElementById('destino-pax-'+i).innerText = ''; 
+                }
+                let esperando = 0, abordo = 0;
+
+                reservas.forEach(r => {
+                    const nombreDestino = paradas[r.destino_idx] ? paradas[r.destino_idx].n.split(' ')[0] : 'Destino';
+                    if(r.asiento_num <= 4) {
+                        const pill = document.getElementById('pill'+r.asiento_num);
+                        if (r.estado_pasajero === 'a_bordo') { pill.className = 'pill a-bordo'; abordo++; }
+                        else { pill.className = 'pill active'; esperando++; }
+                        
+                        document.getElementById('nombre-pax-'+r.asiento_num).innerText = r.nombre_pasajero.split(' ')[0];
+                        document.getElementById('destino-pax-'+r.asiento_num).innerText = '➔ ' + nombreDestino;
+                    }
+                    
+                    if (r.pasajero_lat) { 
+                        let mSub = L.circleMarker([r.pasajero_lat, r.pasajero_lon], { color: '#ffcc00', radius: 7, fillColor: '#ff3b30', fillOpacity: 0.9 }).addTo(map);
+                        mSub.bindTooltip('Sube: ' + r.nombre_pasajero, { permanent: true, direction: 'top', className: 'etiqueta-sube' });
+                        markersPax.push(mSub);
+                    }
+                    
+                    if (paradas[r.destino_idx]) { 
+                        let mBaj = L.marker(paradas[r.destino_idx].c).addTo(map);
+                        mBaj.bindTooltip('Baja: ' + r.nombre_pasajero, { permanent: true, direction: 'top', className: 'etiqueta-baja' });
+                        markersDest.push(mBaj); 
+                    }
+                });
+
+                document.getElementById('btn-subir-abordo').style.display = esperando > 0 ? 'block' : 'none';
+                document.getElementById('btn-llego-destino').style.display = abordo > 0 ? 'block' : 'none';
+
+                const latLng = markerCoche.getLatLng();
+                if (latLng) verificarNavegacionParadas(latLng.lat, latLng.lng, reservas);
+            }
+        } catch (err) { console.error("Error en pooling:", err); }
+    }
+
+    async function cambiarSentido() {
+        sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
+        direccionDetectada = sentidoActual;
+        localStorage.setItem('driver2_sentido', sentidoActual);
+        document.getElementById('btn-sentido').innerText = sentidoActual;
+        rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff8c00' : '#007aff' });
+        if (estaOnline) { await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL); }
+    }
+
+    async function liberarAsiento(n) {
+        if(confirm('¿Liberar asiento ' + n + '?')) {
+            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL).eq('asiento_num', n).eq('estado', 'en_curso');
+            await _s.from('reservas_activas').delete().eq('id_movil', MI_ID_MOVIL).eq('asiento_num', n).eq('estado', 'finalizado');
+            actualizar();
         }
     }
 
     async function confirmarVaciar() {
-        if(confirm("¿Finalizar viaje y quedar libre?")) {
-            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL);
+        if(confirm("¿Vaciar todos los asientos?")) {
+            const { data: res } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
+            if (res) {
+                for (const r of res) { 
+                    await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', r.id);
+                    await _s.from('reservas_activas').delete().eq('id', r.id); 
+                }
+            }
             actualizar();
         }
     }
 
-    // Suscribirse a cambios en tiempo real (NUEVOS VIAJES)
-    _s.channel('viajes_coche2').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reservas_activas' }, payload => {
-        if(payload.new.id_movil == MI_ID_MOVIL) {
-            mostrarAlerta(payload.new.nombre_pasajero);
-            actualizar();
-        }
-    }).subscribe();
+    async function finalizarJornada() {
+        if (!confirm("🏁 ¿Estás seguro de que deseas finalizar tu jornada laboral?\nEsto te desconectará del sistema por completo.")) return;
+        if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+        
+        try {
+            await _s.from('estado_movil').update({ esta_online: false, ultima_actualizacion: new Date().toISOString() }).eq('id', MI_ID_MOVIL);
+            const { data: res } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
+            if (res) {
+                for (const r of res) { 
+                    await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', r.id);
+                    await _s.from('reservas_activas').delete().eq('id', r.id); 
+                }
+            }
+        } catch(e) { console.error(e); }
 
-    setInterval(actualizar, 5000);
+        localStorage.removeItem('driver2_online');
+        localStorage.removeItem('driver2_sentido');
+
+        estaOnline = false;
+        document.getElementById('online-toggle').checked = false;
+        document.getElementById('status-label').innerText = "DESCONECTADO";
+        document.getElementById('status-label').style.color = "#aaa";
+        document.getElementById('panel-anuncio-parada').classList.remove('visible');
+        document.getElementById('hud-paradas').style.display = 'none';
+        document.getElementById('map-wrapper').style.transform = `rotate(0deg)`;
+        
+        liberarWakeLock();
+        actualizar();
+        cerrarSheet();
+        mostrarToast('Jornada finalizada correctamente', 'warning');
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const sentidoGuardado = localStorage.getItem('driver2_sentido');
+        if (sentidoGuardado) {
+            sentidoActual = sentidoGuardado;
+            direccionDetectada = sentidoGuardado;
+            document.getElementById('btn-sentido').innerText = sentidoActual;
+            rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff8c00' : '#007aff' });
+        }
+
+        const onlineGuardado = localStorage.getItem('driver2_online');
+        if (onlineGuardado === 'true') {
+            document.getElementById('online-toggle').checked = true;
+            gestionarConexion();
+        }
+    });
+
+    setTimeout(() => {
+        const splash = document.getElementById('splash');
+        if (splash) { splash.style.opacity = '0'; setTimeout(() => { splash.style.visibility = 'hidden'; splash.style.display = 'none'; }, 600); }
+    }, 1500);
+
+    setInterval(actualizar, 4000);
 </script>
 </body>
 </html>
