@@ -59,12 +59,12 @@ input:checked + .slider:before { transform: translateX(22px); }
 
 .header-right-controls { display: flex; align-items: center; gap: 8px; }
 
-/* RECAUDACIÓN DEL DÍA FLOTANTE (GLOBITO VERDE EN HEADER) */
+/* RECAUDACIÓN DEL DÍA FLOTANTE (GLOBITO VERDE) */
 .recaudacion-flotante-box {
-    background: rgba(10, 10, 10, 0.9);
+    background: rgba(10, 10, 10, 0.85);
     border: 1.5px solid #34c759;
-    padding: 4px 10px;
-    border-radius: 12px;
+    padding: 3px 8px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     gap: 4px;
