@@ -80,11 +80,26 @@ input:checked + .slider:before { transform: translateX(22px); }
     box-shadow: 0 8px 32px rgba(0,0,0,0.4); text-align: left;
 }
 #panel-anuncio-parada.visible { display: block; animation: fadeInDown 0.4s ease; }
-.anuncio-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+.anuncio-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; gap: 6px; }
 .anuncio-titulo { color: #00d2ff; font-size: 9px; font-weight: 800; letter-spacing: 1.5px; }
 #anuncio-parada-distancia { color: #fff; background: rgba(0,210,255,0.2); padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; }
 .anuncio-nombre { font-size: 15px; font-weight: 800; color: #fff; margin-top: 1px; }
 #anuncio-parada-pasajero { color: #ffcc00; font-size: 11px; font-weight: 600; margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); }
+
+/* GLOBITO DE RECAUDACIÓN DENTRO DE PRÓXIMA PARADA */
+.recaudacion-flotante-box {
+    background: rgba(10, 10, 10, 0.85);
+    border: 1.5px solid #34c759;
+    padding: 2px 8px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #34c759;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
 
 /* HUD MINI PARADAS */
 .hud-paradas { display: flex; gap: 4px; overflow-x: auto; padding: 2px 0; scrollbar-width: none; pointer-events: auto; }
