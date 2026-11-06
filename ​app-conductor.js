@@ -1,4 +1,4 @@
-Const TARIFA_UNICA = 1500; // TARIFA PLANA UNIFICADA $1500
+const TARIFA_UNICA = 1500; // TARIFA PLANA UNIFICADA $1500
 
 // LISTA DE PARADAS COMPLETA Y ORDENADA (36 PARADAS: CRUCE DERQUI -> ABASTO Y ROCA)
 const paradas = [
@@ -491,11 +491,24 @@ async function cambiarSentido() {
     if (estaOnline) { await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL); }
 }
 
+// ==========================================
+// FUNCIÓN ACTUALIZADA: LIBERAR ASIENTO INDIVIDUAL POR RPC
+// ==========================================
 async function liberarAsiento(n) {
-    if(confirm('¿Liberar asiento ' + n + '?')) {
-        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id_movil', MI_ID_MOVIL).eq('asiento_num', n).eq('estado', 'en_curso');
-        await _s.from('reservas_activas').delete().eq('id_movil', MI_ID_MOVIL).eq('asiento_num', n).eq('estado', 'finalizado');
-        actualizar();
+    if (confirm('¿Finalizar viaje y liberar el asiento ' + n + '?')) {
+        // Llama a la función RPC de Supabase para aislar el cierre a este asiento y móvil
+        const { error } = await _s.rpc('finalizar_asiento_individual', { 
+            p_id_movil: MI_ID_MOVIL, 
+            p_asiento: n 
+        });
+
+        if (error) {
+            mostrarToast('Error al liberar asiento', 'error');
+            console.error(error);
+        } else {
+            mostrarToast('Asiento ' + n + ' liberado correctamente', 'success');
+            actualizar();
+        }
     }
 }
 
