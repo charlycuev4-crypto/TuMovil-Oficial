@@ -113,7 +113,6 @@ let cocheYaPaso = false, pasajeroABordo = false;
 let timerLlegada = null, segundosRestantes = 30, llegadaMostrada = false;
 let miNombrePasajero = '', intervaloPolling = null;
 
-// Inicialización directa al cargar el script
 document.addEventListener('DOMContentLoaded', () => {
     const selDest = document.getElementById('destino-select');
     if (selDest) {
@@ -134,7 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Verificar usuario guardado de forma segura
     const guardado = localStorage.getItem('usuario_nombre');
     if (guardado) {
         const nombreInput = document.getElementById('nombre-input');
@@ -143,7 +141,6 @@ document.addEventListener('DOMContentLoaded', () => {
         verificarViajesActivosBaseDatos(guardado).catch(err => console.error(err));
     }
 
-    // OCULTAR SPLASH SCREEN OBLIGATORIAMENTE A LOS 1.2 SEGUNDOS
     setTimeout(() => { 
         const splash = document.getElementById('splash');
         if (splash) {
@@ -165,8 +162,10 @@ function calcularParadaMasCerca(lat, lon) {
     return idx;
 }
 
+// CORRECCIÓN: Margen de tolerancia de 3 paradas para pruebas locales en el mismo lugar
 function movilPuedeRecoger(movilParada, paradaPasajero, sentido) {
-    return sentido === 'IDA' ? movilParada <= paradaPasajero : movilParada >= paradaPasajero;
+    const margen = 3;
+    return sentido === 'IDA' ? movilParada <= (paradaPasajero + margen) : movilParada >= (paradaPasajero - margen);
 }
 
 function actualizarColorTrazado(sentido) {
