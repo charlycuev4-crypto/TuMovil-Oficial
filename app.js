@@ -112,7 +112,7 @@
         }
         .banner-llegada.visible { transform: translateY(0); }
 
-        /* PANEL DE ANUNCIO DE PARADA */
+        /* BANNER DE ANUNCIO DE PARADA */
         .banner-anuncio {
             position: fixed; top: 20px; left: 20px; right: 20px; z-index: 2005;
             background: var(--amarillo); color: #000; padding: 16px; border-radius: 18px;
@@ -518,21 +518,21 @@
         }
     }
 
-    // INICIO BLINDADO PARA EVITAR QUE SE QUEDE PEGADO EN EL SPLASH
-    window.onload = async () => {
+    // INICIO BLINDADO Y FORZADO PARA QUITAR EL SPLASH DE INMEDIATO
+    window.onload = () => {
         const guardado = localStorage.getItem('usuario_nombre');
         if (guardado) {
             const nombreInput = document.getElementById('nombre-input');
             if (nombreInput) nombreInput.value = guardado;
             miNombrePasajero = guardado;
             
-            // Se ejecuta de manera aislada para que jamás bloquee el hilo principal
+            // Verificación en segundo plano sin bloquear jamás la pantalla
             verificarViajesActivosBaseDatos(guardado).catch(err => {
-                console.error("Error al verificar viaje activo al iniciar:", err);
+                console.error("Error secundario:", err);
             });
         }
 
-        // Ocultar splash screen de forma obligatoria tras 1.2 segundos
+        // FORZAR LA DESAPARICIÓN DEL SPLASH A LOS 1.5 SEGUNDOS, PASE LO QUE PASE
         setTimeout(() => { 
             const splash = document.getElementById('splash');
             if (splash) {
@@ -540,9 +540,9 @@
                 setTimeout(() => {
                     splash.style.visibility = 'hidden';
                     splash.style.display = 'none';
-                }, 600); 
+                }, 400); 
             }
-        }, 1200);
+        }, 1500);
     };
 
     async function verificarViajesActivosBaseDatos(nombre) {
