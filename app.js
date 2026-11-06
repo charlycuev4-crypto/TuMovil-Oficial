@@ -515,4 +515,4 @@ async function actualizarMapaTaxis() {
         });
     } catch(e){}
 }
-setInterval(actualizarMapaTaxis, 12000); actualizarMapaTaxis(); ¿Quién es el JavaScript del pasajero?
+setInterval(actualizarMapaTaxis, 12000); actualizarMapaTaxis();
