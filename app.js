@@ -135,6 +135,16 @@ document.addEventListener('DOMContentLoaded', () => {
             renderizarFlotaDisponible(); 
         });
     }
+
+    const btnPedir = document.getElementById('btn-pedir');
+    if (btnPedir) {
+        btnPedir.addEventListener('click', confirmarViajePasajero);
+    }
+    
+    const btnCancelar = document.getElementById('btn-cancelar');
+    if (btnCancelar) {
+        btnCancelar.addEventListener('click', finalizarViaje);
+    }
 });
 
 function calcularParadaMasCerca(lat, lon) {
@@ -169,6 +179,7 @@ navigator.geolocation.watchPosition(p => {
             btnPedir.disabled = false;
             if (!miViajeActivo) btnPedir.innerText = "SELECCIONÁ TU DESTINO";
         }
+        renderizarFlotaDisponible();
     }
 }, (err) => { 
     console.error("Error GPS:", err); 
@@ -371,7 +382,6 @@ async function verificarViajesActivosBaseDatos(nombre) {
 
             const statusTxt = document.getElementById('viaje-status-texto');
 
-            // --- SINCRONIZACIÓN ACTUALIZADA PARA EL PASAJERO ---
             if (primerViaje.estado_pasajero === 'a_bordo') {
                 pasajeroABordo = true;
                 if (statusTxt) {
@@ -496,7 +506,6 @@ function iniciarPollingEstado() {
         if(!data || data.length === 0) { 
             limpiarEstadoViaje(); 
         } else {
-            // Si el chofer marca a bordo desde su panel, actualizamos dinámicamente sin recargar la página a la fuerza
             const vActual = data[0];
             if (vActual.estado_pasajero === 'a_bordo' && !pasajeroABordo) {
                 verificarViajesActivosBaseDatos(miNombrePasajero);
