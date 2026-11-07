@@ -82,7 +82,6 @@ function crearIconoAuto(angulo, velocidad) {
 
 // INICIALIZACIÓN INMEDIATA DEL MAPA Y VERIFICACIÓN DE SESIÓN
 window.addEventListener('DOMContentLoaded', () => {
-    // 1. Inicializar el mapa
     map = L.map('map', { zoomControl: false, rotate: true }).setView(paradas[0].c, 16);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { keepBuffer: 8 }).addTo(map);
 
@@ -98,7 +97,7 @@ window.addEventListener('DOMContentLoaded', () => {
     let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [44, 58], iconAnchor: [22, 29], className: 'auto-radar-icon' });
     markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
 
-    // 2. Controlar la pantalla de Login
+    // Controlar pantalla de login
     if (!MI_ID_MOVIL || !MI_NOMBRE) {
         const overlay = document.getElementById('login-overlay');
         if (overlay) overlay.style.display = 'flex';
@@ -109,10 +108,17 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// FUNCIÓN CORREGIDA Y OPTIMIZADA PARA GUARDAR DATOS DEL CHOFER
 async function guardarDatosChofer() {
-    const nombre = document.getElementById('input-nombre').value.trim();
-    const patente = document.getElementById('input-patente').value.trim();
-    const auto = document.getElementById('input-auto').value.trim();
+    const elNombre = document.getElementById('input-nombre');
+    const elPatente = document.getElementById('input-patente');
+    const elAuto = document.getElementById('input-auto');
+
+    if (!elNombre || !elPatente || !elAuto) return;
+
+    const nombre = elNombre.value.trim();
+    const patente = elPatente.value.trim();
+    const auto = elAuto.value.trim();
 
     if (!nombre || !patente || !auto) {
         alert('Por favor complete todos los campos.');
@@ -125,12 +131,16 @@ async function guardarDatosChofer() {
     localStorage.setItem('driver_id_movil', MI_ID_MOVIL);
     localStorage.setItem('driver_nombre_completo', MI_NOMBRE);
 
-    await _s.from('estado_movil').upsert({
-        id: MI_ID_MOVIL,
-        chofer: MI_NOMBRE,
-        esta_online: false,
-        sentido_flujo: 'IDA'
-    });
+    try {
+        await _s.from('estado_movil').upsert({
+            id: MI_ID_MOVIL,
+            chofer: MI_NOMBRE,
+            esta_online: false,
+            sentido_flujo: 'IDA'
+        });
+    } catch(e) {
+        console.error("Error al registrar en Supabase:", e);
+    }
 
     const overlay = document.getElementById('login-overlay');
     if (overlay) overlay.style.display = 'none';
