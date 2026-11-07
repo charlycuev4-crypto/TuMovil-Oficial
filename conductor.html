@@ -168,7 +168,6 @@
         .btn-vaciar { background: rgba(255, 0, 85, 0.08); color: var(--neon-red); border: 1px solid rgba(255, 0, 85, 0.3); display: block; padding: 12px; font-size: 13px; margin-top: 4px; }
         .btn-finalizar-jornada { display: block !important; background: linear-gradient(135deg, #d31027 0%, #ea384d 100%); color: #fff; margin-top: 6px; box-shadow: 0 4px 15px rgba(234, 56, 77, 0.3); }
 
-        /* ALERTAS Y LOGIN FUTURISTAS */
         .alerta-reserva { position: fixed; top: 0; left: 0; right: 0; background: var(--neon-red); color: white; padding: 20px; text-align: center; z-index: 10000; transform: translateY(-100%); transition: transform 0.4s; box-shadow: 0 0 30px rgba(255, 0, 85, 0.6); }
         .alerta-reserva.mostrar { transform: translateY(0); }
         .btn-atender { background: white; color: var(--neon-red); border: none; padding: 10px 28px; border-radius: 14px; font-weight: 900; margin-top: 10px; cursor: pointer; }
@@ -369,25 +368,59 @@
         let estaOnline = false, watchId = null, sentidoActual = 'IDA';
         let velocidadActual = 0;
 
+        // NUEVO AUTO HOLOGRÁFICO 3D CON RADAR SEGMENTADO
         function crearIconoAuto(angulo, velocidad) {
             const colorVelocidad = velocidad > 50 ? '#ff0055' : velocidad > 30 ? '#ffcc00' : '#00f3ff';
-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="46" height="60">
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 180" width="50" height="75">
                 <defs>
-                    <radialGradient id="radarG" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" style="stop-color:${colorVelocidad};stop-opacity:0.6"/>
-                        <stop offset="100%" style="stop-color:${colorVelocidad};stop-opacity:0"/>
-                    </radialGradient>
-                    <linearGradient id="carG" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" style="stop-color:#FFD700"/><stop offset="100%" style="stop-color:#E6B800"/>
+                    <!-- Degradado de carrocería metalizada -->
+                    <linearGradient id="carBodyG" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+                        <stop offset="50%" style="stop-color:#FFFACD;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#DAA520;stop-opacity:1" />
                     </linearGradient>
+                    
+                    <!-- Brillo de faros neón -->
+                    <filter id="neonGlow">
+                        <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+                        <feMerge>
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
                 </defs>
-                <circle cx="60" cy="80" r="38" fill="url(#radarG)" opacity="0.5">
-                    <animate attributeName="r" values="25;48;25" dur="1.8s" repeatCount="indefinite"/>
-                </circle>
-                <g>
-                    <rect x="22" y="28" width="76" height="92" rx="18" fill="url(#carG)" stroke="#000" stroke-width="2.5"/>
-                    <rect x="30" y="46" width="60" height="56" rx="10" fill="#fff" opacity="0.25"/>
-                    <polygon points="60,8 44,26 76,26" fill="${colorVelocidad}" stroke="#000" stroke-width="1.5"/>
+                
+                <!-- Radar segmentado expansivo (Animado) -->
+                <g fill="none" stroke="${colorVelocidad}" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.8">
+                    <ellipse cx="60" cy="90" rx="30" ry="40">
+                        <animate attributeName="rx" values="30;55;30" dur="2s" repeatCount="indefinite" />
+                        <animate attributeName="ry" values="40;70;40" dur="2s" repeatCount="indefinite" />
+                        <animate attributeName="opacity" values="0.8;0;0.8" dur="2s" repeatCount="indefinite" />
+                    </ellipse>
+                </g>
+
+                <!-- Proyección de luz de faros cian sobre el asfalto -->
+                <ellipse cx="60" cy="30" rx="20" ry="15" fill="${colorVelocidad}" opacity="0.15" filter="url(#neonGlow)"/>
+
+                <!-- Cuerpo del auto con perspectiva leve (3D minimalista) -->
+                <g transform="translate(30,40)">
+                    <!-- Sombra proyectada -->
+                    <ellipse cx="30" cy="85" rx="25" ry="10" fill="#000" opacity="0.3"/>
+                    
+                    <!-- Carrocería principal (Isométrica) -->
+                    <path d="M5,20 L55,20 L60,80 L0,80 Z" fill="url(#carBodyG)" stroke="#000" stroke-width="1"/>
+                    
+                    <!-- Techo y Parabrisas -->
+                    <path d="M12,25 L48,25 L52,55 L8,55 Z" fill="#1a1a1a" stroke="#000" stroke-width="1"/>
+                    <path d="M15,30 L45,30 L48,50 L12,50 Z" fill="#fff" opacity="0.1"/> <!-- Reflejo vidrio -->
+                    
+                    <!-- Faros delanteros Neón -->
+                    <rect x="8" y="18" width="10" height="4" rx="2" fill="${colorVelocidad}" filter="url(#neonGlow)"/>
+                    <rect x="42" y="18" width="10" height="4" rx="2" fill="${colorVelocidad}" filter="url(#neonGlow)"/>
+                    
+                    <!-- Luces traseras rojas -->
+                    <rect x="10" y="78" width="12" height="3" rx="1" fill="#ff3b30"/>
+                    <rect x="38" y="78" width="12" height="3" rx="1" fill="#ff3b30"/>
                 </g>
             </svg>`;
             return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
@@ -406,7 +439,8 @@
 
             rastroPolyline = L.polyline([], { color: '#00f3ff', weight: 4, opacity: 0.5, dashArray: '6, 4' }).addTo(map);
 
-            let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [46, 60], iconAnchor: [23, 30], className: 'auto-radar-icon' });
+            // Tamaño ajustado para el nuevo ícono más alto
+            let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [50, 75], iconAnchor: [25, 37], className: 'auto-radar-icon' });
             markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
 
             if (!MI_ID_MOVIL || !MI_NOMBRE) {
@@ -508,7 +542,13 @@
                 const txtVel = document.getElementById('txt-velocidad');
                 if (txtVel) txtVel.textContent = velocidadActual;
                 
-                if (markerCoche) markerCoche.setLatLng([lat, lon]);
+                // Actualizar ícono con la nueva velocidad para cambiar color de faros/radar
+                let nuevoIcono = L.icon({ iconUrl: crearIconoAuto(0, velocidadActual), iconSize: [50, 75], iconAnchor: [25, 37], className: 'auto-radar-icon' });
+                if (markerCoche) {
+                    markerCoche.setLatLng([lat, lon]);
+                    markerCoche.setIcon(nuevoIcono);
+                }
+                
                 if (map) map.panTo([lat, lon]);
 
                 const txtParada = document.getElementById('txt-parada');
