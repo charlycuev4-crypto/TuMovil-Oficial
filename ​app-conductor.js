@@ -1,49 +1,54 @@
+// ==========================================
+// CONFIGURACIÓN Y CONSTANTES
+// ==========================================
 const TARIFA_UNICA = 1500; // TARIFA PLANA UNIFICADA $1500
-
-// LISTA DE PARADAS COMPLETA Y ORDENADA (36 PARADAS: CRUCE DERQUI -> ABASTO Y ROCA)
-const paradas = [
-    {n:'Av. Derqui y P197 (Cruce Derqui)', c:[-34.537898, -58.794848]},
-    {n:'Fray Antonio Marchena y Carlos Eberth', c:[-34.539274, -58.793441]},
-    {n:'Fray Antonio Marchena y Descartes', c:[-34.540553, -58.792168]},
-    {n:'Av. Derqui y Gral. Juan Lavalle', c:[-34.541319, -58.791487]},
-    {n:'Av. Derqui y José C. Paz', c:[-34.542679, -58.790175]},
-    {n:'Av. Derqui y Av. José Altuve', c:[-34.544123, -58.788772]},
-    {n:'Av. Derqui y Dr. Enrique Finochietto', c:[-34.545472, -58.787421]},
-    {n:'Universidad Tecnológica Robotics', c:[-34.548500, -58.784200]},
-    {n:'Parque Industrial', c:[-34.552000, -58.780800]},
-    {n:'Base Aérea (Entrada Cuartel V / José C. Paz)', c:[-34.555000, -58.778000]},
-    {n:'Av. Derqui y C. Bartolomé Hidalgo', c:[-34.557029, -58.776122]},
-    {n:'Fray Antonio Marchena y Pedro de Mendoza', c:[-34.558350, -58.774500]},
-    {n:'Fray Antonio Marchena y Marcos Paz', c:[-34.559853, -58.772330]},
-    {n:'Fray Antonio Marchena y Miguel Cané', c:[-34.561176, -58.770641]},
-    {n:'Los Aromos y Santander', c:[-34.562495, -58.772093]},
-    {n:'Los Aromos y Murillo', c:[-34.564006, -58.773679]},
-    {n:'Murillo y Moctezuma', c:[-34.565289, -58.772213]},
-    {n:'Murillo y Güiraldes', c:[-34.567268, -58.769484]},
-    {n:'Murillo y Watt', c:[-34.569090, -58.767095]},
-    {n:'A. Prado 2555', c:[-34.571016, -58.764443]},
-    {n:'Prado y Payró', c:[-34.571956, -58.763201]},
-    {n:'Prado 1744', c:[-34.577371, -58.755909]},
-    {n:'Boulevard Caveri', c:[-34.578528, -58.757064]},
-    {n:'Caveri y Azara', c:[-34.579296, -58.755864]},
-    {n:'Caveri y Vedia', c:[-34.580020, -58.755063]},
-    {n:'Caveri y Tablada', c:[-34.580901, -58.753842]},
-    {n:'Caveri y Echeverría', c:[-34.581998, -58.752441]},
-    {n:'Caveri y Gálvez', c:[-34.583319, -58.750710]},
-    {n:'Caveri (Final)', c:[-34.584740, -58.748804]},
-    {n:'Libertador y Aero', c:[-34.585554, -58.749812]},
-    {n:'Libertador 7300', c:[-34.586494, -58.750574]},
-    {n:'Libertador 7200', c:[-34.588041, -58.751542]},
-    {n:'Libertador y Maza', c:[-34.588273, -58.751338]},
-    {n:'Maza y Albatros', c:[-34.588771, -58.750804]},
-    {n:'Maternidad', c:[-34.588244, -58.749877]},
-    {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
-];
-
 const MI_ID_MOVIL = 1;
 const MI_NOMBRE = "Carlos - Ford Fiesta JCP 478";
 const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
+// LISTA DE PARADAS COMPLETA Y ORDENADA (36 PARADAS: CRUCE DERQUI -> ABASTO Y ROCA)
+const paradas = [
+    { n: 'Av. Derqui y P197 (Cruce Derqui)', c: [-34.537898, -58.794848] },
+    { n: 'Fray Antonio Marchena y Carlos Eberth', c: [-34.539274, -58.793441] },
+    { n: 'Fray Antonio Marchena y Descartes', c: [-34.540553, -58.792168] },
+    { n: 'Av. Derqui y Gral. Juan Lavalle', c: [-34.541319, -58.791487] },
+    { n: 'Av. Derqui y José C. Paz', c: [-34.542679, -58.790175] },
+    { n: 'Av. Derqui y Av. José Altuve', c: [-34.544123, -58.788772] },
+    { n: 'Av. Derqui y Dr. Enrique Finochietto', c: [-34.545472, -58.787421] },
+    { n: 'Universidad Tecnológica Robotics', c: [-34.548500, -58.784200] },
+    { n: 'Parque Industrial', c: [-34.552000, -58.780800] },
+    { n: 'Base Aérea (Entrada Cuartel V / José C. Paz)', c: [-34.555000, -58.778000] },
+    { n: 'Av. Derqui y C. Bartolomé Hidalgo', c: [-34.557029, -58.776122] },
+    { n: 'Fray Antonio Marchena y Pedro de Mendoza', c: [-34.558350, -58.774500] },
+    { n: 'Fray Antonio Marchena y Marcos Paz', c: [-34.559853, -58.772330] },
+    { n: 'Fray Antonio Marchena y Miguel Cané', c: [-34.561176, -58.770641] },
+    { n: 'Los Aromos y Santander', c: [-34.562495, -58.772093] },
+    { n: 'Los Aromos y Murillo', c: [-34.564006, -58.773679] },
+    { n: 'Murillo y Moctezuma', c: [-34.565289, -58.772213] },
+    { n: 'Murillo y Güiraldes', c: [-34.567268, -58.769484] },
+    { n: 'Murillo y Watt', c: [-34.569090, -58.767095] },
+    { n: 'A. Prado 2555', c: [-34.571016, -58.764443] },
+    { n: 'Prado y Payró', c: [-34.571956, -58.763201] },
+    { n: 'Prado 1744', c: [-34.577371, -58.755909] },
+    { n: 'Boulevard Caveri', c: [-34.578528, -58.757064] },
+    { n: 'Caveri y Azara', c: [-34.579296, -58.755864] },
+    { n: 'Caveri y Vedia', c: [-34.580020, -58.755063] },
+    { n: 'Caveri y Tablada', c: [-34.580901, -58.753842] },
+    { n: 'Caveri y Echeverría', c: [-34.581998, -58.752441] },
+    { n: 'Caveri y Gálvez', c: [-34.583319, -58.750710] },
+    { n: 'Caveri (Final)', c: [-34.584740, -58.748804] },
+    { n: 'Libertador y Aero', c: [-34.585554, -58.749812] },
+    { n: 'Libertador 7300', c: [-34.586494, -58.750574] },
+    { n: 'Libertador 7200', c: [-34.588041, -58.751542] },
+    { n: 'Libertador y Maza', c: [-34.588273, -58.751338] },
+    { n: 'Maza y Albatros', c: [-34.588771, -58.750804] },
+    { n: 'Maternidad', c: [-34.588244, -58.749877] },
+    { n: 'Abasto y Roca', c: [-34.586030, -58.747278] }
+];
+
+// ==========================================
+// VARIABLES DE ESTADO Y MAPA
+// ==========================================
 let estaOnline = false, watchId = null, sentidoActual = 'IDA';
 let ultimaVezEnviado = 0, ultimaCantidadReservas = 0;
 let wakeLock = null, audioContext = null;
@@ -91,6 +96,9 @@ let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [44, 58], iconAn
 let markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
 let markersPax = [], markersDest = [];
 
+// ==========================================
+// INTERFAZ Y CONTROLES VISUALES
+// ==========================================
 function abrirSheet() {
     const sheet = document.getElementById('driver-sheet');
     const btnSheet = document.getElementById('btn-abrir-sheet');
@@ -115,6 +123,9 @@ function mostrarToast(mensaje, tipo) {
     setTimeout(() => toast.remove(), 3000);
 }
 
+// ==========================================
+// HARDWARE, WAKE LOCK Y AUDIO
+// ==========================================
 async function activarWakeLock() {
     try {
         if ('wakeLock' in navigator) {
@@ -170,6 +181,9 @@ function cerrarAlerta() {
     if (alerta) alerta.classList.remove('mostrar');
 }
 
+// ==========================================
+// MATEMÁTICA Y GEOLOCALIZACIÓN
+// ==========================================
 function calcularAnguloDireccion(lat1, lon1, lat2, lon2) {
     const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
     const Δλ = (lon2 - lon1) * Math.PI / 180;
@@ -193,6 +207,15 @@ function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
               Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
               Math.sin(dLon/2) * Math.sin(dLon/2);
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+}
+
+function calcularCercana(lat, lon) {
+    let min = Infinity, idx = -1, nombre = "";
+    paradas.forEach((p, i) => {
+        let d = Math.sqrt(Math.pow(p.c[0]-lat,2) + Math.pow(p.c[1]-lon,2));
+        if(d < min) { min = d; idx = i; nombre = p.n; }
+    });
+    return { nombre, idx };
 }
 
 function actualizarHUDParadas(paradaActualIdx) {
@@ -237,6 +260,9 @@ function detectarDireccionPorSecuencia(paradaActualIdx) {
     return direccionDetectada;
 }
 
+// ==========================================
+// FUNCIONES DE NEGOCIO Y SUPABASE
+// ==========================================
 async function marcarPasajeroABordo() {
     try {
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso').eq('estado_pasajero', 'esperando');
@@ -315,15 +341,6 @@ async function verificarNavegacionParadas(lat, lon, reservasActivas) {
         anunciarParadaNavegacion(siguienteParada.n, paxBaja?.nombre_pasajero);
         paradasAnunciadas.set(sigIdx, ahora);
     }
-}
-
-function calcularCercana(lat, lon) {
-    let min = Infinity, idx = -1, nombre = "";
-    paradas.forEach((p, i) => {
-        let d = Math.sqrt(Math.pow(p.c[0]-lat,2) + Math.pow(p.c[1]-lon,2));
-        if(d < min) { min = d; idx = i; nombre = p.n; }
-    });
-    return { nombre, idx };
 }
 
 async function gestionarConexion() {
@@ -491,12 +508,8 @@ async function cambiarSentido() {
     if (estaOnline) { await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL); }
 }
 
-// ==========================================
-// FUNCIÓN ACTUALIZADA: LIBERAR ASIENTO INDIVIDUAL POR RPC
-// ==========================================
 async function liberarAsiento(n) {
     if (confirm('¿Finalizar viaje y liberar el asiento ' + n + '?')) {
-        // Llama a la función RPC de Supabase para aislar el cierre a este asiento y móvil
         const { error } = await _s.rpc('finalizar_asiento_individual', { 
             p_id_movil: MI_ID_MOVIL, 
             p_asiento: n 
@@ -562,6 +575,9 @@ async function finalizarJornada() {
     mostrarToast('Jornada finalizada correctamente', 'warning');
 }
 
+// ==========================================
+// INICIALIZACIÓN AL CARGAR LA PÁGINA
+// ==========================================
 window.addEventListener('DOMContentLoaded', () => {
     const sentidoGuardado = localStorage.getItem('driver_sentido');
     if (sentidoGuardado) {
@@ -580,7 +596,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// CIERRE DE SEGURIDAD GARANTIZADO DEL SPLASH
+// CIERRE DE SEGURIDAD DE LA PANTALLA DE CARGA (SPLASH)
 setTimeout(() => {
     const splash = document.getElementById('splash');
     if (splash) { 
@@ -592,4 +608,5 @@ setTimeout(() => {
     }
 }, 1200);
 
+// POLLING PERIÓDICO DE ESTADO
 setInterval(actualizar, 4000);
