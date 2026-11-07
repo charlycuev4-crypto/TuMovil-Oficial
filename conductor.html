@@ -1,4 +1,4 @@
-tt<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -7,8 +7,125 @@ tt<!DOCTYPE html>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Estilos del conductor -->
-    <link rel="stylesheet" href="style-conductor.css">
+    
+    <!-- ESTILOS INCORPORADOS DIRECTAMENTE PARA EVITAR FALLOS -->
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a0a0a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; color: #fff; }
+
+        #map-wrapper { 
+            position: absolute; top: -30%; left: -30%; width: 160%; height: 160%; 
+            z-index: 1; overflow: hidden; transform-origin: center center;
+        }
+        #map { width: 100%; height: 100%; }
+
+        .top-nav {
+            position: absolute; top: 12px; left: 12px; right: 12px;
+            z-index: 1000; display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+        }
+        .header-bar {
+            background: rgba(10, 10, 10, 0.88); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08); padding: 8px 14px; border-radius: 20px;
+            display: flex; justify-content: space-between; align-items: center; pointer-events: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .connection-status { display: flex; align-items: center; gap: 8px; }
+        #status-label { font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #aaa; }
+
+        .switch { position: relative; width: 44px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #333; border-radius: 22px; transition: .3s; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; }
+        input:checked + .slider { background: #34c759; }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .header-right-controls { display: flex; align-items: center; gap: 8px; }
+        .recaudacion-flotante-box {
+            background: rgba(10, 10, 10, 0.9); border: 1.5px solid #34c759; padding: 4px 10px;
+            border-radius: 12px; display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; color: #34c759;
+        }
+        .speed-box-top {
+            display: flex; align-items: center; justify-content: center; gap: 2px;
+            background: #151515; border: 1.5px solid #00d2ff; padding: 4px 10px; border-radius: 12px;
+        }
+        .speed-box-top #txt-velocidad { font-size: 14px; font-weight: 900; color: #fff; }
+        .speed-box-top .speed-unit { font-size: 8px; color: #00d2ff; font-weight: 800; }
+        #btn-sentido { background: #ffcc00; border: none; padding: 6px 12px; border-radius: 12px; font-weight: 800; font-size: 10px; color: #000; cursor: pointer; }
+
+        .wakelock-indicator { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: #34c759; color: #000; padding: 2px 8px; border-radius: 8px; font-size: 8px; font-weight: 800; display: none; z-index: 1001; }
+        .wakelock-indicator.activo { display: block; }
+
+        #btn-abrir-sheet {
+            position: absolute; bottom: 82px; right: 16px; z-index: 999;
+            background: #ffcc00; color: #000; border: none; width: 52px; height: 52px;
+            border-radius: 50%; font-size: 22px; font-weight: bold; display: flex;
+            align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); cursor: pointer;
+        }
+
+        .bar-asientos-fija {
+            position: absolute; bottom: 12px; left: 12px; right: 12px; z-index: 998;
+            background: rgba(12, 12, 12, 0.92); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 8px; display: flex; gap: 6px;
+        }
+        .pill {
+            flex: 1; height: 50px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-weight: 800; color: #888; cursor: pointer; padding: 2px;
+        }
+        .pill .seat-num { font-size: 13px; color: #777; }
+        .pill .nombre-pax { font-size: 9px; color: #fff; font-weight: 700; }
+        .pill .destino-pax { font-size: 8px; color: #ffcc00; font-weight: 600; }
+        .pill.active { background: rgba(255, 204, 0, 0.15); border-color: #ffcc00; }
+        .pill.a-bordo { background: linear-gradient(135deg, #00d2ff, #0088cc); border-color: #00d2ff; }
+        .pill.a-bordo .seat-num, .pill.a-bordo .nombre-pax { color: #000; }
+
+        .bottom-sheet {
+            position: absolute; bottom: 0; left: 0; right: 0; z-index: 1001;
+            background: rgba(15, 15, 15, 0.98); backdrop-filter: blur(25px);
+            border-top: 1px solid rgba(255,255,255,0.15); border-radius: 28px 28px 0 0;
+            padding: 12px 16px 20px 16px; max-height: 80vh; overflow-y: auto;
+            transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.1, 0.9, 0.2, 1);
+        }
+        .bottom-sheet.expanded { transform: translateY(0%); }
+        .drag-handle { width: 40px; height: 5px; background: rgba(255,255,255,0.3); border-radius: 3px; margin: 0 auto 12px auto; cursor: pointer; }
+
+        .sheet-stats-grid { display: flex; gap: 10px; margin-bottom: 12px; }
+        .q-stat { background: rgba(255,255,255,0.04); padding: 10px; border-radius: 16px; flex: 1; border: 1px solid rgba(255,255,255,0.05); text-align: center; }
+        .q-label { font-size: 9px; color: #888; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+        .q-value { font-size: 22px; font-weight: 900; margin-top: 2px; }
+
+        .action-group { display: flex; flex-direction: column; gap: 8px; }
+        .btn-action { width: 100%; border: none; padding: 14px; border-radius: 16px; font-weight: 800; font-size: 14px; cursor: pointer; display: none; }
+        .btn-subir-abordo { background: #00d2ff; color: #000; }
+        .btn-llego-destino { background: #34c759; color: #fff; }
+        .btn-vaciar { background: rgba(255, 59, 48, 0.05); color: #ff3b30; border: 1px solid rgba(255, 59, 48, 0.2); display: block; }
+        .btn-finalizar-jornada { display: block !important; background: linear-gradient(135deg, #bd2113 0%, #7a0f05 100%); color: #fff; }
+
+        /* PANTALLA DE INGRESO / LOGIN DINÁMICO */
+        .login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 5, 10, 0.95); backdrop-filter: blur(20px);
+            display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 20px;
+        }
+        .login-card {
+            background: #151515; border: 1px solid rgba(0, 210, 255, 0.3);
+            width: 100%; max-width: 380px; padding: 24px; border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8); text-align: center;
+        }
+        .login-card h2 { color: #00d2ff; font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+        .login-card p { color: #888; font-size: 12px; margin-bottom: 20px; }
+        .form-group { text-align: left; margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 11px; font-weight: 700; color: #aaa; margin-bottom: 4px; }
+        .form-group input {
+            width: 100%; background: #0a0a0a; border: 1px solid #333; padding: 12px;
+            border-radius: 12px; color: #fff; font-size: 14px; outline: none;
+        }
+        .form-group input:focus { border-color: #00d2ff; }
+        .btn-ingresar {
+            width: 100%; background: #00d2ff; color: #000; border: none; padding: 14px;
+            border-radius: 14px; font-weight: 900; font-size: 15px; cursor: pointer; margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
 
@@ -37,25 +154,8 @@ tt<!DOCTYPE html>
         </div>
     </div>
 
-    <!-- Splash Screen de Carga -->
-    <div id="splash" style="display: none;">
-        <div class="logo-ring">🚗</div>
-        <h1>TU MÓVIL</h1>
-        <p>Iniciando sistema de navegación...</p>
-    </div>
-
     <!-- Indicador de WakeLock -->
     <div id="wakelock-indicator" class="wakelock-indicator">PANTALLA ACTIVA</div>
-
-    <!-- Alerta Flotante de Reservas -->
-    <div id="alerta-reserva" class="alerta-reserva">
-        <h2>¡NUEVA RESERVA!</h2>
-        <p id="alerta-texto">Asiento asignado</p>
-        <button class="btn-atender" onclick="cerrarAlerta()">ENTENDIDO</button>
-    </div>
-
-    <!-- Contenedor de Toast -->
-    <div id="toast-container" class="toast-container"></div>
 
     <!-- Controles Superiores Flotantes -->
     <div class="top-nav">
@@ -79,19 +179,6 @@ tt<!DOCTYPE html>
                 <button id="btn-sentido" onclick="cambiarSentido()">IDA</button>
             </div>
         </div>
-
-        <!-- Panel de Anuncio / Navegación -->
-        <div id="panel-anuncio-parada">
-            <div class="anuncio-header">
-                <span class="anuncio-titulo">PRÓXIMA PARADA</span>
-                <span id="anuncio-parada-distancia">0 m</span>
-            </div>
-            <div id="anuncio-parada-nombre" class="anuncio-nombre">Buscando ubicación...</div>
-            <div id="anuncio-parada-pasajero" style="display:none;"></div>
-        </div>
-
-        <!-- HUD Horizontal de Paradas -->
-        <div id="hud-paradas" class="hud-paradas"></div>
     </div>
 
     <!-- Mapa del Recorrido -->
@@ -120,7 +207,7 @@ tt<!DOCTYPE html>
             <span id="destino-pax-3" class="destino-pax">-</span>
         </div>
         <div id="pill4" class="pill" onclick="liberarAsiento(4)">
-            <span class="seat-num">4</span>
+            <span class="seat-num>4</span>
             <span id="nombre-pax-4" class="nombre-pax">Libre</span>
             <span id="destino-pax-4" class="destino-pax">-</span>
         </div>
@@ -137,7 +224,7 @@ tt<!DOCTYPE html>
             </div>
             <div class="q-stat">
                 <div class="q-label">Ubicación</div>
-                <div id="txt-parada" class="q-value-small" style="font-size: 13px; font-weight: 800; margin-top: 6px;">-</div>
+                <div id="txt-parada" class="q-value" style="font-size: 13px; font-weight: 800; margin-top: 6px;">-</div>
             </div>
         </div>
 
