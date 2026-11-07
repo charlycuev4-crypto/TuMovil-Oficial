@@ -1,12 +1,13 @@
 // ==========================================
-// CONFIGURACIÓN Y CONSTANTES
+// CONFIGURACIÓN Y CONSTANTES DINÁMICAS
 // ==========================================
-const TARIFA_UNICA = 1500; // TARIFA PLANA UNIFICADA $1500
-const MI_ID_MOVIL = 1;
-const MI_NOMBRE = "Carlos - Ford Fiesta JCP 478";
+const TARIFA_UNICA = 1500;
 const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-// LISTA DE PARADAS COMPLETA Y ORDENADA (36 PARADAS: CRUCE DERQUI -> ABASTO Y ROCA)
+let MI_ID_MOVIL = localStorage.getItem('driver_id_movil');
+let MI_NOMBRE = localStorage.getItem('driver_nombre_completo');
+
+// LISTA DE PARADAS COMPLETA Y ORDENADA (36 PARADAS)
 const paradas = [
     { n: 'Av. Derqui y P197 (Cruce Derqui)', c: [-34.537898, -58.794848] },
     { n: 'Fray Antonio Marchena y Carlos Eberth', c: [-34.539274, -58.793441] },
@@ -46,27 +47,14 @@ const paradas = [
     { n: 'Abasto y Roca', c: [-34.586030, -58.747278] }
 ];
 
-// ==========================================
-// VARIABLES DE ESTADO Y MAPA
-// ==========================================
+let map, markerCoche, rutaLine, rastroPolyline;
 let estaOnline = false, watchId = null, sentidoActual = 'IDA';
 let ultimaVezEnviado = 0, ultimaCantidadReservas = 0;
 let wakeLock = null, audioContext = null;
 let paradasAnunciadas = new Map(), paradasVisitadas = new Set(), historialParadas = [];
 let direccionDetectada = 'IDA', historialPosiciones = [], anguloActual = 0, velocidadActual = 0, puntosRastro = [];
 const MAX_PUNTOS_RASTRO = 80;
-
-const map = L.map('map', { zoomControl: false, rotate: true }).setView(paradas[0].c, 16);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { keepBuffer: 8 }).addTo(map);
-
-const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#ff3b30', weight: 6, opacity: 0.6 }).addTo(map);
-
-paradas.forEach((p, i) => {
-    L.circleMarker(p.c, { radius: 5, color: '#000', weight: 2, fillColor: '#00BFFF', fillOpacity: 0.9 })
-        .addTo(map).bindTooltip((i + 1) + ". " + p.n, { permanent: false, direction: 'top' });
-});
-
-let rastroPolyline = L.polyline([], { color: '#00d2ff', weight: 4, opacity: 0.5, dashArray: '6, 4' }).addTo(map);
+let markersPax = [], markersDest = [];
 
 function crearIconoAuto(angulo, velocidad) {
     const colorVelocidad = velocidad > 50 ? '#ff3b30' : velocidad > 30 ? '#ffcc00' : '#00d2ff';
@@ -92,27 +80,93 @@ function crearIconoAuto(angulo, velocidad) {
     return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
 }
 
-let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [44, 58], iconAnchor: [22, 29], className: 'auto-radar-icon' });
-let markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
-let markersPax = [], markersDest = [];
+// INICIALIZACIÓN INMEDIATA DEL MAPA Y VERIFICACIÓN DE SESIÓN
+window.addEventListener('DOMContentLoaded', () => {
+    // 1. Inicializar el mapa
+    map = L.map('map', { zoomControl: false, rotate: true }).setView(paradas[0].c, 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { keepBuffer: 8 }).addTo(map);
 
-// ==========================================
-// INTERFAZ Y CONTROLES VISUALES
-// ==========================================
+    rutaLine = L.polyline(paradas.map(p => p.c), { color: '#ff3b30', weight: 6, opacity: 0.6 }).addTo(map);
+
+    paradas.forEach((p, i) => {
+        L.circleMarker(p.c, { radius: 5, color: '#000', weight: 2, fillColor: '#00BFFF', fillOpacity: 0.9 })
+            .addTo(map).bindTooltip((i + 1) + ". " + p.n, { permanent: false, direction: 'top' });
+    });
+
+    rastroPolyline = L.polyline([], { color: '#00d2ff', weight: 4, opacity: 0.5, dashArray: '6, 4' }).addTo(map);
+
+    let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [44, 58], iconAnchor: [22, 29], className: 'auto-radar-icon' });
+    markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
+
+    // 2. Controlar la pantalla de Login
+    if (!MI_ID_MOVIL || !MI_NOMBRE) {
+        const overlay = document.getElementById('login-overlay');
+        if (overlay) overlay.style.display = 'flex';
+    } else {
+        const overlay = document.getElementById('login-overlay');
+        if (overlay) overlay.style.display = 'none';
+        iniciarJornadaBase();
+    }
+});
+
+async function guardarDatosChofer() {
+    const nombre = document.getElementById('input-nombre').value.trim();
+    const patente = document.getElementById('input-patente').value.trim();
+    const auto = document.getElementById('input-auto').value.trim();
+
+    if (!nombre || !patente || !auto) {
+        alert('Por favor complete todos los campos.');
+        return;
+    }
+
+    MI_NOMBRE = `${nombre} - ${auto} (${patente})`;
+    MI_ID_MOVIL = Math.floor(Math.random() * 90000) + 1000; 
+
+    localStorage.setItem('driver_id_movil', MI_ID_MOVIL);
+    localStorage.setItem('driver_nombre_completo', MI_NOMBRE);
+
+    await _s.from('estado_movil').upsert({
+        id: MI_ID_MOVIL,
+        chofer: MI_NOMBRE,
+        esta_online: false,
+        sentido_flujo: 'IDA'
+    });
+
+    const overlay = document.getElementById('login-overlay');
+    if (overlay) overlay.style.display = 'none';
+
+    iniciarJornadaBase();
+}
+
+function iniciarJornadaBase() {
+    const sentidoGuardado = localStorage.getItem('driver_sentido');
+    if (sentidoGuardado) {
+        sentidoActual = sentidoGuardado;
+        direccionDetectada = sentidoGuardado;
+        const btnSentido = document.getElementById('btn-sentido');
+        if (btnSentido) btnSentido.innerText = sentidoActual;
+        if (rutaLine) rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff3b30' : '#007aff' });
+    }
+
+    const onlineGuardado = localStorage.getItem('driver_online');
+    if (onlineGuardado === 'true') {
+        const toggle = document.getElementById('online-toggle');
+        if (toggle) toggle.checked = true;
+        gestionarConexion();
+    }
+
+    setInterval(actualizar, 4000);
+}
+
+// UI Y PANELES
 function abrirSheet() {
     const sheet = document.getElementById('driver-sheet');
-    const btnSheet = document.getElementById('btn-abrir-sheet');
     if (sheet) sheet.classList.add('expanded');
-    if (btnSheet) btnSheet.style.display = 'none';
 }
-
 function cerrarSheet() {
     const sheet = document.getElementById('driver-sheet');
-    const btnSheet = document.getElementById('btn-abrir-sheet');
     if (sheet) sheet.classList.remove('expanded');
-    if (btnSheet) btnSheet.style.display = 'flex';
 }
-
 function mostrarToast(mensaje, tipo) {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -123,9 +177,7 @@ function mostrarToast(mensaje, tipo) {
     setTimeout(() => toast.remove(), 3000);
 }
 
-// ==========================================
 // HARDWARE, WAKE LOCK Y AUDIO
-// ==========================================
 async function activarWakeLock() {
     try {
         if ('wakeLock' in navigator) {
@@ -135,7 +187,6 @@ async function activarWakeLock() {
         }
     } catch (err) { console.error('Wake Lock error:', err); }
 }
-
 async function liberarWakeLock() {
     if (wakeLock) { 
         await wakeLock.release(); 
@@ -144,12 +195,10 @@ async function liberarWakeLock() {
         if (indicator) indicator.classList.remove('activo'); 
     }
 }
-
 function inicializarAudio() {
     if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
     if (audioContext.state === 'suspended') audioContext.resume();
 }
-
 function reproducirAlarma() {
     try {
         inicializarAudio();
@@ -164,9 +213,7 @@ function reproducirAlarma() {
         oscillator.stop(audioContext.currentTime + 0.3);
     } catch(e) { console.warn("Audio bloqueado"); }
 }
-
 function vibrarAlarma() { if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]); }
-
 function mostrarAlertaReserva(nombrePasajero, asientos) {
     const alerta = document.getElementById('alerta-reserva');
     const txt = document.getElementById('alerta-texto');
@@ -175,15 +222,12 @@ function mostrarAlertaReserva(nombrePasajero, asientos) {
     reproducirAlarma();
     vibrarAlarma();
 }
-
 function cerrarAlerta() {
     const alerta = document.getElementById('alerta-reserva');
     if (alerta) alerta.classList.remove('mostrar');
 }
 
-// ==========================================
-// MATEMÁTICA Y GEOLOCALIZACIÓN
-// ==========================================
+// MATEMÁTICAS Y GEOLOCALIZACIÓN
 function calcularAnguloDireccion(lat1, lon1, lat2, lon2) {
     const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
     const Δλ = (lon2 - lon1) * Math.PI / 180;
@@ -191,14 +235,12 @@ function calcularAnguloDireccion(lat1, lon1, lat2, lon2) {
     const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
     return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
-
 function suavizarRotacion(anguloNuevo, anguloActual, factor) {
     let diff = anguloNuevo - anguloActual;
     while (diff > 180) diff -= 360;
     while (diff < -180) diff += 360;
     return (anguloActual + diff * factor + 360) % 360;
 }
-
 function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
     const R = 6371000;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -208,7 +250,6 @@ function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
               Math.sin(dLon/2) * Math.sin(dLon/2);
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 }
-
 function calcularCercana(lat, lon) {
     let min = Infinity, idx = -1, nombre = "";
     paradas.forEach((p, i) => {
@@ -260,9 +301,7 @@ function detectarDireccionPorSecuencia(paradaActualIdx) {
     return direccionDetectada;
 }
 
-// ==========================================
-// FUNCIONES DE NEGOCIO Y SUPABASE
-// ==========================================
+// SUPABASE & NEGOCIO
 async function marcarPasajeroABordo() {
     try {
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso').eq('estado_pasajero', 'esperando');
@@ -295,52 +334,6 @@ async function llegoADestino() {
         actualizar();
         cerrarSheet();
     } catch (err) { mostrarToast('Error al finalizar', 'error'); }
-}
-
-function anunciarParadaNavegacion(nombreParada, nombrePasajero) {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    let texto = nombrePasajero ? 'Próxima parada: ' + nombreParada + '. Baja ' + nombrePasajero : 'Siguiente parada: ' + nombreParada;
-    const utterance = new SpeechSynthesisUtterance(texto);
-    utterance.lang = 'es-AR'; utterance.rate = 0.95;
-    window.speechSynthesis.speak(utterance);
-}
-
-async function verificarNavegacionParadas(lat, lon, reservasActivas) {
-    const paradaActual = calcularCercana(lat, lon);
-    const paradaActualIdx = paradaActual.idx;
-    paradasVisitadas.add(paradaActualIdx);
-    detectarDireccionPorSecuencia(paradaActualIdx);
-    actualizarHUDParadas(paradaActualIdx);
-
-    let sigIdx = direccionDetectada === 'IDA' ? paradaActualIdx + 1 : paradaActualIdx - 1;
-    const panelParada = document.getElementById('panel-anuncio-parada');
-    if (sigIdx < 0 || sigIdx >= paradas.length) {
-        if (panelParada) panelParada.classList.remove('visible');
-        return;
-    }
-
-    const siguienteParada = paradas[sigIdx];
-    const dist = calcularDistanciaMetros(lat, lon, siguienteParada.c[0], siguienteParada.c[1]);
-    
-    const txtNombre = document.getElementById('anuncio-parada-nombre');
-    const txtDist = document.getElementById('anuncio-parada-distancia');
-    if (txtNombre) txtNombre.innerText = siguienteParada.n;
-    if (txtDist) txtDist.innerText = dist < 1000 ? Math.round(dist) + ' m' : (dist / 1000).toFixed(1) + ' km';
-    if (panelParada) panelParada.classList.add('visible');
-
-    const paxBaja = reservasActivas.find(r => r.destino_idx === sigIdx && r.estado_pasajero === 'a_bordo');
-    const paxEl = document.getElementById('anuncio-parada-pasajero');
-    if (paxEl) {
-        if (paxBaja) { paxEl.style.display = 'block'; paxEl.innerText = '👤 Baja: ' + paxBaja.nombre_pasajero; } 
-        else { paxEl.style.display = 'none'; }
-    }
-
-    const ahora = Date.now();
-    if (dist >= 30 && dist <= 400 && (ahora - (paradasAnunciadas.get(sigIdx) || 0) > 45000)) {
-        anunciarParadaNavegacion(siguienteParada.n, paxBaja?.nombre_pasajero);
-        paradasAnunciadas.set(sigIdx, ahora);
-    }
 }
 
 async function gestionarConexion() {
@@ -405,19 +398,19 @@ function iniciarGPS() {
         historialPosiciones.push({ lat, lon });
         if(historialPosiciones.length > 10) historialPosiciones.shift();
         
-        markerCoche.setLatLng([lat, lon]);
+        if (markerCoche) markerCoche.setLatLng([lat, lon]);
         
         const mapWrapper = document.getElementById('map-wrapper');
         if (estaOnline && velocidadActual > 2) {
             if (mapWrapper) mapWrapper.style.transform = `rotate(${-anguloActual}deg)`;
-            map.panTo([lat, lon], { animate: true, duration: 0.4 });
+            if (map) map.panTo([lat, lon], { animate: true, duration: 0.4 });
         } else {
-            map.panTo([lat, lon]);
+            if (map) map.panTo([lat, lon]);
         }
 
         puntosRastro.push([lat, lon]);
         if (puntosRastro.length > MAX_PUNTOS_RASTRO) puntosRastro.shift();
-        rastroPolyline.setLatLngs(puntosRastro);
+        if (rastroPolyline) rastroPolyline.setLatLngs(puntosRastro);
 
         const paradaInfo = calcularCercana(lat, lon);
         const txtParada = document.getElementById('txt-parada');
@@ -432,6 +425,7 @@ function iniciarGPS() {
 }
 
 async function actualizar() {
+    if (!MI_ID_MOVIL) return;
     try {
         const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
         if (reservas) {
@@ -491,9 +485,6 @@ async function actualizar() {
             const btnLlego = document.getElementById('btn-llego-destino');
             if (btnSubir) btnSubir.style.display = esperando > 0 ? 'block' : 'none';
             if (btnLlego) btnLlego.style.display = abordo > 0 ? 'block' : 'none';
-
-            const latLng = markerCoche.getLatLng();
-            if (latLng) verificarNavegacionParadas(latLng.lat, latLng.lng, reservas);
         }
     } catch (err) { console.error("Error en polling:", err); }
 }
@@ -504,7 +495,7 @@ async function cambiarSentido() {
     localStorage.setItem('driver_sentido', sentidoActual);
     const btnSentido = document.getElementById('btn-sentido');
     if (btnSentido) btnSentido.innerText = sentidoActual;
-    rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff3b30' : '#007aff' });
+    if (rutaLine) rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff3b30' : '#007aff' });
     if (estaOnline) { await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL); }
 }
 
@@ -539,74 +530,17 @@ async function confirmarVaciar() {
 }
 
 async function finalizarJornada() {
-    if (!confirm("🏁 ¿Estás seguro de que deseas finalizar tu jornada laboral?\nEsto te desconectará del sistema por completo.")) return;
+    if (!confirm("🏁 ¿Estás seguro de que deseas finalizar tu jornada laboral?")) return;
     if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
     
     try {
         await _s.from('estado_movil').update({ esta_online: false, ultima_actualizacion: new Date().toISOString() }).eq('id', MI_ID_MOVIL);
-        const { data: res } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).eq('estado', 'en_curso');
-        if (res) {
-            for (const r of res) { 
-                await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', r.id);
-                await _s.from('reservas_activas').delete().eq('id', r.id); 
-            }
-        }
     } catch(e) { console.error(e); }
 
     localStorage.removeItem('driver_online');
     localStorage.removeItem('driver_sentido');
+    localStorage.removeItem('driver_id_movil');
+    localStorage.removeItem('driver_nombre_completo');
 
-    estaOnline = false;
-    const toggle = document.getElementById('online-toggle');
-    const label = document.getElementById('status-label');
-    const panelParada = document.getElementById('panel-anuncio-parada');
-    const hudParadas = document.getElementById('hud-paradas');
-    const mapWrapper = document.getElementById('map-wrapper');
-
-    if (toggle) toggle.checked = false;
-    if (label) { label.innerText = "DESCONECTADO"; label.style.color = "#aaa"; }
-    if (panelParada) panelParada.classList.remove('visible');
-    if (hudParadas) hudParadas.style.display = 'none';
-    if (mapWrapper) mapWrapper.style.transform = `rotate(0deg)`;
-    
-    liberarWakeLock();
-    actualizar();
-    cerrarSheet();
-    mostrarToast('Jornada finalizada correctamente', 'warning');
+    location.reload();
 }
-
-// ==========================================
-// INICIALIZACIÓN AL CARGAR LA PÁGINA
-// ==========================================
-window.addEventListener('DOMContentLoaded', () => {
-    const sentidoGuardado = localStorage.getItem('driver_sentido');
-    if (sentidoGuardado) {
-        sentidoActual = sentidoGuardado;
-        direccionDetectada = sentidoGuardado;
-        const btnSentido = document.getElementById('btn-sentido');
-        if (btnSentido) btnSentido.innerText = sentidoActual;
-        rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff3b30' : '#007aff' });
-    }
-
-    const onlineGuardado = localStorage.getItem('driver_online');
-    if (onlineGuardado === 'true') {
-        const toggle = document.getElementById('online-toggle');
-        if (toggle) toggle.checked = true;
-        gestionarConexion();
-    }
-});
-
-// CIERRE DE SEGURIDAD DE LA PANTALLA DE CARGA (SPLASH)
-setTimeout(() => {
-    const splash = document.getElementById('splash');
-    if (splash) { 
-        splash.style.opacity = '0'; 
-        setTimeout(() => {
-            splash.style.visibility = 'hidden';
-            splash.style.display = 'none';
-        }, 600); 
-    }
-}, 1200);
-
-// POLLING PERIÓDICO DE ESTADO
-setInterval(actualizar, 4000);
