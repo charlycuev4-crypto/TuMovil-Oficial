@@ -22,7 +22,6 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background: var(--bg-dark); height: 100vh; overflow: hidden; color: #fff; }
 
-        /* MAPA */
         #map-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         #map { width: 100%; height: 100%; }
 
@@ -81,7 +80,6 @@
         }
 
         .connection-status { display: flex; align-items: center; gap: 8px; }
-        /* Switch */
         .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider {
@@ -220,7 +218,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <!-- SCRIPT DE LÓGICA UNIFICADO -->
     <script>
         const SUPABASE_URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE';
@@ -319,9 +316,7 @@
                 gain.connect(ctx.destination);
                 osc.start();
                 osc.stop(ctx.currentTime + 0.5);
-            } catch (e) {
-                console.log("Audio en espera de interacción");
-            }
+            } catch (e) {}
         }
 
         function guardarDatosChofer() {
@@ -329,10 +324,7 @@
             const patente = document.getElementById('input-patente').value.trim();
             const auto = document.getElementById('input-auto').value.trim();
 
-            if (!nombre || !patente) {
-                alert("Por favor completa tu Nombre y Patente.");
-                return;
-            }
+            if (!nombre || !patente) return;
 
             datosChofer = { nombre, patente, auto };
             localStorage.setItem('chofer_datos', JSON.stringify(datosChofer));
@@ -359,9 +351,7 @@
         function cambiarSentido() {
             sentidoFlujo = (sentidoFlujo === 'IDA') ? 'VUELTA' : 'IDA';
             document.getElementById('btn-sentido').innerText = sentidoFlujo;
-            if (estaOnline) {
-                actualizarEstadoSupabase(true);
-            }
+            if (estaOnline) actualizarEstadoSupabase(true);
         }
 
         function iniciarGPS() {
@@ -377,7 +367,7 @@
                         marcadorChofer = L.marker([lat, lon], {
                             icon: L.divIcon({
                                 className: 'custom-driver-marker',
-                                html: '<div style="background:#00f3ff; width:18px; height:18px; border-radius:50%; border:3px solid #000; box-shadow:0 0 12px #00f3ff; text-align:center; font-size:9px;">🚕</div>',
+                                html: '<div style="background:#00f3ff; width:18px; height:18px; border-radius:50%; border:3px solid #000; box-shadow:0 0 12px #00f3ff;"></div>',
                                 iconSize: [18, 18]
                             })
                         }).addTo(map);
@@ -444,7 +434,7 @@
                         document.getElementById('alerta-texto').innerHTML = `
                             <b>Pasajero:</b> ${r.nombre_pasajero}<br>
                             <b>Ruta:</b> ${r.destino}<br>
-                            <b>Asientos:</b> ${r.asientos}
+                            <b>Asientos solicitados:</b> ${r.asientos}
                         `;
 
                         document.getElementById('alerta-reserva').style.display = 'block';
@@ -456,6 +446,7 @@
             }
         }
 
+        // AL ATENDER: Ocupa automáticamente en bloque la cantidad de asientos solicitados
         async function atenderSolicitud() {
             if (!reservaPendiente) return;
 
@@ -486,7 +477,6 @@
 
                 actualizarPillsUI();
                 document.getElementById('alerta-reserva').style.display = 'none';
-                alert(`¡Solicitud atendida! El pasajero ${reservaPendiente.nombre_pasajero} ha sido notificado en camino.`);
                 reservaPendiente = null;
 
             } catch (e) {
@@ -494,33 +484,40 @@
             }
         }
 
-        // Gestión del asiento adaptada para cambiar de "atendido" ➔ "a_bordo" ➔ "finalizado"
+        // GESTIÓN EN BLOQUE DE LOS ASIENTOS (Sin alertas nativas antiguas)
         async function gestionarAsiento(numSeat) {
             const seat = asientos[numSeat];
+            if (!seat.ocupado || !seat.idReserva) return;
 
-            if (!seat.ocupado) {
-                alert(`El Asiento ${numSeat} está libre actualmente.`);
-                return;
-            }
+            const idReservaActual = seat.idReserva;
 
             if (seat.estado === 'atendido' || !seat.estado) {
-                const subir = confirm(`¿Marcar a ${seat.nombre} (Asiento ${numSeat}) como A BORDO?`);
-                if (subir) {
-                    seat.estado = 'a_bordo';
-                    await _s.from('reservas_activas').update({ estado: 'a_bordo' }).eq('id', seat.idReserva);
-                    actualizarPillsUI();
-                    alert(`Pasajero ${seat.nombre} marcado A BORDO.`);
-                }
-            } else if (seat.estado === 'a_bordo') {
-                const finalizar = confirm(`¿Finalizar el viaje y liberar el Asiento ${numSeat} de ${seat.nombre}?`);
-                if (finalizar) {
-                    if (seat.idReserva) {
-                        await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', seat.idReserva);
+                // Marcar TODOS los asientos vinculados a esta reserva como "a_bordo" en bloque automático
+                for (let i = 1; i <= 4; i++) {
+                    if (asientos[i].idReserva === idReservaActual) {
+                        asientos[i].estado = 'a_bordo';
                     }
-                    asientos[numSeat] = { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null };
-                    actualizarPillsUI();
-                    alert("Viaje finalizado y asiento liberado.");
                 }
+
+                await _s.from('reservas_activas')
+                    .update({ estado: 'a_bordo' })
+                    .eq('id', idReservaActual);
+
+                actualizarPillsUI();
+
+            } else if (seat.estado === 'a_bordo') {
+                // Finalizar y liberar TODOS los asientos vinculados a esta reserva en bloque automático
+                await _s.from('reservas_activas')
+                    .update({ estado: 'finalizado' })
+                    .eq('id', idReservaActual);
+
+                for (let i = 1; i <= 4; i++) {
+                    if (asientos[i].idReserva === idReservaActual) {
+                        asientos[i] = { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null };
+                    }
+                }
+
+                actualizarPillsUI();
             }
         }
 
