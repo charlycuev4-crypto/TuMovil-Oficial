@@ -222,13 +222,12 @@
             // Inicializar mapa de Leaflet
             map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
             
-            // Usar capa ultra estable para evitar que se cargue en negro
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                maxZoom: 19,
-                subdomains: 'abcd'
+            // Usar OpenStreetMap oficial (Libre, sin API Key requerida)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
             }).addTo(map);
 
-            // Forzar redibujado del contenedor para solucionar pantalla en negro
+            // Forzar redibujado para solucionar cualquier error visual
             setTimeout(() => { map.invalidateSize(); }, 300);
 
             const select = document.getElementById('select-paradas');
@@ -273,7 +272,6 @@
                 }, () => {}, { enableHighAccuracy: true });
             }
 
-            // Seleccionar asiento 1 por defecto al abrir
             setAsientos(1);
         });
 
@@ -298,7 +296,6 @@
             confirmarParada(parseInt(id));
         }
 
-        // Selección múltiple limpia de asientos (ej: si elige 2, se pintan 1 y 2)
         function setAsientos(num) {
             cantidadAsientos = num;
             for (let i = 1; i <= 4; i++) {
@@ -390,7 +387,6 @@
                     return;
                 }
 
-                // Estado 1: Chofer atendió (en camino a buscar al pasajero)
                 if (reserva.estado === 'atendido') {
                     document.getElementById('txt-estado-titulo').innerText = "🚗 ¡CHOFER EN CAMINO!";
                     document.getElementById('txt-info-chofer').innerHTML = `
@@ -400,7 +396,6 @@
                         <i>El chofer va en camino a tu parada.</i>
                     `;
                 } 
-                // Estado 2: El chofer llegó y marcó pasajero a bordo
                 else if (reserva.estado === 'a_bordo') {
                     document.getElementById('txt-estado-titulo').innerText = "🚀 ¡YA ESTÁS A BORDO!";
                     document.getElementById('txt-info-chofer').innerHTML = `
@@ -410,7 +405,6 @@
                     `;
                 }
 
-                // Posición del auto en tiempo real
                 const { data: movilInfo } = await _s
                     .from('estado_movil')
                     .select('*')
