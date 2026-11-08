@@ -14,7 +14,7 @@
             --neon-cyan: #00f3ff;
             --neon-yellow: #ffcc00;
             --neon-green: #39ff14;
-            --glass-bg: rgba(10, 16, 26, 0.90);
+            --glass-bg: rgba(10, 16, 26, 0.92);
             --glass-border: rgba(0, 243, 255, 0.3);
         }
 
@@ -34,22 +34,21 @@
         }
         
         .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .top-card label { font-size: 11px; font-weight: 800; color: var(--neon-cyan); letter-spacing: 1px; text-transform: uppercase; }
+        .top-card label { font-size: 11px; font-weight: 900; color: var(--neon-cyan); letter-spacing: 1px; text-transform: uppercase; }
         
         .btn-sentido-pax {
             background: linear-gradient(135deg, var(--neon-yellow) 0%, #ff9900 100%);
             border: none; padding: 6px 14px; border-radius: 12px;
             font-weight: 900; font-size: 11px; color: #000; cursor: pointer;
-            box-shadow: 0 0 10px rgba(255, 204, 0, 0.3); transition: transform 0.2s;
+            box-shadow: 0 0 10px rgba(255, 204, 0, 0.3);
         }
-        .btn-sentido-pax:active { transform: scale(0.94); }
 
-        .subida-info { font-size: 11px; color: #a0b0c0; margin-bottom: 6px; font-weight: 700; }
-        .subida-info span { color: var(--neon-cyan); }
+        .subida-info { font-size: 11px; color: #a0b0c0; margin-bottom: 6px; font-weight: 800; }
+        .subida-info span { color: var(--neon-cyan); font-weight: 900; }
 
         .select-parada {
             width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(0, 243, 255, 0.3);
-            color: #fff; padding: 10px; border-radius: 12px; font-size: 13px; outline: none;
+            color: #fff; padding: 10px; border-radius: 12px; font-size: 13px; font-weight: 800; outline: none;
         }
 
         /* POPUP MAPA */
@@ -57,20 +56,17 @@
             background: rgba(10, 16, 26, 0.95) !important;
             border: 1px solid var(--neon-cyan) !important;
             color: #fff !important; border-radius: 16px !important;
-            box-shadow: 0 0 20px rgba(0, 243, 255, 0.3) !important;
         }
         .leaflet-popup-tip { background: rgba(10, 16, 26, 0.95) !important; }
-        
         .popup-content { text-align: center; padding: 4px; }
-        .popup-title { font-size: 13px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+        .popup-title { font-size: 13px; font-weight: 900; color: #fff; margin-bottom: 8px; }
         .btn-popup-select {
             background: linear-gradient(135deg, var(--neon-green) 0%, #208d13 100%);
             color: #000; border: none; padding: 8px 14px; border-radius: 10px;
             font-weight: 900; font-size: 12px; cursor: pointer; width: 100%;
-            box-shadow: 0 0 10px rgba(57, 255, 20, 0.4);
         }
 
-        /* PANEL INFERIOR */
+        /* TARJETA INFERIOR (PANEL DE RESERVA Y ESTADO EN VIVO) */
         .bottom-card {
             position: absolute; bottom: env(safe-area-inset-bottom, 20px); left: 16px; right: 16px;
             z-index: 1000; background: var(--glass-bg);
@@ -82,33 +78,42 @@
         .input-nombre {
             width: 100%; background: rgba(0,0,0,0.6); border: 1px solid var(--neon-cyan);
             color: #fff; padding: 10px 14px; border-radius: 12px; font-size: 14px;
-            font-weight: 700; margin-bottom: 10px; outline: none;
+            font-weight: 900; margin-bottom: 10px; outline: none;
         }
-        .input-nombre::placeholder { color: #5a7a9a; }
+        .input-nombre::placeholder { color: #5a7a9a; font-weight: 700; }
 
         .destino-info { margin-bottom: 10px; }
-        .destino-label { font-size: 10px; color: #8a99ad; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+        .destino-label { font-size: 10px; color: #8a99ad; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; }
         .destino-nombre { font-size: 14px; font-weight: 900; color: var(--neon-yellow); margin-top: 2px; }
 
         .selector-asientos { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
         .asientos-btn-group { display: flex; gap: 8px; }
+        
+        /* Botones de asientos sin marcar por defecto */
         .btn-seat {
-            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-            color: #fff; width: 36px; height: 36px; border-radius: 10px;
-            font-weight: 800; cursor: pointer; transition: 0.2s;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
+            color: #fff; width: 38px; height: 38px; border-radius: 10px;
+            font-weight: 900; cursor: pointer; transition: 0.2s; font-size: 14px;
         }
         .btn-seat.selected {
             background: var(--neon-cyan); color: #000; border-color: var(--neon-cyan);
-            box-shadow: 0 0 10px var(--neon-cyan);
+            box-shadow: 0 0 12px var(--neon-cyan);
         }
 
         .btn-solicitar {
             width: 100%; background: linear-gradient(135deg, var(--neon-cyan) 0%, #0088cc 100%);
             color: #000; border: none; padding: 14px; border-radius: 14px;
             font-size: 15px; font-weight: 900; cursor: pointer;
-            box-shadow: 0 0 20px rgba(0, 243, 255, 0.4); transition: transform 0.2s;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
         }
-        .btn-solicitar:active { transform: scale(0.97); }
+
+        /* TARJETA DE ESTADO EN VIVO (CUANDO EL CHOFER ATIENDE) */
+        #panel-estado-viaje {
+            display: none; text-align: center; padding: 6px;
+        }
+        #panel-estado-viaje h3 { color: var(--neon-green); font-size: 15px; font-weight: 900; margin-bottom: 6px; }
+        #panel-estado-viaje p { font-size: 13px; font-weight: 800; color: #fff; line-height: 1.4; margin-bottom: 4px; }
+        #panel-estado-viaje span { color: var(--neon-yellow); }
     </style>
 </head>
 <body>
@@ -117,6 +122,7 @@
         <div id="map"></div>
     </div>
 
+    <!-- TARJETA SUPERIOR -->
     <div class="top-card">
         <div class="top-row">
             <label>📍 Elige tu Destino</label>
@@ -128,26 +134,38 @@
         </select>
     </div>
 
+    <!-- TARJETA INFERIOR -->
     <div class="bottom-card">
-        <!-- Campo obligatorio para el nombre -->
-        <input type="text" id="input-nombre-pasajero" class="input-nombre" placeholder="Escribe tu Nombre y Apellido *" autocomplete="name">
+        
+        <!-- VISTA DE FORMULARIO DE RESERVA -->
+        <div id="form-reserva-container">
+            <input type="text" id="input-nombre-pasajero" class="input-nombre" placeholder="Escribe tu Nombre y Apellido *" autocomplete="name">
 
-        <div class="destino-info">
-            <div class="destino-label">Destino seleccionado</div>
-            <div id="txt-destino-seleccionado" class="destino-nombre">Ninguno (Toca una parada)</div>
-        </div>
-
-        <div class="selector-asientos">
-            <span style="font-size: 12px; font-weight: 800;">Asientos:</span>
-            <div class="asientos-btn-group">
-                <button id="seat-1" class="btn-seat selected" onclick="setAsientos(1)">1</button>
-                <button id="seat-2" class="btn-seat" onclick="setAsientos(2)">2</button>
-                <button id="seat-3" class="btn-seat" onclick="setAsientos(3)">3</button>
-                <button id="seat-4" class="btn-seat" onclick="setAsientos(4)">4</button>
+            <div class="destino-info">
+                <div class="destino-label">Destino seleccionado</div>
+                <div id="txt-destino-seleccionado" class="destino-nombre">Ninguno (Toca una parada)</div>
             </div>
+
+            <div class="selector-asientos">
+                <span style="font-size: 12px; font-weight: 900;">Elige tus asientos:</span>
+                <div class="asientos-btn-group">
+                    <button id="seat-1" class="btn-seat" onclick="setAsientos(1)">1</button>
+                    <button id="seat-2" class="btn-seat" onclick="setAsientos(2)">2</button>
+                    <button id="seat-3" class="btn-seat" onclick="setAsientos(3)">3</button>
+                    <button id="seat-4" class="btn-seat" onclick="setAsientos(4)">4</button>
+                </div>
+            </div>
+
+            <button id="btn-pedir" class="btn-solicitar" onclick="solicitarReserva()">RESERVAR VIAJE</button>
         </div>
 
-        <button id="btn-pedir" class="btn-solicitar" onclick="solicitarReserva()">RESERVAR VIAJE</button>
+        <!-- VISTA DE ESTADO EN VIVO (CUANDO EL CHOFER TOMA EL VIAJE) -->
+        <div id="panel-estado-viaje">
+            <h3 id="txt-estado-titulo">🚗 ¡MÓVIL ASIGNADO!</h3>
+            <p id="txt-info-chofer">Buscando datos del conductor...</p>
+            <p style="font-size: 11px; color: #a0b0c0; margin-top: 8px;">El chofer se dirige hacia tu ubicación.</p>
+        </div>
+
     </div>
 
     <!-- Scripts CDN -->
@@ -155,7 +173,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        // Configuración protegida y acotada al flujo de la app
         const SUPABASE_URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE';
         const _s = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -202,6 +219,8 @@
         let map, paradaSeleccionada = null, cantidadAsientos = 1, sentidoPasajero = 'IDA';
         let marcadores = [];
         let ubicacionSubidaTexto = "Cruce Derqui";
+        let miReservaID = null;
+        let marcadorAutoChofer = null;
 
         window.addEventListener('DOMContentLoaded', () => {
             map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
@@ -257,7 +276,6 @@
 
                     ubicacionSubidaTexto = paradaCercana.n;
                     document.getElementById('txt-subida').innerText = ubicacionSubidaTexto;
-
                 }, () => {
                     document.getElementById('txt-subida').innerText = "Cruce Derqui";
                 }, { enableHighAccuracy: true });
@@ -288,6 +306,7 @@
             confirmarParada(parseInt(id));
         }
 
+        // Selección limpia de asientos
         function setAsientos(num) {
             cantidadAsientos = num;
             document.querySelectorAll('.btn-seat').forEach(b => b.classList.remove('selected'));
@@ -297,13 +316,13 @@
         async function solicitarReserva() {
             const nombrePasajero = document.getElementById('input-nombre-pasajero').value.trim();
             if (!nombrePasajero) {
-                alert("Por favor escribe tu Nombre y Apellido para que el chofer te reconozca.");
+                alert("Por favor escribe tu Nombre y Apellido.");
                 document.getElementById('input-nombre-pasajero').focus();
                 return;
             }
 
             if (!paradaSeleccionada) {
-                alert("Por favor selecciona una parada de destino tocando en el mapa.");
+                alert("Por favor selecciona una parada de destino.");
                 return;
             }
 
@@ -312,7 +331,6 @@
             btnPedir.disabled = true;
 
             try {
-                // 1. Buscar móvil online en el sentido correcto
                 const { data: moviles, error: errMovil } = await _s
                     .from('estado_movil')
                     .select('*')
@@ -329,8 +347,7 @@
 
                 const movilAsignado = moviles[0];
 
-                // 2. Insertar reserva con el nombre real del pasajero, punto de subida y destino
-                const { error: errReserva } = await _s
+                const { data: resData, error: errReserva } = await _s
                     .from('reservas_activas')
                     .insert({
                         id_movil: movilAsignado.id,
@@ -339,20 +356,82 @@
                         asientos: cantidadAsientos,
                         sentido: sentidoPasajero,
                         estado: 'en_curso'
-                    });
+                    })
+                    .select()
+                    .single();
 
                 if (errReserva) throw errReserva;
 
-                alert(`¡VIAJE CONFIRMADO, ${nombrePasajero}!\n\nMóvil asignado: Coche #${movilAsignado.id}\nSubida: ${ubicacionSubidaTexto}\nDestino: ${paradaSeleccionada.n}\nAsientos: ${cantidadAsientos}`);
-                
-                btnPedir.innerText = "RESERVAR VIAJE";
-                btnPedir.disabled = false;
+                miReservaID = resData.id;
+
+                // Ocultar formulario y mostrar tarjeta de estado en vivo
+                document.getElementById('form-reserva-container').style.display = 'none';
+                document.getElementById('panel-estado-viaje').style.display = 'block';
+                document.getElementById('txt-info-chofer').innerText = "Buscando al chofer y esperando confirmación...";
+
+                // Iniciar escucha del estado de nuestra reserva y ubicación del auto en tiempo real
+                setInterval(verificarEstadoViajeYAuto, 3000);
 
             } catch (e) {
                 console.error(e);
-                alert("Error de conexión. Asegúrate de tener conexión a internet.");
+                alert("Error de conexión.");
                 btnPedir.innerText = "RESERVAR VIAJE";
                 btnPedir.disabled = false;
+            }
+        }
+
+        // Bucle para revisar si el chofer atendió, ver su posición en el mapa y reiniciar si finaliza
+        async function verificarEstadoViajeYAuto() {
+            if (!miReservaID) return;
+
+            try {
+                // 1. Revisar estado de la reserva
+                const { data: reserva, error } = await _s
+                    .from('reservas_activas')
+                    .select('*')
+                    .eq('id', miReservaID)
+                    .single();
+
+                if (error || !reserva || reserva.estado === 'finalizado') {
+                    alert("El viaje ha finalizado. La aplicación se reiniciará.");
+                    location.reload(); // Reinicio automático de la app del pasajero
+                    return;
+                }
+
+                if (reserva.estado === 'atendido' || reserva.estado === 'en_camino') {
+                    document.getElementById('txt-estado-titulo').innerText = "🚗 ¡EN CAMINO A BUSCARTE!";
+                    document.getElementById('txt-info-chofer').innerHTML = `
+                        Chofer: <b>${reserva.chofer_nombre || 'Conductor'}</b><br>
+                        Auto: <b>${reserva.auto_modelo || 'Vehículo'}</b><br>
+                        Patente: <span>${reserva.patente || 'N/D'}</span>
+                    `;
+
+                    // 2. Obtener la ubicación en vivo del auto del chofer
+                    const { data: movilInfo } = await _s
+                        .from('estado_movil')
+                        .select('*')
+                        .eq('id', reserva.id_movil)
+                        .single();
+
+                    if (movilInfo && movilInfo.latitud && movilInfo.longitud) {
+                        const lat = movilInfo.latitud;
+                        const lon = movilInfo.longitud;
+
+                        if (!marcadorAutoChofer) {
+                            marcadorAutoChofer = L.marker([lat, lon], {
+                                icon: L.divIcon({
+                                    className: 'custom-car-marker',
+                                    html: '<div style="background:#ffcc00; width:22px; height:22px; border-radius:50%; border:3px solid #000; box-shadow:0 0 15px #ffcc00; text-align:center; font-size:10px; font-weight:900; line-height:16px;">🚗</div>',
+                                    iconSize: [22, 22]
+                                })
+                            }).addTo(map);
+                        } else {
+                            marcadorAutoChofer.setLatLng([lat, lon]);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Error sincronizando viaje:", e);
             }
         }
     </script>
