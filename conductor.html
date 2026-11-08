@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tu Móvil - Panel Chofer</title>
+    <title>Panel Chofer - Tu Móvil</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -81,6 +81,7 @@
         }
 
         .connection-status { display: flex; align-items: center; gap: 8px; }
+        /* Switch */
         .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider {
@@ -97,8 +98,8 @@
 
         .header-right-controls { display: flex; align-items: center; gap: 8px; }
         .recaudacion-flotante-box { background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 10px; font-size: 12px; font-weight: 800; color: var(--neon-green); border: 1px solid rgba(57,255,20,0.3); }
-        .speed-box-top { background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 10px; font-size: 14px; font-weight: 900; color: var(--neon-cyan); border: 1px solid var(--glass-border); text-align: center; }
-        .speed-unit { font-size: 8px; color: #8a99ad; display: block; }
+        .speed-box-top { background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 10px; font-size: 14px; font-weight: 900; color: var(--neon-cyan); border: 1px solid var(--glass-border); }
+        .speed-unit { font-size: 8px; color: #8a99ad; display: block; text-align: center; }
         #btn-sentido {
             background: linear-gradient(135deg, var(--neon-yellow) 0%, #ff9900 100%);
             border: none; padding: 8px 14px; border-radius: 12px;
@@ -119,23 +120,13 @@
             box-shadow: 0 6px 20px rgba(0,0,0,0.6); transition: 0.2s;
         }
         .pill.ocupado {
-            background: rgba(0, 243, 255, 0.2); border-color: var(--neon-cyan);
-            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+            background: rgba(0, 243, 255, 0.15); border-color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
         }
         .seat-num { font-size: 10px; font-weight: 800; color: #8a99ad; display: block; }
         .pill.ocupado .seat-num { color: var(--neon-cyan); }
         .nombre-pax { font-size: 11px; font-weight: 900; color: #fff; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 2px 0; }
         .destino-pax { font-size: 9px; color: var(--neon-yellow); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        /* Estilo avanzado para el marcador del auto con luces de neón */
-        .cyber-car-marker {
-            background: radial-gradient(circle, rgba(255,204,0,1) 0%, rgba(255,100,0,0.8) 70%);
-            width: 32px; height: 32px; border-radius: 50%;
-            border: 2px solid var(--neon-cyan);
-            box-shadow: 0 0 20px var(--neon-cyan), 0 0 10px var(--neon-yellow);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 14px; font-weight: 900; text-align: center;
-        }
     </style>
 </head>
 <body>
@@ -165,7 +156,7 @@
         </div>
     </div>
 
-    <!-- ALERTA FLOTANTE DE RESERVAS -->
+    <!-- ALERTA FLOTANTE DE RESERVA -->
     <div id="alerta-reserva" class="alerta-reserva">
         <h2>🚨 ¡NUEVA RESERVA!</h2>
         <p id="alerta-texto">Cargando...</p>
@@ -229,6 +220,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+    <!-- SCRIPT DE LÓGICA UNIFICADO -->
     <script>
         const SUPABASE_URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE';
@@ -374,14 +366,13 @@
 
                     document.getElementById('txt-velocidad').innerText = vel;
 
-                    // Marcador de auto 3D avanzado con efectos de luz y faros neón
+                    // Marcador original tuyo con el auto en el mapa
                     if (!marcadorChofer) {
                         marcadorChofer = L.marker([lat, lon], {
                             icon: L.divIcon({
                                 className: 'custom-driver-marker',
-                                html: '<div class="cyber-car-marker">🚗</div>',
-                                iconSize: [32, 32],
-                                iconAnchor: [16, 16]
+                                html: '<div style="background:#00f3ff; width:18px; height:18px; border-radius:50%; border:3px solid #000; box-shadow:0 0 12px #00f3ff;"></div>',
+                                iconSize: [18, 18]
                             })
                         }).addTo(map);
                     } else {
@@ -404,9 +395,9 @@
         async function actualizarPosicionSupabase(lat, lon) {
             await _s.from('estado_movil').upsert({
                 id: miIdMovil,
-                chofer: datosChofer.nombre || 'Carlos Cuevas',
+                chofer: datosChofer.nombre || 'Chofer 1',
                 patente: datosChofer.patente || 'JCP 478',
-                auto: datosChofer.auto || 'Ford Fiesta',
+                auto: datosChofer.auto || 'Fiesta',
                 esta_online: estaOnline,
                 latitud: lat,
                 longitud: lon,
@@ -447,7 +438,7 @@
                         document.getElementById('alerta-texto').innerHTML = `
                             <b>Pasajero:</b> ${r.nombre_pasajero}<br>
                             <b>Ruta:</b> ${r.destino}<br>
-                            <b>Asientos solicitados:</b> ${r.asientos}
+                            <b>Asientos:</b> ${r.asientos}
                         `;
 
                         document.getElementById('alerta-reserva').style.display = 'block';
@@ -459,7 +450,7 @@
             }
         }
 
-        // Asignación automática en bloque de los asientos solicitados
+        // ATENDER SOLICITUD: Ocupa automáticamente en bloque todos los asientos que pidió el pasajero
         async function atenderSolicitud() {
             if (!reservaPendiente) return;
 
@@ -497,30 +488,33 @@
             }
         }
 
-        // Gestión unificada y en bloque de los asientos (sin alertas nativas grises)
+        // GESTIÓN DE ASIENTOS EN BLOQUE (SIN ALERTAS NATIVAS)
         async function gestionarAsiento(numSeat) {
             const seat = asientos[numSeat];
+
             if (!seat.ocupado || !seat.idReserva) return;
 
             const idReservaActual = seat.idReserva;
 
             if (seat.estado === 'atendido' || !seat.estado) {
-                // Marcar en bloque todos los asientos de esta reserva como "a_bordo"
+                // Primer toque: Marcar TODOS los asientos de esta reserva como "A BORDO" en bloque automático
                 for (let i = 1; i <= 4; i++) {
                     if (asientos[i].idReserva === idReservaActual) {
                         asientos[i].estado = 'a_bordo';
                     }
                 }
 
-                await _s.from('reservas_activas')
+                await _s
+                    .from('reservas_activas')
                     .update({ estado: 'a_bordo' })
                     .eq('id', idReservaActual);
 
                 actualizarPillsUI();
 
             } else if (seat.estado === 'a_bordo') {
-                // Finalizar y liberar en bloque todos los asientos vinculados a esta reserva
-                await _s.from('reservas_activas')
+                // Segundo toque: Finalizar y liberar TODOS los asientos de esta reserva en bloque automático
+                await _s
+                    .from('reservas_activas')
                     .update({ estado: 'finalizado' })
                     .eq('id', idReservaActual);
 
@@ -535,6 +529,8 @@
         }
 
         function actualizarPillsUI() {
+            let cantPax = 0;
+
             for (let i = 1; i <= 4; i++) {
                 const pill = document.getElementById(`pill${i}`);
                 const nombreEl = document.getElementById(`nombre-pax-${i}`);
@@ -542,6 +538,7 @@
                 const seat = asientos[i];
 
                 if (seat.ocupado) {
+                    cantPax++;
                     pill.classList.add('ocupado');
                     nombreEl.innerText = seat.nombre;
                     destinoEl.innerText = seat.estado === 'a_bordo' ? '🚀 A BORDO' : '🚗 EN CAMINO';
