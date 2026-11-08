@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tu Móvil - Cargando</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000; /* Fondo negro para que resalte la imagen */
+            overflow: hidden;
+        }
+
+        .splash-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .splash-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Ajusta la imagen sin deformarla */
+        }
+    </style>
+</head>
+<body>
+    <div class="splash-container">
+        <!-- Reemplaza URL_DE_TU_IMAGEN_AQUI con el enlace directo a tu imagen en alta resolución -->
+        <img src="URL_DE_TU_IMAGEN_AQUI" alt="Cargando Tu Móvil" class="splash-image">
+    </div>
+
+    <script>
+        // Configuración del tiempo de espera en milisegundos (5000ms = 5 segundos)
+        const tiempoDeEspera = 5000;
+        
+        // URL de destino (tu app principal)
+        const urlDestino = 'index.html'; // Cambia esto si tu archivo principal tiene otro nombre, ej: 'conductor.html'
+
+        // Redirección automática después del tiempo establecido
+        setTimeout(() => {
+            window.location.href = urlDestino;
+        }, tiempoDeEspera);
+    </script>
+</body>
+</html>
