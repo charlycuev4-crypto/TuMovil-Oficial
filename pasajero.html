@@ -1,1 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tu Móvil - Pasajero</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --bg-dark: #05070a;
+            --neon-cyan: #00f3ff;
+            --neon-yellow: #ffcc00;
+            --neon-green: #39ff14;
+            --glass-bg: rgba(10, 16, 26, 0.85);
+            --glass-border: rgba(0, 243, 255, 0.3);
+        }
 
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background: var(--bg-dark); height: 100vh; overflow: hidden; color: #fff; }
+
+        #map-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #map { width: 100%; height: 100%; }
+
+        /* HEADER FLOTANTE CON BUSCADOR/LISTA */
+        .top-card {
+            position: absolute; top: env(safe-area-inset-top, 16px); left: 16px; right: 16px;
+            z-index: 1000; background: var(--glass-bg);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            padding: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+        }
+        
+        .top-card label { display: block; font-size: 11px; font-weight: 800; color: var(--neon-cyan); letter-spacing: 1px; margin-bottom: 6px; text-transform: uppercase; }
+        .select-parada {
+            width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(0, 243, 255, 0.3);
+            color: #fff; padding: 12px; border-radius: 12px; font-size: 14px; outline: none;
+        }
+
+        /* POPUP DEL MAPA FUTURISTA */
+        .leaflet-popup-content-wrapper {
+            background: rgba(10, 16, 26, 0.95) !important;
+            border: 1px solid var(--neon-cyan) !important;
+            color: #fff !important; border-radius: 16px !important;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.3) !important;
+        }
+        .leaflet-popup-tip { background: rgba(10, 16, 26, 0.95) !important; }
+        
+        .popup-content { text-align: center; padding: 4px; }
+        .popup-title { font-size: 13px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+        .btn-popup-select {
+            background: linear-gradient(135deg, var(--neon-green) 0%, #208d13 100%);
+            color: #000; border: none; padding: 8px 14px; border-radius: 10px;
+            font-weight: 900; font-size: 12px; cursor: pointer; width: 100%;
+            box-shadow: 0 0 10px rgba(57, 255, 20, 0.4);
+        }
+
+        /* PANEL INFERIOR DE CONFIRMACIÓN */
+        .bottom-card {
+            position: absolute; bottom: env(safe-area-inset-bottom, 20px); left: 16px; right: 16px;
+            z-index: 1000; background: var(--glass-bg);
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border); border-radius: 24px;
+            padding: 18px; box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+
+        .destino-info { margin-bottom: 14px; }
+        .destino-label { font-size: 10px; color: #8a99ad; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+        .destino-nombre { font-size: 16px; font-weight: 900; color: var(--neon-yellow); margin-top: 2px; }
+
+        .selector-asientos { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .asientos-btn-group { display: flex; gap: 8px; }
+        .btn-seat {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            color: #fff; width: 40px; height: 40px; border-radius: 12px;
+            font-weight: 800; cursor: pointer; transition: 0.2s;
+        }
+        .btn-seat.selected {
+            background: var(--neon-cyan); color: #000; border-color: var(--neon-cyan);
+            box-shadow: 0 0 12px var(--neon-cyan);
+        }
+
+        .btn-solicitar {
+            width: 100%; background: linear-gradient(135deg, var(--neon-cyan) 0%, #0088cc 100%);
+            color: #000; border: none; padding: 16px; border-radius: 16px;
+            font-size: 16px; font-weight: 900; cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.4); transition: transform 0.2s;
+        }
+        .btn-solicitar:active { transform: scale(0.97); }
+    </style>
+</head>
+<body>
+
+    <!-- MAPA -->
+    <div id="map-wrapper">
+        <div id="map"></div>
+    </div>
+
+    <!-- LISTA DESPLEGABLE SUPERIOR DE RESPALDO -->
+    <div class="top-card">
+        <label>📍 Selecciona tu Parada de Destino</label>
+        <select id="select-paradas" class="select-parada" onchange="seleccionarParadaDesdeLista(this.value)">
+            <option value="">Tocá una parada en el mapa o elegí de aquí...</option>
+        </select>
+    </div>
+
+    <!-- PANEL INFERIOR PARA PEDIR EL VIAJE -->
+    <div class="bottom-card">
+        <div class="destino-info">
+            <div class="destino-label">Destino seleccionado</div>
+            <div id="txt-destino-seleccionado" class="destino-nombre">Ninguno (Toca una parada)</div>
+        </div>
+
+        <div class="selector-asientos">
+            <span style="font-size: 13px; font-weight: 800;">Asientos:</span>
+            <div class="asientos-btn-group">
+                <button class="btn-seat selected" onclick="setAsientos(1, this)">1</button>
+                <button class="btn-seat" onclick="setAsientos(2, this)">2</button>
+                <button class="btn-seat" onclick="setAsientos(3, this)">3</button>
+                <button class="btn-seat" onclick="setAsientos(4, this)">4</button>
+            </div>
+        </div>
+
+        <button id="btn-pedir" class="btn-solicitar" onclick="solicitarReserva()">RESERVAR VIAJE</button>
+    </div>
+
+    <!-- Scripts CDN -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
+
+        const paradas = [
+            { id: 1, n: 'Av. Derqui y P197 (Cruce Derqui)', c: [-34.537898, -58.794848] },
+            { id: 2, n: 'Fray Antonio Marchena y Carlos Eberth', c: [-34.539274, -58.793441] },
+            { id: 3, n: 'Fray Antonio Marchena y Descartes', c: [-34.540553, -58.792168] },
+            { id: 4, n: 'Av. Derqui y Gral. Juan Lavalle', c: [-34.541319, -58.791487] },
+            { id: 5, n: 'Av. Derqui y José C. Paz', c: [-34.542679, -58.790175] },
+            { id: 6, n: 'Av. Derqui y Av. José Altuve', c: [-34.544123, -58.788772] },
+            { id: 7, n: 'Av. Derqui y Dr. Enrique Finochietto', c: [-34.545472, -58.787421] },
+            { id: 8, n: 'Universidad Tecnológica Robotics', c: [-34.548500, -58.784200] },
+            { id: 9, n: 'Parque Industrial', c: [-34.552000, -58.780800] },
+            { id: 10, n: 'Base Aérea (Entrada Cuartel V)', c: [-34.555000, -58.778000] },
+            { id: 11, n: 'Av. Derqui y C. Bartolomé Hidalgo', c: [-34.557029, -58.776122] },
+            { id: 12, n: 'Fray Antonio Marchena y Pedro de Mendoza', c: [-34.558350, -58.774500] },
+            { id: 13, n: 'Fray Antonio Marchena y Marcos Paz', c: [-34.559853, -58.772330] },
+            { id: 14, n: 'Fray Antonio Marchena y Miguel Cané', c: [-34.561176, -58.770641] },
+            { id: 15, n: 'Los Aromos y Santander', c: [-34.562495, -58.772093] },
+            { id: 16, n: 'Los Aromos y Murillo', c: [-34.564006, -58.773679] },
+            { id: 17, n: 'Murillo y Moctezuma', c: [-34.565289, -58.772213] },
+            { id: 18, n: 'Murillo y Güiraldes', c: [-34.567268, -58.769484] },
+            { id: 19, n: 'Murillo y Watt', c: [-34.569090, -58.767095] },
+            { id: 20, n: 'A. Prado 2555', c: [-34.571016, -58.764443] },
+            { id: 21, n: 'Prado y Payró', c: [-34.571956, -58.763201] },
+            { id: 22, n: 'Prado 1744', c: [-34.577371, -58.755909] },
+            { id: 23, n: 'Boulevard Caveri', c: [-34.578528, -58.757064] },
+            { id: 24, n: 'Caveri y Azara', c: [-34.579296, -58.755864] },
+            { id: 25, n: 'Caveri y Vedia', c: [-34.580020, -58.755063] },
+            { id: 26, n: 'Caveri y Tablada', c: [-34.580901, -58.753842] },
+            { id: 27, n: 'Caveri y Echeverría', c: [-34.581998, -58.752441] },
+            { id: 28, n: 'Caveri y Gálvez', c: [-34.583319, -58.750710] },
+            { id: 29, n: 'Caveri (Final)', c: [-34.584740, -58.748804] },
+            { id: 30, n: 'Libertador y Aero', c: [-34.585554, -58.749812] },
+            { id: 31, n: 'Libertador 7300', c: [-34.586494, -58.750574] },
+            { id: 32, n: 'Libertador 7200', c: [-34.588041, -58.751542] },
+            { id: 33, n: 'Libertador y Maza', c: [-34.588273, -58.751338] },
+            { id: 34, n: 'Maza y Albatros', c: [-34.588771, -58.750804] },
+            { id: 35, n: 'Maternidad', c: [-34.588244, -58.749877] },
+            { id: 36, n: 'Abasto y Roca', c: [-34.586030, -58.747278] }
+        ];
+
+        let map, paradaSeleccionada = null, cantidadAsientos = 1;
+        let marcadores = [];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+            // Cargar paradas en la lista desplegable y en el mapa
+            const select = document.getElementById('select-paradas');
+
+            paradas.forEach((p) => {
+                // Opción en el select
+                let opt = document.createElement('option');
+                opt.value = p.id;
+                opt.innerText = p.n;
+                select.appendChild(opt);
+
+                // Marcador visual e interactivo en el mapa
+                let circle = L.circleMarker(p.c, {
+                    radius: 8, color: '#000', weight: 2,
+                    fillColor: '#00f3ff', fillOpacity: 0.9
+                }).addTo(map);
+
+                // Popup interactivo al hacer clic
+                const popupHTML = `
+                    <div class="popup-content">
+                        <div class="popup-title">${p.n}</div>
+                        <button class="btn-popup-select" onclick="confirmarParada(${p.id})">Elegir como Destino</button>
+                    </div>
+                `;
+                circle.bindPopup(popupHTML);
+                marcadores[p.id] = circle;
+            });
+        });
+
+        function confirmarParada(id) {
+            paradaSeleccionada = paradas.find(p => p.id === id);
+            document.getElementById('txt-destino-seleccionado').innerText = paradaSeleccionada.n;
+            document.getElementById('select-paradas').value = id;
+
+            // Resaltar marcador seleccionado
+            marcadores.forEach(m => m.setStyle({ fillColor: '#00f3ff', radius: 8 }));
+            marcadores[id].setStyle({ fillColor: '#ffcc00', radius: 12 });
+            map.closePopup();
+            map.panTo(paradaSeleccionada.c);
+        }
+
+        function seleccionarParadaDesdeLista(id) {
+            if (!id) return;
+            confirmarParada(parseInt(id));
+        }
+
+        function setAsientos(num, btn) {
+            cantidadAsientos = num;
+            document.querySelectorAll('.btn-seat').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        }
+
+        async function solicitarReserva() {
+            if (!paradaSeleccionada) {
+                alert("Por favor selecciona una parada tocando en el mapa.");
+                return;
+            }
+            alert(`¡Reserva enviada para ${paradaSeleccionada.n} (${cantidadAsientos} asiento/s)!`);
+        }
+    </script>
+</body>
+</html>
