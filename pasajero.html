@@ -14,7 +14,7 @@
             --neon-cyan: #00f3ff;
             --neon-yellow: #ffcc00;
             --neon-green: #39ff14;
-            --glass-bg: rgba(10, 16, 26, 0.92);
+            --glass-bg: rgba(10, 16, 26, 0.95);
             --glass-border: rgba(0, 243, 255, 0.3);
         }
 
@@ -66,7 +66,7 @@
             font-weight: 900; font-size: 12px; cursor: pointer; width: 100%;
         }
 
-        /* TARJETA INFERIOR (PANEL DE RESERVA Y ESTADO EN VIVO) */
+        /* TARJETA INFERIOR */
         .bottom-card {
             position: absolute; bottom: env(safe-area-inset-bottom, 20px); left: 16px; right: 16px;
             z-index: 1000; background: var(--glass-bg);
@@ -89,12 +89,12 @@
         .selector-asientos { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
         .asientos-btn-group { display: flex; gap: 8px; }
         
-        /* Botones de asientos sin marcar por defecto */
         .btn-seat {
             background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
             color: #fff; width: 38px; height: 38px; border-radius: 10px;
             font-weight: 900; cursor: pointer; transition: 0.2s; font-size: 14px;
         }
+        /* Selecciona este y todos los anteriores en celeste */
         .btn-seat.selected {
             background: var(--neon-cyan); color: #000; border-color: var(--neon-cyan);
             box-shadow: 0 0 12px var(--neon-cyan);
@@ -107,7 +107,7 @@
             box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
         }
 
-        /* TARJETA DE ESTADO EN VIVO (CUANDO EL CHOFER ATIENDE) */
+        /* PANEL DE ESTADO EN VIVO */
         #panel-estado-viaje {
             display: none; text-align: center; padding: 6px;
         }
@@ -137,7 +137,6 @@
     <!-- TARJETA INFERIOR -->
     <div class="bottom-card">
         
-        <!-- VISTA DE FORMULARIO DE RESERVA -->
         <div id="form-reserva-container">
             <input type="text" id="input-nombre-pasajero" class="input-nombre" placeholder="Escribe tu Nombre y Apellido *" autocomplete="name">
 
@@ -159,11 +158,9 @@
             <button id="btn-pedir" class="btn-solicitar" onclick="solicitarReserva()">RESERVAR VIAJE</button>
         </div>
 
-        <!-- VISTA DE ESTADO EN VIVO (CUANDO EL CHOFER TOMA EL VIAJE) -->
         <div id="panel-estado-viaje">
             <h3 id="txt-estado-titulo">🚗 ¡MÓVIL ASIGNADO!</h3>
-            <p id="txt-info-chofer">Buscando datos del conductor...</p>
-            <p style="font-size: 11px; color: #a0b0c0; margin-top: 8px;">El chofer se dirige hacia tu ubicación.</p>
+            <p id="txt-info-chofer">Buscando al chofer y esperando confirmación...</p>
         </div>
 
     </div>
@@ -224,10 +221,10 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}'].addTo(map); // (Mantener tile layer estándar)
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
             const select = document.getElementById('select-paradas');
-
             paradas.forEach((p) => {
                 let opt = document.createElement('option');
                 opt.value = p.id;
@@ -239,30 +236,20 @@
                     fillColor: '#00f3ff', fillOpacity: 0.9
                 }).addTo(map);
 
-                const popupHTML = `
+                circle.bindPopup(`
                     <div class="popup-content">
                         <div class="popup-title">${p.n}</div>
                         <button class="btn-popup-select" onclick="confirmarParada(${p.id})">Elegir como Destino</button>
                     </div>
-                `;
-                circle.bindPopup(popupHTML);
+                `);
                 marcadores[p.id] = circle;
             });
 
-            // GPS automático para subida
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition((pos) => {
                     const lat = pos.coords.latitude;
                     const lon = pos.coords.longitude;
                     map.setView([lat, lon], 16);
-
-                    L.marker([lat, lon], {
-                        icon: L.divIcon({
-                            className: 'custom-pax-marker',
-                            html: '<div style="background:#39ff14; width:16px; height:16px; border-radius:50%; border:3px solid #000; box-shadow:0 0 10px #39ff14;"></div>',
-                            iconSize: [16, 16]
-                        })
-                    }).addTo(map);
 
                     let paradaCercana = paradas[0];
                     let menorDistancia = 999999;
@@ -273,13 +260,13 @@
                             paradaCercana = p;
                         }
                     });
-
                     ubicacionSubidaTexto = paradaCercana.n;
                     document.getElementById('txt-subida').innerText = ubicacionSubidaTexto;
-                }, () => {
-                    document.getElementById('txt-subida').innerText = "Cruce Derqui";
-                }, { enableHighAccuracy: true });
+                }, () => {}, { enableHighAccuracy: true });
             }
+
+            // Seleccionar por defecto el asiento 1 al cargar
+            setAsientos(1);
         });
 
         function cambiarSentidoPasajero() {
@@ -294,9 +281,6 @@
             paradaSeleccionada = paradas.find(p => p.id === id);
             document.getElementById('txt-destino-seleccionado').innerText = `${paradaSeleccionada.n} (${sentidoPasajero})`;
             document.getElementById('select-paradas').value = id;
-
-            marcadores.forEach(m => m.setStyle({ fillColor: '#00f3ff', radius: 8 }));
-            marcadores[id].setStyle({ fillColor: '#ffcc00', radius: 12 });
             map.closePopup();
             map.panTo(paradaSeleccionada.c);
         }
@@ -306,21 +290,25 @@
             confirmarParada(parseInt(id));
         }
 
-        // Selección limpia de asientos
+        // Selección múltiple de asientos (ej: si elige 2, se pintan 1 y 2)
         function setAsientos(num) {
             cantidadAsientos = num;
-            document.querySelectorAll('.btn-seat').forEach(b => b.classList.remove('selected'));
-            document.getElementById('seat-' + num).classList.add('selected');
+            for (let i = 1; i <= 4; i++) {
+                const btn = document.getElementById('seat-' + i);
+                if (i <= num) {
+                    btn.classList.add('selected');
+                } else {
+                    btn.classList.remove('selected');
+                }
+            }
         }
 
         async function solicitarReserva() {
             const nombrePasajero = document.getElementById('input-nombre-pasajero').value.trim();
             if (!nombrePasajero) {
                 alert("Por favor escribe tu Nombre y Apellido.");
-                document.getElementById('input-nombre-pasajero').focus();
                 return;
             }
-
             if (!paradaSeleccionada) {
                 alert("Por favor selecciona una parada de destino.");
                 return;
@@ -339,7 +327,7 @@
                     .limit(1);
 
                 if (errMovil || !moviles || moviles.length === 0) {
-                    alert("No hay móviles disponibles en sentido " + sentidoPasajero + " en este momento.");
+                    alert("No hay móviles disponibles en sentido " + sentidoPasajero);
                     btnPedir.innerText = "RESERVAR VIAJE";
                     btnPedir.disabled = false;
                     return;
@@ -364,12 +352,10 @@
 
                 miReservaID = resData.id;
 
-                // Ocultar formulario y mostrar tarjeta de estado en vivo
                 document.getElementById('form-reserva-container').style.display = 'none';
                 document.getElementById('panel-estado-viaje').style.display = 'block';
-                document.getElementById('txt-info-chofer').innerText = "Buscando al chofer y esperando confirmación...";
+                document.getElementById('txt-info-chofer').innerText = "Solicitud enviada. Esperando que el chofer acepte...";
 
-                // Iniciar escucha del estado de nuestra reserva y ubicación del auto en tiempo real
                 setInterval(verificarEstadoViajeYAuto, 3000);
 
             } catch (e) {
@@ -380,12 +366,10 @@
             }
         }
 
-        // Bucle para revisar si el chofer atendió, ver su posición en el mapa y reiniciar si finaliza
         async function verificarEstadoViajeYAuto() {
             if (!miReservaID) return;
 
             try {
-                // 1. Revisar estado de la reserva
                 const { data: reserva, error } = await _s
                     .from('reservas_activas')
                     .select('*')
@@ -394,44 +378,55 @@
 
                 if (error || !reserva || reserva.estado === 'finalizado') {
                     alert("El viaje ha finalizado. La aplicación se reiniciará.");
-                    location.reload(); // Reinicio automático de la app del pasajero
+                    location.reload();
                     return;
                 }
 
-                if (reserva.estado === 'atendido' || reserva.estado === 'en_camino') {
-                    document.getElementById('txt-estado-titulo').innerText = "🚗 ¡EN CAMINO A BUSCARTE!";
+                // Estado 1: Chofer atendió (en camino a buscar al pasajero)
+                if (reserva.estado === 'atendido') {
+                    document.getElementById('txt-estado-titulo').innerText = "🚗 ¡CHOFER EN CAMINO!";
                     document.getElementById('txt-info-chofer').innerHTML = `
-                        Chofer: <b>${reserva.chofer_nombre || 'Conductor'}</b><br>
+                        Conductor: <b>${reserva.chofer_nombre || 'Chofer'}</b><br>
                         Auto: <b>${reserva.auto_modelo || 'Vehículo'}</b><br>
-                        Patente: <span>${reserva.patente || 'N/D'}</span>
+                        Patente: <span>${reserva.patente || 'N/D'}</span><br><br>
+                        <i>El chofer va en camino a tu parada.</i>
                     `;
+                } 
+                // Estado 2: El chofer llegó y marcó pasajero a bordo
+                else if (reserva.estado === 'a_bordo') {
+                    document.getElementById('txt-estado-titulo').innerText = "🚀 ¡YA ESTÁS A BORDO!";
+                    document.getElementById('txt-info-chofer').innerHTML = `
+                        Conductor: <b>${reserva.chofer_nombre || 'Chofer'}</b><br>
+                        Auto: <b>${reserva.auto_modelo || 'Vehículo'}</b><br><br>
+                        <span style="color:var(--neon-green); font-size:14px;">¡En viaje rumbo a tu destino!</span>
+                    `;
+                }
 
-                    // 2. Obtener la ubicación en vivo del auto del chofer
-                    const { data: movilInfo } = await _s
-                        .from('estado_movil')
-                        .select('*')
-                        .eq('id', reserva.id_movil)
-                        .single();
+                // Posición del auto en tiempo real
+                const { data: movilInfo } = await _s
+                    .from('estado_movil')
+                    .select('*')
+                    .eq('id', reserva.id_movil)
+                    .single();
 
-                    if (movilInfo && movilInfo.latitud && movilInfo.longitud) {
-                        const lat = movilInfo.latitud;
-                        const lon = movilInfo.longitud;
+                if (movilInfo && movilInfo.latitud && movilInfo.longitud) {
+                    const lat = movilInfo.latitud;
+                    const lon = movilInfo.longitud;
 
-                        if (!marcadorAutoChofer) {
-                            marcadorAutoChofer = L.marker([lat, lon], {
-                                icon: L.divIcon({
-                                    className: 'custom-car-marker',
-                                    html: '<div style="background:#ffcc00; width:22px; height:22px; border-radius:50%; border:3px solid #000; box-shadow:0 0 15px #ffcc00; text-align:center; font-size:10px; font-weight:900; line-height:16px;">🚗</div>',
-                                    iconSize: [22, 22]
-                                })
-                            }).addTo(map);
-                        } else {
-                            marcadorAutoChofer.setLatLng([lat, lon]);
-                        }
+                    if (!marcadorAutoChofer) {
+                        marcadorAutoChofer = L.marker([lat, lon], {
+                            icon: L.divIcon({
+                                className: 'custom-car-marker',
+                                html: '<div style="background:#ffcc00; width:22px; height:22px; border-radius:50%; border:3px solid #000; box-shadow:0 0 15px #ffcc00; text-align:center; font-size:10px; font-weight:900; line-height:16px;">🚗</div>',
+                                iconSize: [22, 22]
+                            })
+                        }).addTo(map);
+                    } else {
+                        marcadorAutoChofer.setLatLng([lat, lon]);
                     }
                 }
             } catch (e) {
-                console.error("Error sincronizando viaje:", e);
+                console.error("Error:", e);
             }
         }
     </script>
