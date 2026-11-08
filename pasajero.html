@@ -126,10 +126,10 @@
         <div class="selector-asientos">
             <span style="font-size: 13px; font-weight: 800;">Asientos:</span>
             <div class="asientos-btn-group">
-                <button class="btn-seat selected" onclick="setAsientos(1, this)">1</button>
-                <button class="btn-seat" onclick="setAsientos(2, this)">2</button>
-                <button class="btn-seat" onclick="setAsientos(3, this)">3</button>
-                <button class="btn-seat" onclick="setAsientos(4, this)">4</button>
+                <button id="seat-1" class="btn-seat selected" onclick="setAsientos(1)">1</button>
+                <button id="seat-2" class="btn-seat" onclick="setAsientos(2)">2</button>
+                <button id="seat-3" class="btn-seat" onclick="setAsientos(3)">3</button>
+                <button id="seat-4" class="btn-seat" onclick="setAsientos(4)">4</button>
             </div>
         </div>
 
@@ -237,10 +237,10 @@
             confirmarParada(parseInt(id));
         }
 
-        function setAsientos(num, btn) {
+        function setAsientos(num) {
             cantidadAsientos = num;
             document.querySelectorAll('.btn-seat').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
+            document.getElementById('seat-' + num).classList.add('selected');
         }
 
         async function solicitarReserva() {
@@ -254,7 +254,7 @@
             btnPedir.disabled = true;
 
             try {
-                // 1. Buscar un móvil activo que esté en línea y en el mismo sentido
+                // Buscar móvil online en el sentido correcto
                 const { data: moviles, error: errMovil } = await _s
                     .from('estado_movil')
                     .select('*')
@@ -263,7 +263,7 @@
                     .limit(1);
 
                 if (errMovil || !moviles || moviles.length === 0) {
-                    alert("No hay móviles disponibles en este momento en sentido " + sentidoPasajero + ". Intenta nuevamente en unos segundos.");
+                    alert("No hay móviles disponibles en sentido " + sentidoPasajero + " en este momento.");
                     btnPedir.innerText = "RESERVAR VIAJE";
                     btnPedir.disabled = false;
                     return;
@@ -271,7 +271,7 @@
 
                 const movilAsignado = moviles[0];
 
-                // 2. Registrar la reserva en la base de datos para ese móvil
+                // Insertar reserva
                 const { error: errReserva } = await _s
                     .from('reservas_activas')
                     .insert({
@@ -287,13 +287,12 @@
 
                 alert(`¡VIAJE CONFIRMADO!\n\nMóvil asignado: Coche #${movilAsignado.id}\nDestino: ${paradaSeleccionada.n}\nAsientos: ${cantidadAsientos}`);
                 
-                // Limpiar selección
                 btnPedir.innerText = "RESERVAR VIAJE";
                 btnPedir.disabled = false;
 
             } catch (e) {
                 console.error(e);
-                alert("Hubo un error al conectar con el servidor. Inténtalo de nuevo.");
+                alert("Error de conexión. Asegúrate de que el chofer esté en línea y Supabase permita inserciones en 'reservas_activas'.");
                 btnPedir.innerText = "RESERVAR VIAJE";
                 btnPedir.disabled = false;
             }
