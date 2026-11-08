@@ -7,8 +7,93 @@
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Hoja de Estilos Externa -->
-    <link rel="stylesheet" href="style-conductor.css" />
+    
+    <style>
+        :root {
+            --bg-dark: #05070a;
+            --neon-cyan: #00f3ff;
+            --neon-yellow: #ffcc00;
+            --neon-green: #39ff14;
+            --neon-red: #ff0055;
+            --glass-bg: rgba(10, 16, 25, 0.85);
+            --glass-border: rgba(0, 243, 255, 0.3);
+            --glass-glow: rgba(0, 243, 255, 0.15);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body, html { width: 100%; height: 100%; background-color: var(--bg-dark); color: #fff; overflow: hidden; }
+
+        /* Login Overlay */
+        .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 7, 10, 0.95); z-index: 9999; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .login-card { background: var(--glass-bg); border: 1px solid var(--neon-cyan); box-shadow: 0 0 20px var(--glass-glow); padding: 30px; border-radius: 16px; width: 100%; max-width: 400px; text-align: center; }
+        .login-card h2 { color: var(--neon-cyan); margin-bottom: 10px; font-size: 22px; }
+        .login-card p { font-size: 14px; color: #aaa; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; text-align: left; }
+        .form-group label { display: block; font-size: 12px; color: var(--neon-cyan); margin-bottom: 5px; }
+        .form-group input { width: 100%; padding: 12px; background: rgba(0,0,0,0.5); border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 16px; }
+        .btn-ingresar { width: 100%; padding: 14px; background: var(--neon-cyan); color: #000; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; margin-top: 10px; box-shadow: 0 0 10px var(--neon-cyan); }
+
+        /* Mapa y Controles */
+        #map-wrapper { width: 100%; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        #map { width: 100%; height: 100%; background: var(--bg-dark); }
+
+        .top-nav { position: fixed; top: 15px; left: 15px; right: 15px; z-index: 10; display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
+        .header-bar { background: var(--glass-bg); border: 1px solid var(--glass-border); backdrop-filter: blur(10px); padding: 10px 15px; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; width: 100%; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        
+        .connection-status { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: bold; }
+        #status-label { color: var(--neon-red); }
+
+        /* Switch Conexión */
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 24px; border: 1px solid #555; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--neon-green); border-color: var(--neon-green); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .header-right-controls { display: flex; align-items: center; gap: 10px; }
+        .recaudacion-flotante-box { background: rgba(0,0,0,0.6); border: 1px solid var(--neon-yellow); padding: 5px 10px; border-radius: 8px; font-weight: bold; color: var(--neon-yellow); font-size: 14px; }
+        .speed-box-top { background: rgba(0,0,0,0.6); border: 1px solid var(--neon-cyan); padding: 5px 10px; border-radius: 8px; text-align: center; }
+        #txt-velocidad { font-size: 16px; font-weight: bold; color: var(--neon-cyan); }
+        .speed-unit { font-size: 9px; display: block; color: #aaa; }
+        #btn-sentido { background: #222; border: 1px solid var(--neon-cyan); color: var(--neon-cyan); padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        /* Alerta de Reserva */
+        .alerta-reserva { position: fixed; top: 80px; left: 15px; right: 15px; background: rgba(255, 0, 85, 0.95); border: 2px solid #fff; padding: 15px; border-radius: 12px; z-index: 1000; text-align: center; box-shadow: 0 0 25px var(--neon-red); display: none; animation: pulseAlerta 1s infinite alternate; }
+        @keyframes pulseAlerta { from { transform: scale(1); } to { transform: scale(1.02); } }
+        .alerta-reserva h2 { font-size: 18px; margin-bottom: 5px; color: #fff; }
+        .btn-atender { margin-top: 10px; background: #fff; color: var(--neon-red); border: none; padding: 8px 20px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+
+        /* Asientos Inferiores */
+        .bar-asientos-fija { position: fixed; bottom: 80px; left: 15px; right: 15px; z-index: 10; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; pointer-events: auto; }
+        .pill { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 10px; padding: 8px 4px; text-align: center; backdrop-filter: blur(5px); cursor: pointer; transition: 0.3s; }
+        .pill.ocupado { border-color: var(--neon-green); box-shadow: 0 0 10px rgba(57,255,20,0.3); }
+        .seat-num { font-size: 10px; color: #888; display: block; }
+        .nombre-pax { font-size: 12px; font-weight: bold; color: #fff; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .destino-pax { font-size: 10px; color: var(--neon-cyan); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Panel Desplegable */
+        .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--glass-bg); border-top: 1px solid var(--neon-cyan); border-radius: 20px 20px 0 0; padding: 15px; z-index: 20; backdrop-filter: blur(15px); transform: translateY(85%); transition: transform 0.3s ease; box-shadow: 0 -5px 25px rgba(0,0,0,0.8); }
+        .bottom-sheet.open { transform: translateY(0); }
+        .drag-handle { width: 40px; height: 5px; background: #444; border-radius: 3px; margin: 0 auto 15px auto; cursor: pointer; }
+        
+        .sheet-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .q-stat { background: rgba(0,0,0,0.4); border: 1px solid #333; padding: 10px; border-radius: 10px; text-align: center; }
+        .q-label { font-size: 11px; color: #aaa; }
+        .q-value { font-size: 18px; font-weight: bold; color: var(--neon-cyan); }
+
+        .action-group { display: flex; flex-direction: column; gap: 8px; }
+        .btn-action { width: 100%; padding: 12px; border-radius: 10px; font-weight: bold; border: none; cursor: pointer; font-size: 14px; text-align: center; }
+        .btn-subir-abordo { background: rgba(57,255,20,0.2); border: 1px solid var(--neon-green); color: var(--neon-green); }
+        .btn-llego-destino { background: rgba(0,243,255,0.2); border: 1px solid var(--neon-cyan); color: var(--neon-cyan); }
+        .btn-vaciar { background: rgba(255,204,0,0.2); border: 1px solid var(--neon-yellow); color: var(--neon-yellow); }
+        .btn-finalizar-jornada { background: rgba(255,0,85,0.2); border: 1px solid var(--neon-red); color: var(--neon-red); }
+
+        #btn-abrir-sheet { position: fixed; bottom: 145px; right: 15px; z-index: 10; background: var(--glass-bg); border: 1px solid var(--neon-cyan); color: var(--neon-cyan); width: 40px; height: 40px; border-radius: 50%; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 0 10px var(--glass-glow); }
+        .wakelock-indicator { display: none; }
+        .toast-container { position: fixed; top: 100px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; flex-direction: column; gap: 5px; pointer-events: none; }
+        .toast { background: rgba(0,0,0,0.9); border: 1px solid var(--neon-cyan); color: #fff; padding: 8px 15px; border-radius: 8px; font-size: 12px; box-shadow: 0 0 10px var(--glass-glow); }
+    </style>
 </head>
 <body>
 
@@ -16,23 +101,19 @@
     <div id="login-overlay" class="login-overlay">
         <div class="login-card">
             <h2>🚗 Tu Móvil - Ingreso Chofer</h2>
-            <p>Configura los datos de tu vehículo para empezar a recibir pasajeros.</p>
-            
+            <p>Configura los datos de tu vehículo para empezar.</p>
             <div class="form-group">
                 <label>Tu Nombre y Apellido</label>
                 <input type="text" id="input-nombre" placeholder="Ej: Carlos Cuevas" />
             </div>
-            
             <div class="form-group">
                 <label>Patente / Dominio</label>
                 <input type="text" id="input-patente" placeholder="Ej: JCP 478" />
             </div>
-            
             <div class="form-group">
                 <label>Modelo y Color del Auto</label>
                 <input type="text" id="input-auto" placeholder="Ej: Ford Fiesta Negro" />
             </div>
-
             <button class="btn-ingresar" onclick="guardarDatosChofer()">Comenzar a Trabajar</button>
         </div>
     </div>
@@ -42,7 +123,7 @@
     <div id="alerta-reserva" class="alerta-reserva">
         <h2>¡NUEVA RESERVA!</h2>
         <p id="alerta-texto">Asiento asignado</p>
-        <button class="btn-atender" onclick="cerrarAlerta()">ENTENDIDO</button>
+        <button class="btn-atender" onclick="cerrarAlerta()">ATENDER / ENTENDIDO</button>
     </div>
 
     <div id="toast-container" class="toast-container"></div>
@@ -57,7 +138,6 @@
                 </label>
                 <span id="status-label">DESCONECTADO</span>
             </div>
-
             <div class="header-right-controls">
                 <div class="recaudacion-flotante-box">
                     <span>💵</span> <span id="txt-plata">$0</span>
@@ -105,7 +185,6 @@
     <!-- Panel Inferior -->
     <div id="driver-sheet" class="bottom-sheet">
         <div class="drag-handle" onclick="cerrarSheet()"></div>
-
         <div class="sheet-stats-grid">
             <div class="q-stat">
                 <div class="q-label">Pasajeros</div>
@@ -116,7 +195,6 @@
                 <div id="txt-parada" class="q-value" style="font-size: 13px; font-weight: 800; margin-top: 6px;">-</div>
             </div>
         </div>
-
         <div class="action-group">
             <button id="btn-subir-abordo" class="btn-action btn-subir-abordo" onclick="marcarPasajeroABordo()">👤 Pasajeros a Bordo</button>
             <button id="btn-llego-destino" class="btn-action btn-llego-destino" onclick="llegoADestino()">🏁 Llegó a Destino</button>
@@ -128,7 +206,49 @@
     <!-- Scripts CDN -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Script Externo de Lógica -->
-    <script src="app-conductor.js"></script>
+
+    <!-- Lógica Integrada -->
+    <script>
+        // Aquí puedes pegar o mantener la lógica de tu app-conductor.js si lo deseas integrada
+        function guardarDatosChofer() {
+            const nombre = document.getElementById('input-nombre').value;
+            const patente = document.getElementById('input-patente').value;
+            const auto = document.getElementById('input-auto').value;
+            if(!nombre || !patente) {
+                alert("Por favor completa al menos tu nombre y patente.");
+                return;
+            }
+            localStorage.setItem('conductor_nombre', nombre);
+            localStorage.setItem('conductor_patente', patente);
+            localStorage.setItem('conductor_auto', auto);
+            document.getElementById('login-overlay').style.display = 'none';
+        }
+
+        function abrirSheet() {
+            document.getElementById('driver-sheet').classList.toggle('open');
+        }
+        function cerrarSheet() {
+            document.getElementById('driver-sheet').classList.remove('open');
+        }
+        function cerrarAlerta() {
+            document.getElementById('alerta-reserva').style.display = 'none';
+        }
+        function gestionarConexion() {
+            const activo = document.getElementById('online-toggle').checked;
+            const label = document.getElementById('status-label');
+            label.innerText = activo ? "ONLINE" : "DESCONECTADO";
+            label.style.color = activo ? "var(--neon-green)" : "var(--neon-red)";
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const nombre = localStorage.getItem('conductor_nombre');
+            if(nombre) {
+                document.getElementById('login-overlay').style.display = 'none';
+            }
+            // Inicializar mapa básico de prueba si carga
+            const map = L.map('map', {zoomControl: false}).setView([-34.5, -58.7], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        });
+    </script>
 </body>
 </html>
