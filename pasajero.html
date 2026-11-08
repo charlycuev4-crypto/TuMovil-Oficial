@@ -14,8 +14,8 @@
             --neon-cyan: #00f3ff;
             --neon-yellow: #ffcc00;
             --neon-green: #39ff14;
-            --danger: #ff3333;
-            --glass-bg: rgba(10, 16, 26, 0.92);
+            --danger: #ff3b30;
+            --glass-bg: rgba(10, 16, 26, 0.95);
             --glass-border: rgba(0, 243, 255, 0.3);
         }
 
@@ -48,7 +48,7 @@
             color: #fff; padding: 8px; border-radius: 12px; font-size: 12px; font-weight: 800; outline: none;
         }
 
-        .subida-info { font-size: 11px; color: #a0b0c0; margin-bottom: 8px; font-weight: 800; }
+        .subida-info { font-size: 11px; color: #a0b0c0; margin-bottom: 4px; font-weight: 800; }
         .subida-info span { color: var(--neon-cyan); font-weight: 900; }
 
         /* POPUP MAPA */
@@ -85,7 +85,6 @@
         .selector-asientos { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
         .asientos-btn-group { display: flex; gap: 8px; }
         
-        /* Casilleros independientes para los asientos (sin cuadros estirados) */
         .btn-seat {
             background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
             color: #fff; width: 40px; height: 40px; border-radius: 10px;
@@ -104,13 +103,44 @@
             box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
         }
 
-        /* PANEL DE ESTADO EN VIVO */
+        /* TARJETA DE VIAJE ACTIVO (Estilo exacto de tu imagen) */
         #panel-estado-viaje {
-            display: none; text-align: center; padding: 6px;
+            display: none;
         }
-        #panel-estado-viaje h3 { color: var(--neon-green); font-size: 15px; font-weight: 900; margin-bottom: 6px; }
-        #panel-estado-viaje p { font-size: 13px; font-weight: 800; color: #fff; line-height: 1.4; margin-bottom: 4px; }
-        #panel-estado-viaje span { color: var(--neon-yellow); }
+        
+        .card-viaje-activo {
+            display: flex; flex-direction: column; gap: 12px;
+        }
+
+        .info-chofer-row {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .auto-icono { font-size: 32px; background: rgba(255,204,0,0.15); padding: 8px; border-radius: 12px; border: 1px solid rgba(255,204,0,0.3); }
+        .chofer-detalles h4 { font-size: 16px; font-weight: 900; color: var(--neon-yellow); }
+        .chofer-detalles p { font-size: 12px; font-weight: 800; color: #a0b0c0; margin-top: 2px; }
+
+        /* Caja verde de estado */
+        .caja-estado-verde {
+            background: rgba(57, 255, 20, 0.1); border: 1px solid var(--neon-green);
+            border-radius: 16px; padding: 12px; text-align: left;
+        }
+        .caja-estado-verde h5 { color: var(--neon-green); font-size: 13px; font-weight: 900; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
+        .caja-estado-verde span { color: #fff; font-size: 12px; font-weight: 800; }
+
+        .detalles-extras-row {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(0,0,0,0.4); padding: 10px 14px; border-radius: 12px;
+            font-size: 12px; font-weight: 800; border: 1px solid rgba(255,255,255,0.08);
+        }
+        .detalles-extras-row b { color: var(--neon-yellow); font-weight: 900; }
+
+        .btn-finalizar {
+            width: 100%; background: linear-gradient(135deg, var(--danger) 0%, #b30000 100%);
+            color: #fff; border: none; padding: 14px; border-radius: 14px;
+            font-size: 15px; font-weight: 900; cursor: pointer; text-align: center;
+            box-shadow: 0 0 20px rgba(255, 59, 48, 0.4); transition: transform 0.2s;
+        }
+        .btn-finalizar:active { transform: scale(0.97); }
     </style>
 </head>
 <body>
@@ -120,7 +150,7 @@
     </div>
 
     <!-- TARJETA SUPERIOR -->
-    <div class="top-card">
+    <div class="top-card" id="card-superior">
         <div class="top-row">
             <button id="btn-sentido-pax" class="btn-sentido-pax" onclick="cambiarSentidoPasajero()">SENTIDO: IDA</button>
             <select id="select-paradas" class="select-parada" onchange="seleccionarParadaDesdeLista(this.value)">
@@ -133,6 +163,7 @@
     <!-- TARJETA INFERIOR -->
     <div class="bottom-card">
         
+        <!-- FORMULARIO DE RESERVA -->
         <div id="form-reserva-container">
             <input type="text" id="input-nombre-pasajero" class="input-nombre" placeholder="Escribe tu Nombre y Apellido *" autocomplete="name">
 
@@ -149,9 +180,29 @@
             <button id="btn-pedir" class="btn-solicitar" onclick="solicitarReserva()">RESERVAR VIAJE</button>
         </div>
 
+        <!-- PANEL DE ESTADO / VIAJE EN CURSO (Idéntico a tu imagen de referencia) -->
         <div id="panel-estado-viaje">
-            <h3 id="txt-estado-titulo">🚗 ¡MÓVIL ASIGNADO!</h3>
-            <p id="txt-info-chofer">Buscando al chofer y esperando confirmación...</p>
+            <div class="card-viaje-activo">
+                <div class="info-chofer-row">
+                    <div class="auto-icono">🚗</div>
+                    <div class="chofer-detalles">
+                        <h4 id="txt-coche-titulo">Coche --</h4>
+                        <p id="txt-chofer-nombre">Conductor Oficial</p>
+                    </div>
+                </div>
+
+                <div class="caja-estado-verde">
+                    <h5 id="titulo-estado-caja">🚗 VIAJE EN CURSO A DESTINO</h5>
+                    <span id="sub-estado-caja">Esperando que el chofer acepte la solicitud...</span>
+                </div>
+
+                <div class="detalles-extras-row">
+                    <div>Destino: <b id="txt-destino-resumen">--</b></div>
+                    <div>Asiento(s): <b id="txt-asientos-resumen">--</b></div>
+                </div>
+
+                <button class="btn-finalizar" onclick="finalizarViaje()">FINALIZAR MI VIAJE</button>
+            </div>
         </div>
 
     </div>
@@ -259,6 +310,16 @@
             }
 
             setAsientos(1);
+
+            // Verificar si ya hay un viaje guardado en el navegador
+            const guardadaID = localStorage.getItem('mi_reserva_id');
+            if (guardadaID) {
+                miReservaID = guardadaID;
+                document.getElementById('form-reserva-container').style.display = 'none';
+                document.getElementById('panel-estado-viaje').style.display = 'block';
+                document.getElementById('card-superior').style.display = 'none'; // Ocultar selector superior al viajar
+                setInterval(verificarEstadoViajeYAuto, 3000);
+            }
         });
 
         function cambiarSentidoPasajero() {
@@ -269,9 +330,7 @@
         function confirmarParada(id) {
             paradaSeleccionada = paradas.find(p => p.id === id);
             document.getElementById('select-paradas').value = id;
-            marcadores.forEach((m, idx) => {
-                if (m) m.setStyle({ fillColor: '#00f3ff', radius: 8 });
-            });
+            marcadores.forEach((m) => { if (m) m.setStyle({ fillColor: '#00f3ff', radius: 8 }); });
             if (marcadores[id]) marcadores[id].setStyle({ fillColor: '#ffcc00', radius: 12 });
             map.closePopup();
             map.panTo(paradaSeleccionada.c);
@@ -282,20 +341,14 @@
             confirmarParada(parseInt(id));
         }
 
-        // Selección múltiple de asientos independientes (1 hasta N)
         function setAsientos(num) {
             cantidadAsientos = num;
             for (let i = 1; i <= 4; i++) {
                 const btn = document.getElementById('seat-' + i);
-                if (i <= num) {
-                    btn.classList.add('selected');
-                } else {
-                    btn.classList.remove('selected');
-                }
+                if (i <= num) { btn.classList.add('selected'); } else { btn.classList.remove('selected'); }
             }
         }
 
-        // Función de voz de seguridad integrada
         function anunciarSeguridadVideo() {
             if (!('speechSynthesis' in window)) return;
             window.speechSynthesis.cancel();
@@ -308,14 +361,8 @@
 
         async function solicitarReserva() {
             const nombrePasajero = document.getElementById('input-nombre-pasajero').value.trim();
-            if (!nombrePasajero) {
-                alert("Por favor escribe tu Nombre y Apellido.");
-                return;
-            }
-            if (!paradaSeleccionada) {
-                alert("Por favor selecciona una parada de destino.");
-                return;
-            }
+            if (!nombrePasajero) { alert("Por favor escribe tu Nombre y Apellido."); return; }
+            if (!paradaSeleccionada) { alert("Por favor selecciona una parada de destino."); return; }
 
             const btnPedir = document.getElementById('btn-pedir');
             btnPedir.innerText = "BUSCANDO MÓVIL...";
@@ -354,13 +401,19 @@
                 if (errReserva) throw errReserva;
 
                 miReservaID = resData.id;
+                localStorage.setItem('mi_reserva_id', miReservaID);
 
-                // Reproducir alerta de seguridad por voz
                 anunciarSeguridadVideo();
 
                 document.getElementById('form-reserva-container').style.display = 'none';
                 document.getElementById('panel-estado-viaje').style.display = 'block';
-                document.getElementById('txt-info-chofer').innerText = "Solicitud enviada. Esperando que el chofer acepte...";
+                document.getElementById('card-superior').style.display = 'none';
+
+                // Mostrar resumen inicial
+                document.getElementById('txt-coche-titulo').innerText = `Coche ${movilAsignado.id}`;
+                document.getElementById('txt-chofer-nombre').innerText = movilAsignado.chofer || 'Conductor Oficial';
+                document.getElementById('txt-destino-resumen').innerText = paradaSeleccionada.n;
+                document.getElementById('txt-asientos-resumen').innerText = cantidadAsientos;
 
                 setInterval(verificarEstadoViajeYAuto, 3000);
 
@@ -383,27 +436,10 @@
                     .single();
 
                 if (error || !reserva || reserva.estado === 'finalizado') {
-                    alert("El viaje ha finalizado. La aplicación se reiniciará.");
+                    localStorage.removeItem('mi_reserva_id');
+                    alert("El viaje ha finalizado.");
                     location.reload();
                     return;
-                }
-
-                if (reserva.estado === 'atendido') {
-                    document.getElementById('txt-estado-titulo').innerText = "🚗 ¡CHOFER EN CAMINO!";
-                    document.getElementById('txt-info-chofer').innerHTML = `
-                        Conductor: <b>${reserva.chofer_nombre || 'Chofer'}</b><br>
-                        Auto: <b>${reserva.auto_modelo || 'Vehículo'}</b><br>
-                        Patente: <span>${reserva.patente || 'N/D'}</span><br><br>
-                        <i>El chofer va en camino a tu parada.</i>
-                    `;
-                } 
-                else if (reserva.estado === 'a_bordo') {
-                    document.getElementById('txt-estado-titulo').innerText = "🚀 ¡YA ESTÁS A BORDO!";
-                    document.getElementById('txt-info-chofer').innerHTML = `
-                        Conductor: <b>${reserva.chofer_nombre || 'Chofer'}</b><br>
-                        Auto: <b>${reserva.auto_modelo || 'Vehículo'}</b><br><br>
-                        <span style="color:var(--neon-green); font-size:14px;">¡En viaje rumbo a tu destino!</span>
-                    `;
                 }
 
                 const { data: movilInfo } = await _s
@@ -411,6 +447,26 @@
                     .select('*')
                     .eq('id', reserva.id_movil)
                     .single();
+
+                const nombreChofer = movilInfo?.chofer || 'Conductor Oficial';
+                const idCoche = reserva.id_movil || '1';
+
+                document.getElementById('txt-coche-titulo').innerText = `Coche ${idCoche}`;
+                document.getElementById('txt-chofer-nombre').innerText = nombreChofer;
+                document.getElementById('txt-destino-resumen').innerText = reserva.destino.split('➔')[1]?.trim() || reserva.destino;
+                document.getElementById('txt-asientos-resumen').innerText = reserva.asientos;
+
+                // Actualizar según el estado del chofer
+                if (reserva.estado === 'atendido') {
+                    document.getElementById('titulo-estado-caja').innerHTML = '🚗 ¡CHOFER EN CAMINO!';
+                    document.getElementById('sub-estado-caja').innerText = 'El chofer aceptó tu viaje y va en camino a tu parada.';
+                } else if (reserva.estado === 'a_bordo') {
+                    document.getElementById('titulo-estado-caja').innerHTML = '🚀 VIAJE EN CURSO A DESTINO';
+                    document.getElementById('sub-estado-caja').innerText = 'Ya estás a bordo con rumbo a tu parada final.';
+                } else {
+                    document.getElementById('titulo-estado-caja').innerHTML = '🚗 SOLICITUD ENVIADA';
+                    document.getElementById('sub-estado-caja').innerText = 'Esperando que el chofer acepte...';
+                }
 
                 if (movilInfo && movilInfo.latitud && movilInfo.longitud) {
                     const lat = movilInfo.latitud;
@@ -420,8 +476,8 @@
                         marcadorAutoChofer = L.marker([lat, lon], {
                             icon: L.divIcon({
                                 className: 'custom-car-marker',
-                                html: '<div style="background:#ffcc00; width:22px; height:22px; border-radius:50%; border:3px solid #000; box-shadow:0 0 15px #ffcc00; text-align:center; font-size:10px; font-weight:900; line-height:16px;">🚗</div>',
-                                iconSize: [22, 22]
+                                html: '<div style="background:#ffcc00; width:24px; height:24px; border-radius:50%; border:3px solid #000; box-shadow:0 0 15px #ffcc00; text-align:center; font-size:10px; font-weight:900; line-height:18px;">🚗</div>',
+                                iconSize: [24, 24]
                             })
                         }).addTo(map);
                     } else {
@@ -429,8 +485,19 @@
                     }
                 }
             } catch (e) {
-                console.error("Error:", e);
+                console.error("Error sincronizando estado:", e);
             }
+        }
+
+        async function finalizarViaje() {
+            if (!confirm("¿Deseas finalizar tu viaje?")) return;
+            try {
+                if (miReservaID) {
+                    await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', miReservaID);
+                }
+            } catch(e) {}
+            localStorage.removeItem('mi_reserva_id');
+            location.reload();
         }
     </script>
 </body>
