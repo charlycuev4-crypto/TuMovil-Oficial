@@ -123,7 +123,14 @@
         }
         .pill .seat-num { font-size: 13px; color: #495869; font-weight: 900; }
         .pill .nombre-pax { font-size: 10px; color: #fff; font-weight: 800; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .pill .destino-pax { font-size: 8px; color: var(--neon-cyan); font-weight: 700; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pill .destino-pax { font-size: 8px; color: var(--neon-yellow); font-weight: 700; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .pill.active {
+            background: rgba(255, 204, 0, 0.12);
+            border-color: var(--neon-yellow);
+            box-shadow: 0 0 12px rgba(255, 204, 0, 0.25);
+        }
+        .pill.active .destino-pax { color: var(--neon-yellow); }
 
         .pill.a-bordo {
             background: rgba(0, 243, 255, 0.15);
@@ -330,10 +337,10 @@
         let ultimaReservaAlertaId = null;
 
         let asientos = {
-            1: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null },
-            2: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null },
-            3: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null },
-            4: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null }
+            1: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null },
+            2: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null },
+            3: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null },
+            4: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null }
         };
 
         let indiceParadaActual = 0;
@@ -435,7 +442,6 @@
             configurarPersistenciaSegundoPlano();
         });
 
-        // PERSISTENCIA ROBUSTA: EVITA QUE SE CORTE AL CAMBIAR DE PESTAÑA
         function configurarPersistenciaSegundoPlano() {
             document.addEventListener("visibilitychange", () => {
                 if (document.visibilityState === "visible") {
@@ -518,4 +524,218 @@
         function iniciarGPS() {
             if (watchId) navigator.geolocation.clearWatch(watchId);
             watchId = navigator.geolocation.watchPosition(async (p) => {
-                const lat = p.coords.latitude, lon
+                const lat = p.coords.latitude, lon = p.coords.longitude;
+                velocidadActual = Math.round((p.coords.speed || 0) * 3.6);
+                document.getElementById('txt-velocidad').textContent = velocidadActual;
+
+                let nuevoIcono = L.icon({ iconUrl: crearIconoAuto(0, velocidadActual), iconSize: [50, 75], iconAnchor: [25, 37] });
+                if (markerCoche) {
+                    markerCoche.setLatLng([lat, lon]);
+                    markerCoche.setIcon(nuevoIcono);
+                }
+
+                if (map) map.panTo([lat, lon]);
+                if (estaOnline) procesarAnunciosParadas(lat, lon);
+
+                await _s.from('estado_movil').update({ latitud: lat, longitud: lon }).eq('id', MI_ID_MOVIL);
+            }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
+        }
+
+        async function escucharReservas() {
+            if (!estaOnline) return;
+
+            try {
+                const { data: reservas, error } = await _s
+                    .from('reservas_activas')
+                    .select('*')
+                    .eq('id_movil', MI_ID_MOVIL)
+                    .eq('estado', 'en_curso')
+                    .limit(1);
+
+                if (error) throw error;
+
+                if (reservas && reservas.length > 0) {
+                    const r = reservas[0];
+                    if (ultimaReservaAlertaId !== r.id) {
+                        ultimaReservaAlertaId = r.id;
+                        reservaPendiente = r;
+
+                        document.getElementById('alerta-texto').innerHTML = `
+                            <b>Pasajero:</b> ${r.nombre_pasajero}<br>
+                            <b>Ruta:</b> ${r.destino}<br>
+                            <b>Asientos:</b> ${r.asientos}
+                        `;
+
+                        document.getElementById('alerta-reserva').classList.add('mostrar');
+                        sonarAlarma();
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function sonarAlarma() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 880;
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.5);
+            } catch (e) {}
+        }
+
+        function cerrarAlerta() {
+            document.getElementById('alerta-reserva').classList.remove('mostrar');
+        }
+
+        // PASO 1: AL ATENDER LA SOLICITUD -> Cambia a estado 'atendido' para que el pasajero vea que vas en camino
+        async function atenderSolicitud() {
+            if (!reservaPendiente) return;
+
+            try {
+                const numAsientosReq = parseInt(reservaPendiente.asientos) || 1;
+                let asignados = 0;
+
+                for (let i = 1; i <= 4; i++) {
+                    if (!asientos[i].ocupado && asignados < numAsientosReq) {
+                        asientos[i].ocupado = true;
+                        asientos[i].nombre = reservaPendiente.nombre_pasajero;
+                        asientos[i].destino = reservaPendiente.destino;
+                        asientos[i].idReserva = reservaPendiente.id;
+                        asientos[i].estado = 'atendido'; // Estado inicial en pastilla
+                        asignados++;
+                    }
+                }
+
+                await _s
+                    .from('reservas_activas')
+                    .update({
+                        estado: 'atendido',
+                        chofer_nombre: MI_NOMBRE.split(' - ')[0],
+                        auto_modelo: MI_NOMBRE
+                    })
+                    .eq('id', reservaPendiente.id);
+
+                actualizarPillsUI();
+                cerrarAlerta();
+                reservaPendiente = null;
+            } catch (e) {}
+        }
+
+        async function rechazarSolicitud() {
+            if (!reservaPendiente) { cerrarAlerta(); return; }
+            try {
+                await _s.from('reservas_activas').update({ estado: 'rechazado' }).eq('id', reservaPendiente.id);
+            } catch (e) {}
+            reservaPendiente = null;
+            cerrarAlerta();
+        }
+
+        // CONTROL DE 2 TOQUES EN LA PASTILLA DEL ASIENTO:
+        // 1er Toque (si está en 'atendido'): Pasa a 'a_bordo' (Pasajero ve que ya subió)
+        // 2do Toque (si está en 'a_bordo'): Pasa a 'finalizado' y libera el asiento.
+        async function gestionarAsiento(numSeat) {
+            const seat = asientos[numSeat];
+            if (!seat.ocupado || !seat.idReserva) return;
+
+            const idReservaActual = seat.idReserva;
+
+            if (seat.estado === 'atendido' || !seat.estado) {
+                // PASO 2: SUBIÓ A BORDO
+                for (let i = 1; i <= 4; i++) {
+                    if (asientos[i].idReserva === idReservaActual) {
+                        asientos[i].estado = 'a_bordo';
+                    }
+                }
+
+                await _s.from('reservas_activas')
+                    .update({ estado: 'a_bordo' })
+                    .eq('id', idReservaActual);
+
+                actualizarPillsUI();
+            } else if (seat.estado === 'a_bordo') {
+                // PASO 3: FINALIZAR VIAJE
+                await _s.from('reservas_activas')
+                    .update({ estado: 'finalizado' })
+                    .eq('id', idReservaActual);
+
+                for (let i = 1; i <= 4; i++) {
+                    if (asientos[i].idReserva === idReservaActual) {
+                        asientos[i] = { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null };
+                    }
+                }
+
+                actualizarPillsUI();
+            }
+        }
+
+        async function actualizarEstadisticas() {
+            if (!MI_ID_MOVIL) return;
+            try {
+                const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).in('estado', ['en_curso', 'atendido', 'a_bordo']);
+                if (reservas) {
+                    let totalPax = 0;
+                    reservas.forEach(r => totalPax += (r.asientos || 1));
+                    document.getElementById('txt-pax').innerText = totalPax;
+                    document.getElementById('txt-plata').innerText = "$" + (totalPax * TARIFA_UNICA);
+                }
+            } catch (err) {}
+        }
+
+        function actualizarPillsUI() {
+            for (let i = 1; i <= 4; i++) {
+                const pill = document.getElementById(`pill${i}`);
+                const nombreEl = document.getElementById(`nombre-pax-${i}`);
+                const destinoEl = document.getElementById(`destino-pax-${i}`);
+                const seat = asientos[i];
+
+                if (seat.ocupado) {
+                    if (seat.estado === 'a_bordo') {
+                        pill.className = 'pill a-bordo';
+                        destinoEl.innerText = '🚀 A BORDO';
+                    } else {
+                        pill.className = 'pill active';
+                        destinoEl.innerText = '🚗 EN CAMINO';
+                    }
+                    nombreEl.innerText = seat.nombre;
+                } else {
+                    pill.className = 'pill';
+                    nombreEl.innerText = 'Libre';
+                    destinoEl.innerText = '-';
+                }
+            }
+        }
+
+        async function confirmarVaciar() {
+            for (let i = 1; i <= 4; i++) {
+                if (asientos[i].idReserva) {
+                    await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', asientos[i].idReserva);
+                }
+                asientos[i] = { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null };
+            }
+            actualizarPillsUI();
+            cerrarSheet();
+        }
+
+        async function cambiarSentido() {
+            sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
+            localStorage.setItem('driver_sentido', sentidoActual);
+            document.getElementById('btn-sentido').innerText = sentidoActual;
+            reiniciarAnuncios();
+            if (estaOnline) { await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL); }
+        }
+
+        async function finalizarJornada() {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            if (window.speechSynthesis) speechSynthesis.cancel();
+            await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
+            localStorage.clear();
+            location.reload();
+        }
+    </script>
+</body>
+</html>
