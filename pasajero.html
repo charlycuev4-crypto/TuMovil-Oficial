@@ -375,7 +375,7 @@
 
         function iniciarSeguimientoViaje() {
             if (intervaloViaje) clearInterval(intervaloViaje);
-            intervaloViaje = setInterval(verificarEstadoViajeYAuto, 2500);
+            intervaloViaje = setInterval(verificarEstadoViajeYAuto, 2000);
         }
 
         async function solicitarReserva() {
@@ -486,14 +486,13 @@
                     return;
                 }
 
-                // Consultar información fresca del móvil y chofer en estado_movil
+                // Consultar información del móvil y chofer
                 const { data: movilInfo } = await _s
                     .from('estado_movil')
                     .select('*')
                     .eq('id', reserva.id_movil)
                     .single();
 
-                // CORRECCIÓN CLAVE: Leer el nombre del chofer y el auto desde la base de datos de manera robusta
                 let nombreChoferFinal = "Conductor Oficial";
                 if (reserva.auto_modelo) {
                     nombreChoferFinal = reserva.auto_modelo;
@@ -506,13 +505,16 @@
                 document.getElementById('txt-chofer-nombre').innerText = nombreChoferFinal;
                 document.getElementById('txt-coche-titulo').innerText = `Coche ${reserva.id_movil}`;
 
-                // ACTUALIZACIÓN DE LOS MENSAJES Y DISEÑO DE ESTADO EN TIEMPO REAL
+                // ACTUALIZACIÓN DE ESTADOS INMEDIATA ('atendido', 'a_bordo', 'en_curso')
                 const tituloBox = document.getElementById('titulo-estado-caja');
                 const subBox = document.getElementById('sub-estado-caja');
 
-                if (reserva.estado === 'atendido' || reserva.estado === 'a_bordo') {
+                if (reserva.estado === 'atendido') {
                     tituloBox.innerHTML = '🚗 ¡SOLICITUD ACEPTADA!';
-                    subBox.innerText = 'El chofer va en camino por ti a tu parada.';
+                    subBox.innerText = 'El chofer aceptó tu solicitud, vas a su parada y hacia tu destino.';
+                } else if (reserva.estado === 'a_bordo') {
+                    tituloBox.innerHTML = '🚀 ESTÁS A BORDO';
+                    subBox.innerText = 'Viaje en curso hacia tu destino.';
                 } else {
                     tituloBox.innerHTML = '🚗 SOLICITUD ENVIADA';
                     subBox.innerText = 'Esperando que el chofer acepte...';
