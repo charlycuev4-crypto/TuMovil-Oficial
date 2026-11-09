@@ -338,12 +338,13 @@
         const TARIFA_UNICA = 1500;
         const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-        // ID FIJO DEL MÓVIL: se genera una sola vez por dispositivo y se conserva
-        // para siempre, así las reservas siempre encuentran al mismo chofer.
-        let MI_ID_MOVIL = localStorage.getItem('driver_id_movil');
-        if (!MI_ID_MOVIL) {
-            MI_ID_MOVIL = 'MOV-' + (100000 + Math.floor(Math.random() * 900000));
-            localStorage.setItem('driver_id_movil', MI_ID_MOVIL);
+        // ID FIJO DEL MÓVIL: número que se genera una sola vez por dispositivo y se
+        // conserva para siempre, así las reservas siempre encuentran al mismo chofer.
+        // Numérico para ser compatible con la columna id (numérica) de estado_movil.
+        let MI_ID_MOVIL = parseInt(localStorage.getItem('driver_id_movil'));
+        if (!MI_ID_MOVIL || isNaN(MI_ID_MOVIL)) {
+            MI_ID_MOVIL = 100000 + Math.floor(Math.random() * 900000);
+            localStorage.setItem('driver_id_movil', String(MI_ID_MOVIL));
         }
         let MI_NOMBRE = localStorage.getItem('driver_nombre_completo');
 
