@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Panel Chofer - Tu Móvil</title>
-    
+
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
+
     <!-- ESTILOS FUTURISTAS UNIFICADOS -->
     <style>
         :root {
@@ -25,8 +25,8 @@
         body { background: var(--bg-dark); height: 100vh; overflow: hidden; color: #fff; }
 
         /* MAPA Y CAPAS */
-        #map-wrapper { 
-            position: absolute; top: -30%; left: -30%; width: 160%; height: 160%; 
+        #map-wrapper {
+            position: absolute; top: -30%; left: -30%; width: 160%; height: 160%;
             z-index: 1; overflow: hidden; transform-origin: center center;
             filter: contrast(1.05) brightness(0.95);
         }
@@ -52,13 +52,13 @@
 
         .switch { position: relative; width: 48px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { 
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; 
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
             background: #16202c; border-radius: 24px; transition: .4s;
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        .slider:before { 
-            position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 2px; 
+        .slider:before {
+            position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 2px;
             background: #7a8b9e; border-radius: 50%; transition: .4s;
             box-shadow: 0 0 8px rgba(0,0,0,0.5);
         }
@@ -66,7 +66,7 @@
         input:checked + .slider:before { transform: translateX(23px); background: var(--neon-green); box-shadow: 0 0 12px var(--neon-green); }
 
         .header-right-controls { display: flex; align-items: center; gap: 8px; }
-        
+
         .recaudacion-flotante-box {
             background: rgba(57, 255, 20, 0.1);
             border: 1px solid var(--neon-green);
@@ -75,7 +75,7 @@
             font-size: 12px; font-weight: 900; color: var(--neon-green);
             box-shadow: 0 0 12px rgba(57, 255, 20, 0.2);
         }
-        
+
         .speed-box-top {
             display: flex; align-items: center; justify-content: center; gap: 3px;
             background: rgba(0, 243, 255, 0.1);
@@ -125,16 +125,16 @@
         .pill .seat-num { font-size: 13px; color: #495869; font-weight: 900; }
         .pill .nombre-pax { font-size: 10px; color: #fff; font-weight: 800; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pill .destino-pax { font-size: 8px; color: var(--neon-yellow); font-weight: 700; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        
-        .pill.active { 
-            background: rgba(255, 204, 0, 0.1); 
+
+        .pill.active {
+            background: rgba(255, 204, 0, 0.1);
             border-color: var(--neon-yellow);
-            box-shadow: 0 0 12px rgba(255, 204, 0, 0.2); 
+            box-shadow: 0 0 12px rgba(255, 204, 0, 0.2);
         }
-        .pill.a-bordo { 
-            background: linear-gradient(135deg, rgba(0, 243, 255, 0.25) 0%, rgba(0, 136, 204, 0.35) 100%); 
+        .pill.a-bordo {
+            background: linear-gradient(135deg, rgba(0, 243, 255, 0.25) 0%, rgba(0, 136, 204, 0.35) 100%);
             border-color: var(--neon-cyan);
-            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3); 
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
         }
         .pill.a-bordo .seat-num, .pill.a-bordo .nombre-pax { color: #fff; text-shadow: 0 0 6px var(--neon-cyan); }
         .pill.a-bordo .destino-pax { color: var(--neon-yellow); }
@@ -153,9 +153,9 @@
         .drag-handle { width: 44px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; margin: 0 auto 16px auto; cursor: pointer; }
 
         .sheet-stats-grid { display: flex; gap: 12px; margin-bottom: 16px; }
-        .q-stat { 
-            background: rgba(255,255,255,0.03); padding: 12px; border-radius: 20px; 
-            flex: 1; border: 1px solid rgba(255,255,255,0.06); text-align: center; 
+        .q-stat {
+            background: rgba(255,255,255,0.03); padding: 12px; border-radius: 20px;
+            flex: 1; border: 1px solid rgba(255,255,255,0.06); text-align: center;
         }
         .q-label { font-size: 9px; color: #76889b; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
         .q-value { font-size: 24px; font-weight: 900; margin-top: 4px; color: var(--neon-cyan); text-shadow: 0 0 10px rgba(0, 243, 255, 0.3); }
@@ -167,21 +167,27 @@
         .btn-finalizar-jornada { display: block !important; background: linear-gradient(135deg, #d31027 0%, #ea384d 100%); color: #fff; margin-top: 6px; box-shadow: 0 4px 15px rgba(234, 56, 77, 0.3); }
 
         /* ALERTA DE RESERVA FUTURISTA (SIN ALERTAS NATIVAS) */
-        .alerta-reserva { 
-            position: fixed; top: 20px; left: 16px; right: 16px; 
-            background: rgba(8, 12, 18, 0.98); border: 2px solid var(--neon-yellow); 
-            border-radius: 24px; color: white; padding: 20px; text-align: center; 
-            z-index: 10000; transform: translateY(-150%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
-            box-shadow: 0 0 40px rgba(255, 204, 0, 0.4); 
+        .alerta-reserva {
+            position: fixed; top: 20px; left: 16px; right: 16px;
+            background: rgba(8, 12, 18, 0.98); border: 2px solid var(--neon-yellow);
+            border-radius: 24px; color: white; padding: 20px; text-align: center;
+            z-index: 10000; transform: translateY(-150%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 0 40px rgba(255, 204, 0, 0.4);
         }
         .alerta-reserva.mostrar { transform: translateY(0); }
         .alerta-reserva h2 { color: var(--neon-yellow); font-size: 16px; margin-bottom: 6px; font-weight: 900; }
         .alerta-reserva p { font-size: 13px; color: #fff; margin-bottom: 14px; line-height: 1.4; }
-        .btn-atender { 
-            background: linear-gradient(135deg, var(--neon-green) 0%, #208d13 100%); 
-            color: #000; border: none; padding: 12px 28px; border-radius: 14px; 
-            font-weight: 900; font-size: 14px; cursor: pointer; width: 100%; 
-            box-shadow: 0 0 15px rgba(57, 255, 20, 0.4); 
+        .alerta-botones { display: flex; gap: 10px; }
+        .btn-atender {
+            background: linear-gradient(135deg, var(--neon-green) 0%, #208d13 100%);
+            color: #000; border: none; padding: 12px 10px; border-radius: 14px;
+            font-weight: 900; font-size: 14px; cursor: pointer; flex: 1;
+            box-shadow: 0 0 15px rgba(57, 255, 20, 0.4);
+        }
+        .btn-rechazar {
+            background: rgba(255, 0, 85, 0.1); color: var(--neon-red);
+            border: 1px solid rgba(255, 0, 85, 0.4); padding: 12px 10px; border-radius: 14px;
+            font-weight: 900; font-size: 13px; cursor: pointer; flex: 1;
         }
 
         .login-overlay {
@@ -204,8 +210,8 @@
         }
         .form-group input:focus { border-color: var(--neon-cyan); box-shadow: 0 0 12px rgba(0, 243, 255, 0.3); }
         .btn-ingresar {
-            width: 100%; background: linear-gradient(135deg, var(--neon-cyan) 0%, #0088cc 100%); 
-            color: #000; border: none; padding: 16px; border-radius: 16px; font-weight: 900; 
+            width: 100%; background: linear-gradient(135deg, var(--neon-cyan) 0%, #0088cc 100%);
+            color: #000; border: none; padding: 16px; border-radius: 16px; font-weight: 900;
             font-size: 16px; cursor: pointer; margin-top: 10px; box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
         }
     </style>
@@ -217,17 +223,17 @@
         <div class="login-card">
             <h2>🚗 Tu Móvil - Ingreso Chofer</h2>
             <p>Configura los datos de tu vehículo para empezar a recibir pasajeros.</p>
-            
+
             <div class="form-group">
                 <label>Tu Nombre y Apellido</label>
                 <input type="text" id="input-nombre" placeholder="Ej: Carlos Cuevas" />
             </div>
-            
+
             <div class="form-group">
                 <label>Patente / Dominio</label>
                 <input type="text" id="input-patente" placeholder="Ej: JCP 478" />
             </div>
-            
+
             <div class="form-group">
                 <label>Modelo y Color del Auto</label>
                 <input type="text" id="input-auto" placeholder="Ej: Ford Fiesta Negro" />
@@ -241,7 +247,10 @@
     <div id="alerta-reserva" class="alerta-reserva">
         <h2>🚨 ¡NUEVA RESERVA!</h2>
         <p id="alerta-texto">Cargando...</p>
-        <button class="btn-atender" onclick="atenderSolicitud()">ATENDER Y ACEPTAR</button>
+        <div class="alerta-botones">
+            <button class="btn-rechazar" onclick="rechazarSolicitud()">✖ RECHAZAR</button>
+            <button class="btn-atender" onclick="atenderSolicitud()">ATENDER Y ACEPTAR</button>
+        </div>
     </div>
 
     <!-- Controles Superiores -->
@@ -309,7 +318,7 @@
                 <div id="txt-pax" class="q-value">0</div>
             </div>
             <div class="q-stat">
-                <div class="q-label">Ubicación</div>
+                <div class="q-label">Próxima Parada</div>
                 <div id="txt-parada" class="q-value" style="font-size: 13px; font-weight: 800; margin-top: 6px;">En línea</div>
             </div>
         </div>
@@ -323,13 +332,19 @@
     <!-- Scripts CDN -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+
     <!-- LÓGICA DE JAVASCRIPT UNIFICADA Y LIMPIA -->
     <script>
         const TARIFA_UNICA = 1500;
         const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
+        // ID FIJO DEL MÓVIL: se genera una sola vez por dispositivo y se conserva
+        // para siempre, así las reservas siempre encuentran al mismo chofer.
         let MI_ID_MOVIL = localStorage.getItem('driver_id_movil');
+        if (!MI_ID_MOVIL) {
+            MI_ID_MOVIL = 'MOV-' + (100000 + Math.floor(Math.random() * 900000));
+            localStorage.setItem('driver_id_movil', MI_ID_MOVIL);
+        }
         let MI_NOMBRE = localStorage.getItem('driver_nombre_completo');
 
         const paradas = [
@@ -385,6 +400,83 @@
             4: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null }
         };
 
+        // ===== SISTEMA DE ANUNCIOS DE PARADAS ESTILO TREN =====
+        let indiceParadaActual = 0;    // última parada que se pasó
+        let ultimaLlegadaIdx = -1;     // evita anunciar dos veces la misma parada
+        let anunciosIniciados = false; // bandera para el primer anuncio
+        const RADIO_LLEGADA = 45;      // metros para considerar "llegamos"
+
+        function indiceSiguiente(i) {
+            return sentidoActual === 'IDA' ? (i + 1) % paradas.length : (i - 1 + paradas.length) % paradas.length;
+        }
+        function indiceAnterior(i) {
+            return sentidoActual === 'IDA' ? (i - 1 + paradas.length) % paradas.length : (i + 1) % paradas.length;
+        }
+
+        // Parlante del móvil: habla con la voz en español y corta lo anterior
+        function anunciar(texto) {
+            try {
+                if (!window.speechSynthesis) return;
+                speechSynthesis.cancel();
+                const voz = new SpeechSynthesisUtterance(texto);
+                voz.lang = 'es-ES';
+                voz.rate = 1;
+                voz.pitch = 1;
+                const voces = speechSynthesis.getVoices().filter(v => v.lang && v.lang.startsWith('es'));
+                if (voces.length) voz.voice = voces[0];
+                speechSynthesis.speak(voz);
+            } catch (e) {}
+        }
+
+        // GPS inteligente: sigue la secuencia de paradas según el sentido
+        function procesarAnunciosParadas(lat, lon) {
+            if (!paradas.length || !map) return;
+
+            // 1) Buscar la parada más cercana al móvil
+            let idxCercana = 0, distMin = Infinity;
+            const miPos = L.latLng(lat, lon);
+            for (let i = 0; i < paradas.length; i++) {
+                const d = map.distance(miPos, paradas[i].c);
+                if (d < distMin) { distMin = d; idxCercana = i; }
+            }
+
+            // 2) Primer arranque: fijar la parada actual y anunciar la próxima
+            if (!anunciosIniciados) {
+                anunciosIniciados = true;
+                indiceParadaActual = idxCercana;
+                ultimaLlegadaIdx = idxCercana;
+                const sig = indiceSiguiente(indiceParadaActual);
+                anunciar('Próxima parada: ' + paradas[sig].n);
+            }
+
+            // 3) ¿Llegó a la parada esperada?
+            const esperada = indiceSiguiente(indiceParadaActual);
+            if (idxCercana === esperada && distMin < RADIO_LLEGADA) {
+                if (ultimaLlegadaIdx !== idxCercana) {
+                    ultimaLlegadaIdx = idxCercana;
+                    indiceParadaActual = idxCercana;
+                    anunciar('Hemos llegado a ' + paradas[idxCercana].n);
+                    const sig = indiceSiguiente(indiceParadaActual);
+                    setTimeout(() => anunciar('Próxima parada: ' + paradas[sig].n), 2600);
+                }
+            } else if (idxCercana !== indiceParadaActual && idxCercana !== esperada) {
+                // 4) Se saltó paradas o cambió de posición: re-sincronizar en silencio
+                indiceParadaActual = indiceAnterior(idxCercana);
+                ultimaLlegadaIdx = -1;
+            }
+
+            // 5) Actualizar la tarjeta "Próxima Parada" del panel
+            const sig = indiceSiguiente(indiceParadaActual);
+            const dSig = map.distance(miPos, paradas[sig].c);
+            const elParada = document.getElementById('txt-parada');
+            if (elParada) elParada.innerText = paradas[sig].n + ' · ' + Math.round(dSig) + 'm';
+        }
+
+        function reiniciarAnuncios() {
+            anunciosIniciados = false;
+            ultimaLlegadaIdx = -1;
+        }
+
         // AUTO HOLOGRÁFICO 3D CON RADAR SEGMENTADO
         function crearIconoAuto(angulo, velocidad) {
             const colorVelocidad = velocidad > 50 ? '#ff0055' : velocidad > 30 ? '#ffcc00' : '#00f3ff';
@@ -426,7 +518,7 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            map = L.map('map', { zoomControl: false, rotate: true }).setView(paradas[0].c, 16);
+            map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { keepBuffer: 8 }).addTo(map);
 
             rutaLine = L.polyline(paradas.map(p => p.c), { color: '#ff0055', weight: 6, opacity: 0.65 }).addTo(map);
@@ -438,6 +530,12 @@
 
             let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [50, 75], iconAnchor: [25, 37], className: 'auto-radar-icon' });
             markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
+
+            // Precargar voces en español (algunos navegadores las cargan async)
+            if (window.speechSynthesis) {
+                speechSynthesis.getVoices();
+                speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+            }
 
             if (!MI_ID_MOVIL || !MI_NOMBRE) {
                 const overlay = document.getElementById('login-overlay');
@@ -457,9 +555,8 @@
             if (!nombre || !patente || !auto) return;
 
             MI_NOMBRE = `${nombre} - ${auto} (${patente})`;
-            MI_ID_MOVIL = Math.floor(Math.random() * 90000) + 1000; 
 
-            localStorage.setItem('driver_id_movil', MI_ID_MOVIL);
+            // NO regenerar el ID: el que ya está guardado en el dispositivo se conserva
             localStorage.setItem('driver_nombre_completo', MI_NOMBRE);
 
             try {
@@ -510,19 +607,21 @@
                 if (label) { label.innerText = "CONECTANDO..."; label.style.color = "#ffcc00"; }
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     const lat = pos.coords.latitude, lon = pos.coords.longitude;
-                    await _s.from('estado_movil').update({ 
-                        esta_online: true, latitud: lat, longitud: lon, 
-                        sentido_flujo: sentidoActual, chofer: MI_NOMBRE 
+                    await _s.from('estado_movil').update({
+                        esta_online: true, latitud: lat, longitud: lon,
+                        sentido_flujo: sentidoActual, chofer: MI_NOMBRE
                     }).eq('id', MI_ID_MOVIL);
                     if (label) { label.innerText = "EN LÍNEA"; label.style.color = "#39ff14"; }
+                    reiniciarAnuncios();
                     iniciarGPS();
                     cerrarSheet();
-                }, () => { 
-                    if (toggle) toggle.checked = false; 
+                }, () => {
+                    if (toggle) toggle.checked = false;
                     if (label) { label.innerText = "ERROR GPS"; label.style.color = "#ff0055"; }
                 }, { enableHighAccuracy: true });
             } else {
                 if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+                if (window.speechSynthesis) speechSynthesis.cancel();
                 await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
                 if (label) { label.innerText = "DESCONECTADO"; label.style.color = "#76889b"; }
             }
@@ -535,14 +634,17 @@
                 velocidadActual = Math.round((p.coords.speed || 0) * 3.6);
                 const txtVel = document.getElementById('txt-velocidad');
                 if (txtVel) txtVel.textContent = velocidadActual;
-                
+
                 let nuevoIcono = L.icon({ iconUrl: crearIconoAuto(0, velocidadActual), iconSize: [50, 75], iconAnchor: [25, 37], className: 'auto-radar-icon' });
                 if (markerCoche) {
                     markerCoche.setLatLng([lat, lon]);
                     markerCoche.setIcon(nuevoIcono);
                 }
-                
+
                 if (map) map.panTo([lat, lon]);
+
+                // Anuncios de paradas estilo tren (solo cuando está online)
+                if (estaOnline) procesarAnunciosParadas(lat, lon);
 
                 await _s.from('estado_movil').update({ latitud: lat, longitud: lon }).eq('id', MI_ID_MOVIL);
             }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 4000 });
@@ -623,7 +725,7 @@
 
                 await _s
                     .from('reservas_activas')
-                    .update({ 
+                    .update({
                         estado: 'atendido',
                         chofer_nombre: MI_NOMBRE.split(' - ')[0],
                         auto_modelo: MI_NOMBRE
@@ -637,6 +739,22 @@
             } catch (e) {
                 console.error("Error al atender solicitud:", e);
             }
+        }
+
+        // RECHAZAR SOLICITUD: marca la reserva como rechazada y libera la alerta
+        async function rechazarSolicitud() {
+            if (!reservaPendiente) { cerrarAlerta(); return; }
+
+            try {
+                await _s.from('reservas_activas')
+                    .update({ estado: 'rechazado' })
+                    .eq('id', reservaPendiente.id);
+            } catch (e) {
+                console.error("Error al rechazar solicitud:", e);
+            }
+
+            reservaPendiente = null;
+            cerrarAlerta();
         }
 
         // GESTIÓN EN BLOQUE POR DOS TOQUES LÍQUIDOS (SIN ALERTAS NATIVAS)
@@ -731,11 +849,13 @@
             localStorage.setItem('driver_sentido', sentidoActual);
             document.getElementById('btn-sentido').innerText = sentidoActual;
             if (rutaLine) rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff0055' : '#00f3ff' });
+            reiniciarAnuncios(); // la secuencia de anuncios se recalcula con el nuevo sentido
             if (estaOnline) { await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL); }
         }
 
         async function finalizarJornada() {
             if (watchId) navigator.geolocation.clearWatch(watchId);
+            if (window.speechSynthesis) speechSynthesis.cancel();
             await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
             localStorage.clear();
             location.reload();
