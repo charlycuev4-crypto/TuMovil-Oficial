@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tu Móvil - Pasajero</title>
-    
+
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
+
     <style>
         :root {
             --bg-dark: #05070a;
@@ -33,9 +33,9 @@
             border: 1px solid var(--glass-border); border-radius: 20px;
             padding: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.7);
         }
-        
+
         .top-row { display: flex; gap: 10px; margin-bottom: 8px; }
-        
+
         .btn-sentido-pax {
             background: linear-gradient(135deg, var(--neon-yellow) 0%, #ff9900 100%);
             border: none; padding: 8px 14px; border-radius: 12px;
@@ -84,7 +84,7 @@
 
         .selector-asientos { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
         .asientos-btn-group { display: flex; gap: 8px; }
-        
+
         .btn-seat {
             background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
             color: #fff; width: 40px; height: 40px; border-radius: 10px;
@@ -105,7 +105,7 @@
 
         /* TARJETA DE VIAJE ACTIVO */
         #panel-estado-viaje { display: none; }
-        
+
         .card-viaje-activo { display: flex; flex-direction: column; gap: 12px; }
 
         .info-chofer-row { display: flex; align-items: center; gap: 12px; }
@@ -250,6 +250,9 @@
         let miReservaID = null;
         let marcadorAutoChofer = null;
         let cocheYaPaso = false;
+        // SYNC CONDUCTOR: GPS real fijado + un solo intervalo de consulta
+        let gpsListo = false;
+        let intervaloViaje = null;
 
         window.addEventListener('DOMContentLoaded', () => {
             map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
@@ -288,8 +291,11 @@
 
                     paradaSubidaIndex = calcularParadaMasCerca(lat, lon);
                     ubicacionSubidaTexto = paradas[paradaSubidaIndex].n;
+                    gpsListo = true; // recién ahora es válido el chequeo "coche ya pasó"
                     document.getElementById('txt-subida').innerText = ubicacionSubidaTexto;
-                }, () => {}, { enableHighAccuracy: true });
+                }, () => {
+                    document.getElementById('txt-subida').innerText = 'GPS no disponible - selecciona tu subida en el mapa';
+                }, { enableHighAccuracy: true });
             }
 
             setAsientos(1);
@@ -300,14 +306,16 @@
                 document.getElementById('form-reserva-container').style.display = 'none';
                 document.getElementById('panel-estado-viaje').style.display = 'block';
                 document.getElementById('card-superior').style.display = 'none';
-                setInterval(verificarEstadoViajeYAuto, 3000);
+                iniciarSeguimientoViaje();
             }
         });
 
+        // Distancia real en metros usando Leaflet (mejor que Math.hypot sobre grados)
         function calcularParadaMasCerca(lat, lon) {
             let minDist = Infinity, idx = 0;
+            const miPos = L.latLng(lat, lon);
             paradas.forEach((p, i) => {
-                const dist = Math.hypot(p.c[0] - lat, p.c[1] - lon);
+                const dist = map.distance(miPos, p.c);
                 if (dist < minDist) { minDist = dist; idx = i; }
             });
             return idx;
@@ -351,8 +359,14 @@
             const texto = "¡Atención pasajero! Por tu seguridad y la del chofer, todo el trayecto se encuentra bajo un sistema de cámaras y monitoreo en tiempo real con GPS. Buen viaje.";
             const utterance = new SpeechSynthesisUtterance(texto);
             utterance.lang = 'es-AR';
-            utterance.rate = 0.95; 
+            utterance.rate = 0.95;
             window.speechSynthesis.speak(utterance);
+        }
+
+        // Un solo temporizador de seguimiento (evita duplicados al re-reservar)
+        function iniciarSeguimientoViaje() {
+            if (intervaloViaje) clearInterval(intervaloViaje);
+            intervaloViaje = setInterval(verificarEstadoViajeYAuto, 3000);
         }
 
         async function solicitarReserva() {
@@ -398,6 +412,7 @@
 
                 miReservaID = resData.id;
                 localStorage.setItem('mi_reserva_id', miReservaID);
+                cocheYaPaso = false;
 
                 anunciarSeguridadVideo();
 
@@ -410,7 +425,7 @@
                 document.getElementById('txt-destino-resumen').innerText = paradaSeleccionada.n;
                 document.getElementById('txt-asientos-resumen').innerText = cantidadAsientos;
 
-                setInterval(verificarEstadoViajeYAuto, 3000);
+                iniciarSeguimientoViaje();
 
             } catch (e) {
                 console.error(e);
@@ -418,6 +433,17 @@
                 btnPedir.innerText = "RESERVAR VIAJE";
                 btnPedir.disabled = false;
             }
+        }
+
+        // Volver al formulario de reserva (caso rechazo)
+        function volverAFormulario(mensaje) {
+            localStorage.removeItem('mi_reserva_id');
+            miReservaID = null;
+            if (intervaloViaje) { clearInterval(intervaloViaje); intervaloViaje = null; }
+            document.getElementById('panel-estado-viaje').style.display = 'none';
+            document.getElementById('form-reserva-container').style.display = 'block';
+            document.getElementById('card-superior').style.display = 'block';
+            if (mensaje) alert(mensaje);
         }
 
         async function verificarEstadoViajeYAuto() {
@@ -430,11 +456,31 @@
                     .eq('id', miReservaID)
                     .single();
 
-                if (error || !reserva || reserva.estado === 'finalizado') {
+                if (error || !reserva) {
+                    volverAFormulario("Tu reserva ya no está disponible.");
+                    return;
+                }
+
+                // SYNC CONDUCTOR: el chofer puede rechazar la solicitud
+                if (reserva.estado === 'rechazado') {
+                    volverAFormulario("El chofer no pudo tomar tu viaje. Podés intentar reservar nuevamente.");
+                    return;
+                }
+
+                if (reserva.estado === 'finalizado') {
                     localStorage.removeItem('mi_reserva_id');
+                    miReservaID = null;
+                    if (intervaloViaje) { clearInterval(intervaloViaje); intervaloViaje = null; }
                     alert("El viaje ha finalizado.");
                     location.reload();
                     return;
+                }
+
+                // SYNC CONDUCTOR: al aceptar, el chofer guarda su nombre y auto en la reserva
+                if (reserva.auto_modelo) {
+                    document.getElementById('txt-chofer-nombre').innerText = reserva.auto_modelo;
+                } else if (reserva.chofer_nombre) {
+                    document.getElementById('txt-chofer-nombre').innerText = reserva.chofer_nombre;
                 }
 
                 const { data: movilInfo } = await _s
@@ -448,16 +494,21 @@
                     const lon = movilInfo.longitud;
 
                     // VERIFICACIÓN DE GPS: ¿El coche ya pasó la parada de subida?
-                    const paradaCocheIdx = calcularParadaMasCerca(lat, lon);
-                    const puedeRecoger = movilPuedeRecoger(paradaCocheIdx, paradaSubidaIndex, reserva.sentido);
+                    // Solo se evalúa si el GPS del pasajero logró fijar su posición real
+                    if (gpsListo) {
+                        const paradaCocheIdx = calcularParadaMasCerca(lat, lon);
+                        const puedeRecoger = movilPuedeRecoger(paradaCocheIdx, paradaSubidaIndex, reserva.sentido);
 
-                    if (!puedeRecoger && !cocheYaPaso) {
-                        cocheYaPaso = true;
-                        document.getElementById('caja-estado-contenedor').style.borderColor = 'var(--danger)';
-                        document.getElementById('caja-estado-contenedor').style.background = 'rgba(255, 59, 48, 0.15)';
-                        document.getElementById('titulo-estado-caja').innerHTML = '⚠️ ¡EL COCHE YA PASÓ!';
-                        document.getElementById('sub-estado-caja').innerText = 'El móvil ya pasó de largo tu parada en este sentido.';
-                    } else if (puedeRecoger) {
+                        if (!puedeRecoger && !cocheYaPaso) {
+                            cocheYaPaso = true;
+                            document.getElementById('caja-estado-contenedor').style.borderColor = 'var(--danger)';
+                            document.getElementById('caja-estado-contenedor').style.background = 'rgba(255, 59, 48, 0.15)';
+                            document.getElementById('titulo-estado-caja').innerHTML = '⚠️ ¡EL COCHE YA PASÓ!';
+                            document.getElementById('sub-estado-caja').innerText = 'El móvil ya pasó de largo tu parada en este sentido.';
+                        }
+                    }
+
+                    if (!cocheYaPaso || reserva.estado === 'atendido' || reserva.estado === 'a_bordo') {
                         if (reserva.estado === 'atendido') {
                             document.getElementById('titulo-estado-caja').innerHTML = '🚗 ¡CHOFER EN CAMINO!';
                             document.getElementById('sub-estado-caja').innerText = 'El chofer aceptó tu viaje y va en camino.';
