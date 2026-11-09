@@ -505,13 +505,13 @@
                 document.getElementById('txt-chofer-nombre').innerText = nombreChoferFinal;
                 document.getElementById('txt-coche-titulo').innerText = `Coche ${reserva.id_movil}`;
 
-                // ACTUALIZACIÓN DE ESTADOS INMEDIATA ('atendido', 'a_bordo', 'en_curso')
+                // ACTUALIZACIÓN DE ESTADOS INMEDIATA ('atendido', 'en_camino', 'aceptado', 'a_bordo')
                 const tituloBox = document.getElementById('titulo-estado-caja');
                 const subBox = document.getElementById('sub-estado-caja');
 
-                if (reserva.estado === 'atendido') {
+                if (reserva.estado === 'atendido' || reserva.estado === 'en_camino' || reserva.estado === 'aceptado') {
                     tituloBox.innerHTML = '🚗 ¡SOLICITUD ACEPTADA!';
-                    subBox.innerText = 'El chofer aceptó tu solicitud, vas a su parada y hacia tu destino.';
+                    subBox.innerText = 'El chofer aceptó tu solicitud, va en camino a tu parada.';
                 } else if (reserva.estado === 'a_bordo') {
                     tituloBox.innerHTML = '🚀 ESTÁS A BORDO';
                     subBox.innerText = 'Viaje en curso hacia tu destino.';
