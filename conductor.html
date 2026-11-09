@@ -286,22 +286,22 @@
 
     <!-- Asientos Abajo -->
     <div class="bar-asientos-fija">
-        <div id="pill1" class="pill" onclick="liberarAsiento(1)">
+        <div id="pill1" class="pill" onclick="gestionarAsiento(1)">
             <span class="seat-num">1</span>
             <span id="nombre-pax-1" class="nombre-pax">Libre</span>
             <span id="destino-pax-1" class="destino-pax">-</span>
         </div>
-        <div id="pill2" class="pill" onclick="liberarAsiento(2)">
+        <div id="pill2" class="pill" onclick="gestionarAsiento(2)">
             <span class="seat-num">2</span>
             <span id="nombre-pax-2" class="nombre-pax">Libre</span>
             <span id="destino-pax-2" class="destino-pax">-</span>
         </div>
-        <div id="pill3" class="pill" onclick="liberarAsiento(3)">
+        <div id="pill3" class="pill" onclick="gestionarAsiento(3)">
             <span class="seat-num">3</span>
             <span id="nombre-pax-3" class="nombre-pax">Libre</span>
             <span id="destino-pax-3" class="destino-pax">-</span>
         </div>
-        <div id="pill4" class="pill" onclick="liberarAsiento(4)">
+        <div id="pill4" class="pill" onclick="gestionarAsiento(4)">
             <span class="seat-num">4</span>
             <span id="nombre-pax-4" class="nombre-pax">Libre</span>
             <span id="destino-pax-4" class="destino-pax">-</span>
@@ -333,13 +333,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <!-- LÓGICA DE JAVASCRIPT CON CONEXIÓN EXACTA A SUPABASE -->
+    <!-- LÓGICA CON CONEXIÓN EXACTA A SUPABASE (miIdMovil = 1) -->
     <script>
         const SUPABASE_URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE';
         const _s = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // ID FIJO DEL MÓVIL: Sincronizado exactamente con el código viejo (miIdMovil = 1) para que el pasajero lo encuentre de inmediato
+        // ID FIJO EXACTO PARA QUE EL PASAJERO LO ENCUENTRE (miIdMovil = 1)
         let miIdMovil = 1;
         let datosChofer = { nombre: '', patente: '', auto: '' };
         let estaOnline = false;
@@ -350,10 +350,10 @@
         let ultimaReservaAlertaId = null;
 
         let asientos = {
-            1: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null },
-            2: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null },
-            3: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null },
-            4: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null }
+            1: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null },
+            2: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null },
+            3: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null },
+            4: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null }
         };
 
         const paradas = [
@@ -395,7 +395,7 @@
             { id: 36, n: 'Abasto y Roca', c: [-34.586030, -58.747278] }
         ];
 
-        // SISTEMA DE ANUNCIOS DE PARADAS ESTILO TREN
+        // SISTEMA DE ANUNCIOS DE PARADAS
         let indiceParadaActual = 0;
         let ultimaLlegadaIdx = -1;
         let anunciosIniciados = false;
@@ -602,7 +602,7 @@
                     if (txtVel) txtVel.textContent = vel;
 
                     let nuevoIcono = L.icon({ iconUrl: crearIconoAuto(0, vel), iconSize: [50, 75], iconAnchor: [25, 37], className: 'auto-radar-icon' });
-                    
+
                     if (!marcadorChofer) {
                         marcadorChofer = L.marker([lat, lon], {
                             icon: nuevoIcono,
@@ -694,6 +694,9 @@
             if (!reservaPendiente) return;
 
             try {
+                const numAsientosReq = parseInt(reservaPendiente.asientos) || 1;
+                let asignados = 0;
+
                 await _s
                     .from('reservas_activas')
                     .update({ 
@@ -705,12 +708,12 @@
                     .eq('id', reservaPendiente.id);
 
                 for (let i = 1; i <= 4; i++) {
-                    if (!asientos[i].ocupado) {
+                    if (!asientos[i].ocupado && asignados < numAsientosReq) {
                         asientos[i].ocupado = true;
                         asientos[i].nombre = reservaPendiente.nombre_pasajero;
                         asientos[i].destino = reservaPendiente.destino;
                         asientos[i].idReserva = reservaPendiente.id;
-                        break;
+                        asignados++;
                     }
                 }
 
@@ -723,12 +726,23 @@
             }
         }
 
+        async function rechazarSolicitud() {
+            if (!reservaPendiente) { cerrarAlerta(); return; }
+
+            try {
+                await _s.from('reservas_activas')
+                    .update({ estado: 'rechazado' })
+                    .eq('id', reservaPendiente.id);
+            } catch (e) {}
+
+            reservaPendiente = null;
+            cerrarAlerta();
+        }
+
         async function liberarAsiento(numSeat) {
             const seat = asientos[numSeat];
 
-            if (!seat.ocupado) {
-                return;
-            }
+            if (!seat.ocupado) return;
 
             if (seat.idReserva) {
                 await _s
@@ -737,58 +751,4 @@
                     .eq('id', seat.idReserva);
             }
 
-            asientos[numSeat] = { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null };
-            actualizarPillsUI();
-        }
-
-        function actualizarPillsUI() {
-            let cantPax = 0;
-
-            for (let i = 1; i <= 4; i++) {
-                const pill = document.getElementById(`pill${i}`);
-                const nombreEl = document.getElementById(`nombre-pax-${i}`);
-                const destinoEl = document.getElementById(`destino-pax-${i}`);
-                const seat = asientos[i];
-
-                if (seat.ocupado) {
-                    cantPax++;
-                    pill.classList.add('ocupado');
-                    nombreEl.innerText = seat.nombre;
-                    destinoEl.innerText = seat.destino;
-                } else {
-                    pill.classList.remove('ocupado');
-                    nombreEl.innerText = 'Libre';
-                    destinoEl.innerText = '-';
-                }
-            }
-
-            const txtPax = document.getElementById('txt-pax');
-            const txtPlata = document.getElementById('txt-plata');
-            if (txtPax) txtPax.innerText = cantPax;
-            if (txtPlata) txtPlata.innerText = "$" + (cantPax * 1500);
-        }
-
-        function abrirSheet() { document.getElementById('driver-sheet').classList.add('expanded'); }
-        function cerrarSheet() { document.getElementById('driver-sheet').classList.remove('expanded'); }
-
-        async function confirmarVaciar() {
-            for (let i = 1; i <= 4; i++) {
-                if (asientos[i].idReserva) {
-                    await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', asientos[i].idReserva);
-                }
-                asientos[i] = { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null };
-            }
-            actualizarPillsUI();
-            cerrarSheet();
-        }
-
-        async function finalizarJornada() {
-            if (watchId) navigator.geolocation.clearWatch(watchId);
-            if (window.speechSynthesis) speechSynthesis.cancel();
-            await _s.from('estado_movil').update({ esta_online: false }).eq('id', miIdMovil);
-            localStorage.clear();
-            location.reload();
-        }
-    </script>
-</body>
-</html>
+            asientos[numSeat] = {
