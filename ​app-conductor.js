@@ -50,7 +50,7 @@ let historialPosiciones = [], anguloActual = 0, velocidadActual = 0, puntosRastr
 const MAX_PUNTOS_RASTRO = 80;
 let reservaPendiente = null;
 let pollingInterval = null;
-let marcadoresPasajeros = {}; // 🟢 Diccionario para almacenar los marcadores de los pasajeros en el mapa
+let marcadoresPasajeros = {}; // Diccionario para guardar los marcadores de los pasajeros activos
 
 const map = L.map('map', { zoomControl: false, rotate: true }).setView(paradas[0].c, 16);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { keepBuffer: 8 }).addTo(map);
@@ -64,7 +64,7 @@ paradas.forEach((p, i) => {
 
 let rastroPolyline = L.polyline([], { color: '#00d2ff', weight: 4, opacity: 0.5, dashArray: '6, 4' }).addTo(map);
 
-// 🚗 ICONO 3D DEL CONDUCTOR (INTACTO COMO LO PEDISTE)
+// 🚗 ICONO 3D DEL CONDUCTOR (INTACTO)
 function crearIconoAuto(angulo, velocidad) {
     const colorVelocidad = velocidad > 50 ? '#ff3b30' : velocidad > 30 ? '#ffcc00' : '#00d2ff';
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="44" height="58">
@@ -92,10 +92,10 @@ function crearIconoAuto(angulo, velocidad) {
 let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [44, 58], iconAnchor: [22, 29], className: 'auto-radar-icon' });
 let markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
 
-// 🟢 ICONO PARA LOS PASAJEROS EN EL MAPA
+// 🟢 ICONO PARA UBICAR AL PASAJERO EN EL MAPA DEL CONDUCTOR
 const iconoPasajeroMapa = L.divIcon({
-    html: '<div style="background:#00f3ff; width:22px; height:22px; border-radius:50%; border:2px solid #000; display:flex; align-items:center; justify-content:center; font-size:12px; box-shadow:0 0 10px #00f3ff;">🚶</div>',
-    iconSize: [22, 22],
+    html: '<div style="background:#00f3ff; width:24px; height:24px; border-radius:50%; border:2px solid #000; display:flex; align-items:center; justify-content:center; font-size:13px; box-shadow:0 0 12px #00f3ff;">🚶</div>',
+    iconSize: [24, 24],
     className: 'pax-map-icon'
 });
 
@@ -329,7 +329,7 @@ function iniciarPolling() {
     pollingInterval = setInterval(actualizar, 3000);
 }
 
-// 🟢 FUNCIÓN ACTUALIZADA: EL CONDUCTOR RECIBE Y PINTA A LOS PASAJEROS ACTIVOS EN EL MAPA
+// 🟢 FUNCIÓN ACTUALIZADA: Pinta y actualiza al pasajero en tiempo real en el mapa del conductor
 async function actualizar() {
     if (!estaOnline) return;
     try {
@@ -351,19 +351,22 @@ async function actualizar() {
                 totalPax += (r.asientos || 1); 
                 idsActivosActuales.push(r.id);
 
-                // Si el pasajero guardó sus coordenadas de subida/ubicación en la reserva
-                if (r.latitud && r.longitud) {
+                // 🟢 VERIFICAR SI EL PASAJERO ENVIÓ SUS COORDENADAS PARA DIBUJARLO
+                if (r.latitud !== null && r.latitud !== undefined && r.longitud !== null && r.longitud !== undefined) {
+                    const latPax = parseFloat(r.latitud);
+                    const lonPax = parseFloat(r.longitud);
+
                     if (marcadoresPasajeros[r.id]) {
-                        marcadoresPasajeros[r.id].setLatLng([r.latitud, r.longitud]);
+                        marcadoresPasajeros[r.id].setLatLng([latPax, lonPax]);
                     } else {
-                        marcadoresPasajeros[r.id] = L.marker([r.latitud, r.longitud], { icon: iconoPasajeroMapa })
+                        marcadoresPasajeros[r.id] = L.marker([latPax, lonPax], { icon: iconoPasajeroMapa })
                             .addTo(map)
                             .bindPopup(`Pasajero: <b>${r.nombre_pasajero}</b><br>Destino: ${r.destino}`);
                     }
                 }
             });
 
-            // Limpiar marcadores de pasajeros cuyos viajes ya finalizaron
+            // Limpiar del mapa los marcadores de pasajeros cuyos viajes ya finalizaron o fueron cancelados
             Object.keys(marcadoresPasajeros).forEach(id => {
                 if (!idsActivosActuales.includes(Number(id)) && !idsActivosActuales.includes(id)) {
                     map.removeLayer(marcadoresPasajeros[id]);
@@ -413,7 +416,7 @@ async function finalizarJornada() {
     const label = document.getElementById('status-label');
     if (label) { label.innerText = "DESCONECTADO"; label.style.color = "#aaa"; }
     
-    // Limpiar marcadores de pasajeros del mapa al salir
+    // Remover todos los pasajeros del mapa
     Object.values(marcadoresPasajeros).forEach(m => map.removeLayer(m));
     marcadoresPasajeros = {};
 
