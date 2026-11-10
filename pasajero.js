@@ -120,23 +120,26 @@ window.addEventListener('DOMContentLoaded', () => {
             gpsListo = true;
             document.getElementById('txt-subida').innerText = ubicacionSubidaTexto;
 
-            // 🟢 REPORTAR UBICACIÓN A SUPABASE CADA 4 SEGUNDOS PARA EL RADAR DEL CONDUCTOR
+            // Reportar ubicación a Supabase cada 4 segundos para el radar del conductor
             const ahora = Date.now();
             if (ahora - ultimaVezReportadoGPS > 4000) {
                 ultimaVezReportadoGPS = ahora;
                 const nombreInput = document.getElementById('input-nombre-pasajero');
                 const nombrePax = nombreInput ? nombreInput.value.trim() : 'Pasajero';
 
-                await _s.from('pasajeros_activos').upsert({
+                _s.from('pasajeros_activos').upsert({
                     id: paxUUID,
                     nombre: nombrePax || 'Pasajero',
                     latitud: lat,
                     longitud: lon,
                     ultima_actualizacion: new Date().toISOString()
-                }).catch(() => {});
+                }).then(({ error }) => {
+                    if (error) console.error("Error al reportar GPS pasajero:", error.message);
+                }).catch(err => console.error("Error de conexión:", err));
             }
 
-        }, () => {
+        }, (err) => {
+            console.error("Error de geolocalización:", err);
             document.getElementById('txt-subida').innerText = 'GPS no disponible';
         }, { enableHighAccuracy: true });
     }
@@ -255,7 +258,6 @@ async function solicitarReserva() {
         const idMovilFijo = 1;
         const detalleRuta = `Sube en: ${ubicacionSubidaTexto} ➔ Baja en: ${paradaSeleccionada.n}`;
 
-        // Incluimos latitud y longitud actuales al insertar la reserva
         const { data: resData, error: errReserva } = await _s
             .from('reservas_activas')
             .insert({
@@ -409,7 +411,7 @@ document.addEventListener("visibilitychange", async () => {
 });
 
 async function finalizarViaje() {
-    if (!confirm("¿Deseas finalizar tu viaje?")) return;
+    if (!confirm("¿Deseas finalizar tu viaje?")) নতুন;
     try {
         if (miReservaID) {
             await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', miReservaID);
