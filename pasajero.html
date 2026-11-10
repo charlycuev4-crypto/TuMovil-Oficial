@@ -316,4 +316,55 @@
                 <option value="">Selecciona tu destino...</option>
             </select>
         </div>
-        <div class="subida-info">Tu Parada de Subida: <span id="txt-subida">Obteniendo GPS...
+        <div class="subida-info">Tu Parada de Subida: <span id="txt-subida">Obteniendo GPS...</span></div>
+    </div>
+
+    <!-- TARJETA INFERIOR -->
+    <div class="bottom-card">
+        <!-- FORMULARIO DE RESERVA -->
+        <div id="form-reserva-container">
+            <input type="text" id="nombre-input" class="input-nombre" placeholder="Escribe tu Nombre y Apellido *" autocomplete="name">
+
+            <div id="flota-container"></div>
+
+            <button id="btn-pedir" class="btn-solicitar" onclick="confirmarViajePasajero()" disabled>SELECCIONÁ TU DESTINO</button>
+        </div>
+
+        <!-- PANEL DE VIAJE EN CURSO -->
+        <div id="panel-estado-viaje" style="display: none;">
+            <div class="card-viaje-activo">
+                <div class="info-chofer-row">
+                    <div class="auto-icono">🚗</div>
+                    <div class="chofer-detalles">
+                        <h4 id="info-coche-id">Coche --</h4>
+                        <p id="info-chofer-nombre">Conductor Oficial</p>
+                    </div>
+                </div>
+
+                <div class="caja-estado-verde" id="caja-estado-contenedor">
+                    <h5 id="viaje-status-texto">🚗 SOLICITUD ENVIADA</h5>
+                    <span id="sub-estado-caja">Esperando que el chofer acepte...</span>
+                </div>
+
+                <div class="detalles-extras-row">
+                    <div>Destino: <b id="info-destino-abordo">--</b></div>
+                    <div>Asiento(s): <b id="info-asientos-detalles">--</b></div>
+                </div>
+
+                <button id="btn-cancelar" class="btn-finalizar" onclick="finalizarViaje()">FINALIZAR MI VIAJE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" style="position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:9999;"></div>
+    <div id="banner-llegada" style="display:none; position:fixed; bottom:100px; left:20px; right:20px; background:rgba(0,255,0,0.9); color:#000; padding:15px; border-radius:12px; text-align:center; font-weight:bold; z-index:9999;">
+        ¡El coche está llegando! Subida en <span id="llegada-timer">30</span>s
+    </div>
+
+    <!-- SCRIPTS DE LIBRERÍAS EXTERNAS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- INSERTA TU JAVASCRIPT AQUÍ ABAJO -->
+</body>
+</html>
