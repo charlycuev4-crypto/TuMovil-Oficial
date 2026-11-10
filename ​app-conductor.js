@@ -50,7 +50,7 @@ let historialPosiciones = [], anguloActual = 0, velocidadActual = 0, puntosRastr
 const MAX_PUNTOS_RASTRO = 80;
 let reservaPendiente = null;
 let pollingInterval = null;
-let marcadoresPasajeros = {}; // Diccionario para guardar los marcadores de los pasajeros activos
+let marcadoresPasajeros = {}; // Diccionario para los marcadores de pasajeros en tiempo real
 
 const map = L.map('map', { zoomControl: false, rotate: true }).setView(paradas[0].c, 16);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { keepBuffer: 8 }).addTo(map);
@@ -64,7 +64,7 @@ paradas.forEach((p, i) => {
 
 let rastroPolyline = L.polyline([], { color: '#00d2ff', weight: 4, opacity: 0.5, dashArray: '6, 4' }).addTo(map);
 
-// 🚗 ICONO 3D DEL CONDUCTOR (INTACTO)
+// 🚗 ICONO 3D DEL CONDUCTOR (INTACTO TAL CUAL LO PEDISTE)
 function crearIconoAuto(angulo, velocidad) {
     const colorVelocidad = velocidad > 50 ? '#ff3b30' : velocidad > 30 ? '#ffcc00' : '#00d2ff';
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="44" height="58">
@@ -92,7 +92,7 @@ function crearIconoAuto(angulo, velocidad) {
 let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [44, 58], iconAnchor: [22, 29], className: 'auto-radar-icon' });
 let markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
 
-// 🟢 ICONO PARA UBICAR AL PASAJERO EN EL MAPA DEL CONDUCTOR
+// 🟢 ICONO PARA LOS PASAJEROS ACTIVOS EN EL MAPA
 const iconoPasajeroMapa = L.divIcon({
     html: '<div style="background:#00f3ff; width:24px; height:24px; border-radius:50%; border:2px solid #000; display:flex; align-items:center; justify-content:center; font-size:13px; box-shadow:0 0 12px #00f3ff;">🚶</div>',
     iconSize: [24, 24],
@@ -329,10 +329,11 @@ function iniciarPolling() {
     pollingInterval = setInterval(actualizar, 3000);
 }
 
-// 🟢 FUNCIÓN ACTUALIZADA: Pinta y actualiza al pasajero en tiempo real en el mapa del conductor
+// 🟢 RADAR GENERAL: El conductor ve a LOS PASAJEROS EN LÍNEA apenas abren su app y también sus reservas activas
 async function actualizar() {
     if (!estaOnline) return;
     try {
+        // 1. Revisar reservas / solicitudes de viaje
         const { data: reservas, error } = await _s.from('reservas_activas')
             .select('*')
             .eq('id_movil', MI_ID_MOVIL)
@@ -345,40 +346,47 @@ async function actualizar() {
             }
 
             let totalPax = 0;
-            let idsActivosActuales = [];
-
-            reservas.forEach(r => { 
-                totalPax += (r.asientos || 1); 
-                idsActivosActuales.push(r.id);
-
-                // 🟢 VERIFICAR SI EL PASAJERO ENVIÓ SUS COORDENADAS PARA DIBUJARLO
-                if (r.latitud !== null && r.latitud !== undefined && r.longitud !== null && r.longitud !== undefined) {
-                    const latPax = parseFloat(r.latitud);
-                    const lonPax = parseFloat(r.longitud);
-
-                    if (marcadoresPasajeros[r.id]) {
-                        marcadoresPasajeros[r.id].setLatLng([latPax, lonPax]);
-                    } else {
-                        marcadoresPasajeros[r.id] = L.marker([latPax, lonPax], { icon: iconoPasajeroMapa })
-                            .addTo(map)
-                            .bindPopup(`Pasajero: <b>${r.nombre_pasajero}</b><br>Destino: ${r.destino}`);
-                    }
-                }
-            });
-
-            // Limpiar del mapa los marcadores de pasajeros cuyos viajes ya finalizaron o fueron cancelados
-            Object.keys(marcadoresPasajeros).forEach(id => {
-                if (!idsActivosActuales.includes(Number(id)) && !idsActivosActuales.includes(id)) {
-                    map.removeLayer(marcadoresPasajeros[id]);
-                    delete marcadoresPasajeros[id];
-                }
-            });
+            reservas.forEach(r => { totalPax += (r.asientos || 1); });
 
             const txtPax = document.getElementById('txt-pax');
             const txtPlata = document.getElementById('txt-plata');
             if (txtPax) txtPax.innerText = totalPax;
             if (txtPlata) txtPlata.innerText = "$" + (totalPax * TARIFA_UNICA);
         }
+
+        // 2. 🟢 RASTREO GENERAL DE PASAJEROS QUE TIENEN LA APP ABIERTA (Tabla de presencia de pasajeros)
+        // Nota: Asegúrate de que tu app de pasajero guarde o actualice su posición en una tabla llamada 'pasajeros_activos' o similar cuando obtenga GPS.
+        const { data: pasajerosActivos, error: errPax } = await _s.from('pasajeros_activos')
+            .select('*');
+
+        if (!errPax && pasajerosActivos) {
+            let idsPasajerosActuales = [];
+
+            pasajerosActivos.forEach(pax => {
+                if (pax.latitud && pax.longitud) {
+                    idsPasajerosActuales.push(pax.id);
+                    const latPax = parseFloat(pax.latitud);
+                    const lonPax = parseFloat(pax.longitud);
+
+                    if (marcadoresPasajeros[pax.id]) {
+                        marcadoresPasajeros[pax.id].setLatLng([latPax, lonPax]);
+                    } else {
+                        marcadoresPasajeros[pax.id] = L.marker([latPax, lonPax], { icon: iconoPasajeroMapa })
+                            .addTo(map)
+                            .bindPopup(`Pasajero en línea: <b>${pax.nombre || 'Pasajero'}</b>`);
+                    }
+                }
+            });
+
+            // Limpiar del mapa los pasajeros que cerraron la app
+            Object.keys(marcadoresPasajeros).forEach(id => {
+                if (!idsPasajerosActuales.includes(id) && !idsPasajerosActuales.includes(Number(id))) {
+                    map.removeLayer(marcadoresPasajeros[id]);
+                    delete marcadoresPasajeros[id];
+                }
+            });
+        }
+
     } catch (err) {}
 }
 
@@ -416,7 +424,6 @@ async function finalizarJornada() {
     const label = document.getElementById('status-label');
     if (label) { label.innerText = "DESCONECTADO"; label.style.color = "#aaa"; }
     
-    // Remover todos los pasajeros del mapa
     Object.values(marcadoresPasajeros).forEach(m => map.removeLayer(m));
     marcadoresPasajeros = {};
 
