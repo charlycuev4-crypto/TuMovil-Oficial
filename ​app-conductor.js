@@ -1,6 +1,5 @@
 const TARIFA_UNICA = 1500; // TARIFA PLANA UNIFICADA $1500
 
-// LISTA DE PARADAS COMPLETA Y ORDENADA (36 PARADAS: CRUCE DERQUI -> ABASTO Y ROCA)
 const paradas = [
     {n:'Av. Derqui y P197 (Cruce Derqui)', c:[-34.537898, -58.794848]},
     {n:'Fray Antonio Marchena y Carlos Eberth', c:[-34.539274, -58.793441]},
@@ -91,7 +90,6 @@ function crearIconoAuto(angulo, velocidad) {
 
 let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [44, 58], iconAnchor: [22, 29], className: 'auto-radar-icon' });
 let markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
-let markersPax = [], markersDest = [];
 
 function abrirSheet() {
     document.getElementById('driver-sheet').classList.add('expanded');
@@ -155,6 +153,7 @@ function reproducirAlarma() {
 
 function vibrarAlarma() { if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]); }
 
+// 🟢 MOSTRAR EL GLOBO FLOTANTE DE ALERTA CUANDO LLEGA UN VIAJE
 function mostrarAlertaReserva(reserva) {
     reservaPendiente = reserva;
     const alerta = document.getElementById('alerta-reserva');
@@ -232,81 +231,6 @@ function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
               Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
               Math.sin(dLon/2) * Math.sin(dLon/2);
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-}
-
-function actualizarHUDParadas(paradaActualIdx) {
-    const hud = document.getElementById('hud-paradas');
-    if (!hud || !estaOnline) return;
-    hud.style.display = 'flex';
-    hud.innerHTML = '';
-    const start = Math.max(0, paradaActualIdx - 1);
-    const end = Math.min(paradas.length - 1, paradaActualIdx + 4);
-    
-    for (let i = start; i <= end; i++) {
-        const pill = document.createElement('div');
-        pill.className = 'parada-pill';
-        pill.textContent = (i + 1) + ". " + paradas[i].n.split(' ')[0];
-        if (i === paradaActualIdx) pill.classList.add('proxima');
-        else if (paradasVisitadas.has(i)) pill.classList.add('visitada');
-        hud.appendChild(pill);
-    }
-}
-
-function detectarDireccionPorSecuencia(paradaActualIdx) {
-    historialParadas.push(paradaActualIdx);
-    if (historialParadas.length > 5) historialParadas.shift();
-    if (historialParadas.length < 2) return sentidoActual;
-    let tendencia = 0;
-    for (let i = 1; i < historialParadas.length; i++) {
-        if (historialParadas[i] > historialParadas[i-1]) tendencia++;
-        else if (historialParadas[i] < historialParadas[i-1]) tendencia--;
-    }
-    const nuevaDireccion = tendencia >= 0 ? 'IDA' : 'VUELTA';
-    if (Math.abs(tendencia) >= 2 && nuevaDireccion !== direccionDetectada) {
-        direccionDetectada = nuevaDireccion;
-        sentidoActual = direccionDetectada;
-        localStorage.setItem('driver_sentido', sentidoActual);
-        if (estaOnline) { _s.from('estado_movil').update({ sentido_flujo: direccionDetectada }).eq('id', MI_ID_MOVIL); }
-        const btnSentido = document.getElementById('btn-sentido');
-        if (btnSentido) btnSentido.innerText = sentidoActual;
-        rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff3b30' : '#007aff' });
-        mostrarToast('Sentido: ' + sentidoActual, 'success');
-    }
-    return direccionDetectada;
-}
-
-async function marcarPasajeroABordo() {
-    try {
-        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).in('estado', ['en_curso', 'atendido']);
-        if (!reservas || reservas.length === 0) { mostrarToast('No hay pasajeros esperando', 'warning'); return; }
-        for (const r of reservas) {
-            await _s.from('reservas_activas').update({ estado: 'a_bordo' }).eq('id', r.id);
-        }
-        mostrarToast('Pasajeros a bordo', 'success');
-        actualizar();
-        cerrarSheet();
-    } catch (err) { mostrarToast('Error al actualizar', 'error'); }
-}
-
-async function llegoADestino() {
-    try {
-        const { data: reservas } = await _s.from('reservas_activas').select('*').eq('id_movil', MI_ID_MOVIL).in('estado', ['en_curso', 'atendido', 'a_bordo']);
-        if (!reservas || reservas.length === 0) { mostrarToast('No hay pasajeros a bordo', 'warning'); return; }
-        if (!confirm('¿Finalizar viajes en destino?')) return;
-        
-        for (const r of reservas) {
-            await _s.from('viajes').insert({
-                nombre_pasajero: r.nombre_pasajero, id_movil: MI_ID_MOVIL, asiento_num: 1,
-                destino_idx: 0, passenger_lat: 0, passenger_lon: 0,
-                precio: TARIFA_UNICA, estado: 'finalizado', fecha: new Date().toISOString()
-            });
-            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', r.id);
-            await _s.from('reservas_activas').delete().eq('id', r.id);
-        }
-        mostrarToast('Viajes Completados ($' + (reservas.length * TARIFA_UNICA) + ')', 'success');
-        actualizar();
-        cerrarSheet();
-    } catch (err) { mostrarToast('Error al finalizar', 'error'); }
 }
 
 function calcularCercana(lat, lon) {
@@ -424,7 +348,7 @@ async function actualizar() {
     } catch (err) {}
 }
 
-// 🔄 RECUPERACIÓN AUTOMÁTICA EN SEGUNDO PLANO / CAMBIO DE PESTAÑA
+// 🔄 RECUPERACIÓN AUTOMÁTICA EN SEGUNDO PLANO (Evita que se cuelgue al cambiar de pestaña)
 document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState === "visible" && estaOnline) {
         if (!watchId) iniciarGPS();
