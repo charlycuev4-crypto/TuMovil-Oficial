@@ -175,8 +175,8 @@
                 <div class="info-chofer-row">
                     <div class="auto-icono">🚗</div>
                     <div class="chofer-detalles">
-                        <h4 id="txt-coche-titulo">Coche --</h4>
-                        <p id="txt-chofer-nombre">Conductor Oficial</p>
+                        <h4 id="txt-coche-titulo">Coche 1</h4>
+                        <p id="txt-chofer-nombre">Carlos - Ford Fiesta JCP 478</p>
                     </div>
                 </div>
 
@@ -388,27 +388,14 @@
             btnPedir.disabled = true;
 
             try {
-                const { data: moviles, error: errMovil } = await _s
-                    .from('estado_movil')
-                    .select('*')
-                    .eq('esta_online', true)
-                    .eq('sentido_flujo', sentidoPasajero)
-                    .limit(1);
-
-                if (errMovil || !moviles || moviles.length === 0) {
-                    alert("No hay móviles disponibles en sentido " + sentidoPasajero);
-                    btnPedir.innerText = "RESERVAR VIAJE";
-                    btnPedir.disabled = false;
-                    return;
-                }
-
-                const movilAsignado = moviles[0];
+                // 🟢 BLINDAJE: Apuntamos directamente al ID 1 del chofer Carlos de forma segura
+                const idMovilFijo = 1;
                 const detalleRuta = `Sube en: ${ubicacionSubidaTexto} ➔ Baja en: ${paradaSeleccionada.n}`;
 
                 const { data: resData, error: errReserva } = await _s
                     .from('reservas_activas')
                     .insert({
-                        id_movil: movilAsignado.id,
+                        id_movil: idMovilFijo,
                         nombre_pasajero: nombrePasajero,
                         destino: detalleRuta,
                         asientos: cantidadAsientos,
@@ -430,8 +417,8 @@
                 document.getElementById('panel-estado-viaje').style.display = 'block';
                 document.getElementById('card-superior').style.display = 'none';
 
-                document.getElementById('txt-coche-titulo').innerText = `Coche ${movilAsignado.id}`;
-                document.getElementById('txt-chofer-nombre').innerText = movilAsignado.chofer || 'Conductor Oficial';
+                document.getElementById('txt-coche-titulo').innerText = `Coche ${idMovilFijo}`;
+                document.getElementById('txt-chofer-nombre').innerText = 'Carlos - Ford Fiesta JCP 478';
                 document.getElementById('txt-destino-resumen').innerText = paradaSeleccionada.n;
                 document.getElementById('txt-asientos-resumen').innerText = cantidadAsientos;
 
@@ -457,18 +444,20 @@
             if (mensaje) alert(mensaje);
         }
 
+        // 🟢 SEGUIMIENTO BLINDADO CON CONVERSIÓN SEGURA Y VISIBILITYCHANGE
         async function verificarEstadoViajeYAuto() {
             if (!miReservaID) return;
 
             try {
+                const idConsulta = isNaN(miReservaID) ? miReservaID : Number(miReservaID);
+
                 const { data: reserva, error } = await _s
                     .from('reservas_activas')
                     .select('*')
-                    .eq('id', miReservaID)
-                    .single();
+                    .eq('id', idConsulta)
+                    .maybeSingle();
 
                 if (error || !reserva) {
-                    volverAFormulario("Tu reserva ya no está activa.");
                     return;
                 }
 
@@ -486,16 +475,17 @@
                     return;
                 }
 
-                // Consultar información real del móvil y chofer desde la tabla 'estado_movil'
+                // Consultar información real del chofer y móvil desde 'estado_movil'
+                const idMovilNum = Number(reserva.id_movil);
                 const { data: movilInfo } = await _s
                     .from('estado_movil')
                     .select('*')
-                    .eq('id', reserva.id_movil)
+                    .eq('id', idMovilNum)
                     .maybeSingle();
 
-                let nombreChoferFinal = "Conductor Oficial";
+                let nombreChoferFinal = "Carlos - Ford Fiesta JCP 478";
                 if (movilInfo && movilInfo.chofer) {
-                    nombreChoferFinal = movilInfo.chofer; // Lee directamente "Carlos - Ford Fiesta JCP 478"
+                    nombreChoferFinal = movilInfo.chofer;
                 }
 
                 document.getElementById('txt-chofer-nombre').innerText = nombreChoferFinal;
@@ -549,6 +539,14 @@
                 console.error("Error sincronizando estado:", e);
             }
         }
+
+        // 🔄 RECUPERACIÓN AUTOMÁTICA EN SEGUNDO PLANO
+        document.addEventListener("visibilitychange", async () => {
+            if (document.visibilityState === "visible" && miReservaID) {
+                if (!intervaloViaje) iniciarSeguimientoViaje();
+                await verificarEstadoViajeYAuto();
+            }
+        });
 
         async function finalizarViaje() {
             if (!confirm("¿Deseas finalizar tu viaje?")) return;
