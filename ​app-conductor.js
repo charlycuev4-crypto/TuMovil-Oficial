@@ -44,13 +44,13 @@ const MI_NOMBRE = "Carlos - Ford Fiesta JCP 478";
 const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
 let estaOnline = false, watchId = null, sentidoActual = 'IDA';
-let ultimaVezEnviado = 0, ultimaCantidadReservas = 0;
+let ultimaVezEnviado = 0;
 let wakeLock = null, audioContext = null;
-let paradasAnunciadas = new Map(), paradasVisitadas = new Set(), historialParadas = [];
-let direccionDetectada = 'IDA', historialPosiciones = [], anguloActual = 0, velocidadActual = 0, puntosRastro = [];
+let historialPosiciones = [], anguloActual = 0, velocidadActual = 0, puntosRastro = [];
 const MAX_PUNTOS_RASTRO = 80;
 let reservaPendiente = null;
 let pollingInterval = null;
+let marcadoresPasajeros = {}; // 🟢 Diccionario para almacenar los marcadores de los pasajeros en el mapa
 
 const map = L.map('map', { zoomControl: false, rotate: true }).setView(paradas[0].c, 16);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { keepBuffer: 8 }).addTo(map);
@@ -64,6 +64,7 @@ paradas.forEach((p, i) => {
 
 let rastroPolyline = L.polyline([], { color: '#00d2ff', weight: 4, opacity: 0.5, dashArray: '6, 4' }).addTo(map);
 
+// 🚗 ICONO 3D DEL CONDUCTOR (INTACTO COMO LO PEDISTE)
 function crearIconoAuto(angulo, velocidad) {
     const colorVelocidad = velocidad > 50 ? '#ff3b30' : velocidad > 30 ? '#ffcc00' : '#00d2ff';
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="44" height="58">
@@ -90,6 +91,13 @@ function crearIconoAuto(angulo, velocidad) {
 
 let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [44, 58], iconAnchor: [22, 29], className: 'auto-radar-icon' });
 let markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
+
+// 🟢 ICONO PARA LOS PASAJEROS EN EL MAPA
+const iconoPasajeroMapa = L.divIcon({
+    html: '<div style="background:#00f3ff; width:22px; height:22px; border-radius:50%; border:2px solid #000; display:flex; align-items:center; justify-content:center; font-size:12px; box-shadow:0 0 10px #00f3ff;">🚶</div>',
+    iconSize: [22, 22],
+    className: 'pax-map-icon'
+});
 
 function abrirSheet() {
     document.getElementById('driver-sheet').classList.add('expanded');
@@ -153,7 +161,6 @@ function reproducirAlarma() {
 
 function vibrarAlarma() { if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]); }
 
-// 🟢 MOSTRAR EL GLOBO FLOTANTE DE ALERTA CUANDO LLEGA UN VIAJE
 function mostrarAlertaReserva(reserva) {
     reservaPendiente = reserva;
     const alerta = document.getElementById('alerta-reserva');
@@ -174,7 +181,6 @@ function cerrarAlerta() {
     if (alerta) alerta.classList.remove('mostrar');
 }
 
-// 🟢 FUNCIÓN EXPLICITA: EL CHOFER CONFIRMA Y ACEPTA LA SOLICITUD
 async function confirmarSolicitudConductor() {
     if (!reservaPendiente) {
         mostrarToast('No hay reserva pendiente', 'warning');
@@ -313,7 +319,7 @@ function iniciarGPS() {
         const ahora = Date.now();
         if (estaOnline && (ahora - ultimaVezEnviado > 3500)) {
             ultimaVezEnviado = ahora;
-            await _s.from('estado_movil').update({ latitud: lat, longitud: lon, disponible_desde: paradaInfo.idx, sentido_flujo: direccionDetectada, ultima_actualizacion: new Date().toISOString() }).eq('id', MI_ID_MOVIL).catch(() => {});
+            await _s.from('estado_movil').update({ latitud: lat, longitud: lon, disponible_desde: paradaInfo.idx, sentido_flujo: sentidoActual, ultima_actualizacion: new Date().toISOString() }).eq('id', MI_ID_MOVIL).catch(() => {});
         }
     }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 4000 });
 }
@@ -323,6 +329,7 @@ function iniciarPolling() {
     pollingInterval = setInterval(actualizar, 3000);
 }
 
+// 🟢 FUNCIÓN ACTUALIZADA: EL CONDUCTOR RECIBE Y PINTA A LOS PASAJEROS ACTIVOS EN EL MAPA
 async function actualizar() {
     if (!estaOnline) return;
     try {
@@ -338,7 +345,31 @@ async function actualizar() {
             }
 
             let totalPax = 0;
-            reservas.forEach(r => { totalPax += (r.asientos || 1); });
+            let idsActivosActuales = [];
+
+            reservas.forEach(r => { 
+                totalPax += (r.asientos || 1); 
+                idsActivosActuales.push(r.id);
+
+                // Si el pasajero guardó sus coordenadas de subida/ubicación en la reserva
+                if (r.latitud && r.longitud) {
+                    if (marcadoresPasajeros[r.id]) {
+                        marcadoresPasajeros[r.id].setLatLng([r.latitud, r.longitud]);
+                    } else {
+                        marcadoresPasajeros[r.id] = L.marker([r.latitud, r.longitud], { icon: iconoPasajeroMapa })
+                            .addTo(map)
+                            .bindPopup(`Pasajero: <b>${r.nombre_pasajero}</b><br>Destino: ${r.destino}`);
+                    }
+                }
+            });
+
+            // Limpiar marcadores de pasajeros cuyos viajes ya finalizaron
+            Object.keys(marcadoresPasajeros).forEach(id => {
+                if (!idsActivosActuales.includes(Number(id)) && !idsActivosActuales.includes(id)) {
+                    map.removeLayer(marcadoresPasajeros[id]);
+                    delete marcadoresPasajeros[id];
+                }
+            });
 
             const txtPax = document.getElementById('txt-pax');
             const txtPlata = document.getElementById('txt-plata');
@@ -348,7 +379,6 @@ async function actualizar() {
     } catch (err) {}
 }
 
-// 🔄 RECUPERACIÓN AUTOMÁTICA EN SEGUNDO PLANO (Evita que se cuelgue al cambiar de pestaña)
 document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState === "visible" && estaOnline) {
         if (!watchId) iniciarGPS();
@@ -359,7 +389,6 @@ document.addEventListener("visibilitychange", async () => {
 
 async function cambiarSentido() {
     sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
-    direccionDetectada = sentidoActual;
     localStorage.setItem('driver_sentido', sentidoActual);
     const btnSentido = document.getElementById('btn-sentido');
     if (btnSentido) btnSentido.innerText = sentidoActual;
@@ -384,10 +413,10 @@ async function finalizarJornada() {
     const label = document.getElementById('status-label');
     if (label) { label.innerText = "DESCONECTADO"; label.style.color = "#aaa"; }
     
-    const panelAnuncio = document.getElementById('panel-anuncio-parada');
-    if (panelAnuncio) panelAnuncio.classList.remove('visible');
-    const hud = document.getElementById('hud-paradas');
-    if (hud) hud.style.display = 'none';
+    // Limpiar marcadores de pasajeros del mapa al salir
+    Object.values(marcadoresPasajeros).forEach(m => map.removeLayer(m));
+    marcadoresPasajeros = {};
+
     const mapWrapper = document.getElementById('map-wrapper');
     if (mapWrapper) mapWrapper.style.transform = `rotate(0deg)`;
     
@@ -399,7 +428,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const sentidoGuardado = localStorage.getItem('driver_sentido');
     if (sentidoGuardado) {
         sentidoActual = sentidoGuardado;
-        direccionDetectada = sentidoGuardado;
         const btnSentido = document.getElementById('btn-sentido');
         if (btnSentido) btnSentido.innerText = sentidoActual;
         rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff3b30' : '#007aff' });
