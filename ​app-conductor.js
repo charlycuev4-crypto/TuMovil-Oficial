@@ -50,7 +50,7 @@ let reservaPendiente = null;
 let pollingInterval = null;
 
 const map = L.map('map', { zoomControl: false, rotate: true }).setView(paradas[0].c, 16);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/*.png', { keepBuffer: 8 }).catch(() => {}).addTo(map) || L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { keepBuffer: 8 }).addTo(map);
 
 const rutaLine = L.polyline(paradas.map(p => p.c), { color: '#ff3b30', weight: 6, opacity: 0.6 }).addTo(map);
 
@@ -58,23 +58,6 @@ paradas.forEach((p, i) => {
     L.circleMarker(p.c, { radius: 5, color: '#000', weight: 2, fillColor: '#00BFFF', fillOpacity: 0.9 })
         .addTo(map).bindTooltip((i + 1) + ". " + p.n, { permanent: false, direction: 'top' });
 });
-
-let rastroPolyline = L.polyline([], { color: '#00d2ff', weight: 4, opacity: 0.5, dashArray: '6, 4' }).addTo(map);
-
-function crearIconoAuto(angulo, velocidad) {
-    const colorVelocidad = velocidad > 50 ? '#ff3b30' : velocidad > 30 ? '#ffcc00' : '#00d2ff';
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="44" height="58">
-        <circle cx="60" cy="80" r="35" fill="${colorVelocidad}" opacity="0.3"/>
-        <g>
-            <rect x="22" y="28" width="76" height="92" rx="18" fill="#FFD700" stroke="#1a1a1a" stroke-width="2.5"/>
-            <rect x="30" y="46" width="60" height="56" rx="10" fill="#fff" opacity="0.2"/>
-        </g>
-    </svg>`;
-    return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
-}
-
-let miIcono = L.icon({ iconUrl: crearIconoAuto(0, 0), iconSize: [44, 58], iconAnchor: [22, 29] });
-let markerCoche = L.marker(paradas[0].c, { icon: miIcono, zIndexOffset: 1000 }).addTo(map);
 
 function mostrarToast(mensaje, tipo) {
     const container = document.getElementById('toast-container');
@@ -84,18 +67,6 @@ function mostrarToast(mensaje, tipo) {
     toast.textContent = mensaje;
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
-}
-
-async function activarWakeLock() {
-    try {
-        if ('wakeLock' in navigator) {
-            wakeLock = await navigator.wakeLock.request('screen');
-        }
-    } catch (err) {}
-}
-
-async function liberarWakeLock() {
-    if (wakeLock) { await wakeLock.release(); wakeLock = null; }
 }
 
 function inicializarAudio() {
@@ -124,7 +95,11 @@ function mostrarAlertaReserva(reserva) {
     reservaPendiente = reserva;
     const alerta = document.getElementById('alerta-reserva');
     if (alerta) {
-        document.getElementById('alerta-texto').innerText = reserva.nombre_pasajero + ' reservó ' + reserva.asientos + ' asiento(s) hacia ' + reserva.destino;
+        document.getElementById('alerta-texto').innerHTML = `
+            <b>Pasajero:</b> ${reserva.nombre_pasajero}<br>
+            <b>Asientos:</b> ${reserva.asientos}<br>
+            <b>Destino:</b> ${reserva.destino}
+        `;
         alerta.classList.add('mostrar');
     }
     reproducirAlarma();
@@ -135,23 +110,32 @@ function cerrarAlerta() {
     if (alerta) alerta.classList.remove('mostrar');
 }
 
-// 🟢 FUNCIÓN DE ATENDER SOLICITUD (Actualiza Supabase a 'atendido')
-async function atenderSolicitud() {
+// 🟢 NUEVO BOTÓN EXPLICITO: CONFIRMAR Y ACEPTAR SOLICITUD
+async function confirmarSolicitudConductor() {
     if (!reservaPendiente) {
+        mostrarToast('No hay reserva pendiente', 'warning');
         cerrarAlerta();
         return;
     }
+
     try {
-        await _s.from('reservas_activas')
+        console.log("Enviando confirmación para reserva ID:", reservaPendiente.id);
+        
+        // Forzamos el cambio de estado explícito a 'atendido'
+        const { error } = await _s
+            .from('reservas_activas')
             .update({ estado: 'atendido' })
             .eq('id', reservaPendiente.id);
 
-        mostrarToast('Solicitud aceptada', 'success');
+        if (error) throw error;
+
+        mostrarToast('¡Solicitud aceptada y notificada!', 'success');
         cerrarAlerta();
         reservaPendiente = null;
         actualizar();
     } catch (e) {
-        mostrarToast('Error al aceptar solicitud', 'error');
+        console.error("Error al confirmar:", e);
+        mostrarToast('Error al confirmar la solicitud', 'error');
     }
 }
 
@@ -186,7 +170,6 @@ async function gestionarConexion() {
             const datos = { esta_online: true, latitud: lat, longitud: lon, sentido_flujo: sentidoActual, disponible_desde: calcularCercana(lat, lon).idx, ultima_actualizacion: new Date().toISOString(), chofer: MI_NOMBRE };
             await _s.from('estado_movil').update(datos).eq('id', MI_ID_MOVIL);
             label.innerText = "EN LÍNEA"; label.style.color = "#34c759";
-            activarWakeLock(); 
             iniciarGPS();
             iniciarPolling();
         }, () => { toggle.checked = false; label.innerText = "ERROR GPS"; }, { enableHighAccuracy: true });
@@ -200,7 +183,6 @@ function detenerSistema() {
     if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
     if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
     _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL).catch(() => {});
-    liberarWakeLock();
 }
 
 function iniciarGPS() {
@@ -211,9 +193,6 @@ function iniciarGPS() {
         const elVel = document.getElementById('txt-velocidad');
         if (elVel) elVel.textContent = vel;
         
-        markerCoche.setLatLng([lat, lon]);
-        map.panTo([lat, lon]);
-
         const paradaInfo = calcularCercana(lat, lon);
         const elParada = document.getElementById('txt-parada');
         if (elParada) elParada.innerText = paradaInfo.nombre;
@@ -226,7 +205,6 @@ function iniciarGPS() {
     }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 4000 });
 }
 
-// 🟢 POLLING BLINDADO (Reconecta automáticamente al cambiar de pestaña)
 function iniciarPolling() {
     if (pollingInterval) clearInterval(pollingInterval);
     pollingInterval = setInterval(actualizar, 3000);
@@ -241,13 +219,11 @@ async function actualizar() {
             .in('estado', ['en_curso', 'atendido', 'a_bordo']);
 
         if (!error && reservas) {
-            if (reservas.length > ultimaCantidadReservas) {
-                const ultima = reservas[reservas.length - 1];
-                if (ultima.estado === 'en_curso') {
-                    mostrarAlertaReserva(ultima);
-                }
+            // Buscamos si hay alguna reserva que esté en curso y no hayamos alertado aún
+            const pendiente = reservas.find(r => r.estado === 'en_curso');
+            if (pendiente && (!reservaPendiente || reservaPendiente.id !== pendiente.id)) {
+                mostrarAlertaReserva(pendiente);
             }
-            ultimaCantidadReservas = reservas.length;
 
             let totalPax = 0;
             reservas.forEach(r => { totalPax += (r.asientos || 1); });
@@ -257,52 +233,18 @@ async function actualizar() {
             if (txtPax) txtPax.innerText = totalPax;
             if (txtPlata) txtPlata.innerText = "$" + (totalPax * TARIFA_UNICA);
         }
-    } catch (err) {
-        // Silencia errores de red temporales para que no se cuelgue la app
-    }
+    } catch (err) {}
 }
 
-// 🔄 DETECTOR DE CAMBIO DE PESTAÑA / SEGUNDO PLANO (Recuperación instantánea)
 document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState === "visible" && estaOnline) {
-        console.log("App de nuevo en primer plano. Reactivando conexiones...");
         if (!watchId) iniciarGPS();
         if (!pollingInterval) iniciarPolling();
         await actualizar();
     }
 });
 
-async function cambiarSentido() {
-    sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
-    localStorage.setItem('driver_sentido', sentidoActual);
-    const btnSentido = document.getElementById('btn-sentido');
-    if (btnSentido) btnSentido.innerText = sentidoActual;
-    rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff3b30' : '#007aff' });
-    if (estaOnline) { await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL); }
-}
-
-async function finalizarJornada() {
-    if (!confirm("🏁 ¿Finalizar jornada laboral y desconectarse?")) return;
-    detenerSistema();
-    localStorage.clear();
-    estaOnline = false;
-    const toggle = document.getElementById('online-toggle');
-    if (toggle) toggle.checked = false;
-    const label = document.getElementById('status-label');
-    if (label) { label.innerText = "DESCONECTADO"; label.style.color = "#aaa"; }
-    mostrarToast('Jornada finalizada', 'warning');
-    setTimeout(() => location.reload(), 1000);
-}
-
 window.addEventListener('DOMContentLoaded', () => {
-    const sentidoGuardado = localStorage.getItem('driver_sentido');
-    if (sentidoGuardado) {
-        sentidoActual = sentidoGuardado;
-        const btnSentido = document.getElementById('btn-sentido');
-        if (btnSentido) btnSentido.innerText = sentidoActual;
-        rutaLine.setStyle({ color: sentidoActual === 'IDA' ? '#ff3b30' : '#007aff' });
-    }
-
     const onlineGuardado = localStorage.getItem('driver_online');
     if (onlineGuardado === 'true') {
         const toggle = document.getElementById('online-toggle');
@@ -310,3 +252,5 @@ window.addEventListener('DOMContentLoaded', () => {
         gestionarConexion();
     }
 });
+
+setInterval(actualizar, 4000);
