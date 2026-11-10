@@ -53,6 +53,16 @@ let gpsListo = false;
 let intervaloViaje = null;
 let marcadorTaxisFlota = {};
 
+// 🟢 ID Único persistente para que el pasajero actualice su posición en la tabla general sin duplicarse
+let paxUUID = localStorage.getItem('pax_uuid');
+if (!paxUUID) {
+    paxUUID = 'pax_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+    localStorage.setItem('pax_uuid', paxUUID);
+}
+
+let ultimaVezReportadoGPS = 0;
+let latActualGPS = 0, lonActualGPS = 0;
+
 window.addEventListener('DOMContentLoaded', () => {
     map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -81,9 +91,11 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     if (navigator.geolocation) {
-        navigator.geolocation.watchPosition((pos) => {
+        navigator.geolocation.watchPosition(async (pos) => {
             const lat = pos.coords.latitude;
             const lon = pos.coords.longitude;
+            latActualGPS = lat;
+            lonActualGPS = lon;
             
             if (!marcadorPasajero) {
                 map.setView([lat, lon], 16);
@@ -107,6 +119,23 @@ window.addEventListener('DOMContentLoaded', () => {
             ubicacionSubidaTexto = paradas[paradaSubidaIndex].n;
             gpsListo = true;
             document.getElementById('txt-subida').innerText = ubicacionSubidaTexto;
+
+            // 🟢 REPORTAR UBICACIÓN A SUPABASE CADA 4 SEGUNDOS (Para que el conductor lo vea al abrir la app)
+            const ahora = Date.now();
+            if (ahora - ultimaVezReportadoGPS > 4000) {
+                ultimaVezReportadoGPS = ahora;
+                const nombreInput = document.getElementById('input-nombre-pasajero');
+                const nombrePax = nombreInput ? nombreInput.value.trim() : 'Pasajero';
+
+                await _s.from('pasajeros_activos').upsert({
+                    id: paxUUID,
+                    nombre: nombrePax || 'Pasajero',
+                    latitud: lat,
+                    longitud: lon,
+                    ultima_actualizacion: new Date().toISOString()
+                }).catch(() => {});
+            }
+
         }, () => {
             document.getElementById('txt-subida').innerText = 'GPS no disponible';
         }, { enableHighAccuracy: true });
@@ -226,6 +255,7 @@ async function solicitarReserva() {
         const idMovilFijo = 1;
         const detalleRuta = `Sube en: ${ubicacionSubidaTexto} ➔ Baja en: ${paradaSeleccionada.n}`;
 
+        // 🟢 Incluimos latitud y longitud actuales al insertar la reserva
         const { data: resData, error: errReserva } = await _s
             .from('reservas_activas')
             .insert({
@@ -234,7 +264,9 @@ async function solicitarReserva() {
                 destino: detalleRuta,
                 asientos: cantidadAsientos,
                 sentido: sentidoPasajero,
-                estado: 'en_curso'
+                estado: 'en_curso',
+                latitud: latActualGPS,
+                longitud: lonActualGPS
             })
             .select()
             .single();
