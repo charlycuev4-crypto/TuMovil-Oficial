@@ -486,20 +486,16 @@
                     return;
                 }
 
-                // Consultar información del móvil y chofer
+                // Consultar información real del móvil y chofer desde la tabla 'estado_movil'
                 const { data: movilInfo } = await _s
                     .from('estado_movil')
                     .select('*')
                     .eq('id', reserva.id_movil)
-                    .single();
+                    .maybeSingle();
 
                 let nombreChoferFinal = "Conductor Oficial";
-                if (reserva.auto_modelo) {
-                    nombreChoferFinal = reserva.auto_modelo;
-                } else if (reserva.chofer_nombre) {
-                    nombreChoferFinal = reserva.chofer_nombre;
-                } else if (movilInfo && movilInfo.chofer) {
-                    nombreChoferFinal = movilInfo.chofer;
+                if (movilInfo && movilInfo.chofer) {
+                    nombreChoferFinal = movilInfo.chofer; // Lee directamente "Carlos - Ford Fiesta JCP 478"
                 }
 
                 document.getElementById('txt-chofer-nombre').innerText = nombreChoferFinal;
