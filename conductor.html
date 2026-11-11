@@ -240,21 +240,11 @@
     <div id="modal-config">
         <div class="config-card">
             <h2>⚙️ IDENTIFICACIÓN DEL CHOFER</h2>
-            <p>Ingresa tus datos y confirma tu horario para entrar en la fila de Supabase.</p>
+            <p>Ingresa tus datos y confirma tu horario para entrar en línea.</p>
             
             <div class="form-group">
-                <label>Nombre y Apellido / Chofer</label>
-                <input type="text" id="input-nombre-chofer" class="form-control" placeholder="Ej: Juan Pérez">
-            </div>
-
-            <div class="form-group">
-                <label>Vehículo y Patente</label>
-                <input type="text" id="input-vehiculo-chofer" class="form-control" placeholder="Ej: Chevrolet Corsa (ABC 123)">
-            </div>
-
-            <div class="form-group">
-                <label>Horario de Entrada / Turno</label>
-                <input type="text" id="input-hora-ingreso" class="form-control" readonly>
+                <label>Nombre, Vehículo y Patente</label>
+                <input type="text" id="input-nombre-chofer" class="form-control" placeholder="Ej: Carlos Cuevas - Ford Fiesta (JCP 478)">
             </div>
 
             <button class="btn-guardar-config" onclick="guardarConfiguracionYEntrar()">CONFIRMAR Y GUARDAR</button>
@@ -295,7 +285,7 @@
         <button class="btn-floating-action" onclick="abrirSheet()" title="Menú Operativo">☰</button>
     </div>
 
-    <!-- Asientos Abajo -->
+    <!-- Asientos / Cockpit Bar -->
     <div class="bar-asientos-fija">
         <div id="pill1" class="pill" onclick="gestionarAsiento(1)"><span class="seat-num">1</span><span id="nombre-pax-1" class="nombre-pax">Libre</span><span id="destino-pax-1" class="destino-pax">-</span></div>
         <div id="pill2" class="pill" onclick="gestionarAsiento(2)"><span class="seat-num">2</span><span id="nombre-pax-2" class="nombre-pax">Libre</span><span id="destino-pax-2" class="destino-pax">-</span></div>
@@ -316,15 +306,13 @@
         </div>
     </div>
 
-    <!-- LÓGICA DE JAVASCRIPT CON ANUNCIADOR DE VOZ DE PROXIMIDAD -->
+    <!-- LÓGICA DE JAVASCRIPT UNIFICADA: MULTIASIENTOS EN BLOQUE + VOZ AUTOMÁTICA -->
     <script>
         const TARIFA_UNICA = 1500;
         const MI_ID_MOVIL = 1;
         const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-        let MI_NOMBRE = localStorage.getItem('driver_nombre_completo') || '';
-        let MI_VEHICULO = localStorage.getItem('driver_vehiculo_modelo') || '';
-        let HORA_INGRESO = localStorage.getItem('driver_hora_ingreso') || '';
+        let MI_NOMBRE = localStorage.getItem('driver_nombre_completo') || 'Carlos Cuevas - Ford Fiesta (JCP 478)';
 
         const paradas = [
             { n: 'Av. Derqui y P197 (Cruce Derqui)', c: [-34.537898, -58.794848] },
@@ -369,14 +357,78 @@
         let estaOnline = false, watchId = null, sentidoActual = 'IDA';
         let velocidadActual = 0;
         let markersPax = [], markersDest = [];
-        let ultimaParadaAnunciada = -1;
-
+        
         let asientos = {
             1: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null },
             2: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null },
             3: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null },
             4: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null }
         };
+
+        let indiceParadaActual = 0;
+        let ultimaLlegadaIdx = -1;
+        let anunciosIniciados = false;
+        const RADIO_LLEGADA = 45;
+
+        function indiceSiguiente(i) {
+            return sentidoActual === 'IDA' ? (i + 1) % paradas.length : (i - 1 + paradas.length) % paradas.length;
+        }
+        function indiceAnterior(i) {
+            return sentidoActual === 'IDA' ? (i - 1 + paradas.length) % paradas.length : (i + 1) % paradas.length;
+        }
+
+        function anunciar(texto) {
+            try {
+                if (!window.speechSynthesis) return;
+                speechSynthesis.cancel();
+                const voz = new SpeechSynthesisUtterance(texto);
+                voz.lang = 'es-AR';
+                voz.rate = 1.0;
+                speechSynthesis.speak(voz);
+            } catch (e) {}
+        }
+
+        function procesarAnunciosParadas(lat, lon) {
+            if (!paradas.length || !map) return;
+            let idxCercana = 0, distMin = Infinity;
+            const miPos = L.latLng(lat, lon);
+            for (let i = 0; i < paradas.length; i++) {
+                const d = map.distance(miPos, paradas[i].c);
+                if (d < distMin) { distMin = d; idxCercana = i; }
+            }
+
+            if (!anunciosIniciados) {
+                anunciosIniciados = true;
+                indiceParadaActual = idxCercana;
+                ultimaLlegadaIdx = idxCercana;
+                const sig = indiceSiguiente(indiceParadaActual);
+                anunciar('Próxima parada: ' + paradas[sig].n);
+            }
+
+            const esperada = indiceSiguiente(indiceParadaActual);
+            if (idxCercana === esperada && distMin < RADIO_LLEGADA) {
+                if (ultimaLlegadaIdx !== idxCercana) {
+                    ultimaLlegadaIdx = idxCercana;
+                    indiceParadaActual = idxCercana;
+                    anunciar('Hemos llegado a ' + paradas[idxCercana].n);
+                    const sig = indiceSiguiente(indiceParadaActual);
+                    setTimeout(() => anunciar('Próxima parada: ' + paradas[sig].n), 2600);
+                }
+            } else if (idxCercana !== indiceParadaActual && idxCercana !== esperada) {
+                indiceParadaActual = indiceAnterior(idxCercana);
+                ultimaLlegadaIdx = -1;
+            }
+
+            const sig = indiceSiguiente(indiceParadaActual);
+            const dSig = map.distance(miPos, paradas[sig].c);
+            const elParada = document.getElementById('txt-parada');
+            if (elParada) elParada.innerText = paradas[sig].n + ' · ' + Math.round(dSig) + 'm';
+        }
+
+        function reiniciarAnuncios() {
+            anunciosIniciados = false;
+            ultimaLlegadaIdx = -1;
+        }
 
         function crearIconoAuto(velocidad) {
             const colorVelocidad = velocidad > 50 ? '#ff0055' : velocidad > 30 ? '#ffcc00' : '#00f3ff';
@@ -391,28 +443,6 @@
                 </g>
             </svg>`;
             return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
-        }
-
-        // SISTEMA DE SÍNTESIS DE VOZ PARA ANUNCIAR PARADAS
-        function anunciarPorVoz(texto) {
-            if (!('speechSynthesis' in window)) return;
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(texto);
-            utterance.lang = 'es-AR';
-            utterance.rate = 1.0;
-            window.speechSynthesis.speak(utterance);
-        }
-
-        // CALCULAR DISTANCIA EN METROS ENTRE DOS COORDENADAS GPS
-        function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
-            const R = 6371e3;
-            const φ1 = lat1 * Math.PI/180;
-            const φ2 = lat2 * Math.PI/180;
-            const Δφ = (lat2-lat1) * Math.PI/180;
-            const Δλ = (lon2-lon1) * Math.PI/180;
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
         }
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -433,7 +463,7 @@
                 const splash = document.getElementById('splash');
                 if (splash) { splash.style.opacity = '0'; setTimeout(() => splash.style.visibility = 'hidden', 600); }
 
-                if (!MI_NOMBRE) {
+                if (!MI_NOMBRE || MI_NOMBRE === 'null') {
                     abrirConfiguracion();
                 } else {
                     iniciarJornadaBase();
@@ -444,32 +474,19 @@
         });
 
         function abrirConfiguracion() {
-            const ahora = new Date();
-            const horaActualStr = ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             document.getElementById('input-nombre-chofer').value = MI_NOMBRE || '';
-            document.getElementById('input-vehiculo-chofer').value = MI_VEHICULO || '';
-            document.getElementById('input-hora-ingreso').value = HORA_INGRESO || horaActualStr;
             document.getElementById('modal-config').style.display = 'flex';
         }
 
         function guardarConfiguracionYEntrar() {
             const nombreInput = document.getElementById('input-nombre-chofer').value.trim();
-            const vehiculoInput = document.getElementById('input-vehiculo-chofer').value.trim();
-            const horaInput = document.getElementById('input-hora-ingreso').value.trim();
-
-            if (!nombreInput || !vehiculoInput) {
-                alert("Por favor completa tu nombre y vehículo.");
+            if (!nombreInput) {
+                alert("Por favor ingresa tu nombre y vehículo.");
                 return;
             }
 
             MI_NOMBRE = nombreInput;
-            MI_VEHICULO = vehiculoInput;
-            HORA_INGRESO = horaInput;
-
             localStorage.setItem('driver_nombre_completo', MI_NOMBRE);
-            localStorage.setItem('driver_vehiculo_modelo', MI_VEHICULO);
-            localStorage.setItem('driver_hora_ingreso', HORA_INGRESO);
-
             document.getElementById('modal-config').style.display = 'none';
             iniciarJornadaBase();
         }
@@ -498,7 +515,7 @@
                     
                     await _s.from('estado_movil').upsert({
                         id: MI_ID_MOVIL,
-                        chofer: `${MI_NOMBRE} - ${MI_VEHICULO} (Ingreso: ${HORA_INGRESO})`,
+                        chofer: MI_NOMBRE,
                         esta_online: true,
                         latitud: lat,
                         longitud: lon,
@@ -508,6 +525,7 @@
 
                     label.innerText = "EN LÍNEA";
                     label.style.color = "#39ff14";
+                    reiniciarAnuncios();
                     iniciarGPS();
                 }, () => {
                     toggle.checked = false;
@@ -516,6 +534,7 @@
                 }, { enableHighAccuracy: true });
             } else {
                 if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+                if (window.speechSynthesis) speechSynthesis.cancel();
                 await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
                 label.innerText = "DESCONECTADO";
                 label.style.color = "#76889b";
@@ -529,15 +548,7 @@
                 velocidadActual = Math.round((p.coords.speed || 0) * 3.6);
                 document.getElementById('txt-velocidad').textContent = velocidadActual;
 
-                // MONITOR DE PROXIMIDAD DE PARADAS PARA ANUNCIO AUTOMÁTICO POR VOZ
-                paradas.forEach((parada, idx) => {
-                    const distancia = calcularDistanciaMetros(lat, lon, parada.c[0], parada.c[1]);
-                    if (distancia < 60 && ultimaParadaAnunciada !== idx) {
-                        ultimaParadaAnunciada = idx;
-                        document.getElementById('txt-parada').innerText = parada.n;
-                        anunciarPorVoz(`Próxima parada: ${parada.n}`);
-                    }
-                });
+                if (estaOnline) procesarAnunciosParadas(lat, lon);
 
                 let nuevoIcono = L.icon({ iconUrl: crearIconoAuto(velocidadActual), iconSize: [50, 75], iconAnchor: [25, 37] });
                 if (markerCoche) {
@@ -629,16 +640,36 @@
             }
         }
 
+        // GESTIÓN EN BLOQUE DE MULTIASIENTOS (MARCA O FINALIZA TODOS LOS ASIENTOS DEL PASAJERO JUNTOS)
         async function gestionarAsiento(numSeat) {
             const seat = asientos[numSeat];
             if (!seat.ocupado || !seat.idReserva) return;
             const idReservaActual = seat.idReserva;
+            const nombrePaxActual = seat.nombre;
 
             if (!seat.estado || seat.estado === 'esperando') {
-                await _s.from('reservas_activas').update({ estado_pasajero: 'a_bordo' }).eq('id', idReservaActual);
+                // Marcar todos los asientos del mismo pasajero a bordo en bloque
+                for (let i = 1; i <= 4; i++) {
+                    if (asientos[i].nombre === nombrePaxActual) {
+                        asientos[i].estado = 'a_bordo';
+                        if (asientos[i].idReserva) {
+                            await _s.from('reservas_activas').update({ estado_pasajero: 'a_bordo' }).eq('id', asientos[i].idReserva);
+                        }
+                    }
+                }
+                actualizarPillsUI();
             } else if (seat.estado === 'a_bordo') {
-                await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', idReservaActual);
-                await _s.from('reservas_activas').delete().eq('id', idReservaActual);
+                // Finalizar y eliminar todos los asientos del mismo pasajero en bloque
+                for (let i = 1; i <= 4; i++) {
+                    if (asientos[i].nombre === nombrePaxActual) {
+                        if (asientos[i].idReserva) {
+                            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', asientos[i].idReserva);
+                            await _s.from('reservas_activas').delete().eq('id', asientos[i].idReserva);
+                        }
+                        asientos[i] = { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null };
+                    }
+                }
+                actualizarPillsUI();
             }
             actualizarYMonitorearReservas();
         }
@@ -659,12 +690,14 @@
             sentidoActual = (sentidoActual === 'IDA') ? 'VUELTA' : 'IDA';
             localStorage.setItem('driver_sentido', sentidoActual);
             document.getElementById('btn-sentido').innerText = sentidoActual;
+            reiniciarAnuncios();
             if (estaOnline) { await _s.from('estado_movil').update({ sentido_flujo: sentidoActual }).eq('id', MI_ID_MOVIL); }
         }
 
         async function finalizarJornada() {
             if (!confirm("🏁 ¿Finalizar jornada y desconectarte?")) return;
             if (watchId) navigator.geolocation.clearWatch(watchId);
+            if (window.speechSynthesis) speechSynthesis.cancel();
             await _s.from('estado_movil').update({ esta_online: false }).eq('id', MI_ID_MOVIL);
             localStorage.clear();
             location.reload();
