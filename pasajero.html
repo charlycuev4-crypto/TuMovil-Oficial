@@ -38,7 +38,15 @@ box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
 .header h1 { margin: 0; font-size: 12px; color: var(--celeste); letter-spacing: 1px; font-weight: 900; }
 .header p { margin: 2px 0 0 0; font-size: 10px; color: var(--amarillo); font-weight: 700; }
 
-.btn-floating-reset { position: absolute; top: 75px; right: 15px; background: var(--glass);
+/* NUEVO AVISO GUÍA FLOTANTE SOBRE EL MAPA */
+.guia-mapa-banner {
+    position: absolute; top: 78px; left: 15px; right: 15px; background: rgba(0, 243, 255, 0.12);
+    backdrop-filter: blur(15px); border: 1px solid var(--celeste); border-radius: 12px;
+    padding: 8px 12px; text-align: center; z-index: 997; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+}
+.guia-mapa-banner p { margin: 0; font-size: 11px; font-weight: 800; color: #fff; letter-spacing: 0.5px; }
+
+.btn-floating-reset { position: absolute; top: 130px; right: 15px; background: var(--glass);
 border: 1px solid var(--glass-border); border-radius: 50%; width: 38px; height: 38px;
 display: flex; align-items: center; justify-content: center; font-size: 16px; z-index: 999; cursor: pointer;
 box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
@@ -56,6 +64,7 @@ transition: transform 0.4s ease;
 
 body.viaje-activo .bottom-ui { transform: translateY(100%); pointer-events: none; }
 body.viaje-activo .header { transform: translateY(-150%); }
+body.viaje-activo .guia-mapa-banner { display: none; }
 
 #panel-estado-viaje {
 position: absolute; bottom: calc(15px + env(safe-area-inset-bottom)); left: 15px; right: 15px;
@@ -85,38 +94,9 @@ input, select { background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255,
 .btn-pedir { background: linear-gradient(135deg, var(--success) 0%, #2eb80e 100%); color: #000; border: none; padding: 12px; border-radius: 12px; font-weight: 900; font-size: 14px; width: 100%; cursor: pointer; box-shadow: 0 0 12px rgba(57, 255, 20, 0.3); margin-top: 4px; }
 .btn-pedir:disabled { background: #16202c; color: #4a5568; cursor: not-allowed; }
 .btn-cancelar-mini { background: var(--danger); color: white; border: none; padding: 10px; border-radius: 12px; font-weight: 900; font-size: 13px; width: 100%; cursor: pointer; }
-
-/* ESTILOS DEL ASISTENTE GUIADO (ONBOARDING) */
-#onboarding-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(5, 7, 10, 0.88); backdrop-filter: blur(15px);
-    z-index: 10500; display: flex; align-items: center; justify-content: center; padding: 20px;
-}
-.onboarding-card {
-    background: var(--glass); border: 2px solid var(--celeste); border-radius: 24px;
-    padding: 24px; width: 100%; max-width: 340px; text-align: center;
-    box-shadow: 0 0 35px rgba(0, 243, 255, 0.3);
-}
-.onboarding-card h3 { color: var(--celeste); font-size: 18px; margin-bottom: 8px; font-weight: 900; }
-.onboarding-card p { color: #cbd5e0; font-size: 13px; margin-bottom: 20px; line-height: 1.4; }
-.btn-onboarding {
-    background: linear-gradient(135deg, var(--amarillo) 0%, #ff9900 100%);
-    color: #000; border: none; width: 100%; padding: 12px; border-radius: 14px;
-    font-weight: 900; font-size: 14px; cursor: pointer; box-shadow: 0 0 15px rgba(255,204,0,0.3);
-}
 </style>
 </head>
 <body>
-
-<!-- ASISTENTE GUIADO PASO A PASO PARA NUEVOS PASAJEROS -->
-<div id="onboarding-overlay" style="display: none;">
-    <div class="onboarding-card">
-        <div id="onboarding-icon" style="font-size: 38px; margin-bottom: 10px;">👋</div>
-        <h3 id="onboarding-title">¡Bienvenido a TuMovil!</h3>
-        <p id="onboarding-text">El transporte seguro, directo y a precio justo de tu corredor.</p>
-        <button class="btn-onboarding" id="onboarding-btn" onclick="siguientePasoOnboarding()">SIGUIENTE</button>
-    </div>
-</div>
 
 <div id="splash">
 <div class="logo-ring"><span style="font-size: 35px;">🚕</span></div>
@@ -127,6 +107,11 @@ input, select { background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255,
 <div class="header" id="card-superior">
 <h1>SOLICITAR VIAJE</h1>
 <p>💡 Subida: <span id="txt-subida" style="color:var(--celeste);">Calculando...</span></p>
+</div>
+
+<!-- AVISO GUÍA SOBRE EL MAPA -->
+<div class="guia-mapa-banner" id="banner-guia">
+    <p>📍 Elige tu destino en una de las siguientes paradas</p>
 </div>
 
 <div class="btn-floating-reset" onclick="if(confirm('¿Reiniciar aplicación?')) limpiarEstadoViaje();" title="Resetear App">🔄</div>
@@ -240,50 +225,6 @@ let intervaloViaje = null;
 let marcadorTaxisFlota = {};
 let usuarioEstaMoviendoMapa = false;
 
-// LÓGICA DEL ASISTENTE GUIADO (ONBOARDING)
-let pasoOnboarding = 1;
-function verificarPrimerIngreso() {
-    const yaVioTutorial = localStorage.getItem('tumovil_tutorial_visto');
-    if (!yaVioTutorial) {
-        document.getElementById('onboarding-overlay').style.display = 'flex';
-        actualizarPasoOnboardingUI();
-    }
-}
-
-function actualizarPasoOnboardingUI() {
-    const icon = document.getElementById('onboarding-icon');
-    const title = document.getElementById('onboarding-title');
-    const text = document.getElementById('onboarding-text');
-    const btn = document.getElementById('onboarding-btn');
-
-    if (pasoOnboarding === 1) {
-        icon.innerText = "📍";
-        title.innerText = "1. Elegí tu Parada";
-        text.innerText = "Seleccioná en el menú desplegable o tocando directamente en el mapa tu parada de destino.";
-        btn.innerText = "ENTENDIDO";
-    } else if (pasoOnboarding === 2) {
-        icon.innerText = "👤";
-        title.innerText = "2. Colocá tu Nombre";
-        text.innerText = "Escribí únicamente tu nombre de pila para identificarte de forma rápida y segura.";
-        btn.innerText = "¡PERFECTO!";
-    } else if (pasoOnboarding === 3) {
-        icon.innerText = "💺";
-        title.innerText = "3. Seleccioná Asientos";
-        text.innerText = "Indicá cuántos lugares necesitás y presioná reservar para que el móvil en camino te recoja.";
-        btn.innerText = "COMENZAR A VIAJAR";
-    }
-}
-
-function siguientePasoOnboarding() {
-    pasoOnboarding++;
-    if (pasoOnboarding > 3) {
-        document.getElementById('onboarding-overlay').style.display = 'none';
-        localStorage.setItem('tumovil_tutorial_visto', 'true');
-    } else {
-        actualizarPasoOnboardingUI();
-    }
-}
-
 let paxUUID = localStorage.getItem('pax_uuid');
 if (!paxUUID) {
     paxUUID = 'pax_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
@@ -306,7 +247,6 @@ window.addEventListener('DOMContentLoaded', () => {
             splash.style.opacity = '0'; 
             setTimeout(() => splash.style.visibility = 'hidden', 600); 
         }
-        verificarPrimerIngreso();
     }, 1000);
 
     const select = document.getElementById('select-paradas');
@@ -388,6 +328,7 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('form-reserva-container').style.display = 'none';
         document.getElementById('panel-estado-viaje').style.display = 'block';
         document.getElementById('card-superior').style.display = 'none';
+        document.getElementById('banner-guia').style.display = 'none';
         iniciarSeguimientoViaje();
     } else {
         actualizarRadarFlota();
@@ -524,6 +465,7 @@ async function solicitarReserva() {
         document.getElementById('form-reserva-container').style.display = 'none';
         document.getElementById('panel-estado-viaje').style.display = 'block';
         document.getElementById('card-superior').style.display = 'none';
+        document.getElementById('banner-guia').style.display = 'none';
 
         document.getElementById('txt-coche-titulo').innerText = `Coche ${idMovilFijo}`;
         document.getElementById('txt-chofer-nombre').innerText = 'Conectando con el coche...';
@@ -546,6 +488,7 @@ function volverAFormulario(mensaje) {
     document.getElementById('panel-estado-viaje').style.display = 'none';
     document.getElementById('form-reserva-container').style.display = 'block';
     document.getElementById('card-superior').style.display = 'block';
+    document.getElementById('banner-guia').style.display = 'block';
     document.getElementById('btn-pedir').innerText = "RESERVAR VIAJE";
     document.getElementById('btn-pedir').disabled = false;
     if (mensaje) alert(mensaje);
