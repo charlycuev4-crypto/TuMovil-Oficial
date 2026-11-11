@@ -38,7 +38,7 @@ box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
 .header h1 { margin: 0; font-size: 12px; color: var(--celeste); letter-spacing: 1px; font-weight: 900; }
 .header p { margin: 2px 0 0 0; font-size: 10px; color: var(--amarillo); font-weight: 700; }
 
-/* BANNER CON FONDO CELESTE Y LETRAS NEGRAS EN NEGRITA */
+/* BANNER GUÍA CON FONDO CELESTE Y LETRAS NEGRAS EN NEGRITA */
 .guia-mapa-banner {
     position: absolute; top: 78px; left: 15px; right: 15px; 
     background: var(--celeste);
@@ -422,17 +422,42 @@ function iniciarSeguimientoViaje() {
     intervaloViaje = setInterval(verificarEstadoViajeYAuto, 2000);
 }
 
+// FUNCIÓN DE RESERVA CON CANDADO ESTRICTO DE SENTIDO
 async function solicitarReserva() {
     const nombrePasajero = document.getElementById('input-nombre-pasajero').value.trim();
     if (!nombrePasajero) { alert("Por favor escribe tu Nombre."); return; }
     if (!paradaSeleccionada) { alert("Por favor selecciona una parada de destino."); return; }
 
     const btnPedir = document.getElementById('btn-pedir');
-    btnPedir.innerText = "BUSCANDO MÓVIL...";
+    btnPedir.innerText = "VERIFICANDO UNIDADES...";
     btnPedir.disabled = true;
 
     try {
         const idMovilFijo = 1;
+
+        // 1. CONSULTAR EL SENTIDO ACTUAL DEL CHOFER EN SUPABASE
+        const { data: movilInfo, error: errMovil } = await _s
+            .from('estado_movil')
+            .select('sentido_flujo, esta_online')
+            .eq('id', idMovilFijo)
+            .maybeSingle();
+
+        if (!movilInfo || !movilInfo.esta_online) {
+            alert("⚠️ No hay unidades conectadas en este momento.");
+            btnPedir.innerText = "RESERVAR VIAJE";
+            btnPedir.disabled = false;
+            return;
+        }
+
+        // 2. COMPARAR EL SENTIDO DEL PASAJERO CON EL DEL CHOFER
+        if (movilInfo.sentido_flujo !== sentidoPasajero) {
+            alert("⚠️ ATENCIÓN: El móvil se encuentra actualmente en sentido " + movilInfo.sentido_flujo + ". No puede tomar pasajeros en sentido contrario (" + sentidoPasajero + "). Cambie el sentido arriba o espere el regreso.");
+            btnPedir.innerText = "RESERVAR VIAJE";
+            btnPedir.disabled = false;
+            return; // Frena la solicitud en seco y no le llega al chofer
+        }
+
+        // 3. SI EL SENTIDO COINCIDE, PROCEDE CON LA RESERVA NORMAL
         const detalleRuta = `Sube en: ${ubicacionSubidaTexto} ➔ Baja en: ${paradaSeleccionada.n}`;
         const indiceDestinoSeleccionado = paradas.findIndex(p => p.n === paradaSeleccionada.n);
 
