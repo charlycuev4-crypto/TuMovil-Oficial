@@ -20,7 +20,8 @@
 }
 body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden;
 display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #fff; }
-​/* SPLASH SCREEN */
+
+/* SPLASH SCREEN */
 #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%;
 background: radial-gradient(circle at center, #1a1a3e 0%, #05050f 100%);
 display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -31,23 +32,24 @@ box-shadow: 0 0 30px rgba(0, 240, 255, 0.3); animation: pulseRing 2s infinite; }
 @keyframes pulseRing { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
 #splash h1 { color: var(--celeste); margin-top: 20px; font-size: 26px; letter-spacing: 3px; font-weight: 800; }
 #splash p { color: #888; margin-top: 6px; font-size: 13px; }
-.loading-bar { width: 140px; height: 3px; background: #222; border-radius: 3px; margin-top: 20px; overflow: hidden; }
-.loading-bar-inner { width: 0%; height: 100%; background: linear-gradient(90deg, var(--celeste), var(--amarillo)); animation: loadBar 1.5s ease forwards; }
-@keyframes loadBar { to { width: 100%; } }
-​/* HEADER SUPERIOR */
+
+/* HEADER SUPERIOR */
 .header { position: absolute; top: 15px; left: 15px; right: 15px; background: var(--glass);
 backdrop-filter: blur(25px) saturate(180%); -webkit-backdrop-filter: blur(25px) saturate(180%);
 border: 1px solid var(--glass-border); padding: 12px; text-align: center; border-radius: 20px; z-index: 999; transition: transform 0.4s ease;
 box-shadow: 0 8px 32px 0 rgba(0,0,0,0.7), inset 0 0 15px var(--glass-glow); }
 .header h1 { margin: 0; font-size: 14px; color: var(--celeste); letter-spacing: 2px; font-weight: 900; }
 .header p { margin: 4px 0 0 0; font-size: 11px; color: var(--amarillo); font-weight: 700; }
-​/* MAPA */
+
+/* MAPA */
 #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; touch-action: none; filter: contrast(1.05) brightness(0.95); }
-​.btn-floating-reset { position: absolute; top: 95px; right: 15px; background: var(--glass);
+
+.btn-floating-reset { position: absolute; top: 95px; right: 15px; background: var(--glass);
 border: 1px solid var(--glass-border); border-radius: 50%; width: 44px; height: 44px;
 display: flex; align-items: center; justify-content: center; font-size: 18px; z-index: 999; cursor: pointer;
 box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-​/* PANEL INFERIOR */
+
+/* PANEL INFERIOR */
 .bottom-ui {
 position: absolute; bottom: 0; left: 0; right: 0;
 background: var(--glass); backdrop-filter: blur(25px) saturate(180%); -webkit-backdrop-filter: blur(25px) saturate(180%);
@@ -58,9 +60,11 @@ border-radius: 32px 32px 0 0; z-index: 998; box-shadow: 0 -10px 40px rgba(0, 243
 max-height: 48vh; overflow-y: auto;
 transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.12);
 }
-​body.viaje-activo .bottom-ui { transform: translateY(100%); pointer-events: none; }
+
+body.viaje-activo .bottom-ui { transform: translateY(100%); pointer-events: none; }
 body.viaje-activo .header { transform: translateY(-150%); }
-​/* MINI PANEL DE VIAJE EN VIVO */
+
+/* MINI PANEL DE VIAJE EN VIVO */
 #panel-estado-viaje {
 position: absolute; bottom: calc(15px + env(safe-area-inset-bottom)); left: 15px; right: 15px;
 background: rgba(10, 16, 26, 0.96); border: 2px solid var(--celeste); border-radius: 24px; padding: 18px; z-index: 999;
@@ -68,11 +72,13 @@ box-shadow: 0 10px 35px rgba(0,0,0,0.9), inset 0 0 20px var(--glass-glow); displ
 animation: slideUpFlotante 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 @keyframes slideUpFlotante { from { transform: translateY(120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-​.mini-viaje-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+
+.mini-viaje-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .mini-viaje-info { display: flex; align-items: center; gap: 12px; }
 .mini-viaje-car { font-size: 16px; font-weight: 900; color: var(--amarillo); }
 .mini-viaje-chofer { font-size: 13px; color: #ffffff; font-weight: 800; margin-top: 3px; }
-​/* TARJETA DE ESTADO DINÁMICA */
+
+/* TARJETA DE ESTADO DINÁMICA */
 .card-estado-abordo {
 background: rgba(0, 243, 255, 0.05);
 border: 1px solid var(--celeste);
@@ -95,42 +101,53 @@ color: #ffffff;
 font-size: 12px;
 font-weight: 700;
 }
-​.promo-card { background: rgba(255, 204, 0, 0.08); border: 1px solid rgba(255, 204, 0, 0.3); border-radius: 14px; padding: 8px; text-align: center; font-size: 12px; font-weight: 800; color: var(--amarillo); }
+
+.promo-card { background: rgba(255, 204, 0, 0.08); border: 1px solid rgba(255, 204, 0, 0.3); border-radius: 14px; padding: 8px; text-align: center; font-size: 12px; font-weight: 800; color: var(--amarillo); }
 .form-row { display: flex; gap: 8px; }
 input, select { background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.15); color: white; padding: 12px; border-radius: 14px; font-size: 14px; width: 100%; box-sizing: border-box; outline: none; }
 input:focus, select:focus { border-color: var(--celeste); box-shadow: 0 0 10px rgba(0, 243, 255, 0.3); }
-​.asientos-selector { display: flex; gap: 8px; margin-top: 6px; }
+
+.asientos-selector { display: flex; gap: 8px; margin-top: 6px; }
 .seat-btn { flex: 1; padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #888; font-weight: 800; cursor: pointer; text-align: center; }
 .seat-btn.selected { background: var(--amarillo); border-color: var(--amarillo); color: #000; box-shadow: 0 0 10px rgba(255,204,0,0.3); }
-​.btn-pedir { background: linear-gradient(135deg, var(--success) 0%, #2eb80e 100%); color: #000; border: none; padding: 14px; border-radius: 16px; font-weight: 900; font-size: 15px; transition: all 0.2s; width: 100%; cursor: pointer; box-shadow: 0 0 15px rgba(57, 255, 20, 0.3); margin-top: 8px; }
+
+.btn-pedir { background: linear-gradient(135deg, var(--success) 0%, #2eb80e 100%); color: #000; border: none; padding: 14px; border-radius: 16px; font-weight: 900; font-size: 15px; transition: all 0.2s; width: 100%; cursor: pointer; box-shadow: 0 0 15px rgba(57, 255, 20, 0.3); margin-top: 8px; }
 .btn-pedir:disabled { background: #16202c; color: #4a5568; cursor: not-allowed; box-shadow: none; }
 .btn-cancelar-mini { background: linear-gradient(135deg, var(--danger) 0%, #cc0044 100%); color: white; border: none; padding: 14px; border-radius: 16px; font-weight: 900; font-size: 15px; width: 100%; cursor: pointer; box-shadow: 0 4px 20px rgba(255, 0, 85, 0.4); }
 </style>
 </head>
 <body>
-​<!-- SPLASH SCREEN -->
-<div id="splash" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, #1a1a3e 0%, #05050f 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; transition: opacity 0.6s ease, visibility 0.6s;">
+
+<!-- SPLASH SCREEN -->
+<div id="splash">
 <div class="logo-ring"><span style="font-size: 45px;">🚕</span></div>
-<h1 style="color: var(--celeste); margin-top: 20px; font-size: 26px; letter-spacing: 3px; font-weight: 800;">TUMOVIL</h1>
-<p style="color: #888; margin-top: 6px; font-size: 13px;">Pasajero Oficial PRO</p>
+<h1>TUMOVIL</h1>
+<p>Pasajero Oficial PRO</p>
 </div>
-​<div class="header" id="card-superior">
+
+<div class="header" id="card-superior">
 <h1>SOLICITAR VIAJE</h1>
 <p>💡 Parada de Subida Detectada: <span id="txt-subida" style="color:var(--celeste);">Calculando...</span></p>
 </div>
-​<div class="btn-floating-reset" onclick="if(confirm('¿Reiniciar aplicación?')) limpiarEstadoViaje();" title="Resetear App">🔄</div>
-​<div id="map"></div>
-​<!-- PANEL DE FORMULARIO -->
+
+<div class="btn-floating-reset" onclick="if(confirm('¿Reiniciar aplicación?')) limpiarEstadoViaje();" title="Resetear App">🔄</div>
+
+<div id="map"></div>
+
+<!-- PANEL DE FORMULARIO -->
 <div class="bottom-ui" id="form-reserva-container">
 <div class="promo-card">TARIFA ÚNICA FIJA: $1500 POR ASIENTO</div>
-​<div class="form-row">
+
+<div class="form-row">
 <input type="text" id="input-nombre-pasajero" placeholder="Tu Nombre y Apellido" maxlength="25">
 <button id="btn-sentido-pax" onclick="cambiarSentidoPasajero()" style="background:rgba(255,204,0,0.15); border:1px solid var(--amarillo); color:var(--amarillo); border-radius:14px; font-weight:900; font-size:11px; padding: 0 14px; cursor:pointer;">SENTIDO: IDA</button>
 </div>
-​<select id="select-paradas" onchange="seleccionarParadaDesdeLista(this.value)">
+
+<select id="select-paradas" onchange="seleccionarParadaDesdeLista(this.value)">
 <option value="" disabled selected>Seleccioná tu Parada de Destino</option>
 </select>
-​<div>
+
+<div>
 <div style="font-size:11px; font-weight:800; color:#888; margin-bottom:4px; text-transform:uppercase;">Asientos a reservar:</div>
 <div class="asientos-selector">
 <div class="seat-btn" id="seat-1" onclick="setAsientos(1)">1 Asiento</div>
@@ -139,75 +156,83 @@ input:focus, select:focus { border-color: var(--celeste); box-shadow: 0 0 10px r
 <div class="seat-btn" id="seat-4" onclick="setAsientos(4)">4 Asientos</div>
 </div>
 </div>
-​<button class="btn-pedir" id="btn-pedir" onclick="solicitarReserva()">RESERVAR VIAJE</button>
+
+<button class="btn-pedir" id="btn-pedir" onclick="solicitarReserva()">RESERVAR VIAJE</button>
 </div>
-​<!-- MINI PANEL EN VIVO (CON LOS DATOS EXACTOS DEL CONDUCTOR Y VEHÍCULO) -->
+
+<!-- MINI PANEL EN VIVO -->
 <div id="panel-estado-viaje">
 <div class="mini-viaje-row">
 <div class="mini-viaje-info">
 <span style="font-size: 32px;">🚗</span>
 <div>
 <div class="mini-viaje-car" id="txt-coche-titulo">Coche 1</div>
-<div class="mini-viaje-chofer" id="txt-chofer-nombre">Carlos Cueva - Ford Negro JCP478</div>
+<div class="mini-viaje-chofer" id="txt-chofer-nombre">Cargando...</div>
 </div>
 </div>
 <div style="font-size: 11px; background: rgba(0,243,255,0.1); border:1px solid var(--celeste); padding: 4px 10px; border-radius: 10px; font-weight:800; color:var(--celeste);">
 EN CAMINO
 </div>
 </div>
-​<div class="card-estado-abordo" id="caja-estado-contenedor">
+
+<div class="card-estado-abordo" id="caja-estado-contenedor">
 <div class="titulo-estado" id="titulo-estado-caja">🚗 SOLICITUD ENVIADA</div>
 <div class="sub-estado" id="sub-estado-caja">Esperando que el chofer acepte...</div>
 </div>
-​<div style="background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 14px; font-size: 13px; margin-bottom: 14px; display: flex; justify-content: space-between; border: 1px solid rgba(255,255,255,0.06);">
+
+<div style="background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 14px; font-size: 13px; margin-bottom: 14px; display: flex; justify-content: space-between; border: 1px solid rgba(255,255,255,0.06);">
 <span style="color: #a0aec0;">Destino: <b id="txt-destino-resumen" style="color: var(--amarillo);">--</b></span>
 <span style="color: var(--celeste); font-weight:900;">Lugares: <span id="txt-asientos-resumen">1</span></span>
 </div>
-​<button class="btn-cancelar-mini" onclick="finalizarViaje()">FINALIZAR / CANCELAR VIAJE</button>
+
+<button class="btn-cancelar-mini" onclick="finalizarViaje()">FINALIZAR / CANCELAR VIAJE</button>
 </div>
-​<script>
+
+<script>
 const SUPABASE_URL = 'https://nvumdlxervrewqiiaicl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE';
 const _s = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-​const paradas = [
-{ id: 1, n: 'Av. Derqui y P197 (Cruce Derqui)', c: [-34.537898, -58.794848] },
-{ id: 2, n: 'Fray Antonio Marchena y Carlos Eberth', c: [-34.539274, -58.793441] },
-{ id: 3, n: 'Fray Antonio Marchena y Descartes', c: [-34.540553, -58.792168] },
-{ id: 4, n: 'Av. Derqui y Gral. Juan Lavalle', c: [-34.541319, -58.791487] },
-{ id: 5, n: 'Av. Derqui y José C. Paz', c: [-34.542679, -58.790175] },
-{ id: 6, n: 'Av. Derqui y Av. José Altuve', c: [-34.544123, -58.788772] },
-{ id: 7, n: 'Av. Derqui y Dr. Enrique Finochietto', c: [-34.545472, -58.787421] },
-{ id: 8, n: 'Universidad Tecnológica Robotics', c: [-34.548500, -58.784200] },
-{ id: 9, n: 'Parque Industrial', c: [-34.552000, -58.780800] },
-{ id: 10, n: 'Base Aérea (Entrada Cuartel V)', c: [-34.555000, -58.778000] },
-{ id: 11, n: 'Av. Derqui y C. Bartolomé Hidalgo', c: [-34.557029, -58.776122] },
-{ id: 12, n: 'Fray Antonio Marchena y Pedro de Mendoza', c: [-34.558350, -58.774500] },
-{ id: 13, n: 'Fray Antonio Marchena y Marcos Paz', c: [-34.559853, -58.772330] },
-{ id: 14, n: 'Fray Antonio Marchena y Miguel Cané', c: [-34.561176, -58.770641] },
-{ id: 15, n: 'Los Aromos y Santander', c: [-34.562495, -58.772093] },
-{ id: 16, n: 'Los Aromos y Murillo', c: [-34.564006, -58.773679] },
-{ id: 17, n: 'Murillo y Moctezuma', c: [-34.565289, -58.772213] },
-{ id: 18, n: 'Murillo y Güiraldes', c: [-34.567268, -58.769484] },
-{ id: 19, n: 'Murillo y Watt', c: [-34.569090, -58.767095] },
-{ id: 20, n: 'A. Prado 2555', c: [-34.571016, -58.764443] },
-{ id: 21, n: 'Prado y Payró', c: [-34.571956, -58.763201] },
-{ id: 22, n: 'Prado 1744', c: [-34.577371, -58.755909] },
-{ id: 23, n: 'Boulevard Caveri', c: [-34.578528, -58.757064] },
-{ id: 24, n: 'Caveri y Azara', c: [-34.579296, -58.755864] },
-{ id: 25, n: 'Caveri y Vedia', c: [-34.580020, -58.755063] },
-{ id: 26, n: 'Caveri y Tablada', c: [-34.580901, -58.753842] },
-{ id: 27, n: 'Caveri y Echeverría', c: [-34.581998, -58.752441] },
-{ id: 28, n: 'Caveri y Gálvez', c: [-34.583319, -58.750710] },
-{ id: 29, n: 'Caveri (Final)', c: [-34.584740, -58.748804] },
-{ id: 30, n: 'Libertador y Aero', c: [-34.585554, -58.749812] },
-{ id: 31, n: 'Libertador 7300', c: [-34.586494, -58.750574] },
-{ id: 32, n: 'Libertador 7200', c: [-34.588041, -58.751542] },
-{ id: 33, n: 'Libertador y Maza', c: [-34.588273, -58.751338] },
-{ id: 34, n: 'Maza y Albatros', c: [-34.588771, -58.750804] },
-{ id: 35, n: 'Maternidad', c: [-34.588244, -58.749877] },
-{ id: 36, n: 'Abasto y Roca', c: [-34.586030, -58.747278] }
+
+const paradas = [
+    { id: 1, n: 'Av. Derqui y P197 (Cruce Derqui)', c: [-34.537898, -58.794848] },
+    { id: 2, n: 'Fray Antonio Marchena y Carlos Eberth', c: [-34.539274, -58.793441] },
+    { id: 3, n: 'Fray Antonio Marchena y Descartes', c: [-34.540553, -58.792168] },
+    { id: 4, n: 'Av. Derqui y Gral. Juan Lavalle', c: [-34.541319, -58.791487] },
+    { id: 5, n: 'Av. Derqui y José C. Paz', c: [-34.542679, -58.790175] },
+    { id: 6, n: 'Av. Derqui y Av. José Altuve', c: [-34.544123, -58.788772] },
+    { id: 7, n: 'Av. Derqui y Dr. Enrique Finochietto', c: [-34.545472, -58.787421] },
+    { id: 8, n: 'Universidad Tecnológica Robotics', c: [-34.548500, -58.784200] },
+    { id: 9, n: 'Parque Industrial', c: [-34.552000, -58.780800] },
+    { id: 10, n: 'Base Aérea (Entrada Cuartel V)', c: [-34.555000, -58.778000] },
+    { id: 11, n: 'Av. Derqui y C. Bartolomé Hidalgo', c: [-34.557029, -58.776122] },
+    { id: 12, n: 'Fray Antonio Marchena y Pedro de Mendoza', c: [-34.558350, -58.774500] },
+    { id: 13, n: 'Fray Antonio Marchena y Marcos Paz', c: [-34.559853, -58.772330] },
+    { id: 14, n: 'Fray Antonio Marchena y Miguel Cané', c: [-34.561176, -58.770641] },
+    { id: 15, n: 'Los Aromos y Santander', c: [-34.562495, -58.772093] },
+    { id: 16, n: 'Los Aromos y Murillo', c: [-34.564006, -58.773679] },
+    { id: 17, n: 'Murillo y Moctezuma', c: [-34.565289, -58.772213] },
+    { id: 18, n: 'Murillo y Güiraldes', c: [-34.567268, -58.769484] },
+    { id: 19, n: 'Murillo y Watt', c: [-34.569090, -58.767095] },
+    { id: 20, n: 'A. Prado 2555', c: [-34.571016, -58.764443] },
+    { id: 21, n: 'Prado y Payró', c: [-34.571956, -58.763201] },
+    { id: 22, n: 'Prado 1744', c: [-34.577371, -58.755909] },
+    { id: 23, n: 'Boulevard Caveri', c: [-34.578528, -58.757064] },
+    { id: 24, n: 'Caveri y Azara', c: [-34.579296, -58.755864] },
+    { id: 25, n: 'Caveri y Vedia', c: [-34.580020, -58.755063] },
+    { id: 26, n: 'Caveri y Tablada', c: [-34.580901, -58.753842] },
+    { id: 27, n: 'Caveri y Echeverría', c: [-34.581998, -58.752441] },
+    { id: 28, n: 'Caveri y Gálvez', c: [-34.583319, -58.750710] },
+    { id: 29, n: 'Caveri (Final)', c: [-34.584740, -58.748804] },
+    { id: 30, n: 'Libertador y Aero', c: [-34.585554, -58.749812] },
+    { id: 31, n: 'Libertador 7300', c: [-34.586494, -58.750574] },
+    { id: 32, n: 'Libertador 7200', c: [-34.588041, -58.751542] },
+    { id: 33, n: 'Libertador y Maza', c: [-34.588273, -58.751338] },
+    { id: 34, n: 'Maza y Albatros', c: [-34.588771, -58.750804] },
+    { id: 35, n: 'Maternidad', c: [-34.588244, -58.749877] },
+    { id: 36, n: 'Abasto y Roca', c: [-34.586030, -58.747278] }
 ];
-​let map, paradaSeleccionada = null, cantidadAsientos = 1, sentidoPasajero = 'IDA';
+
+let map, paradaSeleccionada = null, cantidadAsientos = 1, sentidoPasajero = 'IDA';
 let marcadores = [];
 let ubicacionSubidaTexto = "Cruce Derqui";
 let paradaSubidaIndex = 0;
@@ -218,310 +243,373 @@ let cocheYaPaso = false;
 let gpsListo = false;
 let intervaloViaje = null;
 let marcadorTaxisFlota = {};
-​let paxUUID = localStorage.getItem('pax_uuid');
+
+let paxUUID = localStorage.getItem('pax_uuid');
 if (!paxUUID) {
-paxUUID = 'pax_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
-localStorage.setItem('pax_uuid', paxUUID);
+    paxUUID = 'pax_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+    localStorage.setItem('pax_uuid', paxUUID);
 }
-​let ultimaVezReportadoGPS = 0;
+
+let ultimaVezReportadoGPS = 0;
 let latActualGPS = 0, lonActualGPS = 0;
-​window.addEventListener('DOMContentLoaded', () => {
-map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-​setTimeout(() => {
-map.invalidateSize();
-const splash = document.getElementById('splash');
-if(splash) { splash.style.opacity = '0'; setTimeout(() => splash.style.visibility = 'hidden', 600); }
-}, 1000);
-​const select = document.getElementById('select-paradas');
-paradas.forEach((p, idx) => {
-let opt = document.createElement('option');
-opt.value = idx;
-opt.innerText = (idx + 1) + ". " + p.n;
-select.appendChild(opt);
-​let circle = L.circleMarker(p.c, {
-radius: 8, color: '#000', weight: 2,
-fillColor: '#00f3ff', fillOpacity: 0.9
-}).addTo(map);
-​circle.bindPopup(<div class="popup-content" style="color:#000;"> <div class="popup-title" style="font-weight:bold;">${p.n}</div> <button class="btn-popup-select" onclick="confirmarParada(${idx})" style="background:#00f3ff; border:none; padding:6px 12px; border-radius:8px; font-weight:bold; margin-top:4px; cursor:pointer;">Elegir Destino</button> </div>);
-marcadores[idx] = circle;
+
+window.addEventListener('DOMContentLoaded', () => {
+    map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    setTimeout(() => {
+        map.invalidateSize();
+        const splash = document.getElementById('splash');
+        if(splash) { 
+            splash.style.opacity = '0'; 
+            setTimeout(() => splash.style.visibility = 'hidden', 600); 
+        }
+    }, 1000);
+
+    const select = document.getElementById('select-paradas');
+    paradas.forEach((p, idx) => {
+        let opt = document.createElement('option');
+        opt.value = idx;
+        opt.innerText = (idx + 1) + ". " + p.n;
+        select.appendChild(opt);
+
+        let circle = L.circleMarker(p.c, {
+            radius: 8, color: '#000', weight: 2,
+            fillColor: '#00f3ff', fillOpacity: 0.9
+        }).addTo(map);
+
+        circle.bindPopup(`
+            <div class="popup-content" style="color:#000;">
+                <div class="popup-title" style="font-weight:bold;">${p.n}</div>
+                <button class="btn-popup-select" onclick="confirmarParada(${idx})" style="background:#00f3ff; border:none; padding:6px 12px; border-radius:8px; font-weight:bold; margin-top:4px; cursor:pointer;">Elegir Destino</button>
+            </div>
+        `);
+        marcadores[idx] = circle;
+    });
+
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(async (pos) => {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            latActualGPS = lat;
+            lonActualGPS = lon;
+            
+            if (!marcadorPasajero) {
+                map.setView([lat, lon], 16);
+                setTimeout(() => { map.invalidateSize(); }, 300);
+                
+                marcadorPasajero = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        className: 'custom-pax-marker',
+                        html: '<div style="background:#00f3ff; width:18px; height:18px; border-radius:50%; border:3px solid #000; box-shadow:0 0 12px #00f3ff;"></div>',
+                        iconSize: [18, 18]
+                    })
+                }).addTo(map).bindPopup("Estás aquí");
+            } else {
+                marcadorPasajero.setLatLng([lat, lon]);
+                if (!miReservaID) {
+                    map.panTo([lat, lon]);
+                }
+            }
+
+            paradaSubidaIndex = calcularParadaMasCerca(lat, lon);
+            ubicacionSubidaTexto = paradas[paradaSubidaIndex].n;
+            gpsListo = true;
+            document.getElementById('txt-subida').innerText = ubicacionSubidaTexto;
+
+            const ahora = Date.now();
+            if (ahora - ultimaVezReportadoGPS > 4000) {
+                ultimaVezReportadoGPS = ahora;
+                const nombreInput = document.getElementById('input-nombre-pasajero');
+                const nombrePax = nombreInput ? nombreInput.value.trim() : 'Pasajero';
+
+                _s.from('pasajeros_activos').upsert({
+                    id: paxUUID,
+                    nombre: nombrePax || 'Pasajero',
+                    latitud: lat,
+                    longitud: lon,
+                    ultima_actualizacion: new Date().toISOString()
+                }).then(({ error }) => {}).catch(err => {});
+            }
+
+        }, (err) => {
+            document.getElementById('txt-subida').innerText = 'GPS no disponible';
+        }, { enableHighAccuracy: true });
+    }
+
+    setAsientos(1);
+
+    const guardadaID = localStorage.getItem('mi_reserva_id');
+    if (guardadaID) {
+        miReservaID = guardadaID;
+        document.getElementById('form-reserva-container').style.display = 'none';
+        document.getElementById('panel-estado-viaje').style.display = 'block';
+        document.getElementById('card-superior').style.display = 'none';
+        iniciarSeguimientoViaje();
+    } else {
+        actualizarRadarFlota();
+        setInterval(actualizarRadarFlota, 8000);
+    }
 });
-​if (navigator.geolocation) {
-navigator.geolocation.watchPosition(async (pos) => {
-const lat = pos.coords.latitude;
-const lon = pos.coords.longitude;
-latActualGPS = lat;
-lonActualGPS = lon;
-​if (!marcadorPasajero) {
-map.setView([lat, lon], 16);
-setTimeout(() => { map.invalidateSize(); }, 300);
-​marcadorPasajero = L.marker([lat, lon], {
-icon: L.divIcon({
-className: 'custom-pax-marker',
-html: '<div style="background:#00f3ff; width:18px; height:18px; border-radius:50%; border:3px solid #000; box-shadow:0 0 12px #00f3ff;"></div>',
-iconSize: [18, 18]
-})
-}).addTo(map).bindPopup("Estás aquí");
-} else {
-marcadorPasajero.setLatLng([lat, lon]);
-if (!miReservaID) {
-map.panTo([lat, lon]);
+
+function calcularParadaMasCerca(lat, lon) {
+    let minDist = Infinity, idx = 0;
+    const miPos = L.latLng(lat, lon);
+    paradas.forEach((p, i) => {
+        const dist = map.distance(miPos, p.c);
+        if (dist < minDist) { minDist = dist; idx = i; }
+    });
+    return idx;
 }
+
+function movilPuedeRecoger(movilParadaIdx, pasajeroParadaIdx, sentido) {
+    return sentido === 'IDA' ? movilParadaIdx <= pasajeroParadaIdx : movilParadaIdx >= pasajeroParadaIdx;
 }
-​paradaSubidaIndex = calcularParadaMasCerca(lat, lon);
-ubicacionSubidaTexto = paradas[paradaSubidaIndex].n;
-gpsListo = true;
-document.getElementById('txt-subida').innerText = ubicacionSubidaTexto;
-​const ahora = Date.now();
-if (ahora - ultimaVezReportadoGPS > 4000) {
-ultimaVezReportadoGPS = ahora;
-const nombreInput = document.getElementById('input-nombre-pasajero');
-const nombrePax = nombreInput ? nombreInput.value.trim() : 'Pasajero';
-​_s.from('pasajeros_activos').upsert({
-id: paxUUID,
-nombre: nombrePax || 'Pasajero',
-latitud: lat,
-longitud: lon,
-ultima_actualizacion: new Date().toISOString()
-}).then(({ error }) => {}).catch(err => {});
+
+function cambiarSentidoPasajero() {
+    sentidoPasajero = (sentidoPasajero === 'IDA') ? 'VUELTA' : 'IDA';
+    document.getElementById('btn-sentido-pax').innerText = "SENTIDO: " + sentidoPasajero;
+    actualizarRadarFlota();
 }
-​}, (err) => {
-document.getElementById('txt-subida').innerText = 'GPS no disponible';
-}, { enableHighAccuracy: true });
+
+function confirmarParada(idx) {
+    paradaSeleccionada = paradas[idx];
+    document.getElementById('select-paradas').value = idx;
+    marcadores.forEach((m) => { if (m) m.setStyle({ fillColor: '#00f3ff', radius: 8 }); });
+    if (marcadores[idx]) marcadores[idx].setStyle({ fillColor: '#ffcc00', radius: 12 });
+    map.closePopup();
+    map.panTo(paradaSeleccionada.c);
 }
-​setAsientos(1);
-​const guardadaID = localStorage.getItem('mi_reserva_id');
-if (guardadaID) {
-miReservaID = guardadaID;
-document.getElementById('form-reserva-container').style.display = 'none';
-document.getElementById('panel-estado-viaje').style.display = 'block';
-document.getElementById('card-superior').style.display = 'none';
-iniciarSeguimientoViaje();
-} else {
-actualizarRadarFlota();
-setInterval(actualizarRadarFlota, 8000);
+
+function seleccionarParadaDesdeLista(val) {
+    if (val === "") return;
+    confirmarParada(parseInt(val));
 }
+
+function setAsientos(num) {
+    cantidadAsientos = num;
+    for (let i = 1; i <= 4; i++) {
+        const btn = document.getElementById('seat-' + i);
+        if (i <= num) { btn.classList.add('selected'); } else { btn.classList.remove('selected'); }
+    }
+}
+
+function anunciarSeguridadVideo() {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const texto = "¡Atención pasajero! Por tu seguridad y la del chofer, todo el trayecto se encuentra bajo un sistema de cámaras y monitoreo en tiempo real con GPS. Buen viaje.";
+    const utterance = new SpeechSynthesisUtterance(texto);
+    utterance.lang = 'es-AR';
+    utterance.rate = 0.95;
+    window.speechSynthesis.speak(utterance);
+}
+
+async function actualizarRadarFlota() {
+    if (miReservaID) return;
+    try {
+        const { data: flota } = await _s
+            .from('estado_movil')
+            .select('*')
+            .eq('esta_online', true);
+
+        if (!flota) return;
+
+        flota.forEach(m => {
+            if (!m.latitud || !m.longitud) return;
+            if (marcadorTaxisFlota[m.id]) {
+                marcadorTaxisFlota[m.id].setLatLng([m.latitud, m.longitud]);
+            } else {
+                marcadorTaxisFlota[m.id] = L.marker([m.latitud, m.longitud], {
+                    icon: L.divIcon({
+                        className: 'taxi-icon',
+                        html: '<div style="background:#ffcc00; width:22px; height:22px; border-radius:50%; border:2px solid #000; text-align:center; font-size:11px; line-height:18px; box-shadow:0 0 10px #ffcc00;">🚕</div>',
+                        iconSize: [22, 22]
+                    })
+                }).addTo(map).bindPopup(`Coche ${m.id} - ${m.chofer || 'Chofer'}`);
+            }
+        });
+    } catch (e) {}
+}
+
+function iniciarSeguimientoViaje() {
+    if (intervaloViaje) clearInterval(intervaloViaje);
+    intervaloViaje = setInterval(verificarEstadoViajeYAuto, 2000);
+}
+
+async function solicitarReserva() {
+    const nombrePasajero = document.getElementById('input-nombre-pasajero').value.trim();
+    if (!nombrePasajero) { alert("Por favor escribe tu Nombre y Apellido."); return; }
+    if (!paradaSeleccionada) { alert("Por favor selecciona una parada de destino."); return; }
+
+    const btnPedir = document.getElementById('btn-pedir');
+    btnPedir.innerText = "BUSCANDO MÓVIL...";
+    btnPedir.disabled = true;
+
+    try {
+        const idMovilFijo = 1;
+        const detalleRuta = `Sube en: ${ubicacionSubidaTexto} ➔ Baja en: ${paradaSeleccionada.n}`;
+        const indiceDestinoSeleccionado = paradas.findIndex(p => p.n === paradaSeleccionada.n);
+
+        const { data: resData, error: errReserva } = await _s
+            .from('reservas_activas')
+            .insert({
+                id_movil: idMovilFijo,
+                nombre_pasajero: nombrePasajero,
+                destino: detalleRuta,
+                asientos: cantidadAsientos,
+                asiento_num: 1,
+                sentido: sentidoPasajero,
+                estado: 'en_curso',
+                estado_pasajero: 'esperando',
+                latitud: latActualGPS,
+                longitud: lonActualGPS,
+                pasajero_lat: latActualGPS,
+                pasajero_lon: lonActualGPS,
+                destino_idx: indiceDestinoSeleccionado
+            })
+            .select()
+            .single();
+
+        if (errReserva) throw errReserva;
+
+        miReservaID = resData.id;
+        localStorage.setItem('mi_reserva_id', miReservaID);
+        cocheYaPaso = false;
+
+        anunciarSeguridadVideo();
+
+        document.getElementById('form-reserva-container').style.display = 'none';
+        document.getElementById('panel-estado-viaje').style.display = 'block';
+        document.getElementById('card-superior').style.display = 'none';
+
+        document.getElementById('txt-coche-titulo').innerText = `Coche ${idMovilFijo}`;
+        document.getElementById('txt-chofer-nombre').innerText = 'Cargando datos del chofer...';
+        document.getElementById('txt-destino-resumen').innerText = paradaSeleccionada.n;
+        document.getElementById('txt-asientos-resumen').innerText = cantidadAsientos;
+
+        iniciarSeguimientoViaje();
+
+    } catch (e) {
+        alert("Error de conexión al reservar.");
+        btnPedir.innerText = "RESERVAR VIAJE";
+        btnPedir.disabled = false;
+    }
+}
+
+function volverAFormulario(mensaje) {
+    localStorage.removeItem('mi_reserva_id');
+    miReservaID = null;
+    if (intervaloViaje) { clearInterval(intervaloViaje); intervaloViaje = null; }
+    document.getElementById('panel-estado-viaje').style.display = 'none';
+    document.getElementById('form-reserva-container').style.display = 'block';
+    document.getElementById('card-superior').style.display = 'block';
+    document.getElementById('btn-pedir').innerText = "RESERVAR VIAJE";
+    document.getElementById('btn-pedir').disabled = false;
+    if (mensaje) alert(mensaje);
+}
+
+async function verificarEstadoViajeYAuto() {
+    if (!miReservaID) return;
+
+    try {
+        const idConsulta = isNaN(miReservaID) ? miReservaID : Number(miReservaID);
+
+        const { data: reserva, error } = await _s
+            .from('reservas_activas')
+            .select('*')
+            .eq('id', idConsulta)
+            .maybeSingle();
+
+        if (error || !reserva) return;
+
+        if (reserva.estado === 'rechazado') {
+            volverAFormulario("El chofer no pudo tomar tu viaje en este momento.");
+            return;
+        }
+
+        if (reserva.estado === 'finalizado') {
+            localStorage.removeItem('mi_reserva_id');
+            miReservaID = null;
+            if (intervaloViaje) { clearInterval(intervaloViaje); intervaloViaje = null; }
+            alert("¡Llegaste a destino! El viaje ha finalizado.");
+            location.reload();
+            return;
+        }
+
+        const idMovilNum = Number(reserva.id_movil);
+        const { data: movilInfo } = await _s
+            .from('estado_movil')
+            .select('*')
+            .eq('id', idMovilNum)
+            .maybeSingle();
+
+        let nombreChoferFinal = "Carlos Cueva";
+        if (movilInfo && movilInfo.chofer) {
+            nombreChoferFinal = movilInfo.chofer;
+        }
+
+        document.getElementById('txt-chofer-nombre').innerText = nombreChoferFinal;
+        document.getElementById('txt-coche-titulo').innerText = `Coche ${reserva.id_movil}`;
+
+        const tituloBox = document.getElementById('titulo-estado-caja');
+        const subBox = document.getElementById('sub-estado-caja');
+
+        if (reserva.estado_pasajero === 'a_bordo' || reserva.estado === 'a_bordo') {
+            tituloBox.innerHTML = '🚀 ESTÁS A BORDO';
+            subBox.innerText = 'Viaje en curso hacia tu destino.';
+        } else {
+            tituloBox.innerHTML = '🚗 ¡VIAJE EN CURSO!';
+            subBox.innerText = 'El chofer va rumbo a tu encuentro.';
+        }
+
+        if (movilInfo && movilInfo.latitud && movilInfo.longitud) {
+            const lat = movilInfo.latitud;
+            const lon = movilInfo.longitud;
+
+            if (gpsListo) {
+                const paradaCocheIdx = calcularParadaMasCerca(lat, lon);
+                const puedeRecoger = movilPuedeRecoger(paradaCocheIdx, paradaSubidaIndex, reserva.sentido || 'IDA');
+
+                if (!puedeRecoger && !cocheYaPaso && reserva.estado === 'en_curso') {
+                    cocheYaPaso = true;
+                    document.getElementById('caja-estado-contenedor').style.borderColor = 'var(--danger)';
+                    document.getElementById('caja-estado-contenedor').style.background = 'rgba(255, 59, 48, 0.15)';
+                    tituloBox.innerHTML = '⚠️ ¡EL COCHE YA PASÓ!';
+                    subBox.innerText = 'El móvil ya pasó de largo tu parada en este sentido.';
+                }
+            }
+
+            if (!marcadorAutoChofer) {
+                marcadorAutoChofer = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        className: 'custom-car-marker',
+                        html: '<div style="background:#ffcc00; width:24px; height:24px; border-radius:50%; border:3px solid #000; box-shadow:0 0 15px #ffcc00; text-align:center; font-size:10px; font-weight:900; line-height:18px;">🚗</div>',
+                        iconSize: [24, 24]
+                    })
+                }).addTo(map);
+            } else {
+                marcadorAutoChofer.setLatLng([lat, lon]);
+            }
+        }
+    } catch (e) {}
+}
+
+document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState === "visible" && miReservaID) {
+        if (!intervaloViaje) iniciarSeguimientoViaje();
+        await verificarEstadoViajeYAuto();
+    }
 });
-​function calcularParadaMasCerca(lat, lon) {
-let minDist = Infinity, idx = 0;
-const miPos = L.latLng(lat, lon);
-paradas.forEach((p, i) => {
-const dist = map.distance(miPos, p.c);
-if (dist < minDist) { minDist = dist; idx = i; }
-});
-return idx;
-}
-​function movilPuedeRecoger(movilParadaIdx, pasajeroParadaIdx, sentido) {
-return sentido === 'IDA' ? movilParadaIdx <= pasajeroParadaIdx : movilParadaIdx >= pasajeroParadaIdx;
-}
-​function cambiarSentidoPasajero() {
-sentidoPasajero = (sentidoPasajero === 'IDA') ? 'VUELTA' : 'IDA';
-document.getElementById('btn-sentido-pax').innerText = "SENTIDO: " + sentidoPasajero;
-actualizarRadarFlota();
-}
-​function confirmarParada(idx) {
-paradaSeleccionada = paradas[idx];
-document.getElementById('select-paradas').value = idx;
-marcadores.forEach((m) => { if (m) m.setStyle({ fillColor: '#00f3ff', radius: 8 }); });
-if (marcadores[idx]) marcadores[idx].setStyle({ fillColor: '#ffcc00', radius: 12 });
-map.closePopup();
-map.panTo(paradaSeleccionada.c);
-}
-​function seleccionarParadaDesdeLista(val) {
-if (val === "") return;
-confirmarParada(parseInt(val));
-}
-​function setAsientos(num) {
-cantidadAsientos = num;
-for (let i = 1; i <= 4; i++) {
-const btn = document.getElementById('seat-' + i);
-if (i <= num) { btn.classList.add('selected'); } else { btn.classList.remove('selected'); }
-}
-}
-​function anunciarSeguridadVideo() {
-if (!('speechSynthesis' in window)) return;
-window.speechSynthesis.cancel();
-const texto = "¡Atención pasajero! Por tu seguridad y la del chofer, todo el trayecto se encuentra bajo un sistema de cámaras y monitoreo en tiempo real con GPS. Buen viaje.";
-const utterance = new SpeechSynthesisUtterance(texto);
-utterance.lang = 'es-AR';
-utterance.rate = 0.95;
-window.speechSynthesis.speak(utterance);
-}
-​async function actualizarRadarFlota() {
-if (miReservaID) return;
-try {
-const { data: flota } = await _s
-.from('estado_movil')
-.select('*')
-.eq('esta_online', true);
-​if (!flota) return;
-​flota.forEach(m => {
-if (!m.latitud || !m.longitud) return;
-if (marcadorTaxisFlota[m.id]) {
-marcadorTaxisFlota[m.id].setLatLng([m.latitud, m.longitud]);
-} else {
-marcadorTaxisFlota[m.id] = L.marker([m.latitud, m.longitud], {
-icon: L.divIcon({
-className: 'taxi-icon',
-html: '<div style="background:#ffcc00; width:22px; height:22px; border-radius:50%; border:2px solid #000; text-align:center; font-size:11px; line-height:18px; box-shadow:0 0 10px #ffcc00;">🚕</div>',
-iconSize: [22, 22]
-})
-}).addTo(map).bindPopup(Coche ${m.id} - ${m.chofer || 'Chofer'});
-}
-});
-} catch (e) {}
-}
-​function iniciarSeguimientoViaje() {
-if (intervaloViaje) clearInterval(intervaloViaje);
-intervaloViaje = setInterval(verificarEstadoViajeYAuto, 2000);
-}
-​async function solicitarReserva() {
-const nombrePasajero = document.getElementById('input-nombre-pasajero').value.trim();
-if (!nombrePasajero) { alert("Por favor escribe tu Nombre y Apellido."); return; }
-if (!paradaSeleccionada) { alert("Por favor selecciona una parada de destino."); return; }
-​const btnPedir = document.getElementById('btn-pedir');
-btnPedir.innerText = "BUSCANDO MÓVIL...";
-btnPedir.disabled = true;
-​try {
-const idMovilFijo = 1;
-const detalleRuta = Sube en: ${ubicacionSubidaTexto} ➔ Baja en: ${paradaSeleccionada.n};
-const indiceDestinoSeleccionado = paradas.findIndex(p => p.n === paradaSeleccionada.n);
-​const { data: resData, error: errReserva } = await _s
-.from('reservas_activas')
-.insert({
-id_movil: idMovilFijo,
-nombre_pasajero: nombrePasajero,
-destino: detalleRuta,
-asientos: cantidadAsientos,
-asiento_num: 1,
-sentido: sentidoPasajero,
-estado: 'en_curso',
-estado_pasajero: 'esperando',
-latitud: latActualGPS,
-longitud: lonActualGPS,
-pasajero_lat: latActualGPS,
-pasajero_lon: lonActualGPS,
-destino_idx: indiceDestinoSeleccionado
-})
-.select()
-.single();
-​if (errReserva) throw errReserva;
-​miReservaID = resData.id;
-localStorage.setItem('mi_reserva_id', miReservaID);
-cocheYaPaso = false;
-​anunciarSeguridadVideo();
-​document.getElementById('form-reserva-container').style.display = 'none';
-document.getElementById('panel-estado-viaje').style.display = 'block';
-document.getElementById('card-superior').style.display = 'none';
-​document.getElementById('txt-coche-titulo').innerText = Coche ${idMovilFijo};
-document.getElementById('txt-chofer-nombre').innerText = 'Cargando datos del chofer...';
-document.getElementById('txt-destino-resumen').innerText = paradaSeleccionada.n;
-document.getElementById('txt-asientos-resumen').innerText = cantidadAsientos;
-​iniciarSeguimientoViaje();
-​} catch (e) {
-alert("Error de conexión al reservar.");
-btnPedir.innerText = "RESERVAR VIAJE";
-btnPedir.disabled = false;
-}
-}
-​function volverAFormulario(mensaje) {
-localStorage.removeItem('mi_reserva_id');
-miReservaID = null;
-if (intervaloViaje) { clearInterval(intervaloViaje); intervaloViaje = null; }
-document.getElementById('panel-estado-viaje').style.display = 'none';
-document.getElementById('form-reserva-container').style.display = 'block';
-document.getElementById('card-superior').style.display = 'block';
-document.getElementById('btn-pedir').innerText = "RESERVAR VIAJE";
-document.getElementById('btn-pedir').disabled = false;
-if (mensaje) alert(mensaje);
-}
-​async function verificarEstadoViajeYAuto() {
-if (!miReservaID) return;
-​try {
-const idConsulta = isNaN(miReservaID) ? miReservaID : Number(miReservaID);
-​const { data: reserva, error } = await _s
-.from('reservas_activas')
-.select('*')
-.eq('id', idConsulta)
-.maybeSingle();
-​if (error || !reserva) return;
-​if (reserva.estado === 'rechazado') {
-volverAFormulario("El chofer no pudo tomar tu viaje en este momento.");
-return;
-}
-​if (reserva.estado === 'finalizado') {
-localStorage.removeItem('mi_reserva_id');
-miReservaID = null;
-if (intervaloViaje) { clearInterval(intervaloViaje); intervaloViaje = null; }
-alert("¡Llegaste a destino! El viaje ha finalizado.");
-location.reload();
-return;
-}
-​const idMovilNum = Number(reserva.id_movil);
-const { data: movilInfo } = await _s
-.from('estado_movil')
-.select('*')
-.eq('id', idMovilNum)
-.maybeSingle();
-​// LECTURA DIRECTA Y EXACTA DE LOS DATOS QUE INGRESÓ EL CHOFER
-let nombreChoferFinal = "Carlos Cueva";
-if (movilInfo && movilInfo.chofer) {
-nombreChoferFinal = movilInfo.chofer;
-}
-​document.getElementById('txt-chofer-nombre').innerText = nombreChoferFinal;
-document.getElementById('txt-coche-titulo').innerText = Coche ${reserva.id_movil};
-​const tituloBox = document.getElementById('titulo-estado-caja');
-const subBox = document.getElementById('sub-estado-caja');
-​if (reserva.estado_pasajero === 'a_bordo' || reserva.estado === 'a_bordo') {
-tituloBox.innerHTML = '🚀 ESTÁS A BORDO';
-subBox.innerText = 'Viaje en curso hacia tu destino.';
-} else {
-tituloBox.innerHTML = '🚗 ¡VIAJE EN CURSO!';
-subBox.innerText = 'El chofer va rumbo a tu encuentro.';
-}
-​if (movilInfo && movilInfo.latitud && movilInfo.longitud) {
-const lat = movilInfo.latitud;
-const lon = movilInfo.longitud;
-​if (gpsListo) {
-const paradaCocheIdx = calcularParadaMasCerca(lat, lon);
-const puedeRecoger = movilPuedeRecoger(paradaCocheIdx, paradaSubidaIndex, reserva.sentido || 'IDA');
-​if (!puedeRecoger && !cocheYaPaso && reserva.estado === 'en_curso') {
-cocheYaPaso = true;
-document.getElementById('caja-estado-contenedor').style.borderColor = 'var(--danger)';
-document.getElementById('caja-estado-contenedor').style.background = 'rgba(255, 59, 48, 0.15)';
-tituloBox.innerHTML = '⚠️ ¡EL COCHE YA PASÓ!';
-subBox.innerText = 'El móvil ya pasó de largo tu parada en este sentido.';
-}
-}
-​if (!marcadorAutoChofer) {
-marcadorAutoChofer = L.marker([lat, lon], {
-icon: L.divIcon({
-className: 'custom-car-marker',
-html: '<div style="background:#ffcc00; width:24px; height:24px; border-radius:50%; border:3px solid #000; box-shadow:0 0 15px #ffcc00; text-align:center; font-size:10px; font-weight:900; line-height:18px;">🚗</div>',
-iconSize: [24, 24]
-})
-}).addTo(map);
-} else {
-marcadorAutoChofer.setLatLng([lat, lon]);
-}
-}
-} catch (e) {}
-}
-​document.addEventListener("visibilitychange", async () => {
-if (document.visibilityState === "visible" && miReservaID) {
-if (!intervaloViaje) iniciarSeguimientoViaje();
-await verificarEstadoViajeYAuto();
-}
-});
-​async function finalizarViaje() {
-if (!confirm("¿Deseas finalizar tu viaje?")) return;
-try {
-if (miReservaID) {
-await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', miReservaID);
-}
-} catch(e) {}
-localStorage.removeItem('mi_reserva_id');
-location.reload();
+
+async function finalizarViaje() {
+    if (!confirm("¿Deseas finalizar tu viaje?")) return;
+    try {
+        if (miReservaID) {
+            await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', miReservaID);
+        }
+    } catch(e) {}
+    localStorage.removeItem('mi_reserva_id');
+    location.reload();
 }
 </script>
 </body>
