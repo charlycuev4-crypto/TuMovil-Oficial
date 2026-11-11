@@ -67,21 +67,46 @@
         body.viaje-activo .bottom-ui { transform: translateY(100%); pointer-events: none; }
         body.viaje-activo .header { transform: translateY(-150%); }
 
+        /* MINI PANEL DE VIAJE / ESTÁ A BORDO (COMO LA FOTO) */
         #mini-panel-viaje {
             position: absolute; bottom: calc(15px + env(safe-area-inset-bottom)); left: 15px; right: 15px;
-            background: var(--glass); border: 2px solid var(--celeste); border-radius: 24px; padding: 16px; z-index: 999;
-            box-shadow: 0 10px 35px rgba(0,0,0,0.8), inset 0 0 15px var(--glass-glow); display: none; 
+            background: rgba(10, 16, 26, 0.96); border: 2px solid var(--celeste); border-radius: 24px; padding: 18px; z-index: 999;
+            box-shadow: 0 10px 35px rgba(0,0,0,0.9), inset 0 0 20px var(--glass-glow); display: none; 
             animation: slideUpFlotante 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         body.viaje-activo #mini-panel-viaje { display: block; }
         @keyframes slideUpFlotante { from { transform: translateY(120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-        .mini-viaje-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .mini-viaje-info { display: flex; align-items: center; gap: 10px; }
+        .mini-viaje-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .mini-viaje-info { display: flex; align-items: center; gap: 12px; }
         .mini-viaje-car { font-size: 18px; font-weight: 900; color: var(--amarillo); }
-        .mini-viaje-chofer { font-size: 12px; color: #a0aec0; font-weight: 700; }
-        .mini-viaje-status { font-size: 12px; color: var(--success); font-weight: 900; display: flex; align-items: center; gap: 6px; }
+        .mini-viaje-chofer { font-size: 12px; color: #a0aec0; font-weight: 700; margin-top: 2px; }
         
+        /* ESTILO IDÉNTICO A LA FOTO DE REFERENCIA */
+        .card-estado-abordo {
+            background: rgba(57, 255, 20, 0.08);
+            border: 1px solid var(--success);
+            border-radius: 16px;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 0 15px rgba(57, 255, 20, 0.15);
+        }
+        .card-estado-abordo .titulo-estado {
+            color: var(--success);
+            font-size: 14px;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+        .card-estado-abordo .sub-estado {
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
         .promo-card { background: rgba(255, 204, 0, 0.08); border: 1px solid rgba(255, 204, 0, 0.3); border-radius: 14px; padding: 8px; text-align: center; font-size: 12px; font-weight: 800; color: var(--amarillo); }
         .form-row { display: flex; gap: 8px; }
         input, select { background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.15); color: white; padding: 12px; border-radius: 14px; font-size: 14px; width: 100%; box-sizing: border-box; outline: none; }
@@ -106,7 +131,7 @@
 
         .btn-pedir { background: linear-gradient(135deg, var(--success) 0%, #2eb80e 100%); color: #000; border: none; padding: 14px; border-radius: 16px; font-weight: 900; font-size: 15px; transition: all 0.2s; width: 100%; cursor: pointer; box-shadow: 0 0 15px rgba(57, 255, 20, 0.3); }
         .btn-pedir:disabled { background: #16202c; color: #4a5568; cursor: not-allowed; box-shadow: none; }
-        .btn-cancelar-mini { background: linear-gradient(135deg, var(--danger) 0%, #cc0044 100%); color: white; border: none; padding: 12px; border-radius: 14px; font-weight: 900; font-size: 14px; width: 100%; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 0, 85, 0.3); }
+        .btn-cancelar-mini { background: linear-gradient(135deg, var(--danger) 0%, #cc0044 100%); color: white; border: none; padding: 14px; border-radius: 16px; font-weight: 900; font-size: 15px; width: 100%; cursor: pointer; box-shadow: 0 4px 20px rgba(255, 0, 85, 0.4); }
 
         .toast-container { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 10005; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
         .toast { background: rgba(8, 12, 18, 0.95); color: white; padding: 10px 20px; border-radius: 14px; font-size: 13px; font-weight: 700; border: 1px solid var(--celeste); box-shadow: 0 4px 20px rgba(0,0,0,0.6); animation: toastIn 0.3s ease forwards; }
@@ -172,28 +197,35 @@
         <button class="btn-pedir" id="btn-pedir" onclick="confirmarViajePasajero()" disabled>⌛ ESPERANDO GPS...</button>
     </div>
 
-    <!-- MINI PANEL CUANDO EL VIAJE ESTÁ ACTIVO -->
+    <!-- MINI PANEL CUANDO EL VIAJE ESTÁ ACTIVO / A BORDO (ACTUALIZADO COMO LA FOTO) -->
     <div id="mini-panel-viaje">
         <div class="mini-viaje-row">
             <div class="mini-viaje-info">
-                <span style="font-size: 24px;">🚕</span>
+                <span style="font-size: 28px;">🚗</span>
                 <div>
                     <div class="mini-viaje-car">Coche <span id="info-coche-id">--</span></div>
-                    <div class="mini-viaje-chofer" id="info-chofer-nombre">Buscando conductor...</div>
+                    <div class="mini-viaje-chofer" id="info-chofer-nombre">--</div>
                 </div>
             </div>
-            <div class="mini-viaje-status" id="viaje-status-texto">
-                <div style="width:8px; height:8px; background:var(--success); border-radius:50%; box-shadow: 0 0 8px var(--success);"></div>
-                <span>En camino</span>
+            <div id="viaje-status-badge" style="font-size: 11px; background: rgba(0,243,255,0.1); border:1px solid var(--celeste); padding: 4px 10px; border-radius: 10px; font-weight:800; color:var(--celeste);">
+                EN CAMINO
             </div>
         </div>
         
-        <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 12px; font-size: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; border: 1px solid rgba(255,255,255,0.05);">
-            <span style="color: #888;">Destino: <b id="info-destino-abordo" style="color: var(--amarillo);">--</b></span>
+        <!-- TARJETA DINÁMICA DE ESTADO (CAMBIA AUTOMÁTICAMENTE CUANDO EL CHOCHOER DA "A BORDO") -->
+        <div class="card-estado-abordo" id="card-estado-container">
+            <div class="titulo-estado" id="estado-titulo-texto">
+                <span>🚀</span> <span id="txt-estado-principal">EN CAMINO A TU ENCUENTRO</span>
+            </div>
+            <div class="sub-estado" id="txt-estado-sub">Esperando que el conductor llegue a la parada.</div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 14px; font-size: 13px; margin-bottom: 14px; display: flex; justify-content: space-between; border: 1px solid rgba(255,255,255,0.06);">
+            <span style="color: #a0aec0;">Destino: <b id="info-destino-abordo" style="color: var(--amarillo);">--</b></span>
             <span style="color: var(--celeste); font-weight:900;">Asiento(s): <span id="info-asientos-detalles">--</span></span>
         </div>
 
-        <button class="btn-cancelar-mini" id="btn-cancelar" onclick="finalizarViaje()">FINALIZAR O LIBERAR VIAJE</button>
+        <button class="btn-cancelar-mini" id="btn-cancelar" onclick="finalizarViaje()">FINALIZAR MI VIAJE</button>
     </div>
 
     <!-- PANEL DE ANUNCIO DEL CHOFER -->
@@ -221,7 +253,6 @@
         t.textContent = m; c.appendChild(t); setTimeout(() => t.remove(), 3000);
     }
 
-    // ALERTA DE VOZ POR SEGURIDAD
     function anunciarSeguridadVideo() {
         if (!('speechSynthesis' in window)) return;
         window.speechSynthesis.cancel();
@@ -232,7 +263,6 @@
         window.speechSynthesis.speak(utterance);
     }
 
-    // LISTA COMPLETA DE 36 PARADAS
     const paradas = [
         {n:'Av. Derqui y P197 (Cruce Derqui)', c:[-34.537898, -58.794848]},
         {n:'Fray Antonio Marchena y Carlos Eberth', c:[-34.539274, -58.793441]},
@@ -272,7 +302,6 @@
         {n:'Abasto y Roca', c:[-34.586030, -58.747278]}
     ];
 
-    // CONFIGURACIÓN DE MAPA LEAFLET
     const map = L.map('map', { 
         zoomControl: false, 
         attributionControl: false,
@@ -287,21 +316,9 @@
     const puntosRuta = paradas.map(p => p.c);
     const lineaRuta = L.polyline(puntosRuta, { color: '#ff0055', weight: 5, opacity: 0.8, lineCap: 'round', lineJoin: 'round' }).addTo(map);
 
-    let marcadoresParadas = [];
-
-    // CREACIÓN DE Círculos Interactivos para cada parada en el mapa
     paradas.forEach((p, i) => {
-        const markerParada = L.circleMarker(p.c, { 
-            radius: 8, 
-            color: '#000', 
-            weight: 2, 
-            fillColor: '#00f3ff', 
-            fillOpacity: 1 
-        }).addTo(map);
-
+        const markerParada = L.circleMarker(p.c, { radius: 8, color: '#000', weight: 2, fillColor: '#00f3ff', fillOpacity: 1 }).addTo(map);
         markerParada.bindTooltip(`<b>${i+1}. ${p.n}</b><br><span style="color:#000; font-weight:bold;">Toca para elegir destino</span>`, { direction: 'top' });
-
-        // EVENTO TÁCTIL / CLICK EN EL PUNTO DEL MAPA PARA SELECCIONAR PARADA DIRECTAMENTE
         markerParada.on('click', () => {
             if (miViajeActivo) return;
             document.getElementById('destino-select').value = i;
@@ -309,8 +326,6 @@
             renderizarFlotaDisponible();
             mostrarToast(`Destino fijado: ${(i+1)}. ${p.n}`, "success");
         });
-
-        marcadoresParadas.push(markerParada);
     });
 
     const iconP = L.divIcon({ html: '<div style="font-size:24px; filter:drop-shadow(0 2px 5px rgba(0,0,0,0.5));">🚶</div>', iconAnchor: [12, 24], className: 'p-mark' });
@@ -328,7 +343,7 @@
     let cocheSeleccionado = null, ultimoEstadoBoton = '', gpsListo = false, datosViajeActivo = null;
     let cocheYaPaso = false, pasajeroABordo = false;
     let timerLlegada = null, segundosRestantes = 30, llegadaMostrada = false;
-    let miNombrePasajero = '', intervaloPolling = null;
+    let miNombrePasajero = '', intervaloPolling = null, channelRealtime = null;
 
     const selDest = document.getElementById('destino-select');
     paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = (i+1) + ". " + p.n; selDest.appendChild(opt); });
@@ -523,18 +538,81 @@
 
                 actualizarColorTrazado(primerViaje.estado_movil?.sentido_flujo || 'IDA');
 
-                if (primerViaje.estado_pasajero === 'a_bordo') {
-                    pasajeroABordo = true;
-                    document.getElementById('viaje-status-texto').innerHTML = '<span>Ya estás a bordo</span>';
-                    iniciarEscuchaAnuncios();
-                }
+                // ACTUALIZACIÓN DE ESTADO SEGÚN EL CONDUCTOR (A BORDO O EN CAMINO)
+                actualizarInterfazEstadoPasajero(primerViaje.estado_pasajero);
 
                 setTimeout(() => { map.invalidateSize(); actualizarMapaRuta(); }, 400);
 
-                if(!pasajeroABordo) { iniciarMonitoreoViajeActivo(); iniciarVerificacionLlegada(); }
+                if(primerViaje.estado_pasajero !== 'a_bordo') { 
+                    iniciarMonitoreoViajeActivo(); 
+                    iniciarVerificacionLlegada(); 
+                }
+                
+                iniciarSuscripcionTiempoReal(nombre);
                 iniciarPollingEstado();
             } else { limpiarUI(); }
         } catch(e) { console.error(e); }
+    }
+
+    // FUNCIÓN PARA REFLEJAR EL ESTADO "A BORDO" COMO EN TU FOTO
+    function actualizarInterfazEstadoPasajero(estadoPasajero) {
+        const badge = document.getElementById('viaje-status-badge');
+        const txtPrincipal = document.getElementById('txt-estado-principal');
+        const txtSub = document.getElementById('txt-estado-sub');
+        const cardContainer = document.getElementById('card-estado-container');
+
+        if (estadoPasajero === 'a_bordo') {
+            pasajeroABordo = true;
+            badge.textContent = "A BORDO";
+            badge.style.color = "var(--success)";
+            badge.style.borderColor = "var(--success)";
+            badge.style.background = "rgba(57, 255, 20, 0.1)";
+
+            cardContainer.style.background = "rgba(57, 255, 20, 0.1)";
+            cardContainer.style.borderColor = "var(--success)";
+            
+            txtPrincipal.textContent = "ESTÁS A BORDO";
+            txtSub.textContent = "Viaje en curso hacia tu destino.";
+            
+            // Ocultar banner de llegada si estuviera abierto
+            document.getElementById('banner-llegada').classList.remove('visible');
+        } else {
+            pasajeroABordo = false;
+            badge.textContent = "EN CAMINO";
+            badge.style.color = "var(--celeste)";
+            badge.style.borderColor = "var(--celeste)";
+            badge.style.background = "rgba(0, 243, 255, 0.1)";
+
+            cardContainer.style.background = "rgba(0, 243, 255, 0.05)";
+            cardContainer.style.borderColor = "var(--celeste)";
+
+            txtPrincipal.textContent = "EN CAMINO A TU ENCUENTRO";
+            txtSub.textContent = "Esperando que el conductor llegue a la parada.";
+        }
+    }
+
+    // SUSCRIPCIÓN EN TIEMPO REAL A SUPABASE PARA CAMBIOS INSTANTÁNEOS DEL CHOFER
+    function iniciarSuscripcionTiempoReal(nombre) {
+        if (channelRealtime) _s.removeChannel(channelRealtime);
+
+        channelRealtime = _s.channel('cambios-pasajero-' + nombre)
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'reservas_activas', 
+                filter: `nombre_pasajero=eq.${nombre}` 
+            }, payload => {
+                if (payload.eventType === 'UPDATE') {
+                    const nuevoEstado = payload.new?.estado_pasajero;
+                    actualizarInterfazEstadoPasajero(nuevoEstado);
+                    if (nuevoEstado === 'a_bordo') {
+                        mostrarToast("¡El conductor confirmó que ya estás a bordo!", "success");
+                    }
+                } else if (payload.eventType === 'DELETE') {
+                    limpiarEstadoViaje();
+                }
+            })
+            .subscribe();
     }
 
     function iniciarMonitoreoViajeActivo() {
@@ -553,7 +631,6 @@
                 
                 if(!puedeRecoger && !cocheYaPaso) {
                     cocheYaPaso = true;
-                    document.getElementById('viaje-status-texto').innerHTML = '<span style="color:var(--danger)">EL COCHE YA PASÓ</span>';
                     mostrarToast("El coche ya pasó de largo tu parada.", "error");
                 }
                 
@@ -591,7 +668,7 @@
         document.getElementById('banner-llegada').classList.remove('visible');
         try {
             await _s.rpc('confirmar_abordo', { p_nombre: miNombrePasajero });
-            pasajeroABordo = true; location.reload();
+            actualizarInterfazEstadoPasajero('a_bordo');
         } catch(e){}
     }
 
@@ -621,17 +698,23 @@
             if(!miNombrePasajero) return;
             const { data } = await _s.rpc('obtener_viaje_activo', { p_nombre: miNombrePasajero });
             if(!data || !data.viaje || data.viaje.length === 0) { limpiarEstadoViaje(); }
-        }, 10000);
+            else {
+                // Actualiza estado por si acaso mediante polling
+                const viajeActual = data.viaje[0];
+                if (viajeActual.estado_pasajero !== (pasajeroABordo ? 'a_bordo' : 'esperando')) {
+                    actualizarInterfazEstadoPasajero(viajeActual.estado_pasajero);
+                }
+            }
+        }, 6000);
     }
 
-    function iniciarEscuchaAnuncios() {
-        _s.channel('anuncios-' + miNombrePasajero).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'reservas_activas', filter: 'nombre_pasajero=eq.'+miNombrePasajero }, payload => {
-            if (payload.new?.anuncio_parada && !payload.new?.anuncio_visto) {
-                document.getElementById('anuncio-mensaje-texto').innerText = payload.new.anuncio_parada;
-                document.getElementById('panel-anuncio-parada').classList.add('visible');
-            }
-        }).subscribe();
-    }
+    // ESCUCHA DE ANUNCIOS DEL CHOFER
+    _s.channel('anuncios-global').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'reservas_activas' }, payload => {
+        if (payload.new?.nombre_pasajero === miNombrePasajero && payload.new?.anuncio_parada && !payload.new?.anuncio_visto) {
+            document.getElementById('anuncio-mensaje-texto').innerText = payload.new.anuncio_parada;
+            document.getElementById('panel-anuncio-parada').classList.add('visible');
+        }
+    }).subscribe();
 
     async function marcarAnuncioVisto() {
         document.getElementById('panel-anuncio-parada').classList.remove('visible');
