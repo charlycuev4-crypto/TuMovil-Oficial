@@ -1,4 +1,4 @@
-    <script>
+
         const TARIFA_UNICA = 1500;
         const MI_ID_MOVIL = 1;
         const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
