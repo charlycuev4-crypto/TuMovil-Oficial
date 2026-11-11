@@ -79,10 +79,10 @@
 
         .mini-viaje-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .mini-viaje-info { display: flex; align-items: center; gap: 12px; }
-        .mini-viaje-car { font-size: 18px; font-weight: 900; color: var(--amarillo); }
-        .mini-viaje-chofer { font-size: 12px; color: #a0aec0; font-weight: 700; margin-top: 2px; }
+        .mini-viaje-car { font-size: 16px; font-weight: 900; color: var(--amarillo); }
+        .mini-viaje-chofer { font-size: 13px; color: #ffffff; font-weight: 800; margin-top: 3px; }
         
-        /* TARJETA VERDE "A BORDO" IDENTICA A TU FOTO */
+        /* TARJETA DE ESTADO DINÁMICA */
         .card-estado-abordo {
             background: rgba(0, 243, 255, 0.05);
             border: 1px solid var(--celeste);
@@ -110,10 +110,6 @@
         .form-row { display: flex; gap: 8px; }
         input, select { background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.15); color: white; padding: 12px; border-radius: 14px; font-size: 14px; width: 100%; box-sizing: border-box; outline: none; }
         input:focus, select:focus { border-color: var(--celeste); box-shadow: 0 0 10px rgba(0, 243, 255, 0.3); }
-
-        #panel-anuncio-parada { position: fixed; top: 20px; left: 15px; right: 15px; z-index: 10001;
-            background: rgba(8, 12, 18, 0.96); border: 2px solid var(--amarillo); border-radius: 20px; padding: 18px; display: none; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.8); }
-        #panel-anuncio-parada.visible { display: block; }
 
         #banner-llegada { position: fixed; top: 0; left: 0; right: 0; background: linear-gradient(135deg, var(--celeste) 0%, #0088cc 100%); color: #000; padding: 20px 16px; text-align: center; z-index: 10002; transform: translateY(-120%); transition: transform 0.4s cubic-bezier(0.1, 0.8, 0.2, 1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-weight: 800; }
         #banner-llegada.visible { transform: translateY(0); }
@@ -153,11 +149,10 @@
 
     <!-- BANNER LLEGADA -->
     <div id="banner-llegada">
-        <div style="font-size: 18px; font-weight: 900; margin-bottom: 2px;">🚗 ¡TU COCHE LLEGÓ! (<span id="llegada-timer">30</span>s)</div>
+        <div style="font-size: 18px; font-weight: 900; margin-bottom: 2px;">🚗 ¡TU COCHE LLEGÓ!</div>
         <div style="font-size: 12px; opacity: 0.9; margin-bottom: 10px;">El conductor se encuentra estacionado en tu parada asignada</div>
         <div style="display: flex; gap: 8px; justify-content: center;">
             <button class="btn-pedir" style="padding: 10px; font-size: 13px; width: auto;" onclick="confirmarSubidaManual()">✅ YA SUBÍ</button>
-            <button style="background: rgba(0,0,0,0.2); border: 1px solid #000; color: #000; padding: 10px; border-radius: 10px; font-weight:800;" onclick="posponerSubida()">⏱️ AGUANTAME</button>
             <button style="background: var(--danger); border: none; color: white; padding: 10px; border-radius: 10px; font-weight:800;" onclick="rechazarViaje()">❌ CANCELAR</button>
         </div>
     </div>
@@ -199,10 +194,12 @@
     <div id="mini-panel-viaje">
         <div class="mini-viaje-row">
             <div class="mini-viaje-info">
-                <span style="font-size: 28px;">🚗</span>
+                <span style="font-size: 32px;">🚗</span>
                 <div>
-                    <div class="mini-viaje-car">Coche <span id="info-coche-id">--</span></div>
-                    <div class="mini-viaje-chofer" id="info-chofer-nombre">--</div>
+                    <!-- AQUÍ SE MUESTRA ARRIBA EL AUTO, PATENTE Y NÚMERO DE MÓVIL -->
+                    <div class="mini-viaje-car" id="info-coche-detalles">Coche <span id="info-coche-id">--</span></div>
+                    <!-- AQUÍ SE MUESTRA ABAJO EL NOMBRE DEL CONDUCTOR -->
+                    <div class="mini-viaje-chofer" id="info-chofer-nombre">Conductor: --</div>
                 </div>
             </div>
             <div id="viaje-status-badge" style="font-size: 11px; background: rgba(0,243,255,0.1); border:1px solid var(--celeste); padding: 4px 10px; border-radius: 10px; font-weight:800; color:var(--celeste);">
@@ -224,13 +221,6 @@
         </div>
 
         <button class="btn-cancelar-mini" id="btn-cancelar" onclick="finalizarViaje()">FINALIZAR MI VIAJE</button>
-    </div>
-
-    <div id="panel-anuncio-parada">
-        <div style="font-size: 24px; margin-bottom: 4px;">🔔</div>
-        <div style="color: var(--amarillo); font-size: 10px; font-weight: 900; letter-spacing: 2px; margin-bottom: 6px;">AVISO DEL CONDUCTOR</div>
-        <div style="color: white; font-size: 14px; font-weight: 700; margin-bottom: 12px;" id="anuncio-mensaje-texto">--</div>
-        <button class="btn-pedir" style="padding: 10px; font-size: 13px;" onclick="marcarAnuncioVisto()">ENTENDIDO</button>
     </div>
 
 <script>
@@ -339,8 +329,7 @@
     let miLat = 0, miLon = 0, asientosElegidos = [], miViajeActivo = false;
     let cocheSeleccionado = null, ultimoEstadoBoton = '', gpsListo = false, datosViajeActivo = null;
     let cocheYaPaso = false, pasajeroABordo = false;
-    let timerLlegada = null, segundosRestantes = 30, llegadaMostrada = false;
-    let miNombrePasajero = '', canalRealtimeReserva = null;
+    let timerLlegada = null, miNombrePasajero = '', canalRealtimeReserva = null;
 
     const selDest = document.getElementById('destino-select');
     paradas.forEach((p, i) => { const opt = document.createElement('option'); opt.value = i; opt.innerText = (i+1) + ". " + p.n; selDest.appendChild(opt); });
@@ -498,7 +487,7 @@
             if (data?.success) {
                 localStorage.setItem('usuario_nombre', nom);
                 miNombrePasajero = nom;
-                anunciarSeguridadVideo();
+                anunciosDeVozSeguridad();
                 await consultarEstadoReservaDirecto(nom);
             }
         } catch (err) { alert("Error de red."); btn.disabled = false; actualizarBoton(); }
@@ -517,7 +506,7 @@
         }, 1200);
     };
 
-    // CONSULTA DIRECTA A LA TABLA DE SUPABASE PARA NO FALLAR SI CAMBIA "ESTADO_PASAJERO"
+    // CONSULTA DIRECTA A LA TABLA DE SUPABASE Y EXTRACCIÓN DE DATOS DE VEHÍCULO Y CHOFER
     async function consultarEstadoReservaDirecto(nombre) {
         try {
             const { data: reservas, error } = await _s
@@ -540,14 +529,29 @@
                 document.getElementById('info-destino-abordo').textContent = paradas[primerViaje.destino_idx]?.n || 'Destino';
                 document.getElementById('info-asientos-detalles').textContent = asientosElegidos.join(', ');
 
-                // Cargar datos del chofer si existen
+                // CONSULTAR DATOS DEL CONDUCTOR Y VEHÍCULO DESDE LA TABLA estado_movil
                 const { data: choferData } = await _s.from('estado_movil').select('chofer, sentido_flujo').eq('id', primerViaje.id_movil).single();
                 if (choferData) {
-                    document.getElementById('info-chofer-nombre').textContent = choferData.chofer || 'Conductor';
+                    const textoChoferCompleto = choferData.chofer || 'Conductor';
+                    
+                    // SEPARAMOS INTELIGENTE: ARRIBA EL AUTO/PATENTE Y ABAJO EL CONDUCTOR CARLOS CUEVAS
+                    // Asumiendo que el chofer guarda algo como: "Carlos Cueva - Ford Fiesta Gris (JCP 478)" o similar
+                    let partes = textoChoferCompleto.split('-');
+                    if (partes.length >= 2) {
+                        let nombreRealChofer = partes[0].trim(); // Ej: Carlos Cueva
+                        let detalleVehiculo = partes.slice(1).join('-').trim(); // Ej: Ford Fiesta Gris (JCP 478)
+
+                        document.getElementById('info-chofer-nombre').textContent = "Conductor: " + nombreRealChofer;
+                        document.getElementById('info-coche-detalles').textContent = detalleVehiculo + ` (Móvil ${primerViaje.id_movil})`;
+                    } else {
+                        // Si guardó todo junto sin guion, ponemos el texto completo abajo y el número de móvil arriba
+                        document.getElementById('info-chofer-nombre').textContent = "Conductor: " + textoChoferCompleto;
+                        document.getElementById('info-coche-detalles').textContent = `Móvil Oficial ${primerViaje.id_movil}`;
+                    }
+
                     actualizarColorTrazado(choferData.sentido_flujo || 'IDA');
                 }
 
-                // APLICAR DISEÑO SEGÚN SI YA ESTÁ A BORDO O EN CAMINO
                 actualizarInterfazVisual(primerViaje.estado_pasajero);
 
                 setTimeout(() => { map.invalidateSize(); actualizarMapaRuta(); }, 400);
@@ -563,7 +567,6 @@
         } catch (e) { console.error("Error consultando viaje activo:", e); }
     }
 
-    // ACTUALIZA EL PANEL A VERDE ("ESTÁS A BORDO") O AZUL ("EN CAMINO")
     function actualizarInterfazVisual(estadoPasajero) {
         const badge = document.getElementById('viaje-status-badge');
         const cardContainer = document.getElementById('card-estado-container');
@@ -606,7 +609,6 @@
         }
     }
 
-    // CONEXIÓN TIEMPO REAL CON LA TABLA QUE MODIFICA EL CHOFER
     function conectarRealtimeSupabase(nombre) {
         if (canalRealtimeReserva) _s.removeChannel(canalRealtimeReserva);
 
