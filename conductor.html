@@ -306,7 +306,7 @@
         </div>
     </div>
 
-    <!-- LÓGICA DE JAVASCRIPT UNIFICADA: MULTIASIENTOS EN BLOQUE + VOZ AUTOMÁTICA -->
+    <!-- LÓGICA DE JAVASCRIPT UNIFICADA: VOZ + LIMPIEZA AUTOMÁTICA DE VIAJE FINALIZADO -->
     <script>
         const TARIFA_UNICA = 1500;
         const MI_ID_MOVIL = 1;
@@ -564,6 +564,7 @@
         async function actualizarYMonitorearReservas() {
             if (!MI_ID_MOVIL) return;
             try {
+                // Filtramos estrictamente solo las reservas que estén 'en_curso'
                 const { data: reservas, error } = await _s
                     .from('reservas_activas')
                     .select('*')
@@ -576,14 +577,15 @@
                 markersDest.forEach(m => map.removeLayer(m));
                 markersPax = []; markersDest = [];
 
-                if (reservas) {
+                // Reiniciamos los asientos por defecto antes de mapear los activos
+                for(let i=1; i<=4; i++) {
+                    asientos[i] = { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null };
+                }
+
+                if (reservas && reservas.length > 0) {
                     let totalPax = reservas.length;
                     document.getElementById('txt-pax').innerText = totalPax;
                     document.getElementById('txt-plata').innerText = "$" + (totalPax * TARIFA_UNICA);
-
-                    for(let i=1; i<=4; i++) {
-                        asientos[i] = { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null };
-                    }
 
                     reservas.forEach(r => {
                         const nombreDestino = paradas[r.destino_idx] ? paradas[r.destino_idx].n.split(' ')[0] : 'Destino';
@@ -610,9 +612,13 @@
                             markersDest.push(mBaj);
                         }
                     });
-
-                    actualizarPillsUI();
+                } else {
+                    // Si no hay reservas activas, el panel se limpia automáticamente al instante
+                    document.getElementById('txt-pax').innerText = "0";
+                    document.getElementById('txt-plata').innerText = "$0";
                 }
+
+                actualizarPillsUI();
             } catch (err) { console.error("Error actualizando reservas:", err); }
         }
 
@@ -640,15 +646,13 @@
             }
         }
 
-        // GESTIÓN EN BLOQUE DE MULTIASIENTOS (MARCA O FINALIZA TODOS LOS ASIENTOS DEL PASAJERO JUNTOS)
+        // GESTIÓN EN BLOQUE DE MULTIASIENTOS + ELIMINACIÓN AUTOMÁTICA DEL PANEL AL FINALIZAR
         async function gestionarAsiento(numSeat) {
             const seat = asientos[numSeat];
             if (!seat.ocupado || !seat.idReserva) return;
-            const idReservaActual = seat.idReserva;
             const nombrePaxActual = seat.nombre;
 
             if (!seat.estado || seat.estado === 'esperando') {
-                // Marcar todos los asientos del mismo pasajero a bordo en bloque
                 for (let i = 1; i <= 4; i++) {
                     if (asientos[i].nombre === nombrePaxActual) {
                         asientos[i].estado = 'a_bordo';
@@ -659,7 +663,7 @@
                 }
                 actualizarPillsUI();
             } else if (seat.estado === 'a_bordo') {
-                // Finalizar y eliminar todos los asientos del mismo pasajero en bloque
+                // Al finalizar el viaje de este pasajero, se actualiza en Supabase y se remueve de inmediato del panel
                 for (let i = 1; i <= 4; i++) {
                     if (asientos[i].nombre === nombrePaxActual) {
                         if (asientos[i].idReserva) {
@@ -671,7 +675,7 @@
                 }
                 actualizarPillsUI();
             }
-            actualizarYMonitorearReservas();
+            await actualizarYMonitorearReservas();
         }
 
         async function confirmarVaciar() {
@@ -682,7 +686,7 @@
                     await _s.from('reservas_activas').delete().eq('id', asientos[i].idReserva);
                 }
             }
-            actualizarYMonitorearReservas();
+            await actualizarYMonitorearReservas();
             cerrarSheet();
         }
 
