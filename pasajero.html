@@ -20,10 +20,8 @@
 body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden;
 display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #fff; }
 
-/* MAPA OCUPANDO EL 100% DE FONDO LIBRE */
 #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
 
-/* SPLASH SCREEN */
 #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%;
 background: radial-gradient(circle at center, #1a1a3e 0%, #05050f 100%);
 display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -34,7 +32,6 @@ box-shadow: 0 0 25px rgba(0, 240, 255, 0.3); animation: pulseRing 2s infinite; }
 @keyframes pulseRing { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
 #splash h1 { color: var(--celeste); margin-top: 15px; font-size: 22px; letter-spacing: 2px; font-weight: 800; }
 
-/* HEADER SUPERIOR MÁS COMPACTO */
 .header { position: absolute; top: 10px; left: 15px; right: 15px; background: var(--glass);
 backdrop-filter: blur(20px); border: 1px solid var(--glass-border); padding: 8px 12px; text-align: center; border-radius: 14px; z-index: 999;
 box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
@@ -46,7 +43,6 @@ border: 1px solid var(--glass-border); border-radius: 50%; width: 38px; height: 
 display: flex; align-items: center; justify-content: center; font-size: 16px; z-index: 999; cursor: pointer;
 box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
 
-/* PANEL INFERIOR COMPACTO Y DESLIZABLE */
 .bottom-ui {
 position: absolute; bottom: 0; left: 0; right: 0;
 background: var(--glass); backdrop-filter: blur(25px);
@@ -61,7 +57,6 @@ transition: transform 0.4s ease;
 body.viaje-activo .bottom-ui { transform: translateY(100%); pointer-events: none; }
 body.viaje-activo .header { transform: translateY(-150%); }
 
-/* MINI PANEL EN VIVO */
 #panel-estado-viaje {
 position: absolute; bottom: calc(15px + env(safe-area-inset-bottom)); left: 15px; right: 15px;
 background: rgba(10, 16, 26, 0.96); border: 2px solid var(--celeste); border-radius: 20px; padding: 14px; z-index: 999;
@@ -109,7 +104,6 @@ input, select { background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255,
 
 <div id="map"></div>
 
-<!-- PANEL INFERIOR COMPACTO -->
 <div class="bottom-ui" id="form-reserva-container">
 <div class="promo-card">TARIFA ÚNICA FIJA: $1500 POR ASIENTO</div>
 
@@ -132,14 +126,14 @@ input, select { background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255,
 <button class="btn-pedir" id="btn-pedir" onclick="solicitarReserva()">RESERVAR VIAJE</button>
 </div>
 
-<!-- MINI PANEL EN VIVO -->
+<!-- MINI PANEL EN VIVO CON MÓVIL, PATENTE, VEHÍCULO Y CONDUCTOR -->
 <div id="panel-estado-viaje">
 <div class="mini-viaje-row">
 <div class="mini-viaje-info">
 <span style="font-size: 26px;">🚗</span>
 <div>
 <div class="mini-viaje-car" id="txt-coche-titulo">Coche 1</div>
-<div class="mini-viaje-chofer" id="txt-chofer-nombre">Cargando...</div>
+<div class="mini-viaje-chofer" id="txt-chofer-nombre">Cargando datos del chofer...</div>
 </div>
 </div>
 <div style="font-size: 10px; background: rgba(0,243,255,0.1); border:1px solid var(--celeste); padding: 3px 8px; border-radius: 8px; font-weight:800; color:var(--celeste);">
@@ -230,7 +224,6 @@ window.addEventListener('DOMContentLoaded', () => {
     map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Evita que el mapa mueva la cámara si el usuario está haciendo zoom o eligiendo parada manualmente
     map.on('movestart', () => { usuarioEstaMoviendoMapa = true; });
 
     setTimeout(() => {
@@ -401,7 +394,7 @@ async function actualizarRadarFlota() {
                         html: '<div style="background:#ffcc00; width:20px; height:20px; border-radius:50%; border:2px solid #000; text-align:center; font-size:10px; line-height:16px; box-shadow:0 0 10px #ffcc00;">🚕</div>',
                         iconSize: [20, 20]
                     })
-                }).addTo(map).bindPopup(`Coche ${m.id} - ${m.chofer || 'Chofer'}`);
+                }).addTo(map).bindPopup(`Móvil ${m.id} - ${m.chofer || 'Chofer'}`);
             }
         });
     } catch (e) {}
@@ -459,7 +452,7 @@ async function solicitarReserva() {
         document.getElementById('card-superior').style.display = 'none';
 
         document.getElementById('txt-coche-titulo').innerText = `Coche ${idMovilFijo}`;
-        document.getElementById('txt-chofer-nombre').innerText = 'Cargando datos...';
+        document.getElementById('txt-chofer-nombre').innerText = 'Conectando con el coche...';
         document.getElementById('txt-destino-resumen').innerText = paradaSeleccionada.n;
         document.getElementById('txt-asientos-resumen').innerText = cantidadAsientos;
 
@@ -480,10 +473,11 @@ function volverAFormulario(mensaje) {
     document.getElementById('form-reserva-container').style.display = 'block';
     document.getElementById('card-superior').style.display = 'block';
     document.getElementById('btn-pedir').innerText = "RESERVAR VIAJE";
-    document.getElementById('btn-pedir').disabled = false; // CORREGIDO AQUÍ (PARÉNTESIS EN LUGAR DE CORCHETE)
+    document.getElementById('btn-pedir').disabled = false;
     if (mensaje) alert(mensaje);
 }
 
+// LECTURA DIRECTA DE LA TABLA `estado_movil` CON LÓGICA DE EXTRACCIÓN MEJORADA
 async function verificarEstadoViajeYAuto() {
     if (!miReservaID) return;
 
@@ -513,18 +507,21 @@ async function verificarEstadoViajeYAuto() {
         }
 
         const idMovilNum = Number(reserva.id_movil);
+        
+        // CONSULTAMOS DIRECTAMENTE LOS DATOS DEL CHOFER QUE GUARDÓ EN EL MODAL DE SU APP
         const { data: movilInfo } = await _s
             .from('estado_movil')
             .select('*')
             .eq('id', idMovilNum)
             .maybeSingle();
 
-        let nombreChoferFinal = "Conductor Oficial";
         if (movilInfo && movilInfo.chofer) {
-            nombreChoferFinal = movilInfo.chofer; // Muestra literal lo que el chofer ingresa (Nombre, marca, color y patente)
+            // MUESTRA LITERAL Y DIRECTO TODO LO QUE GUARDÓ EL CONDUCTOR (Ej: Carlos Cuevas - Ford Fiesta Gris (JCP 478))
+            document.getElementById('txt-chofer-nombre').innerText = movilInfo.chofer;
+        } else {
+            document.getElementById('txt-chofer-nombre').innerText = "Móvil Oficial en camino";
         }
 
-        document.getElementById('txt-chofer-nombre').innerText = nombreChoferFinal;
         document.getElementById('txt-coche-titulo').innerText = `Móvil ${reserva.id_movil}`;
 
         const tituloBox = document.getElementById('titulo-estado-caja');
