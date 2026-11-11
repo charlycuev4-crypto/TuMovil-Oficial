@@ -422,23 +422,23 @@ function iniciarSeguimientoViaje() {
     intervaloViaje = setInterval(verificarEstadoViajeYAuto, 2000);
 }
 
-// FUNCIÓN DE RESERVA CON CANDADO ESTRICTO DE SENTIDO
+// FUNCIÓN DE RESERVA CON CANDADO DE SENTIDO Y FILTRO ESTRICTO DE PARADAS
 async function solicitarReserva() {
     const nombrePasajero = document.getElementById('input-nombre-pasajero').value.trim();
     if (!nombrePasajero) { alert("Por favor escribe tu Nombre."); return; }
     if (!paradaSeleccionada) { alert("Por favor selecciona una parada de destino."); return; }
 
     const btnPedir = document.getElementById('btn-pedir');
-    btnPedir.innerText = "VERIFICANDO UNIDADES...";
+    btnPedir.innerText = "VERIFICANDO TRAYECTORIA...";
     btnPedir.disabled = true;
 
     try {
         const idMovilFijo = 1;
 
-        // 1. CONSULTAR EL SENTIDO ACTUAL DEL CHOFER EN SUPABASE
+        // 1. CONSULTAR EL ESTADO Y LA POSICIÓN ACTUAL DEL CHOFER EN SUPABASE
         const { data: movilInfo, error: errMovil } = await _s
             .from('estado_movil')
-            .select('sentido_flujo, esta_online')
+            .select('*')
             .eq('id', idMovilFijo)
             .maybeSingle();
 
@@ -449,15 +449,32 @@ async function solicitarReserva() {
             return;
         }
 
-        // 2. COMPARAR EL SENTIDO DEL PASAJERO CON EL DEL CHOFER
+        // 2. VALIDAR EL SENTIDO (IDA / VUELTA)
         if (movilInfo.sentido_flujo !== sentidoPasajero) {
-            alert("⚠️ ATENCIÓN: El móvil se encuentra actualmente en sentido " + movilInfo.sentido_flujo + ". No puede tomar pasajeros en sentido contrario (" + sentidoPasajero + "). Cambie el sentido arriba o espere el regreso.");
+            alert("⚠️ El móvil se encuentra en sentido " + movilInfo.sentido_flujo + ". No puede tomar pasajeros en sentido contrario (" + sentidoPasajero + ").");
             btnPedir.innerText = "RESERVAR VIAJE";
             btnPedir.disabled = false;
-            return; // Frena la solicitud en seco y no le llega al chofer
+            return;
         }
 
-        // 3. SI EL SENTIDO COINCIDE, PROCEDE CON LA RESERVA NORMAL
+        // 3. VALIDAR QUE EL COCHE NO HAYA PASADO DE LARGO (FILTRO DE PARADAS)
+        if (movilInfo.latitud && movilInfo.longitud) {
+            const paradaCocheIdx = calcularParadaMasCerca(movilInfo.latitud, movilInfo.longitud);
+            const paradaPasajeroIdx = paradaSubidaIndex; // La parada donde está el pasajero actual
+
+            let puedeRecoger = (sentidoPasajero === 'IDA') 
+                ? (paradaCocheIdx <= paradaPasajeroIdx) 
+                : (paradaCocheIdx >= paradaPasajeroIdx);
+
+            if (!puedeRecoger) {
+                alert("⚠️ Lo sentimos, el móvil ya pasó por tu ubicación o se encuentra adelantado en este sentido. No hay unidades disponibles para atrás.");
+                btnPedir.innerText = "RESERVAR VIAJE";
+                btnPedir.disabled = false;
+                return; // Frena la solicitud para que no le llegue al chofer
+            }
+        }
+
+        // 4. SI PASA TODOS LOS FILTROS, CREA LA RESERVA NORMALMENTE
         const detalleRuta = `Sube en: ${ubicacionSubidaTexto} ➔ Baja en: ${paradaSeleccionada.n}`;
         const indiceDestinoSeleccionado = paradas.findIndex(p => p.n === paradaSeleccionada.n);
 
@@ -494,8 +511,8 @@ async function solicitarReserva() {
         document.getElementById('card-superior').style.display = 'none';
         document.getElementById('banner-guia').style.display = 'none';
 
-        document.getElementById('txt-coche-titulo').innerText = `Coche ${idMovilFijo}`;
-        document.getElementById('txt-chofer-nombre').innerText = 'Conectando con el coche...';
+        document.getElementById('txt-coche-titulo').innerText = `Móvil ${idMovilFijo}`;
+        document.getElementById('txt-chofer-nombre').innerText = movilInfo.chofer || 'Conectando...';
         document.getElementById('txt-destino-resumen').innerText = paradaSeleccionada.n;
         document.getElementById('txt-asientos-resumen').innerText = cantidadAsientos;
 
