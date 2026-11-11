@@ -334,7 +334,6 @@ function actualizarPillsUI() {
 async function gestionarAsiento(numSeat) {
     const seat = asientos[numSeat];
     if (!seat.ocupado || !seat.idReserva) return;
-    const idReservaActual = seat.idReserva;
     const nombrePaxActual = seat.nombre;
 
     if (!seat.estado || seat.estado === 'esperando') {
