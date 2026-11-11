@@ -1,4 +1,4 @@
-
+    <script>
         const TARIFA_UNICA = 1500;
         const MI_ID_MOVIL = 1;
         const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
@@ -133,7 +133,9 @@
                     <rect x="42" y="18" width="10" height="4" rx="2" fill="${colorVelocidad}"/>
                 </g>
             </svg>`;
-            return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+            // Codificación segura compatible con navegadores móviles sin usar unescape
+            const encodedSvg = encodeURIComponent(svg).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode('0x' + p1));
+            return 'data:image/svg+xml;base64,' + btoa(encodedSvg);
         }
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -405,5 +407,3 @@
             }
         }
     </script>
-</body>
-</html>
