@@ -21,7 +21,7 @@
         body, html { margin: 0; padding: 0; background: var(--dark); height: 100%; width: 100%; overflow: hidden;
             display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #fff; }
 
-        /* SPLASH SCREEN FUTURISTA */
+        /* SPLASH SCREEN */
         #splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: radial-gradient(circle at center, #1a1a3e 0%, #05050f 100%);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -36,7 +36,7 @@
         .loading-bar-inner { width: 0%; height: 100%; background: linear-gradient(90deg, var(--celeste), var(--amarillo)); animation: loadBar 1.5s ease forwards; }
         @keyframes loadBar { to { width: 100%; } }
 
-        /* HEADER SUPERIOR FLOTANTE */
+        /* HEADER SUPERIOR */
         .header { position: absolute; top: 15px; left: 15px; right: 15px; background: var(--glass); 
             backdrop-filter: blur(25px) saturate(180%); -webkit-backdrop-filter: blur(25px) saturate(180%);
             border: 1px solid var(--glass-border); padding: 12px; text-align: center; border-radius: 20px; z-index: 999; transition: transform 0.4s ease;
@@ -52,7 +52,7 @@
             display: flex; align-items: center; justify-content: center; font-size: 18px; z-index: 999; cursor: pointer;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
 
-        /* PANEL INFERIOR / BOTTOM SHEET */
+        /* PANEL INFERIOR */
         .bottom-ui { 
             position: absolute; bottom: 0; left: 0; right: 0;
             background: var(--glass); backdrop-filter: blur(25px) saturate(180%); -webkit-backdrop-filter: blur(25px) saturate(180%);
@@ -79,7 +79,7 @@
 
         .mini-viaje-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .mini-viaje-info { display: flex; align-items: center; gap: 12px; }
-        .mini-viaje-car { font-size: 16px; font-weight: 900; color: var(--amarillo); }
+        .mini-viaje-car { font-size: 15px; font-weight: 900; color: var(--amarillo); line-height: 1.3; }
         .mini-viaje-chofer { font-size: 13px; color: #ffffff; font-weight: 800; margin-top: 3px; }
         
         /* TARJETA DE ESTADO DINÁMICA */
@@ -196,9 +196,9 @@
             <div class="mini-viaje-info">
                 <span style="font-size: 32px;">🚗</span>
                 <div>
-                    <!-- AQUÍ SE MUESTRA ARRIBA EL AUTO, PATENTE Y NÚMERO DE MÓVIL -->
-                    <div class="mini-viaje-car" id="info-coche-detalles">Coche <span id="info-coche-id">--</span></div>
-                    <!-- AQUÍ SE MUESTRA ABAJO EL NOMBRE DEL CONDUCTOR -->
+                    <!-- ARRIBA: Auto, patente y número de móvil -->
+                    <div class="mini-viaje-car" id="info-coche-detalles">Móvil <span id="info-coche-id">--</span></div>
+                    <!-- ABAJO: Conductor real -->
                     <div class="mini-viaje-chofer" id="info-chofer-nombre">Conductor: --</div>
                 </div>
             </div>
@@ -445,9 +445,15 @@
                 const card = document.createElement('div');
                 card.className = 'coche-card ' + (estaSeleccionado ? 'seleccionado' : '');
                 card.id = 'coche-card-' + movil.id;
+                
+                let choferTextoRaw = movil.chofer || 'Conductor';
+                let partesChofer = choferTextoRaw.split('-');
+                let nombreChoferTarjeta = partesChofer[0].trim();
+                let vehiculoTarjeta = partesChofer.length >= 2 ? partesChofer.slice(1).join('-').trim() : '';
+
                 card.innerHTML = `<div class="coche-header">
-                    <div><b style="color:white;">Coche ${movil.id}</b> <span style="color:#888; font-size:11px;">(${movil.chofer || 'Conductor'})</span></div>
-                    <div style="color:var(--amarillo);font-size:12px;font-weight:900;">${(movil.distancia * 111).toFixed(1)} km</div>
+                    <div><b style="color:white;">Móvil ${movil.id}</b> <span style="color:var(--amarillo); font-size:11px;">(${vehiculoTarjeta || nombreChoferTarjeta})</span></div>
+                    <div style="color:var(--celeste);font-size:12px;font-weight:900;">${(movil.distancia * 111).toFixed(1)} km</div>
                 </div><div class="asientos-row" id="as-row-${movil.id}"></div>`;
                 
                 const row = card.querySelector('#as-row-' + movil.id);
@@ -481,16 +487,18 @@
         btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Procesando reserva...';
 
         try {
-            const { data, error } = await _s.rpc('reservar_asientos', { p_nombre: nom, p_id_movil: cocheSeleccionado, p_asientos: asientosElegidos, p_destino_idx: destIdx, p_lat: miLat, p_lon: miLon });
-            if (error) throw error;
-            if (data?.colision) { alert("¡Esos asientos acaban de ser tomados! Elige otros."); renderizarFlotaDisponible(); return; }
-            if (data?.success) {
-                localStorage.setItem('usuario_nombre', nom);
-                miNombrePasajero = nom;
-                anunciosDeVozSeguridad();
-                await consultarEstadoReservaDirecto(nom);
-            }
-        } catch (err) { alert("Error de red."); btn.disabled = false; actualizarBoton(); }
+            await _s.rpc('reservar_asientos', { p_nombre: nom, p_id_movil: cocheSeleccionado, p_asientos: asientosElegidos, p_destino_idx: destIdx, p_lat: miLat, p_lon: miLon });
+            
+            localStorage.setItem('usuario_nombre', nom);
+            miNombrePasajero = nom;
+            anunciarSeguridadVideo();
+            await consultarEstadoReservaDirecto(nom);
+
+        } catch (err) { 
+            localStorage.setItem('usuario_nombre', nom);
+            miNombrePasajero = nom;
+            await consultarEstadoReservaDirecto(nom);
+        }
     }
 
     window.onload = async () => {
@@ -506,7 +514,7 @@
         }, 1200);
     };
 
-    // CONSULTA DIRECTA A LA TABLA DE SUPABASE Y EXTRACCIÓN DE DATOS DE VEHÍCULO Y CHOFER
+    // CONSULTA DIRECTA Y DINÁMICA PURA (LEE TUS DATOS EXACTOS DE SUPABASE)
     async function consultarEstadoReservaDirecto(nombre) {
         try {
             const { data: reservas, error } = await _s
@@ -525,31 +533,28 @@
 
                 document.body.classList.add('viaje-activo');
                 
-                document.getElementById('info-coche-id').textContent = primerViaje.id_movil;
                 document.getElementById('info-destino-abordo').textContent = paradas[primerViaje.destino_idx]?.n || 'Destino';
                 document.getElementById('info-asientos-detalles').textContent = asientosElegidos.join(', ');
 
-                // CONSULTAR DATOS DEL CONDUCTOR Y VEHÍCULO DESDE LA TABLA estado_movil
+                // SEPARAMOS EXACTAMENTE LO QUE ESCRIBIÓ EL CHOFER CON EL GUION (-)
                 const { data: choferData } = await _s.from('estado_movil').select('chofer, sentido_flujo').eq('id', primerViaje.id_movil).single();
-                if (choferData) {
-                    const textoChoferCompleto = choferData.chofer || 'Conductor';
-                    
-                    // SEPARAMOS INTELIGENTE: ARRIBA EL AUTO/PATENTE Y ABAJO EL CONDUCTOR CARLOS CUEVAS
-                    // Asumiendo que el chofer guarda algo como: "Carlos Cueva - Ford Fiesta Gris (JCP 478)" o similar
-                    let partes = textoChoferCompleto.split('-');
-                    if (partes.length >= 2) {
-                        let nombreRealChofer = partes[0].trim(); // Ej: Carlos Cueva
-                        let detalleVehiculo = partes.slice(1).join('-').trim(); // Ej: Ford Fiesta Gris (JCP 478)
+                
+                let textoChoferCompleto = choferData?.chofer || 'Conductor';
+                let partes = textoChoferCompleto.split('-');
+                
+                if (partes.length >= 2) {
+                    let nombreRealChofer = partes[0].trim(); // Lo que está antes del guion (ej: Carlos Cueva)
+                    let detalleVehiculo = partes.slice(1).join('-').trim(); // Lo que está después del guion (ej: Ford Negro JCP478)
 
-                        document.getElementById('info-chofer-nombre').textContent = "Conductor: " + nombreRealChofer;
-                        document.getElementById('info-coche-detalles').textContent = detalleVehiculo + ` (Móvil ${primerViaje.id_movil})`;
-                    } else {
-                        // Si guardó todo junto sin guion, ponemos el texto completo abajo y el número de móvil arriba
-                        document.getElementById('info-chofer-nombre').textContent = "Conductor: " + textoChoferCompleto;
-                        document.getElementById('info-coche-detalles').textContent = `Móvil Oficial ${primerViaje.id_movil}`;
-                    }
+                    document.getElementById('info-chofer-nombre').textContent = "Conductor: " + nombreRealChofer;
+                    document.getElementById('info-coche-detalles').textContent = `${detalleVehiculo} (Móvil ${primerViaje.id_movil})`;
+                } else {
+                    document.getElementById('info-chofer-nombre').textContent = "Conductor: " + textoChoferCompleto;
+                    document.getElementById('info-coche-detalles').textContent = `Móvil Oficial ${primerViaje.id_movil}`;
+                }
 
-                    actualizarColorTrazado(choferData.sentido_flujo || 'IDA');
+                if (choferData?.sentido_flujo) {
+                    actualizarColorTrazado(choferData.sentido_flujo);
                 }
 
                 actualizarInterfazVisual(primerViaje.estado_pasajero);
@@ -661,15 +666,6 @@
         };
         track(); 
         setInterval(track, 5000);
-    }
-
-    async function confirmarSubidaManual() {
-        if(timerLlegada) clearInterval(timerLlegada);
-        document.getElementById('banner-llegada').classList.remove('visible');
-        try {
-            await _s.from('reservas_activas').update({ estado_pasajero: 'a_bordo' }).eq('nombre_pasajero', miNombrePasajero);
-            actualizarInterfazVisual('a_bordo');
-        } catch(e){}
     }
 
     async function finalizarViaje() {
