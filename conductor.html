@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Panel Chofer - Tu Móvil Oficial</title>
+    <title>Panel Chofer - Tu Móvil Oficial PRO</title>
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <!-- ESTILOS FUTURISTAS + MODAL DE PRE-CONEXIÓN + SPLASH -->
+    <!-- ESTILOS FUTURISTAS -->
     <style>
         :root {
             --bg-dark: #05070a;
@@ -45,7 +45,7 @@
         .loading-bar-inner { width: 0%; height: 100%; background: linear-gradient(90deg, var(--neon-cyan), var(--neon-yellow)); animation: loadBar 1.5s ease forwards; }
         @keyframes loadBar { to { width: 100%; } }
 
-        /* MODAL DE CONFIGURACIÓN PREVIA (GENÉRICO) */
+        /* MODAL DE CONFIGURACIÓN PREVIA */
         #modal-config {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(5, 7, 10, 0.94); backdrop-filter: blur(20px);
@@ -80,7 +80,7 @@
         }
         #map { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
 
-        /* ETIQUETAS PERMANENTES DE SUBIDA Y BAJADA */
+        /* ETIQUETAS PERMANENTES */
         .leaflet-tooltip.etiqueta-baja { 
             background: #ffffff !important; color: #000000 !important; border: 2px solid var(--neon-cyan) !important; 
             font-weight: 800 !important; font-size: 11px !important; border-radius: 8px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
@@ -90,7 +90,7 @@
             font-weight: 800 !important; font-size: 11px !important; border-radius: 8px !important; box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
         }
 
-        /* HEADER & CONTROL FLOTANTE FUTURISTA */
+        /* HEADER & CONTROL FLOTANTE */
         .top-nav {
             position: absolute; top: env(safe-area-inset-top, 12px); left: 12px; right: 12px;
             z-index: 1000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;
@@ -164,7 +164,7 @@
         }
         .btn-floating-action:active { transform: scale(0.9); }
 
-        /* ASIENTOS FUTURISTAS (COCKPIT BAR) */
+        /* ASIENTOS / COCKPIT BAR */
         .bar-asientos-fija {
             position: absolute; bottom: env(safe-area-inset-bottom, 14px); left: 12px; right: 12px; z-index: 998;
             background: var(--glass-bg);
@@ -236,7 +236,7 @@
         <div class="loading-bar"><div class="loading-bar-inner"></div></div>
     </div>
 
-    <!-- MODAL DE CONFIGURACIÓN PRE-CONEXIÓN (GENÉRICO) -->
+    <!-- MODAL DE CONFIGURACIÓN PRE-CONEXIÓN -->
     <div id="modal-config">
         <div class="config-card">
             <h2>⚙️ IDENTIFICACIÓN DEL CHOFER</h2>
@@ -316,7 +316,7 @@
         </div>
     </div>
 
-    <!-- LÓGICA DE JAVASCRIPT INTEGRADA -->
+    <!-- LÓGICA DE JAVASCRIPT CON ANUNCIADOR DE VOZ DE PROXIMIDAD -->
     <script>
         const TARIFA_UNICA = 1500;
         const MI_ID_MOVIL = 1;
@@ -369,6 +369,7 @@
         let estaOnline = false, watchId = null, sentidoActual = 'IDA';
         let velocidadActual = 0;
         let markersPax = [], markersDest = [];
+        let ultimaParadaAnunciada = -1;
 
         let asientos = {
             1: { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null },
@@ -392,6 +393,28 @@
             return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
         }
 
+        // SISTEMA DE SÍNTESIS DE VOZ PARA ANUNCIAR PARADAS
+        function anunciarPorVoz(texto) {
+            if (!('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(texto);
+            utterance.lang = 'es-AR';
+            utterance.rate = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // CALCULAR DISTANCIA EN METROS ENTRE DOS COORDENADAS GPS
+        function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 16);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -410,7 +433,6 @@
                 const splash = document.getElementById('splash');
                 if (splash) { splash.style.opacity = '0'; setTimeout(() => splash.style.visibility = 'hidden', 600); }
 
-                // Si no hay datos registrados, abre el modal genérico
                 if (!MI_NOMBRE) {
                     abrirConfiguracion();
                 } else {
@@ -474,7 +496,6 @@
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     const lat = pos.coords.latitude, lon = pos.coords.longitude;
                     
-                    // Envía los datos dinámicos del chofer y su hora de ingreso a Supabase para la fila / orden
                     await _s.from('estado_movil').upsert({
                         id: MI_ID_MOVIL,
                         chofer: `${MI_NOMBRE} - ${MI_VEHICULO} (Ingreso: ${HORA_INGRESO})`,
@@ -507,6 +528,16 @@
                 const lat = p.coords.latitude, lon = p.coords.longitude;
                 velocidadActual = Math.round((p.coords.speed || 0) * 3.6);
                 document.getElementById('txt-velocidad').textContent = velocidadActual;
+
+                // MONITOR DE PROXIMIDAD DE PARADAS PARA ANUNCIO AUTOMÁTICO POR VOZ
+                paradas.forEach((parada, idx) => {
+                    const distancia = calcularDistanciaMetros(lat, lon, parada.c[0], parada.c[1]);
+                    if (distancia < 60 && ultimaParadaAnunciada !== idx) {
+                        ultimaParadaAnunciada = idx;
+                        document.getElementById('txt-parada').innerText = parada.n;
+                        anunciarPorVoz(`Próxima parada: ${parada.n}`);
+                    }
+                });
 
                 let nuevoIcono = L.icon({ iconUrl: crearIconoAuto(velocidadActual), iconSize: [50, 75], iconAnchor: [25, 37] });
                 if (markerCoche) {
