@@ -236,15 +236,15 @@
         <div class="loading-bar"><div class="loading-bar-inner"></div></div>
     </div>
 
-    <!-- MODAL DE CONFIGURACIÓN PRE-CONEXIÓN -->
+    <!-- MODAL DE CONFIGURACIÓN PREVIA -->
     <div id="modal-config">
         <div class="config-card">
             <h2>⚙️ IDENTIFICACIÓN DEL CHOFER</h2>
-            <p>Ingresa tus datos y confirma tu horario para entrar en línea.</p>
+            <p>Ingresa tus datos completos, vehículo, color y patente para el pasajero.</p>
             
             <div class="form-group">
-                <label>Nombre, Vehículo y Patente</label>
-                <input type="text" id="input-nombre-chofer" class="form-control" placeholder="Ej: Carlos Cuevas - Ford Fiesta (JCP 478)">
+                <label>Nombre, Vehículo, Color y Patente</label>
+                <input type="text" id="input-nombre-chofer" class="form-control" placeholder="Ej: Carlos Cuevas - Ford Fiesta Gris (JCP 478)">
             </div>
 
             <button class="btn-guardar-config" onclick="guardarConfiguracionYEntrar()">CONFIRMAR Y GUARDAR</button>
@@ -306,13 +306,14 @@
         </div>
     </div>
 
-    <!-- LÓGICA DE JAVASCRIPT UNIFICADA: VOZ + LIMPIEZA AUTOMÁTICA DE VIAJE FINALIZADO -->
+    <!-- LÓGICA DE JAVASCRIPT: ALERTA DE TIMBRE + DATOS DE VEHÍCULO + VOZ + LIMPIEZA AUTOMÁTICA -->
     <script>
         const TARIFA_UNICA = 1500;
         const MI_ID_MOVIL = 1;
         const _s = supabase.createClient('https://nvumdlxervrewqiiaicl.supabase.co', 'sb_publishable_oVmiLSfe_AJ5iDpeAXIukA_CLdHuwkE');
 
-        let MI_NOMBRE = localStorage.getItem('driver_nombre_completo') || 'Carlos Cuevas - Ford Fiesta (JCP 478)';
+        let MI_NOMBRE = localStorage.getItem('driver_nombre_completo') || 'Carlos Cuevas - Ford Fiesta Gris (JCP 478)';
+        let totalReservasAnterior = 0;
 
         const paradas = [
             { n: 'Av. Derqui y P197 (Cruce Derqui)', c: [-34.537898, -58.794848] },
@@ -375,6 +376,43 @@
         }
         function indiceAnterior(i) {
             return sentidoActual === 'IDA' ? (i - 1 + paradas.length) % paradas.length : (i + 1) % paradas.length;
+        }
+
+        // FUNCIÓN DE ALERTA SONORA (TIMBRE PARA NUEVA SOLICITUD)
+        function reproducirAlertaSolicitud() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Primer tono del timbre
+                const osc1 = audioCtx.createOscillator();
+                const gain1 = audioCtx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(587.33, audioCtx.currentTime); // Nota D5
+                gain1.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain1.gain.exponentialRampToValueValueAtTime ? gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3) : gain1.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                
+                osc1.connect(gain1);
+                gain1.connect(audioCtx.destination);
+                osc1.start();
+                osc1.stop(audioCtx.currentTime + 0.3);
+
+                // Segundo tono del timbre (más agudo)
+                setTimeout(() => {
+                    const osc2 = audioCtx.createOscillator();
+                    const gain2 = audioCtx.createGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(880, audioCtx.currentTime); // Nota A5
+                    gain2.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain2.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                    
+                    osc2.connect(gain2);
+                    gain2.connect(audioCtx.destination);
+                    osc2.start();
+                    osc2.stop(audioCtx.currentTime + 0.4);
+                }, 200);
+            } catch (e) {
+                console.log("Audio contextual no soportado o bloqueado por navegador", e);
+            }
         }
 
         function anunciar(texto) {
@@ -478,16 +516,31 @@
             document.getElementById('modal-config').style.display = 'flex';
         }
 
-        function guardarConfiguracionYEntrar() {
+        async function guardarConfiguracionYEntrar() {
             const nombreInput = document.getElementById('input-nombre-chofer').value.trim();
             if (!nombreInput) {
-                alert("Por favor ingresa tu nombre y vehículo.");
+                alert("Por favor ingresa tu nombre, vehículo, color y patente.");
                 return;
             }
 
             MI_NOMBRE = nombreInput;
             localStorage.setItem('driver_nombre_completo', MI_NOMBRE);
             document.getElementById('modal-config').style.display = 'none';
+            
+            // Si ya está conectado online, actualizamos inmediatamente en Supabase con los nuevos datos
+            if (estaOnline) {
+                navigator.geolocation.getCurrentPosition(async (pos) => {
+                    await _s.from('estado_movil').upsert({
+                        id: MI_ID_MOVIL,
+                        chofer: MI_NOMBRE,
+                        esta_online: true,
+                        latitud: pos.coords.latitude,
+                        longitud: pos.coords.longitude,
+                        sentido_flujo: sentidoActual,
+                        ultima_actualizacion: new Date().toISOString()
+                    });
+                });
+            }
             iniciarJornadaBase();
         }
 
@@ -515,7 +568,7 @@
                     
                     await _s.from('estado_movil').upsert({
                         id: MI_ID_MOVIL,
-                        chofer: MI_NOMBRE,
+                        chofer: MI_NOMBRE, // Envía nombre, marca, color y patente a Supabase
                         esta_online: true,
                         latitud: lat,
                         longitud: lon,
@@ -564,7 +617,6 @@
         async function actualizarYMonitorearReservas() {
             if (!MI_ID_MOVIL) return;
             try {
-                // Filtramos estrictamente solo las reservas que estén 'en_curso'
                 const { data: reservas, error } = await _s
                     .from('reservas_activas')
                     .select('*')
@@ -577,13 +629,19 @@
                 markersDest.forEach(m => map.removeLayer(m));
                 markersPax = []; markersDest = [];
 
-                // Reiniciamos los asientos por defecto antes de mapear los activos
                 for(let i=1; i<=4; i++) {
                     asientos[i] = { ocupado: false, nombre: 'Libre', destino: '-', idReserva: null, estado: null };
                 }
 
                 if (reservas && reservas.length > 0) {
                     let totalPax = reservas.length;
+                    
+                    // SI HAY NUEVAS SOLICITUDES, DISPARAMOS EL TIMBRE DE ALERTA
+                    if (totalPax > totalReservasAnterior) {
+                        reproducirAlertaSolicitud();
+                    }
+                    totalReservasAnterior = totalPax;
+
                     document.getElementById('txt-pax').innerText = totalPax;
                     document.getElementById('txt-plata').innerText = "$" + (totalPax * TARIFA_UNICA);
 
@@ -613,7 +671,7 @@
                         }
                     });
                 } else {
-                    // Si no hay reservas activas, el panel se limpia automáticamente al instante
+                    totalReservasAnterior = 0;
                     document.getElementById('txt-pax').innerText = "0";
                     document.getElementById('txt-plata').innerText = "$0";
                 }
@@ -646,7 +704,7 @@
             }
         }
 
-        // GESTIÓN EN BLOQUE DE MULTIASIENTOS + ELIMINACIÓN AUTOMÁTICA DEL PANEL AL FINALIZAR
+        // GESTIÓN EN BLOQUE DE MULTIASIENTOS + LIMPIEZA AUTOMÁTICA
         async function gestionarAsiento(numSeat) {
             const seat = asientos[numSeat];
             if (!seat.ocupado || !seat.idReserva) return;
@@ -663,7 +721,6 @@
                 }
                 actualizarPillsUI();
             } else if (seat.estado === 'a_bordo') {
-                // Al finalizar el viaje de este pasajero, se actualiza en Supabase y se remueve de inmediato del panel
                 for (let i = 1; i <= 4; i++) {
                     if (asientos[i].nombre === nombrePaxActual) {
                         if (asientos[i].idReserva) {
