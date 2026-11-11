@@ -34,7 +34,7 @@ box-shadow: 0 0 25px rgba(0, 240, 255, 0.3); animation: pulseRing 2s infinite; }
 @keyframes pulseRing { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
 #splash h1 { color: var(--celeste); margin-top: 15px; font-size: 22px; letter-spacing: 2px; font-weight: 800; }
 
-/* HEADER SUPERIOR MÁS COMPACTO (AHORRA ESPACIO) */
+/* HEADER SUPERIOR MÁS COMPACTO */
 .header { position: absolute; top: 10px; left: 15px; right: 15px; background: var(--glass);
 backdrop-filter: blur(20px); border: 1px solid var(--glass-border); padding: 8px 12px; text-align: center; border-radius: 14px; z-index: 999;
 box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
@@ -46,7 +46,7 @@ border: 1px solid var(--glass-border); border-radius: 50%; width: 38px; height: 
 display: flex; align-items: center; justify-content: center; font-size: 16px; z-index: 999; cursor: pointer;
 box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
 
-/* PANEL INFERIOR COMPACTO Y DESLIZABLE (LIBERA EL MAPA) */
+/* PANEL INFERIOR COMPACTO Y DESLIZABLE */
 .bottom-ui {
 position: absolute; bottom: 0; left: 0; right: 0;
 background: var(--glass); backdrop-filter: blur(25px);
@@ -109,7 +109,7 @@ input, select { background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255,
 
 <div id="map"></div>
 
-<!-- PANEL INFERIOR MÁS CHICO PARA DEJAR LIBRE EL MAPA -->
+<!-- PANEL INFERIOR COMPACTO -->
 <div class="bottom-ui" id="form-reserva-container">
 <div class="promo-card">TARIFA ÚNICA FIJA: $1500 POR ASIENTO</div>
 
@@ -215,7 +215,7 @@ let cocheYaPaso = false;
 let gpsListo = false;
 let intervaloViaje = null;
 let marcadorTaxisFlota = {};
-let usuarioEstaMoviendoMapa = false; // CORRECCIÓN PARA QUE EL MAPA NO TE INTERRUMPA AL HACER ZOOM
+let usuarioEstaMoviendoMapa = false;
 
 let paxUUID = localStorage.getItem('pax_uuid');
 if (!paxUUID) {
@@ -230,7 +230,7 @@ window.addEventListener('DOMContentLoaded', () => {
     map = L.map('map', { zoomControl: false }).setView(paradas[0].c, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // EVITA QUE EL GPS RE-CENTRE EL MAPA SI ESTÁS HACIENDO ZOOM MANUAL
+    // Evita que el mapa mueva la cámara si el usuario está haciendo zoom o eligiendo parada manualmente
     map.on('movestart', () => { usuarioEstaMoviendoMapa = true; });
 
     setTimeout(() => {
@@ -283,7 +283,6 @@ window.addEventListener('DOMContentLoaded', () => {
                 }).addTo(map).bindPopup("Estás aquí");
             } else {
                 marcadorPasajero.setLatLng([lat, lon]);
-                // SOLO SE CENTRA SI EL USUARIO NO ESTÁ MOVIENDO EL MAPA MANUALMENTE
                 if (!miReservaID && !usuarioEstaMoviendoMapa) {
                     map.panTo([lat, lon]);
                 }
@@ -306,9 +305,7 @@ window.addEventListener('DOMContentLoaded', () => {
                     latitud: lat,
                     longitud: lon,
                     ultima_actualizacion: new Date().toISOString()
-                }).then(({ error, data }) => {
-                    if (error) console.error("Error al reportar GPS pasajero:", error.message);
-                }).catch(err => {});
+                }).then(({ error }) => {}).catch(err => {});
             }
 
         }, (err) => {
@@ -483,7 +480,7 @@ function volverAFormulario(mensaje) {
     document.getElementById('form-reserva-container').style.display = 'block';
     document.getElementById('card-superior').style.display = 'block';
     document.getElementById('btn-pedir').innerText = "RESERVAR VIAJE";
-    document.getElementById('btn-pedir'].disabled = false;
+    document.getElementById('btn-pedir').disabled = false; // CORREGIDO AQUÍ (PARÉNTESIS EN LUGAR DE CORCHETE)
     if (mensaje) alert(mensaje);
 }
 
@@ -524,7 +521,7 @@ async function verificarEstadoViajeYAuto() {
 
         let nombreChoferFinal = "Conductor Oficial";
         if (movilInfo && movilInfo.chofer) {
-            nombreChoferFinal = movilInfo.chofer; // AQUÍ TOMA EXACTAMENTE LO QUE EL CONDUCTOR GUARDA EN SU APP (NOMBRE, MARCA, COLOR Y PATENTE)
+            nombreChoferFinal = movilInfo.chofer; // Muestra literal lo que el chofer ingresa (Nombre, marca, color y patente)
         }
 
         document.getElementById('txt-chofer-nombre').innerText = nombreChoferFinal;
