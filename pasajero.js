@@ -53,7 +53,6 @@ let gpsListo = false;
 let intervaloViaje = null;
 let marcadorTaxisFlota = {};
 
-// ID único persistente para este navegador en la tabla pasajeros_activos
 let paxUUID = localStorage.getItem('pax_uuid');
 if (!paxUUID) {
     paxUUID = 'pax_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
@@ -120,7 +119,6 @@ window.addEventListener('DOMContentLoaded', () => {
             gpsListo = true;
             document.getElementById('txt-subida').innerText = ubicacionSubidaTexto;
 
-            // Reportar ubicación a Supabase cada 4 segundos para el radar del conductor
             const ahora = Date.now();
             if (ahora - ultimaVezReportadoGPS > 4000) {
                 ultimaVezReportadoGPS = ahora;
@@ -257,6 +255,9 @@ async function solicitarReserva() {
     try {
         const idMovilFijo = 1;
         const detalleRuta = `Sube en: ${ubicacionSubidaTexto} ➔ Baja en: ${paradaSeleccionada.n}`;
+        
+        // Obtener el índice numérico exacto de la parada seleccionada
+        const indiceDestinoSeleccionado = paradas.findIndex(p => p.n === paradaSeleccionada.n);
 
         const { data: resData, error: errReserva } = await _s
             .from('reservas_activas')
@@ -265,10 +266,15 @@ async function solicitarReserva() {
                 nombre_pasajero: nombrePasajero,
                 destino: detalleRuta,
                 asientos: cantidadAsientos,
+                asiento_num: 1,
                 sentido: sentidoPasajero,
                 estado: 'en_curso',
+                estado_pasajero: 'esperando',
                 latitud: latActualGPS,
-                longitud: lonActualGPS
+                longitud: lonActualGPS,
+                pasajero_lat: latActualGPS, // 🟢 Coordenada de subida para el conductor
+                pasajero_lon: lonActualGPS, // 🟢 Coordenada de subida para el conductor
+                destino_idx: indiceDestinoSeleccionado // 🟢 Índice de la parada de bajada para el conductor
             })
             .select()
             .single();
@@ -411,7 +417,7 @@ document.addEventListener("visibilitychange", async () => {
 });
 
 async function finalizarViaje() {
-    if (!confirm("¿Deseas finalizar tu viaje?")) নতুন;
+    if (!confirm("¿Deseas finalizar tu viaje?")) return;
     try {
         if (miReservaID) {
             await _s.from('reservas_activas').update({ estado: 'finalizado' }).eq('id', miReservaID);
