@@ -50,7 +50,7 @@ border-top: 1px solid var(--celeste);
 padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom));
 display: flex; flex-direction: column; gap: 8px;
 border-radius: 24px 24px 0 0; z-index: 998; box-shadow: 0 -10px 30px rgba(0, 243, 255, 0.2);
-max-height: 38vh; overflow-y: auto;
+max-height: 40vh; overflow-y: auto;
 transition: transform 0.4s ease;
 }
 
@@ -85,9 +85,38 @@ input, select { background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255,
 .btn-pedir { background: linear-gradient(135deg, var(--success) 0%, #2eb80e 100%); color: #000; border: none; padding: 12px; border-radius: 12px; font-weight: 900; font-size: 14px; width: 100%; cursor: pointer; box-shadow: 0 0 12px rgba(57, 255, 20, 0.3); margin-top: 4px; }
 .btn-pedir:disabled { background: #16202c; color: #4a5568; cursor: not-allowed; }
 .btn-cancelar-mini { background: var(--danger); color: white; border: none; padding: 10px; border-radius: 12px; font-weight: 900; font-size: 13px; width: 100%; cursor: pointer; }
+
+/* ESTILOS DEL ASISTENTE GUIADO (ONBOARDING) */
+#onboarding-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(5, 7, 10, 0.88); backdrop-filter: blur(15px);
+    z-index: 10500; display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.onboarding-card {
+    background: var(--glass); border: 2px solid var(--celeste); border-radius: 24px;
+    padding: 24px; width: 100%; max-width: 340px; text-align: center;
+    box-shadow: 0 0 35px rgba(0, 243, 255, 0.3);
+}
+.onboarding-card h3 { color: var(--celeste); font-size: 18px; margin-bottom: 8px; font-weight: 900; }
+.onboarding-card p { color: #cbd5e0; font-size: 13px; margin-bottom: 20px; line-height: 1.4; }
+.btn-onboarding {
+    background: linear-gradient(135deg, var(--amarillo) 0%, #ff9900 100%);
+    color: #000; border: none; width: 100%; padding: 12px; border-radius: 14px;
+    font-weight: 900; font-size: 14px; cursor: pointer; box-shadow: 0 0 15px rgba(255,204,0,0.3);
+}
 </style>
 </head>
 <body>
+
+<!-- ASISTENTE GUIADO PASO A PASO PARA NUEVOS PASAJEROS -->
+<div id="onboarding-overlay" style="display: none;">
+    <div class="onboarding-card">
+        <div id="onboarding-icon" style="font-size: 38px; margin-bottom: 10px;">👋</div>
+        <h3 id="onboarding-title">¡Bienvenido a TuMovil!</h3>
+        <p id="onboarding-text">El transporte seguro, directo y a precio justo de tu corredor.</p>
+        <button class="btn-onboarding" id="onboarding-btn" onclick="siguientePasoOnboarding()">SIGUIENTE</button>
+    </div>
+</div>
 
 <div id="splash">
 <div class="logo-ring"><span style="font-size: 35px;">🚕</span></div>
@@ -108,7 +137,7 @@ input, select { background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255,
 <div class="promo-card">TARIFA ÚNICA FIJA: $1500 POR ASIENTO</div>
 
 <div class="form-row">
-<input type="text" id="input-nombre-pasajero" placeholder="Tu Nombre y Apellido" maxlength="25">
+<input type="text" id="input-nombre-pasajero" placeholder="Tu Nombre" maxlength="20">
 <button id="btn-sentido-pax" onclick="cambiarSentidoPasajero()" style="background:rgba(255,204,0,0.15); border:1px solid var(--amarillo); color:var(--amarillo); border-radius:10px; font-weight:900; font-size:10px; padding: 0 10px; cursor:pointer;">IDA</button>
 </div>
 
@@ -211,6 +240,50 @@ let intervaloViaje = null;
 let marcadorTaxisFlota = {};
 let usuarioEstaMoviendoMapa = false;
 
+// LÓGICA DEL ASISTENTE GUIADO (ONBOARDING)
+let pasoOnboarding = 1;
+function verificarPrimerIngreso() {
+    const yaVioTutorial = localStorage.getItem('tumovil_tutorial_visto');
+    if (!yaVioTutorial) {
+        document.getElementById('onboarding-overlay').style.display = 'flex';
+        actualizarPasoOnboardingUI();
+    }
+}
+
+function actualizarPasoOnboardingUI() {
+    const icon = document.getElementById('onboarding-icon');
+    const title = document.getElementById('onboarding-title');
+    const text = document.getElementById('onboarding-text');
+    const btn = document.getElementById('onboarding-btn');
+
+    if (pasoOnboarding === 1) {
+        icon.innerText = "📍";
+        title.innerText = "1. Elegí tu Parada";
+        text.innerText = "Seleccioná en el menú desplegable o tocando directamente en el mapa tu parada de destino.";
+        btn.innerText = "ENTENDIDO";
+    } else if (pasoOnboarding === 2) {
+        icon.innerText = "👤";
+        title.innerText = "2. Colocá tu Nombre";
+        text.innerText = "Escribí únicamente tu nombre de pila para identificarte de forma rápida y segura.";
+        btn.innerText = "¡PERFECTO!";
+    } else if (pasoOnboarding === 3) {
+        icon.innerText = "💺";
+        title.innerText = "3. Seleccioná Asientos";
+        text.innerText = "Indicá cuántos lugares necesitás y presioná reservar para que el móvil en camino te recoja.";
+        btn.innerText = "COMENZAR A VIAJAR";
+    }
+}
+
+function siguientePasoOnboarding() {
+    pasoOnboarding++;
+    if (pasoOnboarding > 3) {
+        document.getElementById('onboarding-overlay').style.display = 'none';
+        localStorage.setItem('tumovil_tutorial_visto', 'true');
+    } else {
+        actualizarPasoOnboardingUI();
+    }
+}
+
 let paxUUID = localStorage.getItem('pax_uuid');
 if (!paxUUID) {
     paxUUID = 'pax_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
@@ -233,6 +306,7 @@ window.addEventListener('DOMContentLoaded', () => {
             splash.style.opacity = '0'; 
             setTimeout(() => splash.style.visibility = 'hidden', 600); 
         }
+        verificarPrimerIngreso();
     }, 1000);
 
     const select = document.getElementById('select-paradas');
@@ -407,7 +481,7 @@ function iniciarSeguimientoViaje() {
 
 async function solicitarReserva() {
     const nombrePasajero = document.getElementById('input-nombre-pasajero').value.trim();
-    if (!nombrePasajero) { alert("Por favor escribe tu Nombre y Apellido."); return; }
+    if (!nombrePasajero) { alert("Por favor escribe tu Nombre."); return; }
     if (!paradaSeleccionada) { alert("Por favor selecciona una parada de destino."); return; }
 
     const btnPedir = document.getElementById('btn-pedir');
@@ -477,7 +551,6 @@ function volverAFormulario(mensaje) {
     if (mensaje) alert(mensaje);
 }
 
-// LECTURA DIRECTA DE LA TABLA `estado_movil` CON LÓGICA DE EXTRACCIÓN MEJORADA
 async function verificarEstadoViajeYAuto() {
     if (!miReservaID) return;
 
@@ -508,7 +581,6 @@ async function verificarEstadoViajeYAuto() {
 
         const idMovilNum = Number(reserva.id_movil);
         
-        // CONSULTAMOS DIRECTAMENTE LOS DATOS DEL CHOFER QUE GUARDÓ EN EL MODAL DE SU APP
         const { data: movilInfo } = await _s
             .from('estado_movil')
             .select('*')
@@ -516,7 +588,6 @@ async function verificarEstadoViajeYAuto() {
             .maybeSingle();
 
         if (movilInfo && movilInfo.chofer) {
-            // MUESTRA LITERAL Y DIRECTO TODO LO QUE GUARDÓ EL CONDUCTOR (Ej: Carlos Cuevas - Ford Fiesta Gris (JCP 478))
             document.getElementById('txt-chofer-nombre').innerText = movilInfo.chofer;
         } else {
             document.getElementById('txt-chofer-nombre').innerText = "Móvil Oficial en camino";
